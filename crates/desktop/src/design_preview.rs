@@ -194,6 +194,13 @@ pub fn show(s: &Rc<State>) {
     s.reader.append(&card);
     s.info("Synthetic design preview · No remote mailbox connected");
     crate::compose::verify_formatting();
+    if std::env::args().any(|a| a == "--preview-html") {
+        ui::clear(&s.reader);
+        s.reader
+            .append(&label("Newsletter rendering check", "reader-subject"));
+        let html=std::env::var_os("LUMA_PREVIEW_HTML").and_then(|p|std::fs::read_to_string(p).ok()).unwrap_or_else(|| r##"<table width="100%" style="background:#E5E3E8" cellpadding="24"><tr><td><table width="600" align="center" style="background:#fff;text-align:center" cellpadding="32"><tr><td><h1 style="color:#9146ff">Newsletter</h1><p style="font-size:24px">A proper HTML email</p><p>Tables, colours, headings and links stay in their original layout.</p><p><a href="https://example.com" style="background:#9147ff;color:white;display:inline-block;padding:12px 32px">Watch now</a></p></td></tr></table></td></tr></table>"##.into());
+        crate::rendering::preview_html(s, &s.reader, html);
+    }
     if std::env::args().any(|a| a == "--preview-compose") {
         crate::compose::design_preview(s, paths);
     }

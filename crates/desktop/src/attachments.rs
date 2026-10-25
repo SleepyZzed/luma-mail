@@ -1,6 +1,6 @@
 use crate::ui::{self, State, label, margins, vbox};
 use adw::prelude::*;
-use gtk::{gdk, gio, glib};
+use gtk::{gdk, glib};
 use luma_core::{
     Error, Result,
     gmail::Gmail,
@@ -348,38 +348,51 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
                     }
                 }
                 Ok(Preview::Media(bytes)) => {
-                    let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(bytes));
-                    let media = gtk::MediaFile::for_input_stream(&input);
-                    if kind == Kind::Video {
-                        let video = gtk::Video::for_media_stream(Some(&media));
-                        video.set_autoplay(false);
-                        video.set_vexpand(true);
-                        body.append(&video);
-                    } else {
-                        let image = gtk::Image::from_icon_name("audio-x-generic-symbolic");
-                        image.set_pixel_size(96);
-                        image.set_vexpand(true);
-                        body.append(&image);
-                        body.append(&gtk::MediaControls::new(Some(&media)));
+                    #[cfg(not(target_os = "linux"))]
+                    {
+                        drop(bytes);
+                        body.append(&label("Media playback is available in the Linux build. Save the file to play it on this Windows test host.", "caption"));
                     }
-                    let notice = label(
-                        "Press Play · Playback uses your system’s installed media codecs",
-                        "caption",
-                    );
-                    notice.set_wrap(true);
-                    body.append(&notice);
-                    let weak = notice.downgrade();
-                    media.connect_error_notify(move |media| {
+                    #[cfg(target_os = "linux")]
+                    {
+                        let media = match crate::media::from_bytes(bytes) {
+                            Ok(media) => media,
+                            Err(error) => {
+                                body.append(&label(&error.to_string(), "error"));
+                                return;
+                            }
+                        };
+                        if kind == Kind::Video {
+                            let video = gtk::Video::for_media_stream(Some(&media));
+                            video.set_autoplay(false);
+                            video.set_vexpand(true);
+                            body.append(&video);
+                        } else {
+                            let image = gtk::Image::from_icon_name("audio-x-generic-symbolic");
+                            image.set_pixel_size(96);
+                            image.set_vexpand(true);
+                            body.append(&image);
+                            body.append(&gtk::MediaControls::new(Some(&media)));
+                        }
+                        let notice = label(
+                            "Press Play · Playback uses your system’s installed media codecs",
+                            "caption",
+                        );
+                        notice.set_wrap(true);
+                        body.append(&notice);
+                        let weak = notice.downgrade();
+                        media.connect_error_notify(move |media| {
                     if media.error().is_some() && let Some(notice) = weak.upgrade() { notice.set_text("Your media backend cannot play this format. Save it to open in another player."); }
                 });
-                    if media.error().is_some() {
-                        notice.set_text("Your media backend cannot play this format. Save it to open in another player.");
+                        if media.error().is_some() {
+                            notice.set_text("Your media backend cannot play this format. Save it to open in another player.");
+                        }
+                        window.connect_close_request(move |_| {
+                            media.pause();
+                            media.clear();
+                            glib::Propagation::Proceed
+                        });
                     }
-                    window.connect_close_request(move |_| {
-                        media.pause();
-                        media.clear();
-                        glib::Propagation::Proceed
-                    });
                 }
                 Err(error) => {
                     let text = label(

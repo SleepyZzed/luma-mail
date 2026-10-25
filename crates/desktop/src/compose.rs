@@ -13,6 +13,8 @@ use std::{
     rc::Rc,
     time::Duration,
 };
+#[path = "compose_recipients.rs"]
+mod recipients;
 
 pub(crate) struct Editor {
     state: Rc<State>,
@@ -50,6 +52,13 @@ pub(crate) struct Editor {
     save: gtk::Button,
     debounce: RefCell<Option<glib::SourceId>>,
     closing: Cell<bool>,
+    expand: gtk::Button,
+    local_id: RefCell<String>,
+    local_debounce: RefCell<Option<glib::SourceId>>,
+    recipients: RefCell<Vec<luma_core::local_compose::Recipient>>,
+    completion: RefCell<Option<String>>,
+    local_sequence: Cell<u64>,
+    local_closed: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 impl Editor {
     fn parent(&self) -> gtk::Window {
@@ -58,6 +67,28 @@ impl Editor {
         } else {
             self.state.window.clone().upcast()
         }
+    }
+}
+fn focus_message(e: &Editor) {
+    if e.to.text().is_empty() {
+        e.to.grab_focus();
+    } else {
+        e.text.grab_focus();
+    }
+}
+fn expand_editor(e: &Rc<Editor>) {
+    if e.placement.get() == 1 {
+        show_full(e);
+    }
+    let window = e.parent();
+    if window.is_fullscreen() {
+        window.unfullscreen();
+        e.expand.set_icon_name("view-fullscreen-symbolic");
+        e.expand.set_tooltip_text(Some("Expand composer"));
+    } else {
+        window.fullscreen();
+        e.expand.set_icon_name("view-restore-symbolic");
+        e.expand.set_tooltip_text(Some("Restore composer size"));
     }
 }
 fn detach(e: &Editor) {
@@ -91,7 +122,7 @@ fn show_full(e: &Rc<Editor>) {
         e.window.set_visible(false);
     }
     e.state.window.present();
-    e.text.grab_focus();
+    focus_message(e);
 }
 fn pop_out(e: &Rc<Editor>) {
     if e.placement.get() == 2 {
@@ -106,7 +137,7 @@ fn pop_out(e: &Rc<Editor>) {
     e.state.editor.borrow_mut().take();
     e.state.compose_stack.set_visible_child_name("mail");
     e.window.present();
-    e.text.grab_focus();
+    focus_message(e);
 }
 pub fn park_inline(s: &Rc<State>) {
     let editor = s.editor.borrow().clone();
@@ -122,8 +153,18 @@ pub fn park_inline(s: &Rc<State>) {
 }
 fn finish(e: &Rc<Editor>) {
     e.closing.set(true);
+    e.local_closed
+        .store(true, std::sync::atomic::Ordering::SeqCst);
     if let Some(timer) = e.debounce.borrow_mut().take() {
         timer.remove();
+    }
+    if let Some(timer) = e.local_debounce.borrow_mut().take() {
+        timer.remove();
+    }
+    if e.parent().is_fullscreen()
+        && e.expand.icon_name().as_deref() == Some("view-restore-symbolic")
+    {
+        e.parent().unfullscreen();
     }
     detach(e);
     let owns = e
@@ -157,9 +198,17 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
         let editor = e.clone();
         glib::MainContext::default().spawn_local(async move {
             if dialog.choose_future(Some(&editor.parent())).await == "close" {
-                finish(&editor);
+                if editor.state.settings.borrow().local_drafts {
+                    save_local(&editor, true);
+                } else {
+                    finish(&editor);
+                }
             }
         });
+        return glib::Propagation::Stop;
+    }
+    if e.revision.get() > 0 && e.state.settings.borrow().local_drafts {
+        save_local(e, true);
         return glib::Propagation::Stop;
     }
     if e.revision.get() != e.saved.get() {
@@ -621,6 +670,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     root.append(&cancel_upload);
 
     let is_new = draft.is_none();
+    let mut template = c.clone();
+    template.retained.clear();
+    template.attachments.clear();
+    template.drive_files.clear();
     let e = Rc::new(Editor {
         state: s.clone(),
         window,
@@ -644,7 +697,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         uploads: Default::default(),
         upload_cancel: Default::default(),
         cancel_upload,
-        template: c,
+        template,
         draft: RefCell::new(draft),
         revision: Cell::new(0),
         saved: Cell::new(0),
@@ -657,6 +710,13 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         save,
         debounce: RefCell::new(None),
         closing: Cell::new(false),
+        expand: expand.clone(),
+        local_id: RefCell::new(luma_core::composer::new_id()),
+        local_debounce: RefCell::new(None),
+        recipients: RefCell::new(Vec::new()),
+        completion: RefCell::new(None),
+        local_sequence: Cell::new(0),
+        local_closed: Default::default(),
     });
     {
         let flag = e.upload_cancel.clone();
@@ -681,7 +741,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let weak = Rc::downgrade(&e);
         expand.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
-                show_full(&e);
+                expand_editor(&e);
             }
         });
     }
@@ -771,6 +831,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             let fields = [&e.to, &e.cc, &e.bcc, &e.subject];
             let backwards = key == gtk::gdk::Key::ISO_Left_Tab
                 || mods.contains(gtk::gdk::ModifierType::SHIFT_MASK);
+            if !backwards && index < 3 && recipients::complete(&e, fields[index]) {
+                return glib::Propagation::Stop;
+            }
             if backwards {
                 if let Some(field) = fields[..index].iter().rev().find(|f| f.is_mapped()) {
                     field.grab_focus();
@@ -799,6 +862,36 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         glib::Propagation::Proceed
     });
     e.text.add_controller(list_keys);
+    let link_click = gtk::GestureClick::new();
+    link_click.set_button(1);
+    link_click.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let weak = Rc::downgrade(&e);
+    link_click.connect_pressed(move |gesture, _, x, y| {
+        if !gesture
+            .current_event_state()
+            .contains(gtk::gdk::ModifierType::CONTROL_MASK)
+        {
+            return;
+        }
+        if let Some(e) = weak.upgrade() {
+            let (x, y) =
+                e.text
+                    .window_to_buffer_coords(gtk::TextWindowType::Widget, x as i32, y as i32);
+            if let Some(iter) = e.text.iter_at_location(x, y)
+                && let Some(uri) = iter
+                    .tags()
+                    .iter()
+                    .filter_map(|t| t.name())
+                    .find_map(|n| n.strip_prefix("link:").map(str::to_owned))
+            {
+                crate::rendering::open_link(&e.state, &uri);
+                gesture.set_state(gtk::EventSequenceState::Claimed);
+            }
+        }
+    });
+    e.text.add_controller(link_click);
+    e.text
+        .set_tooltip_text(Some("Ctrl+click a blue link to open it in your browser"));
     for field in [&e.to, &e.cc, &e.bcc, &e.subject] {
         let weak = Rc::downgrade(&e);
         field.connect_changed(move |_| {
@@ -941,11 +1034,27 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         slot.append(&e.root);
         e.text.set_height_request(200);
         s.window.present();
-        e.text.grab_focus();
+        focus_message(&e);
     } else {
         show_full(&e);
     }
     render_files(&e);
+    let store = s.local_compose.clone();
+    let weak = Rc::downgrade(&e);
+    ui::async_work(
+        s,
+        async move {
+            Ok(tokio::task::spawn_blocking(move || store.recipients())
+                .await
+                .unwrap_or_default())
+        },
+        move |_, rows| {
+            if let Some(e) = weak.upgrade() {
+                *e.recipients.borrow_mut() = rows;
+            }
+        },
+    );
+    recipients::install(&e);
     if is_new
         && (!e.template.text.is_empty()
             || !e.template.to.is_empty()
@@ -956,6 +1065,21 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
 }
 fn changed(e: &Rc<Editor>) {
     e.revision.set(e.revision.get() + 1);
+    if let Some(timer) = e.local_debounce.borrow_mut().take() {
+        timer.remove();
+    }
+    if e.state.settings.borrow().local_drafts {
+        let weak = Rc::downgrade(e);
+        *e.local_debounce.borrow_mut() = Some(glib::timeout_add_local_once(
+            Duration::from_millis(450),
+            move || {
+                if let Some(e) = weak.upgrade() {
+                    e.local_debounce.borrow_mut().take();
+                    save_local(&e, false);
+                }
+            },
+        ));
+    }
     if e.uncertain.get() {
         e.status.set_text("Unsaved changes. Check Gmail Sent/Drafts after the interrupted request; automatic saves and sending are locked.");
         return;
@@ -974,6 +1098,330 @@ fn changed(e: &Rc<Editor>) {
         }
     });
     *e.debounce.borrow_mut() = Some(id);
+}
+fn save_local(e: &Rc<Editor>, close: bool) {
+    if !e.state.settings.borrow().local_drafts || e.closing.get() {
+        return;
+    }
+    let compose = match snapshot_impl(e, false) {
+        Ok(c) => c,
+        Err(error) => {
+            e.status.set_text(&error.to_string());
+            return;
+        }
+    };
+    if compose.text.len() > luma_core::local_compose::MAX_DRAFT_BYTES {
+        e.status.set_text(
+            "This draft exceeds local recovery's 512 KiB limit. Save it to Gmail before closing.",
+        );
+        return;
+    }
+    let buffer = e.text.buffer();
+    let mut at = buffer.start_iter();
+    let mut spans = Vec::new();
+    while at.offset() < buffer.char_count() {
+        let start = at.offset();
+        let tags = formatting(&at);
+        if !at.forward_to_tag_toggle(None::<&gtk::TextTag>) {
+            at = buffer.end_iter();
+        }
+        for tag in tags {
+            spans.push(luma_core::local_compose::Span {
+                start,
+                end: at.offset(),
+                tag,
+            });
+        }
+        if spans.len() > 4096 {
+            e.status
+                .set_text("Too much formatting for local recovery. Save this draft to Gmail.");
+            return;
+        }
+    }
+    let account = e.accounts[e.from.selected() as usize].id.clone();
+    let server = e
+        .draft
+        .borrow()
+        .as_ref()
+        .map(|d| luma_core::local_compose::ServerDraft {
+            id: d.id.clone(),
+            message: d.message.id.clone(),
+            thread: d.message.thread_id.clone(),
+        });
+    let revision = e.revision.get();
+    e.local_sequence
+        .set(e.local_sequence.get().saturating_add(1));
+    let draft = luma_core::local_compose::LocalDraft {
+        id: e.local_id.borrow().clone(),
+        account,
+        compose,
+        spans,
+        server,
+        retained_on_server: !e.retained.borrow().is_empty(),
+        uncertain: e.uncertain.get(),
+        updated: 0,
+        revision,
+        sequence: e.local_sequence.get(),
+    };
+    let store = e.state.local_compose.clone();
+    let closed = e.local_closed.clone();
+    let weak = Rc::downgrade(e);
+    ui::async_work(
+        &e.state,
+        async move {
+            Ok(
+                tokio::task::spawn_blocking(move || store.save_if_open(draft, &closed))
+                    .await
+                    .map_err(|_| Error::Invalid("Local recovery write failed".into()))?,
+            )
+        },
+        move |_, result| {
+            if let Some(e) = weak.upgrade() {
+                match result {
+                    Ok(()) if close && e.revision.get() == revision && !e.busy.get() => {
+                        finish(&e);
+                    }
+                    Ok(())
+                        if !e.busy.get()
+                            && e.revision.get() == revision
+                            && !e.uncertain.get()
+                            && e.saved.get() != revision =>
+                    {
+                        e.status.set_text("Saved locally · Gmail save pending")
+                    }
+                    Ok(()) => (),
+                    Err(error) if close && e.saved.get() == revision && !e.uncertain.get() => {
+                        e.state.toast(&format!(
+                            "Saved in Gmail. Local recovery unavailable: {error}"
+                        ));
+                        let _ = e.state.local_compose.remove(&e.local_id.borrow());
+                        finish(&e);
+                    }
+                    Err(error) => e
+                        .status
+                        .set_text(&format!("Local recovery unavailable: {error}")),
+                }
+            }
+        },
+    );
+}
+
+pub fn local_drafts(s: &Rc<State>) {
+    let window = adw::Window::builder()
+        .title("Local drafts · Luma Mail")
+        .transient_for(&s.window)
+        .application(&s.app)
+        .default_width(540)
+        .default_height(420)
+        .build();
+    let root = vbox(12);
+    root.append(&adw::HeaderBar::new());
+    let notice = label(
+        "Unsent work on this device · Up to 8 drafts, 512 KiB each. Attachments stay in their original files or Gmail.",
+        "caption",
+    );
+    notice.set_wrap(true);
+    root.append(&notice);
+    let list = vbox(8);
+    root.append(
+        &gtk::ScrolledWindow::builder()
+            .child(&list)
+            .vexpand(true)
+            .build(),
+    );
+    window.set_content(Some(&root));
+    window.present();
+    let store = s.local_compose.clone();
+    ui::async_work(
+        s,
+        async move {
+            tokio::task::spawn_blocking(move || store.drafts())
+                .await
+                .map_err(|_| Error::Invalid("Cannot read local drafts".into()))?
+        },
+        {
+            let window = window.clone();
+            move |s, drafts| {
+                let drafts: Vec<_> = drafts
+                    .into_iter()
+                    .filter(|d| {
+                        s.settings
+                            .borrow()
+                            .accounts
+                            .iter()
+                            .any(|a| a.enabled && a.id == d.account)
+                    })
+                    .collect();
+                if drafts.is_empty() {
+                    list.append(&label("No local drafts to recover.", "dim-label"));
+                }
+                for draft in drafts {
+                    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                    let title = if draft.compose.subject.is_empty() {
+                        "(No subject)"
+                    } else {
+                        &draft.compose.subject
+                    };
+                    let button =
+                        gtk::Button::with_label(&format!("{}\n{}", title, draft.compose.to));
+                    button.set_hexpand(true);
+                    row.append(&button);
+                    let remove = ui::button("user-trash-symbolic", "Delete local recovery copy");
+                    row.append(&remove);
+                    list.append(&row);
+                    let state = s.clone();
+                    let recovery = draft.clone();
+                    let host = window.clone();
+                    button.connect_clicked(move |_| {
+                        restore_local(&state, recovery.clone());
+                        host.close();
+                    });
+                    let store = s.local_compose.clone();
+                    let parent = window.clone();
+                    let row = row.clone();
+                    let list = list.clone();
+                    remove.connect_clicked(move |_| {
+                        let dialog = adw::AlertDialog::builder()
+                            .heading("Delete this local draft?")
+                            .body(
+                                "Only the local recovery copy is removed. Any Gmail draft is kept.",
+                            )
+                            .build();
+                        dialog
+                            .add_responses(&[("cancel", "Keep"), ("delete", "Delete local copy")]);
+                        dialog.set_response_appearance(
+                            "delete",
+                            adw::ResponseAppearance::Destructive,
+                        );
+                        let store = store.clone();
+                        let id = draft.id.clone();
+                        let row = row.clone();
+                        let list = list.clone();
+                        let parent = parent.clone();
+                        glib::MainContext::default().spawn_local(async move {
+                            if dialog.choose_future(Some(&parent)).await == "delete"
+                                && store.remove(&id).is_ok()
+                            {
+                                list.remove(&row);
+                            }
+                        });
+                    });
+                }
+            }
+        },
+    );
+}
+fn restore_local(s: &Rc<State>, record: luma_core::local_compose::LocalDraft) {
+    if s.editor.borrow().is_some() {
+        s.info("Finish or pop out the current composer before recovering another draft.");
+        return;
+    }
+    let mut draft = record.server.as_ref().map(|d| Draft {
+        id: d.id.clone(),
+        message: Message {
+            id: d.message.clone(),
+            thread_id: d.thread.clone(),
+            ..Default::default()
+        },
+    });
+    if record.retained_on_server {
+        if let (Some(server), Some(client)) = (
+            &record.server,
+            s.clients.borrow().get(&record.account).cloned(),
+        ) {
+            let id = server.id.clone();
+            let version = server.message.clone();
+            ui::async_work(
+                s,
+                async move {
+                    let (d, parts) = client.edit_draft(&id).await?;
+                    if d.message.id != version {
+                        return Err(Error::DraftConflict);
+                    }
+                    Ok((d, parts))
+                },
+                move |s, (d, parts)| {
+                    let mut record = record;
+                    record.compose.retained = parts;
+                    record.retained_on_server = false;
+                    restore_local_ready(&s, record, Some(d));
+                },
+            );
+            return;
+        }
+        let dialog = adw::AlertDialog::builder().heading("Recover text without forwarded attachments?").body("These attachments had not reached Gmail. Local recovery does not copy attachment contents; attach them again before sending.").build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("recover", "Recover text")]);
+        let s = s.clone();
+        glib::MainContext::default().spawn_local(async move {
+            if dialog.choose_future(Some(&s.window)).await == "recover" {
+                draft.take();
+                restore_local_ready(&s, record, None);
+            }
+        });
+        return;
+    }
+    restore_local_ready(s, record, draft);
+}
+fn restore_local_ready(
+    s: &Rc<State>,
+    record: luma_core::local_compose::LocalDraft,
+    draft: Option<Draft>,
+) {
+    if s.editor.borrow().is_some() {
+        s.info("A composer opened while recovery was loading. Finish it first.");
+        return;
+    }
+    let mut compose = record.compose;
+    let missing = compose.attachments.iter().any(|p| !p.is_file());
+    // Keep missing paths visible: MIME validation prevents sending a draft that
+    // silently lost a local attachment. The user can remove or reattach it.
+    if let Some(account) = s
+        .settings
+        .borrow()
+        .accounts
+        .iter()
+        .find(|a| a.id == record.account)
+    {
+        compose.from = account.email.clone();
+    }
+    make(s, compose, draft);
+    if let Some(e) = s.editor.borrow().as_ref() {
+        *e.local_id.borrow_mut() = record.id;
+        e.revision.set(record.revision.saturating_add(1));
+        e.saved.set(0);
+        e.local_sequence.set(record.sequence);
+        let buffer = e.text.buffer();
+        for span in record.spans {
+            if span.start < 0 || span.end > buffer.char_count() || span.end <= span.start {
+                continue;
+            }
+            let tag = if let Some(tag) = buffer.tag_table().lookup(&span.tag) {
+                Some(tag)
+            } else if span.tag.starts_with("link:") {
+                Some(link_tag(&buffer, span.tag.strip_prefix("link:").unwrap()))
+            } else {
+                None
+            };
+            if let Some(tag) = tag {
+                buffer.apply_tag(
+                    &tag,
+                    &buffer.iter_at_offset(span.start),
+                    &buffer.iter_at_offset(span.end),
+                );
+            }
+        }
+        e.uncertain.set(record.uncertain);
+        if record.uncertain {
+            e.send.set_sensitive(false);
+            e.save.set_sensitive(false);
+            e.status.set_text("Recovered after an uncertain request. Check Gmail Sent and Drafts before sending a new copy.");
+        } else if missing {
+            e.status.set_text("Recovered locally · An attachment has moved. Remove or reattach it before sending.");
+        } else {
+            e.status
+                .set_text("Recovered locally · Save to Gmail when ready");
+        }
+    }
 }
 fn format_selection(e: &Rc<Editor>, tag: &str) {
     if e.html.is_active() {
@@ -1153,13 +1601,7 @@ fn insert_link(e: &Rc<Editor>) {
                 buffer.iter_at_offset(buffer.cursor_position()),
             )
         };
-        let name = format!("link:{url}");
-        let tag = buffer.tag_table().lookup(&name).unwrap_or_else(|| {
-            let tag = gtk::TextTag::new(Some(&name));
-            tag.set_underline(gtk::pango::Underline::Single);
-            buffer.tag_table().add(&tag);
-            tag
-        });
+        let tag = link_tag(&buffer, url.as_str());
         let existing: Vec<_> = a
             .tags()
             .into_iter()
@@ -1173,7 +1615,20 @@ fn insert_link(e: &Rc<Editor>) {
         e.text.grab_focus();
     });
 }
+fn link_tag(buffer: &gtk::TextBuffer, url: &str) -> gtk::TextTag {
+    let name = format!("link:{url}");
+    buffer.tag_table().lookup(&name).unwrap_or_else(|| {
+        let tag = gtk::TextTag::new(Some(&name));
+        tag.set_underline(gtk::pango::Underline::Single);
+        tag.set_foreground(Some("#4285f4"));
+        buffer.tag_table().add(&tag);
+        tag
+    })
+}
 fn snapshot(e: &Editor) -> Result<Compose> {
+    snapshot_impl(e, true)
+}
+fn snapshot_impl(e: &Editor, mime: bool) -> Result<Compose> {
     let a = e
         .accounts
         .get(e.from.selected() as usize)
@@ -1187,12 +1642,14 @@ fn snapshot(e: &Editor) -> Result<Compose> {
     let b = e.text.buffer();
     c.text = b.text(&b.start_iter(), &b.end_iter(), false).into();
     c.html = e.html.is_active();
-    if !c.html && has_formatting(&b) {
+    if mime && !c.html && has_formatting(&b) {
         c.text = formatted_html(&b);
         c.html = true;
     }
     c.attachments = e.attachments.borrow().clone();
-    c.retained = e.retained.borrow().clone();
+    if mime {
+        c.retained = e.retained.borrow().clone();
+    }
     c.drive_files = e.drive_files.borrow().clone();
     Ok(c)
 }
@@ -1216,6 +1673,14 @@ fn persist(e: &Rc<Editor>, send: bool) {
     };
     let Some(client) = e.state.clients.borrow().get(&a.id).cloned() else {
         return;
+    };
+    save_local(e, false);
+    let recent_account = a.id.clone();
+    let recent = Compose {
+        to: c.to.clone(),
+        cc: c.cc.clone(),
+        bcc: c.bcc.clone(),
+        ..Default::default()
     };
     let existing = e.draft.borrow().clone();
     let drive_enabled = e
@@ -1385,6 +1850,30 @@ fn persist(e: &Rc<Editor>, send: bool) {
                         "Saved in Gmail"
                     });
                     if send {
+                        editor
+                            .local_closed
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        if let Err(error) =
+                            editor.state.local_compose.remove(&editor.local_id.borrow())
+                        {
+                            editor.state.error(&error);
+                        }
+                        if editor.state.settings.borrow().recent_recipients {
+                            let store = editor.state.local_compose.clone();
+                            ui::async_work(
+                                &editor.state,
+                                async move {
+                                    tokio::task::spawn_blocking(move || {
+                                        store.remember(&recent_account, &recent)
+                                    })
+                                    .await
+                                    .map_err(|_| {
+                                        Error::Invalid("Cannot save recent recipients".into())
+                                    })?
+                                },
+                                |_, ()| {},
+                            );
+                        }
                         editor.closing.set(true);
                         editor.send_reveal.set_reveal_child(false);
                         editor.state.toast("Sent · Confirmed by Gmail");
@@ -1412,9 +1901,14 @@ fn persist(e: &Rc<Editor>, send: bool) {
                         });
                     } else {
                         if editor.close_after_save.get() && editor.revision.get() == revision {
-                            finish(&editor);
+                            if editor.state.settings.borrow().local_drafts {
+                                save_local(&editor, true);
+                            } else {
+                                finish(&editor);
+                            }
                             return;
                         }
+                        save_local(&editor, false);
                         editor.send.set_sensitive(true);
                         if editor.revision.get() != revision {
                             changed(&editor);
@@ -1432,6 +1926,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     } else {
                         editor.send.set_sensitive(true);
                     }
+                    save_local(&editor, editor.close_after_save.get());
                 }
             }
         },
@@ -1487,16 +1982,7 @@ fn reconcile_drive_uploads(e: &Rc<Editor>) {
                 if !e.html.is_active()
                     && let Some(index) = block.text.find(&link)
                 {
-                    let name = format!("link:{link}");
-                    let tag = buffer.tag_table().lookup(&name).unwrap_or_else(|| {
-                        let tag = gtk::TextTag::builder()
-                            .name(&name)
-                            .underline(gtk::pango::Underline::Single)
-                            .foreground("#6254c7")
-                            .build();
-                        buffer.tag_table().add(&tag);
-                        tag
-                    });
+                    let tag = link_tag(&buffer, &link);
                     let start = offset + block.text[..index].chars().count() as i32;
                     buffer.apply_tag(
                         &tag,
@@ -1707,6 +2193,10 @@ fn discard_editor(e: &Rc<Editor>) {
                     editor.busy.set(false);
                     match result {
                         Ok(()) => {
+                            editor
+                                .local_closed
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
+                            let _ = editor.state.local_compose.remove(&editor.local_id.borrow());
                             finish(&editor);
                         }
                         Err(err) => editor.status.set_text(&err.to_string()),
@@ -1714,6 +2204,9 @@ fn discard_editor(e: &Rc<Editor>) {
                 },
             );
         } else {
+            e.local_closed
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            let _ = e.state.local_compose.remove(&e.local_id.borrow());
             finish(&e);
         }
     });

@@ -1,7 +1,9 @@
+use crate::attachments::{PREVIEWS, Source};
 use crate::ui::{self, State};
 use adw::prelude::*;
+use luma_core::{Result, mail_images, preview};
 use luma_core::{html_mail, model::Message};
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 pub fn open_link(s: &Rc<State>, uri: &str) {
     let Ok(url) = url::Url::parse(uri) else {
@@ -29,7 +31,7 @@ pub fn plain(s: &Rc<State>, text: &str) -> gtk::Label {
     for (start, end, target) in html_mail::links(text) {
         markup.push_str(&gtk::glib::markup_escape_text(&text[offset..start]));
         markup.push_str(&format!(
-            "<a href=\"{}\">{}</a>",
+            "<a href=\"{}\"><span foreground=\"#4285f4\">{}</span></a>",
             gtk::glib::markup_escape_text(&target),
             gtk::glib::markup_escape_text(&text[start..end])
         ));
@@ -45,9 +47,51 @@ pub fn plain(s: &Rc<State>, text: &str) -> gtk::Label {
         open_link(&state, uri);
         gtk::glib::Propagation::Stop
     });
+    let gesture = gtk::GestureClick::new();
+    gesture.set_button(1);
+    gesture.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let targets = html_mail::links(text);
+    let weak = label.downgrade();
+    let state = s.clone();
+    gesture.connect_pressed(move |gesture, _, x, y| {
+        if !gesture
+            .current_event_state()
+            .contains(gtk::gdk::ModifierType::CONTROL_MASK)
+        {
+            return;
+        }
+        if let Some(label) = weak.upgrade() {
+            let (dx, dy) = label.layout_offsets();
+            let (inside, index, _) = label.layout().xy_to_index(
+                (x as i32 - dx) * gtk::pango::SCALE,
+                (y as i32 - dy) * gtk::pango::SCALE,
+            );
+            if inside
+                && let Some((_, _, uri)) = targets
+                    .iter()
+                    .find(|(a, z, _)| *a <= index as usize && (index as usize) < *z)
+            {
+                open_link(&state, uri);
+                gesture.set_state(gtk::EventSequenceState::Claimed);
+            }
+        }
+    });
+    label.add_controller(gesture);
     label
 }
+#[cfg(debug_assertions)]
+pub(crate) fn preview_html(s: &Rc<State>, body: &gtk::Box, html: String) {
+    #[cfg(target_os = "windows")]
+    windows::append(s, body, &Message::default(), "design-fixture", html);
+    #[cfg(target_os = "linux")]
+    linux::append(s, body, &Message::default(), "design-fixture", html);
+}
 pub fn append(s: &Rc<State>, body: &gtk::Box, message: &Message, text: &str, account: &str) {
+    #[cfg(target_os = "windows")]
+    if let Ok(Some(html)) = html_mail::body(&message.payload) {
+        windows::append(s, body, message, account, html);
+        return;
+    }
     #[cfg(target_os = "linux")]
     if let Ok(Some(html)) = html_mail::body(&message.payload) {
         if linux::sandbox_available() {
@@ -64,18 +108,78 @@ pub fn append(s: &Rc<State>, body: &gtk::Box, message: &Message, text: &str, acc
     body.append(&plain(s, text));
     crate::message_images::append(s, body, message, account);
 }
+#[cfg(target_os = "windows")]
+#[path = "rendering_windows.rs"]
+mod windows;
 #[cfg(target_os = "linux")]
 pub fn diagnostic(s: &Rc<State>) {
     linux::diagnostic(s);
 }
 
+async fn image_map(
+    message: Message,
+    client: Option<std::sync::Arc<luma_core::gmail::Gmail>>,
+    remote: bool,
+) -> HashMap<String, String> {
+    let mut images = HashMap::new();
+    let mut budget = 0;
+    let mut embedded_count = 0;
+    for url in mail_images::sources(&message.payload) {
+        if images.len() >= 8 || budget >= 12 * 1024 * 1024 {
+            break;
+        }
+        let Ok(_permit) = PREVIEWS.acquire().await else {
+            break;
+        };
+        let bytes: Result<Vec<u8>> = if url.starts_with("https://") {
+            if !remote {
+                continue;
+            }
+            mail_images::fetch_external(&url).await
+        } else if let Some(cid) = url.strip_prefix("cid:") {
+            if embedded_count >= 4 {
+                continue;
+            }
+            embedded_count += 1;
+            let part = message
+                .payload
+                .attachments()
+                .into_iter()
+                .find(|p| p.header("Content-ID").trim_matches(['<', '>']) == cid);
+            if let (Some(part), Some(client)) = (part, client.clone()) {
+                Source::Gmail {
+                    client,
+                    message: message.id.clone(),
+                    part: part.clone(),
+                }
+                .read(preview::AUTO_IMAGE_BYTES as usize)
+                .await
+            } else {
+                continue;
+            }
+        } else if url.starts_with("data:image/") {
+            mail_images::embedded(&url)
+        } else {
+            continue;
+        };
+        if let Ok(bytes) = bytes {
+            let result = tokio::task::spawn_blocking(move || html_mail::image_data(&bytes)).await;
+            if let Ok(Ok(data)) = result
+                && data.len() <= 3 * 1024 * 1024
+                && budget + data.len() <= 12 * 1024 * 1024
+            {
+                budget += data.len();
+                images.insert(url, data);
+            }
+        }
+    }
+    images
+}
 #[cfg(target_os = "linux")]
 mod linux {
     use super::*;
-    use crate::attachments::{PREVIEWS, Source};
     use gtk::{gio, glib};
-    use luma_core::{Result, mail_images, preview};
-    use std::{cell::Cell, collections::HashMap};
+    use std::cell::Cell;
     use webkit6::prelude::*;
 
     pub(super) fn sandbox_available() -> bool {
@@ -226,10 +330,9 @@ mod linux {
         );
         let mut streams = Vec::new();
         for name in ["audio.wav", "video.webm"] {
-            let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(
-                std::fs::read(root.join(name)).expect("synthetic media"),
-            ));
-            let media = gtk::MediaFile::for_input_stream(&input);
+            let media =
+                crate::media::from_bytes(std::fs::read(root.join(name)).expect("synthetic media"))
+                    .expect("anonymous RAM media source");
             media.set_muted(true);
             if name.ends_with("webm") {
                 let video = gtk::Video::for_media_stream(Some(&media));
@@ -282,66 +385,6 @@ mod linux {
             }
             glib::ControlFlow::Continue
         });
-    }
-    async fn image_map(
-        message: Message,
-        client: Option<std::sync::Arc<luma_core::gmail::Gmail>>,
-        remote: bool,
-    ) -> HashMap<String, String> {
-        let mut images = HashMap::new();
-        let mut budget = 0;
-        let mut embedded_count = 0;
-        for url in mail_images::sources(&message.payload) {
-            if images.len() >= 8 || budget >= 12 * 1024 * 1024 {
-                break;
-            }
-            let Ok(_permit) = PREVIEWS.acquire().await else {
-                break;
-            };
-            let bytes: Result<Vec<u8>> = if url.starts_with("https://") {
-                if !remote {
-                    continue;
-                }
-                mail_images::fetch_external(&url).await
-            } else if let Some(cid) = url.strip_prefix("cid:") {
-                if embedded_count >= 4 {
-                    continue;
-                }
-                embedded_count += 1;
-                let part = message
-                    .payload
-                    .attachments()
-                    .into_iter()
-                    .find(|p| p.header("Content-ID").trim_matches(['<', '>']) == cid);
-                if let (Some(part), Some(client)) = (part, client.clone()) {
-                    Source::Gmail {
-                        client,
-                        message: message.id.clone(),
-                        part: part.clone(),
-                    }
-                    .read(preview::AUTO_IMAGE_BYTES as usize)
-                    .await
-                } else {
-                    continue;
-                }
-            } else if url.starts_with("data:image/") {
-                mail_images::embedded(&url)
-            } else {
-                continue;
-            };
-            if let Ok(bytes) = bytes {
-                let result =
-                    tokio::task::spawn_blocking(move || html_mail::image_data(&bytes)).await;
-                if let Ok(Ok(data)) = result
-                    && data.len() <= 3 * 1024 * 1024
-                    && budget + data.len() <= 12 * 1024 * 1024
-                {
-                    budget += data.len();
-                    images.insert(url, data);
-                }
-            }
-        }
-        images
     }
     pub(super) fn append(
         s: &Rc<State>,

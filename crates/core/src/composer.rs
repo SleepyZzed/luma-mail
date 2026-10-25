@@ -32,7 +32,7 @@ pub struct RetainedAttachment {
     pub data: Vec<u8>,
     pub content_id: Option<String>,
 }
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct Compose {
     pub from: String,
     pub to: String,
@@ -42,6 +42,7 @@ pub struct Compose {
     pub text: String,
     pub html: bool,
     pub attachments: Vec<PathBuf>,
+    #[serde(skip)] // Recovery stores references, never copies received attachments.
     pub retained: Vec<RetainedAttachment>,
     pub drive_files: Vec<crate::drive::DriveFile>,
     pub thread: Option<String>,

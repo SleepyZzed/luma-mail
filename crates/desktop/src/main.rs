@@ -7,6 +7,7 @@ mod desktop;
 #[cfg(all(test, target_os = "linux"))]
 mod desktop_test;
 mod google;
+mod media;
 mod message_images;
 mod notifications;
 mod rendering;

@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
+    io::{Read, Write},
     path::{Path, PathBuf},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -15,7 +16,28 @@ struct Entry {
     account: String,
     key: String,
     created: u64,
-    data: Vec<u8>,
+    length: usize,
+}
+const MAGIC: &[u8; 8] = b"LUMAC02\n";
+const MAX_ENTRIES: usize = 1024;
+const MAX_BODY: usize = 8 * 1024 * 1024;
+// Only this small header is read during expiry/account scans. Mail bytes stay
+// opaque and are read once, for the message the user actually opened.
+fn header(path: &Path) -> Result<(fs::File, Entry)> {
+    let mut file = fs::File::open(path)?;
+    let mut prefix = [0; 12];
+    file.read_exact(&mut prefix)?;
+    let length = u32::from_le_bytes(prefix[8..12].try_into().unwrap()) as usize;
+    if &prefix[..8] != MAGIC || length > 8192 {
+        return Err(crate::Error::ResponseLimit);
+    }
+    let mut bytes = vec![0; length];
+    file.read_exact(&mut bytes)?;
+    let entry: Entry = serde_json::from_slice(&bytes)?;
+    if entry.length > MAX_BODY || file.metadata()?.len() != (12 + length + entry.length) as u64 {
+        return Err(crate::Error::ResponseLimit);
+    }
+    Ok((file, entry))
 }
 struct FileInfo {
     path: PathBuf,
@@ -29,21 +51,28 @@ pub struct Cache {
     root: PathBuf,
     budget: u64,
     ttl: Duration,
+    swept: Option<Instant>,
 }
 impl Cache {
     pub fn new(root: PathBuf, budget: u64, ttl: Duration) -> Result<Self> {
-        let mut cache = Self { root, budget, ttl };
+        let mut cache = Self {
+            root,
+            budget,
+            ttl,
+            swept: None,
+        };
         cache.enforce(0)?;
         Ok(cache)
     }
     pub fn configure(&mut self, budget: u64, ttl: Duration) -> Result<()> {
         self.budget = budget;
         self.ttl = ttl;
+        self.swept = None;
         self.enforce(0)
     }
     fn path(&self, account: &str, key: &str) -> PathBuf {
         let hash = Sha256::digest(format!("{account}\0{key}").as_bytes());
-        self.root.join(format!("{hash:x}.json"))
+        self.root.join(format!("{hash:x}.body"))
     }
     fn files(&self) -> Result<Vec<FileInfo>> {
         if !self.root.exists() {
@@ -80,23 +109,33 @@ impl Cache {
         let mut files = self.files()?;
         let now = epoch();
         // Creation time is inside the envelope; modification time records LRU use.
-        files.retain(|file| {
-            let expired = fs::read(&file.path)
-                .ok()
-                .and_then(|d| serde_json::from_slice::<Entry>(&d).ok())
-                .is_none_or(|e| now.saturating_sub(e.created) >= self.ttl.as_secs());
-            if expired {
-                let _ = fs::remove_file(&file.path);
-            }
-            !expired
-        });
+        if self
+            .swept
+            .is_none_or(|last| last.elapsed() >= Duration::from_secs(60))
+            || self.ttl.is_zero()
+        {
+            files.retain(|file| {
+                let expired = header(&file.path)
+                    .ok()
+                    .is_none_or(|(_, e)| now.saturating_sub(e.created) >= self.ttl.as_secs());
+                if expired {
+                    let _ = fs::remove_file(&file.path);
+                }
+                !expired
+            });
+            self.swept = Some(Instant::now());
+        }
         let mut used = files.iter().map(|f| f.bytes).sum::<u64>() + self.overhead();
+        let mut count = files.len();
         for file in files {
-            if used.saturating_add(reserve) <= self.budget {
+            if used.saturating_add(reserve) <= self.budget
+                && count + usize::from(reserve > 0) <= MAX_ENTRIES
+            {
                 break;
             }
             fs::remove_file(file.path)?;
             used = used.saturating_sub(file.bytes);
+            count -= 1;
         }
         if self.budget < self.overhead() && self.root.exists() {
             // Only our flat cache directory; never recursively follow unknown paths.
@@ -108,16 +147,20 @@ impl Cache {
         Ok(())
     }
     pub fn put(&mut self, account: &str, key: &str, data: &[u8]) -> Result<bool> {
-        if self.budget < 16384 || self.ttl.is_zero() || data.len() > 8 * 1024 * 1024 {
+        if self.budget < 16384 || self.ttl.is_zero() || data.len() > MAX_BODY {
             return Ok(false);
         }
         let entry = serde_json::to_vec(&Entry {
             account: account.into(),
             key: key.into(),
             created: epoch(),
-            data: data.into(),
+            length: data.len(),
         })?;
-        let size = (entry.len() as u64).div_ceil(4096) * 4096 + if cfg!(unix) { 512 } else { 4096 };
+        if entry.len() > 8192 {
+            return Ok(false);
+        }
+        let size = ((entry.len() + data.len() + 12) as u64).div_ceil(4096) * 4096
+            + if cfg!(unix) { 512 } else { 4096 };
         if size + 8192 > self.budget {
             return Ok(false);
         }
@@ -136,34 +179,49 @@ impl Cache {
             options.mode(0o600);
         }
         let mut file = options.open(&path)?;
-        use std::io::Write;
+        file.write_all(MAGIC)?;
+        file.write_all(&(entry.len() as u32).to_le_bytes())?;
         file.write_all(&entry)?;
+        file.write_all(data)?;
+        drop(file);
         private_file(&path)?;
         self.enforce(0)?;
         Ok(path.exists())
     }
     pub fn get(&mut self, account: &str, key: &str) -> Result<Option<Vec<u8>>> {
-        self.enforce(0)?;
+        if self
+            .swept
+            .is_none_or(|last| last.elapsed() >= Duration::from_secs(60))
+        {
+            self.enforce(0)?;
+        }
         let path = self.path(account, key);
-        let Ok(data) = fs::read(&path) else {
+        let Ok((mut file, entry)) = header(&path) else {
+            let _ = fs::remove_file(&path);
             return Ok(None);
         };
-        let entry: Entry = serde_json::from_slice(&data)?;
-        if entry.account != account || entry.key != key {
+        if entry.account != account
+            || entry.key != key
+            || epoch().saturating_sub(entry.created) >= self.ttl.as_secs()
+        {
+            drop(file);
+            let _ = fs::remove_file(&path);
             return Ok(None);
         }
+        let mut data = vec![0; entry.length];
+        file.read_exact(&mut data)?;
+        drop(file);
         fs::OpenOptions::new()
             .write(true)
             .open(&path)?
             .set_modified(SystemTime::now())?;
-        Ok(Some(entry.data))
+        Ok(Some(data))
     }
     pub fn clear_account(&mut self, account: &str) -> Result<()> {
         for f in self.files()? {
-            if fs::read(&f.path)
+            if header(&f.path)
                 .ok()
-                .and_then(|d| serde_json::from_slice::<Entry>(&d).ok())
-                .is_some_and(|e| e.account == account)
+                .is_some_and(|(_, e)| e.account == account)
             {
                 fs::remove_file(f.path)?;
             }
@@ -175,10 +233,9 @@ impl Cache {
             .files()?
             .into_iter()
             .filter(|f| {
-                fs::read(&f.path)
+                header(&f.path)
                     .ok()
-                    .and_then(|d| serde_json::from_slice::<Entry>(&d).ok())
-                    .is_some_and(|e| e.account == account)
+                    .is_some_and(|(_, e)| e.account == account)
             })
             .map(|f| f.bytes)
             .sum())

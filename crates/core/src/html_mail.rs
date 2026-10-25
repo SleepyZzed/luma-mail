@@ -121,7 +121,7 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
         });
     let safe = cleaner.clean(html).to_string();
     format!(
-        r#"<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; connect-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{{color-scheme:light}}body{{margin:0;padding:16px;background:#fff;color:#202124;font:16px/1.5 system-ui,sans-serif;overflow-wrap:anywhere}}img{{max-width:100%;height:auto}}table{{max-width:100%}}pre{{white-space:pre-wrap}}a{{color:#6254c7}}</style></head><body>{safe}</body></html>"#
+        r#"<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; connect-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{{color-scheme:light}}body{{margin:0;padding:16px;background:#fff;color:#202124;font:16px/1.5 system-ui,sans-serif;overflow-wrap:anywhere}}img{{max-width:100%;height:auto}}table{{max-width:100%}}pre{{white-space:pre-wrap}}a{{color:#1a73e8}}</style></head><body>{safe}</body></html>"#
     )
 }
 // Newsletter templates commonly use background:#fff / background:#9147ff.

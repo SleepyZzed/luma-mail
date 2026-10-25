@@ -8,6 +8,7 @@ pub mod drive;
 pub mod gmail;
 pub mod html_mail;
 pub mod http;
+pub mod local_compose;
 pub mod mail_images;
 pub mod model;
 pub mod notifications;

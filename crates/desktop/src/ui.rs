@@ -35,6 +35,7 @@ pub struct State {
     pub runtime: Arc<tokio::runtime::Runtime>,
     pub http: Http,
     pub cache: Arc<Mutex<Cache>>,
+    pub local_compose: luma_core::local_compose::Store,
     pub clients: RefCell<HashMap<String, Arc<Gmail>>>,
     pub status: gtk::Label,
     pub sidebar: gtk::Box,
@@ -364,6 +365,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         app: app.clone(),
         window,
         settings: RefCell::new(settings),
+        local_compose: luma_core::local_compose::Store::new(&paths.config),
         paths,
         runtime: Arc::new(runtime),
         http,
@@ -421,6 +423,10 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         _cursor_settings: cursor_settings,
         pending_save: RefCell::new(None),
     });
+    s.local_compose.configure(
+        s.settings.borrow().local_drafts,
+        s.settings.borrow().recent_recipients,
+    );
     if let Err(e) = s.rebuild_clients() {
         s.error(&e);
     }
@@ -608,6 +614,14 @@ pub fn sidebar(s: &Rc<State>) {
     {
         let s = s.clone();
         compose.connect_clicked(move |_| crate::compose::open(&s, None, None));
+    }
+    let local = gtk::Button::with_label("Local drafts");
+    local.add_css_class("flat");
+    local.set_tooltip_text(Some("Recover unsent work saved on this device"));
+    s.sidebar.append(&local);
+    {
+        let state = s.clone();
+        local.connect_clicked(move |_| crate::compose::local_drafts(&state));
     }
     for (icon, name, folder) in [
         ("luma-inbox-symbolic", "Unified Inbox", Folder::Inbox),

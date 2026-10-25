@@ -299,6 +299,71 @@ pub fn open(s: &Rc<State>) {
         );
     }
     storage.add(&g);
+    let local=adw::PreferencesGroup::builder().title("Unsent work and recent recipients").description("Separate from the disposable mail cache: up to 8 local drafts of 512 KiB each, within an 8 MiB allocation budget, plus 100 recent recipients (64 KiB). No attachment copies or Sent-folder indexing. Local recovery remains available with the mail cache disabled.").build();
+    let recovery = adw::SwitchRow::builder()
+        .title("Keep local draft recovery")
+        .subtitle("Disabling removes saved local copies; Gmail drafts are kept")
+        .active(s.settings.borrow().local_drafts)
+        .build();
+    local.add(&recovery);
+    {
+        let s = s.clone();
+        recovery.connect_active_notify(move |row| {
+            s.settings.borrow_mut().local_drafts = row.is_active();
+            s.local_compose
+                .configure(row.is_active(), s.settings.borrow().recent_recipients);
+            if !row.is_active()
+                && let Err(error) = s.local_compose.clear_drafts()
+            {
+                s.error(&error);
+            }
+            s.save();
+        });
+    }
+    let recent = adw::SwitchRow::builder()
+        .title("Suggest recently sent recipients")
+        .subtitle("Learns only after confirmed sends in Luma; expires after 90 days")
+        .active(s.settings.borrow().recent_recipients)
+        .build();
+    local.add(&recent);
+    {
+        let s = s.clone();
+        recent.connect_active_notify(move |row| {
+            s.settings.borrow_mut().recent_recipients = row.is_active();
+            s.local_compose
+                .configure(s.settings.borrow().local_drafts, row.is_active());
+            if !row.is_active()
+                && let Err(error) = s.local_compose.clear_recent()
+            {
+                s.error(&error);
+            }
+            s.save();
+        });
+    }
+    let local_usage = adw::ActionRow::builder()
+        .title("Local composer storage")
+        .subtitle(format!(
+            "{} bytes allocated",
+            s.local_compose.usage().unwrap_or(0)
+        ))
+        .build();
+    local.add(&local_usage);
+    let clear_recent = adw::ActionRow::builder()
+        .title("Forget recent recipients now")
+        .activatable(true)
+        .build();
+    local.add(&clear_recent);
+    {
+        let s = s.clone();
+        clear_recent.connect_activated(move |_| {
+            if let Err(error) = s.local_compose.clear_recent() {
+                s.error(&error);
+            } else {
+                s.info("Recent recipients cleared. Reopen the composer to reload suggestions.");
+            }
+        });
+    }
+    storage.add(&local);
     dialog.add(&storage);
     let general = adw::PreferencesPage::builder()
         .title("Notifications & Privacy")
@@ -433,11 +498,13 @@ fn remove_account(s: &Rc<State>, id: &str, email: &str) {
         };
         let manager = TokenManager::new(id.clone(), config, s.http.clone(), Arc::new(SystemVault));
         let cache = s.cache.clone();
+        let local = s.local_compose.clone();
         ui::async_work(
             &s,
             async move {
                 manager.revoke().await?;
                 cache.lock().expect("cache mutex").clear_account(&id)?;
+                local.clear_account(&id)?;
                 Ok(id)
             },
             |s, id| {
