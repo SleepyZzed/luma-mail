@@ -1,5 +1,16 @@
 # Troubleshooting
 
+## HTML fallback on systems restricting namespaces
+
+HTML previews require WebKit's namespace sandbox. Ubuntu 24.04 restricts
+unprivileged user namespaces for third-party executables; Luma checks this and
+shows readable text when its sandbox cannot start. Use your distro's native
+WebKit/bubblewrap packages or have an administrator review a narrowly scoped
+AppArmor userns profile for the actual bwrap executable. Do not disable WebKit's
+sandbox or the OS-wide namespace restriction to view email. The official
+[Ubuntu release notes](https://documentation.ubuntu.com/release-notes/24.04/)
+explain the policy. Arch/CachyOS follow their own kernel/LSM configuration.
+
 - **Sign-in unavailable in this build:** this is an unconfigured developer build.
   Install the maintainer's sign-in-enabled build. Account setup has no JSON
   import; the app registration is supplied during compilation by the maintainer.

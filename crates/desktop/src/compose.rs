@@ -165,6 +165,20 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
     }
     glib::Propagation::Proceed
 }
+pub fn prepare_quit(s: &Rc<State>) -> bool {
+    let editor = s.editor.borrow().clone();
+    if let Some(e) = editor {
+        // A never-presented host window does not emit GTK close-request. Close
+        // embedded/parked editors through their save policy explicitly.
+        if request_close(&e) == glib::Propagation::Proceed {
+            finish(&e);
+        } else {
+            show_full(&e);
+            return false;
+        }
+    }
+    true
+}
 
 pub fn mailto(s: &Rc<State>, uri: &str) {
     let Ok(url) = url::Url::parse(uri) else {
@@ -388,7 +402,7 @@ pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
         s.compose_stack.visible_child_name().as_deref(),
         Some("mail")
     );
-    e.window.close();
+    assert!(prepare_quit(s));
     assert!(s.editor.borrow().is_none());
     s.reader.remove(&slot);
     s.settings

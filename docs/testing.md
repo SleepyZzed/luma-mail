@@ -30,6 +30,22 @@ artwork or fractional scaling on the real compositor.
 
 ## Real Gmail tests (deliberate user actions)
 
+0.2 rendering diagnostics instantiate actual WebKit and decode/play synthetic WAV
+and WebM from memory, both natively and from the AppImage:
+
+```sh
+bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail"
+bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage
+```
+
+These require GStreamer fixture tools, a display and permitted namespace sandboxes.
+The isolated GTK acceptance fixture also moves one composer through full/inline/
+pop-out/park/close states and checks that closing clears its editor ownership.
+It does not send mail. For sender blocking, use a disposable address: confirm the
+Gmail filter appears, restart Luma, Unblock and verify it disappears. Edited or
+unrelated Gmail filters must not be deleted. Report spam/Not spam is separate
+from creating a rule for future mail.
+
 Use disposable test messages in two accounts. Install a build containing Luma's
 app registration and finish consent yourself. These steps modify messages only when you click the
 corresponding action in Luma. Do not use production messages for destructive

@@ -10,6 +10,11 @@ pub fn show(s: &State, token: Option<String>) {
     s.window.present();
 }
 pub fn quit(s: &Rc<State>) {
+    if !crate::compose::prepare_quit(s) {
+        show(s, None);
+        s.info("A composer is saving or needs attention. Finish it, then Quit again.");
+        return;
+    }
     // Give every composer its normal save/close handling. If a save is still
     // pending, keep the app reachable and let the user quit again after Saved.
     for window in s.app.windows() {
