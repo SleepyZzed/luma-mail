@@ -1,4 +1,6 @@
 mod compose;
+#[cfg(all(test, target_os = "linux"))]
+mod desktop_test;
 mod notifications;
 mod settings;
 mod tray;

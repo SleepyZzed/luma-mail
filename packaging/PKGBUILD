@@ -1,29 +1,32 @@
 pkgname=luma-mail
 pkgver=0.1.0
 pkgrel=1
+_commit=c02d8b6ce997d1e0bcb78afaabb390c15fd896b4
+_srcdir="luma-mail-$_commit"
 pkgdesc='Online-first native Rust Gmail client (development release)'
+url='https://github.com/SleepyZzed/luma-mail'
 arch=('x86_64' 'aarch64')
 license=('GPL-3.0-or-later')
 depends=('gtk4>=4.12' 'libadwaita>=1.5' 'dbus')
 makedepends=('rust' 'cargo' 'pkgconf')
 optdepends=('gnome-keyring: secure Google refresh-token storage' 'kwallet: alternative Secret Service backend')
-source=("$pkgname-$pkgver.tar.gz")
-sha256sums=('SKIP') # Replaced with the delivery archive checksum before packaging.
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/SleepyZzed/luma-mail/tar.gz/$_commit")
+sha256sums=('c88eb24cc95b2e2c333a185e0d8ff07a93359e5a4294793a8260baff1f1699e9')
 
 prepare() {
-  cd "$pkgname-$pkgver"
+  cd "$_srcdir"
   cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
 }
 build() {
-  cd "$pkgname-$pkgver"
+  cd "$_srcdir"
   cargo build --frozen --release
 }
 check() {
-  cd "$pkgname-$pkgver"
+  cd "$_srcdir"
   cargo test --frozen --workspace
 }
 package() {
-  cd "$pkgname-$pkgver"
+  cd "$_srcdir"
   install -Dm755 target/release/luma-mail "$pkgdir/usr/bin/luma-mail"
   install -Dm644 data/io.github.lumamail.Luma.desktop "$pkgdir/usr/share/applications/io.github.lumamail.Luma.desktop"
   install -Dm644 data/io.github.lumamail.Luma.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg"

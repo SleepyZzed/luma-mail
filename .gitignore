@@ -3,3 +3,5 @@
 *.tmp
 oauth-client.json
 .env
+__pycache__/
+*.pyc

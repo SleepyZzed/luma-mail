@@ -411,6 +411,10 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     crate::notifications::start(&s);
     crate::tray::start(&s);
     s.window.present();
+    #[cfg(all(test, target_os = "linux"))]
+    if std::env::var_os("LUMA_DESKTOP_TEST_ROOT").is_some() {
+        crate::desktop_test::start(&s);
+    }
     if !s.clients.borrow().is_empty() {
         reload(&s);
     }
