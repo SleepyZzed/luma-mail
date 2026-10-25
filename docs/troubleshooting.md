@@ -4,7 +4,7 @@
   Install the maintainer's sign-in-enabled build. Account setup has no JSON
   import; the app registration is supplied during compilation by the maintainer.
 - **Old import/setup screen:** 0.1.0 and 0.1.1 binaries predate button-only login.
-  Update to the configured 0.1.2 build once published. Old client JSON files and
+  Update to the published configured 0.1.2 build. Old client JSON files and
   `LUMA_OAUTH_CLIENT` are ignored by the new code.
 - **Browser launch fails:** use Open browser again or Copy sign-in link in the
   sign-in window. Closing it cancels the listener; an attempt expires in five
@@ -13,9 +13,13 @@
   support and keeps host/user cursor paths visible. About & Diagnostics shows
   the effective GTK cursor. Check `XCURSOR_THEME`, `XCURSOR_SIZE` and the normal
   desktop cursor preference if it differs; no app-specific cursor is installed.
-- **Access blocked / testing warning:** ask Luma's maintainer to add the account
-  to the app's test users during private testing. Workspace administrators may restrict OAuth. Follow Google's
-  verification process for distribution; Luma cannot bypass consent policies.
+- **Google warning / access blocked:** Luma is published for unverified early
+  access, with no test-user list. Google's unverified-app warning and 100-user
+  lifetime cap remain; Advanced Protection and Workspace policy may block it.
+  Review the app and requested permissions before deciding whether to consent.
+  Luma cannot override a Google or administrator block. If Google explicitly
+  says only approved test users are allowed, report the exact error and build
+  version to the maintainer; importing JSON is not a solution.
 - **Keyring unavailable:** run and unlock GNOME Keyring or a KWallet Secret
   Service backend in your user D-Bus session. On Hyprland, configure your normal
   PAM/keyring integration. Luma will not save plaintext tokens.

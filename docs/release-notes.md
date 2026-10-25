@@ -20,10 +20,20 @@ Luma Mail is an online-first Rust / GTK4 / libadwaita Gmail client for Linux.
   Notification bursts continue within a history page without discarding its tail.
 - RELEASE-CHECKLIST.md maps every original acceptance criterion to remaining work.
 
-This is a **development preview**, not a production-complete implementation.
-Luma's Google registration is in **Testing**. Only accounts on its test-user list
-can sign in; contact the maintainer to add a test account. These grants expire
-after seven days and need reconnecting. Broad public Google verification is pending.
+**Public early-access update — 25 October 2026:** Luma's Google registration is
+now **External / In production / unverified**. There is **no test-user list**:
+eligible Gmail users can request consent without being added manually. Google's
+unverified-app warning and **100 lifetime user cap** remain until verification;
+account protection and Workspace policy can block access. This is an unfinished
+early-access release, not a production-complete or Google-verified application.
+
+The existing 0.1.2 AppImage already embeds this registration, so this is a
+server-side audience change and release-documentation update; its binary and
+SHA-256 checksum are unchanged. No JSON file or personal Cloud project is needed.
+New production grants are not subject to Testing's seven-day lifetime; reconnect
+if an older grant has expired. Public homepage, privacy policy and terms are at
+[Luma Mail](https://sleepyzzed.github.io/luma-mail/). The protocol assessment and
+remaining verification gates are in the [OAuth guide](https://github.com/SleepyZzed/luma-mail/blob/main/docs/oauth.md).
 
 - Gmail accounts, remote search, paging, lazy body retrieval and server-backed mail actions.
 - Gmail drafts, reply/forward, bounded attachments and Drive upload/sharing paths.

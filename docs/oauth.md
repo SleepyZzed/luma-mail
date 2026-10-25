@@ -23,9 +23,11 @@ that sign-in is unavailable. Published releases are blocked without registration
 1. Create/select the Luma Google Cloud project and enable Gmail API. Enable Drive
    API if offering optional Drive attachments.
 2. Configure Google Auth Platform branding, support/developer contacts and an
-   External audience for consumer Gmail accounts. During private testing, add
-   the intended account addresses as test users. Follow Google's requirements
-   for production publication and applicable verification before broad release.
+   External audience for consumer Gmail accounts. Supply public homepage,
+   privacy-policy and terms URLs and their authorized domain. Testing requires
+   named test users; publishing the app removes that list while unverified
+   warnings and the lifetime user cap remain. Complete applicable verification
+   for normal public distribution.
 3. Create a client with application type **Desktop app**. A Web application or
    service-account client is unsuitable. Use its client ID and client secret as
    the build-time values `LUMA_GOOGLE_CLIENT_ID` and `LUMA_GOOGLE_CLIENT_SECRET`.
@@ -76,9 +78,21 @@ Only app-created or app-authorized files can be accessed. A Google Picker is not
 yet implemented. Upload sharing is separately confirmed, recipient-specific and
 read-only; Luma never creates an `anyone` permission.
 
-An External app in Testing mode is restricted to listed test users and these
-Gmail grants/refresh tokens expire after seven days. Workspace administrators
-may restrict access. Reconnect to renew an expired or revoked grant.
+Luma's registration is **External / In production / unverified**, confirmed in
+Google Auth Platform on 25 October 2026. Any eligible Google account can request
+consent without being entered in a test list, within Google's **100 lifetime
+user cap** for unapproved scopes. The console showed 1 / 100 at publication.
+Removing users does not reset that cap. Google still shows its unverified-app
+warning and may display the application domain instead of verified branding.
+Account policies, Advanced Protection and Workspace administrators can block
+unverified access. Luma cannot override those controls.
+
+The existing configured 0.1.2 AppImage uses this registration. No JSON import,
+personal Cloud project or replacement binary is needed for this audience
+change. Complete consent in your browser; it is not a simulated login. The
+seven-day Testing-mode expiry no longer applies to newly issued production
+grants. Old grants can still require reconnecting, and production tokens can
+expire or be revoked for Google's other documented reasons.
 
 Gmail modify is a restricted scope. Broad distribution requires applicable
 Google OAuth verification, an accurate consent screen and privacy policy, and
@@ -88,11 +102,13 @@ does not establish Google approval.
 
 ## Public sign-in and costs
 
-The test-user list is temporary. The full-release goal is Google's approved
-production consent flow without adding each person manually. Completing testing
-or embedding a client ID alone does not establish that approval. Preparation
-includes a homepage/privacy policy on a verified domain, scope justification,
-and a demonstration of real consent and the mail features that need each scope.
+The test-user list has been removed by publishing the Google registration for
+unverified early access. This is separate from verification and does not remove
+Google's warning or cap. The full-release goal remains verified, uncapped
+consent, backed by domain ownership, scope justification and a demonstration of
+real consent and the mail features that need each scope. Public project pages
+are hosted at [sleepyzzed.github.io/luma-mail](https://sleepyzzed.github.io/luma-mail/),
+with linked privacy and terms information also saved in this repository.
 
 Luma connects directly from the user's desktop to Google and has no mail-handling
 application server. Google's restricted-scope guidance ties annual independent
@@ -104,8 +120,27 @@ independent assessors may charge; total production costs are not guaranteed.
 Standard Gmail API use is currently free within its standard quotas. Google has
 announced planned charges for usage above daily thresholds, with notice before
 they take effect. Review the current terms/quotas before a large public rollout.
-Public sign-in, assessment applicability and any actual hosting/API costs remain
-explicit release gates rather than reasons to keep a permanent test-user list.
+Uncapped sign-in, assessment applicability and any actual hosting/API costs
+remain full-release gates. No payment or paid hosting is needed for the current
+GitHub Pages site; any future billable service requires a separate decision.
+
+## IMAP, SMTP and JMAP assessment
+
+The original brief requires Gmail first, server-side Gmail semantics, native
+thread IDs, Drive attachments, bounded on-demand access and browser OAuth.
+Changing the mail protocol does not remove Google's authorization rules.
+
+| Option | Sign-in consequence | Decision against the original criteria |
+|---|---|---|
+| Gmail API + Luma's Desktop OAuth client | Browser consent; unverified production removes the test list, subject to warning/cap | Keep this path: existing Gmail labels, search, threading, drafts and on-demand data access remain intact. |
+| Gmail IMAP + SMTP with OAuth | Same Google app registration/verification; requires the broader `https://mail.google.com/` scope | No sign-in shortcut. Migration would add protocol/state work and require revalidating Gmail semantics. |
+| Gmail IMAP + SMTP with an app password | Requires 2-Step Verification and manual per-user app-password creation; unavailable for some protected/managed accounts | Does not meet the requested button-only Google consent flow. Not added as a replacement. |
+| JMAP | Requires a JMAP server or a Gmail bridge; Google's documented Gmail interfaces provide no native JMAP endpoint | Suitable for a future provider. A bridge still needs Gmail authentication and may introduce a server handling restricted data. Not a fix for Gmail consent. |
+
+Provider abstraction remains available for future complete IMAP/JMAP providers.
+No partial provider or mailbox mirror was introduced for this early-access
+change. The 20 original acceptance criteria remain tracked independently in
+[RELEASE-CHECKLIST.md](../RELEASE-CHECKLIST.md).
 
 References:
 
@@ -113,5 +148,9 @@ References:
 - [Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes)
 - [Restricted scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification)
 - [Testing and production audiences](https://support.google.com/cloud/answer/15549945)
+- [Published unverified app state](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)
+- [IMAP/SMTP OAuth and scope](https://developers.google.com/workspace/gmail/imap/xoauth2-protocol)
+- [Google app-password requirements](https://support.google.com/mail/answer/185833)
+- [JMAP protocol and implementations](https://jmap.io/software/)
 - [Assessment fees](https://support.google.com/cloud/answer/13463817)
 - [Gmail API quotas and pricing](https://developers.google.com/workspace/gmail/api/reference/quota)

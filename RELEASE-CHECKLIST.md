@@ -6,7 +6,7 @@ The release stays a development prerelease until every mandatory row passes.
 
 | # | Original acceptance criterion | Current evidence | What remains |
 |---|---|---|---|
-| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring; button-only sign-in; Desktop client and build configuration provisioned | Verify live consent and restart with two listed test accounts. Runtime JSON import has been removed. Public Google verification remains pending. |
+| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; Linux keyring; button-only sign-in; configured AppImage; External/In production registration with no test list | Verify live consent and restart with two Gmail accounts. Google verification remains pending; unverified warning and lifetime 100-user cap apply. |
 | 2 | Both inboxes display correctly | Gmail list/metadata parsing and account isolation tests | Compare both real inboxes with Gmail, including Workspace if used. |
 | 3 | Unified Inbox merges and sorts accounts | Transactional paging and cross-account sorting tests | Verify live ordering and mailbox changes across two accounts. |
 | 4 | Unified All Mail without full-history downloads | Projected metadata requests, bounded pages, Spam/Trash exclusion tests | Inspect traffic/storage with large real mailboxes. |
@@ -53,9 +53,12 @@ palette are tracked separately from the 20 mandatory behaviours.
   at build time. No runtime JSON import remains. Publication is gated on this.
 - [ ] Resolve Google's scope verification, consent-screen/privacy-policy and any
   applicable assessment requirements before presenting an official public client.
-- [ ] Public Google sign-in works without a per-user test-list entry. Record
-  Google's assessment decision and any verification/hosting/API costs before
-  calling this a full public release; a permanent allowlist is not the goal.
+- [x] Publish the External Google registration without a per-user test list for
+  early access (25 October 2026). Console confirms In production, 1 / 100 users.
+- [ ] Verify live consent with two accounts not dependent on a test-list entry;
+  complete Google verification for warning-free, uncapped sign-in. Record
+  Google's assessment decision and verification/hosting/API costs before
+  calling this a full public release.
 - [ ] All mandatory live acceptance checks recorded with build/version and results.
 - [ ] Source/archive/AppImage checksums, repeatable build and clear upgrade/uninstall instructions.
 - [ ] Signing/release ownership and native package verification.
@@ -82,8 +85,16 @@ palette are tracked separately from the 20 mandatory behaviours.
 - [x] Embed the maintainer's Desktop app identity at compile time.
 - [x] Gate release publication on a configured, validated app registration.
 - [x] Create/configure the Google registration and repository build values.
-- [ ] Verify live consent and keyring storage with listed test accounts.
+- [ ] Verify live consent and keyring storage with two Gmail accounts.
 - [x] Publish the configured 0.1.2 development AppImage for Linux acceptance: v0.1.2-dev.1.
 
 See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 [docs/verification.md](docs/verification.md) for implementation details and test evidence.
+
+## Public early-access sign-in
+
+- [x] Publish repository-backed homepage, privacy policy and terms on GitHub Pages.
+- [x] Save those URLs and the Pages domain in Google Auth Platform branding.
+- [x] Publish External audience to In production; the test-user table is no longer applicable.
+- [x] Assess IMAP/SMTP/JMAP without weakening the original online-first/Gmail criteria.
+- [ ] Complete real-account Linux acceptance; configuration evidence is not an end-to-end login test.

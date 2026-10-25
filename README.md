@@ -5,7 +5,7 @@ The mailbox stays on Google. Luma loads a page of conversation metadata, then
 fetches individual message bodies only when you expand them. It never builds a
 local mail mirror, search index, or attachment archive.
 
-**Development release, not production-ready.** See [STATUS.md](STATUS.md) for
+**Early access, not production-ready.** See [STATUS.md](STATUS.md) for
 implemented features, limitations and the verification boundary. No Google
 account has been connected during development in this workspace.
 
@@ -13,6 +13,9 @@ The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptan
 criteria to implementation evidence and the remaining code/desktop checks.
 
 Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
+[Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
+[Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
+[Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
 [Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.2-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
@@ -20,10 +23,14 @@ publishing it. See [AppImage packaging](docs/appimage.md).
 The 0.1.2 build uses the maintainer's bundled Google app registration with
 **Sign in with Google**. The older 0.1.1 binary still has the removed JSON import flow.
 Luma's Desktop registration is provisioned and supplied through the release
-build. Google currently has the app in **Testing**: only accounts added to its
-test-user list can sign in, and grants expire after seven days. Public Google
-verification remains a full-release task. Unconfigured developer builds cannot
-authenticate and are blocked from release publication.
+build. On 25 October 2026, the Google app was published as **External / In
+production / unverified**. There is **no per-address test list**. Google's
+unverified-app warning and **100 lifetime user cap** remain until verification;
+Workspace or Advanced Protection policies may block access. This is not
+uncapped or Google-approved distribution. The existing 0.1.2 AppImage uses the
+published registration, so no new binary is needed for this audience change.
+Unconfigured developer builds cannot authenticate and are blocked from release
+publication. See [sign-in limits and protocol options](docs/oauth.md).
 
 ## Tray, notifications and Refresh now
 

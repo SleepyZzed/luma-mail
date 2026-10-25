@@ -4,6 +4,13 @@ This is a substantial **development implementation**, not a claim that the full
 project brief or all 20 acceptance criteria have passed. No user credentials
 were available and no real Google account was connected or modified.
 
+The maintainer's Google app registration was published on 25 October 2026 as
+External / In production / unverified, removing the per-address test list for
+early access. The configured 0.1.2 AppImage uses it without an update. Google's
+warning and lifetime 100-user cap remain, as do live Linux account acceptance
+and formal verification. Publishing this configuration is not a completed
+end-to-end Google consent test. See [OAuth status and protocol assessment](docs/oauth.md).
+
 ## Working code paths
 
 | Area | Implemented | Verification boundary |
@@ -68,12 +75,13 @@ Main removes the JSON importer and runtime file override. Sign in with Google
 uses the maintainer's Desktop client embedded at compile time, keeping browser
 launch/retry/cancellation and the existing PKCE/Secret Service flow. Release
 publication is gated on valid app registration values. Luma's Desktop client is
-now created and the two GitHub build values are configured. Google remains in
-External Testing mode, with limited test users and seven-day grants. Live consent,
-keyring acceptance and public Google verification remain pending. The published
+now created and the two GitHub build values are configured. At initial release,
+Google used External Testing mode with listed users and seven-day grants; the
+early-access publication recorded above supersedes that audience configuration.
+Live consent, keyring acceptance and Google verification remain pending. The published
 0.1.1 binary uses the old flow. The configured 0.1.2 development AppImage is now
-published as v0.1.2-dev.1 with its own Desktop registration. This is a private
-Google testing milestone, not completion of public sign-in verification.
+published as v0.1.2-dev.1 with its own Desktop registration. The same binary now
+uses unverified production access; this is not completion of Google verification.
 - AppImage dconf module and host cursor-theme paths; session cursor overrides,
   live desktop cursor settings and diagnostics. Configuration transport passed
   Linux CI; the reporter's cursor artwork still needs another desktop check.

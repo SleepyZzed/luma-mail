@@ -106,7 +106,7 @@ build/launch and cursor settings transport. This run preceded Google provisionin
 and tested an unconfigured developer bundle.
 
 Luma's Google Desktop client and both repository build values were then created.
-Google's audience remains External Testing with the chosen test account listed.
+Google's initial audience was External Testing with the chosen test account listed.
 
 Configured release [run 40224992927](https://github.com/SleepyZzed/luma-mail/actions/runs/40224992927)
 passed every build, test, launch, package and publish check, including the required
@@ -120,3 +120,27 @@ The exact-tag source ZIP passed its archive integrity check.
 Live Google consent/keyring tests and broad public Google verification remain
 unexecuted. The 0.1.1 binary does not acquire these changes automatically;
 install the configured 0.1.2 AppImage for the next real Linux acceptance pass.
+
+## Public early-access audience — 25 October 2026
+
+- Published repository-backed homepage, privacy policy and terms at
+  [sleepyzzed.github.io/luma-mail](https://sleepyzzed.github.io/luma-mail/).
+  [Pages deployment 40226549143](https://github.com/SleepyZzed/luma-mail/actions/runs/40226549143)
+  succeeded. Homepage, privacy, terms and CSS all returned HTTP 200; the native
+  browser rendered the homepage successfully.
+- Saved those URLs and `sleepyzzed.github.io` as the authorized branding domain
+  in the existing Google project. No OAuth scopes or user grants were expanded.
+- Selected Publish app and confirmed publication. Google Auth Platform visibly
+  showed **In production**, **External**, verification required, and **1 / 100
+  user cap**. The test-user list is no longer applicable. This is configuration
+  evidence, not a completed real-account consent or keyring test.
+- Kept the existing release tag, source and AppImage bytes unchanged. The audience
+  change applies to the registration already compiled into the checked 0.1.2
+  AppImage. The release remains a prerelease and now describes early access.
+- Assessed Gmail IMAP/SMTP OAuth, app passwords and JMAP against the original
+  criteria. None removes Google's consent requirements while preserving the
+  requested button-only Gmail experience. No provider migration was performed.
+
+The current protocol decision and verification limits are in [oauth.md](oauth.md).
+Formal verification, uncapped sign-in and the 20 live acceptance checks remain
+separate full-release requirements.
