@@ -21,6 +21,9 @@ Luma Mail is an online-first Rust / GTK4 / libadwaita Gmail client for Linux.
 - RELEASE-CHECKLIST.md maps every original acceptance criterion to remaining work.
 
 This is a **development preview**, not a production-complete implementation.
+Luma's Google registration is in **Testing**. Only accounts on its test-user list
+can sign in; contact the maintainer to add a test account. These grants expire
+after seven days and need reconnecting. Broad public Google verification is pending.
 
 - Gmail accounts, remote search, paging, lazy body retrieval and server-backed mail actions.
 - Gmail drafts, reply/forward, bounded attachments and Drive upload/sharing paths.

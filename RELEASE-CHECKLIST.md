@@ -6,7 +6,7 @@ The release stays a development prerelease until every mandatory row passes.
 
 | # | Original acceptance criterion | Current evidence | What remains |
 |---|---|---|---|
-| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring; button-only sign-in with build-time app registration | Provision Luma's public Desktop client, then verify consent and restart with two real accounts. Runtime JSON import has been removed. |
+| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring; button-only sign-in; Desktop client and build configuration provisioned | Verify live consent and restart with two listed test accounts. Runtime JSON import has been removed. Public Google verification remains pending. |
 | 2 | Both inboxes display correctly | Gmail list/metadata parsing and account isolation tests | Compare both real inboxes with Gmail, including Workspace if used. |
 | 3 | Unified Inbox merges and sorts accounts | Transactional paging and cross-account sorting tests | Verify live ordering and mailbox changes across two accounts. |
 | 4 | Unified All Mail without full-history downloads | Projected metadata requests, bounded pages, Spam/Trash exclusion tests | Inspect traffic/storage with large real mailboxes. |
@@ -49,7 +49,7 @@ palette are tracked separately from the 20 mandatory behaviours.
 
 ## Distribution gates
 
-- [ ] Provision Luma's public Desktop OAuth client; the next release embeds it
+- [x] Provision Luma's public Desktop OAuth client; the next release embeds it
   at build time. No runtime JSON import remains. Publication is gated on this.
 - [ ] Resolve Google's scope verification, consent-screen/privacy-policy and any
   applicable assessment requirements before presenting an official public client.
@@ -78,8 +78,9 @@ palette are tracked separately from the 20 mandatory behaviours.
 - [x] Remove JSON import controls, file loading and runtime client overrides.
 - [x] Embed the maintainer's Desktop app identity at compile time.
 - [x] Gate release publication on a configured, validated app registration.
-- [ ] Create/configure the Google registration and repository build values.
-- [ ] Verify live consent and keyring storage, then publish the configured 0.1.2 AppImage.
+- [x] Create/configure the Google registration and repository build values.
+- [ ] Verify live consent and keyring storage with listed test accounts.
+- [ ] Publish the configured 0.1.2 development AppImage for Linux acceptance.
 
 See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 [docs/verification.md](docs/verification.md) for implementation details and test evidence.

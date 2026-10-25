@@ -19,9 +19,11 @@ publishing it. See [AppImage packaging](docs/appimage.md).
 
 Main now uses the maintainer's bundled Google app registration with **Sign in
 with Google**. The older 0.1.1 binary still has the removed JSON import flow.
-The next AppImage is gated on provisioning Luma's Google registration; an
-unconfigured developer build cannot authenticate and is not published as a
-sign-in-ready release.
+Luma's Desktop registration is provisioned and supplied through the release
+build. Google currently has the app in **Testing**: only accounts added to its
+test-user list can sign in, and grants expire after seven days. Public Google
+verification remains a full-release task. Unconfigured developer builds cannot
+authenticate and are blocked from release publication.
 
 ## Tray, notifications and Refresh now
 

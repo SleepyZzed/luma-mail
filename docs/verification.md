@@ -99,7 +99,13 @@ not an application login, user credential or published binary configuration.
 The native recipe's pinned source checksum and both shell scripts' syntax were
 also checked. Native makepkg remains unexecuted.
 
-Linux verification: [run 40223256605](https://github.com/SleepyZzed/luma-mail/actions/runs/40223256605).
-Google Cloud registration, live consent/keyring tests and the configured 0.1.2
-AppImage publication remain pending. The 0.1.1 release does not acquire these
-changes automatically.
+Linux verification: [run 40223256605](https://github.com/SleepyZzed/luma-mail/actions/runs/40223256605)
+passed formatting, strict Clippy, all unit tests, the real GTK/D-Bus acceptance
+check (including the removed-import UI assertions), native launch, AppImage
+build/launch and cursor settings transport. This run preceded Google provisioning
+and tested an unconfigured developer bundle.
+
+Luma's Google Desktop client and both repository build values were then created.
+Google's audience remains External Testing. The configured build, live consent/
+keyring tests and broad public Google verification remain to be recorded. The
+0.1.1 release does not acquire these changes automatically.

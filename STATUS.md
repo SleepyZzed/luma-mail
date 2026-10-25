@@ -60,15 +60,18 @@ launch with zero connected accounts, not fabricated mailbox contents.
 ## 0.1.1 development work
 
 - Guided one-window OAuth setup/import, asynchronous browser launch, copy-link,
-  retry and cancellation. A public OAuth client is still not provisioned.
+  retry and cancellation. That 0.1.1 preview had no bundled OAuth registration.
 
 ## 0.1.2 Google sign-in change
 
 Main removes the JSON importer and runtime file override. Sign in with Google
 uses the maintainer's Desktop client embedded at compile time, keeping browser
 launch/retry/cancellation and the existing PKCE/Secret Service flow. Release
-publication is gated on valid app registration values. Google provisioning and
-live consent remain pending; the published 0.1.1 binary still uses the old flow.
+publication is gated on valid app registration values. Luma's Desktop client is
+now created and the two GitHub build values are configured. Google remains in
+External Testing mode, with limited test users and seven-day grants. Live consent,
+keyring acceptance and public Google verification remain pending. The published
+0.1.1 binary still uses the old flow until replaced with the configured 0.1.2 build.
 - AppImage dconf module and host cursor-theme paths; session cursor overrides,
   live desktop cursor settings and diagnostics. Configuration transport passed
   Linux CI; the reporter's cursor artwork still needs another desktop check.
