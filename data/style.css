@@ -1,9 +1,39 @@
 .luma-sidebar { background: alpha(@window_fg_color, 0.025); }
-.luma-sidebar button { padding: 10px 14px; }
-.navigation-sidebar row { border-radius: 12px; margin: 3px 8px; }
-.navigation-sidebar row:selected { background: alpha(@accent_bg_color, 0.18); color: @window_fg_color; }
-.navigation-sidebar row:hover { background: alpha(@window_fg_color, 0.045); }
-.mail-card { border: 1px solid alpha(@window_fg_color, 0.1); border-radius: 14px; padding: 14px; }
-expander { border: 1px solid alpha(@window_fg_color, 0.09); border-radius: 12px; padding: 12px; }
+.luma-sidebar button { padding: 9px 12px; border-radius: 10px; font-weight: 500; }
+.luma-sidebar .suggested-action { padding: 13px 18px; font-weight: 700; margin-bottom: 10px; }
+.navigation-sidebar { background: transparent; padding: 4px; }
+.navigation-sidebar row.mail-row { border-radius: 14px; margin: 3px 5px; border: 1px solid transparent; transition: background-color 150ms ease, border-color 150ms ease, opacity 150ms ease; }
+.navigation-sidebar row.mail-row:selected { background: alpha(@accent_bg_color, 0.14); border-color: alpha(@accent_bg_color, 0.25); color: @window_fg_color; }
+.navigation-sidebar row.mail-row:hover { background: alpha(@window_fg_color, 0.045); }
+.navigation-sidebar row.mail-row:selected:hover { background: alpha(@accent_bg_color, 0.19); }
+.mail-row.pending { opacity: 0.65; }
+.mail-sender { font-size: 0.96em; font-weight: 500; }
+.mail-sender.unread-sender { font-weight: 750; }
+.mail-subject { font-size: 0.94em; }
+.mail-snippet { font-size: 0.9em; color: alpha(@window_fg_color, 0.55); }
+.mail-date, .account-caption { font-size: 0.77em; color: alpha(@window_fg_color, 0.55); }
+.unread-dot { color: @accent_color; font-size: 0.65em; }
+.thread-count { font-size: 0.75em; font-weight: 700; color: alpha(@window_fg_color, 0.6); background: alpha(@window_fg_color, 0.06); border-radius: 5px; padding: 1px 5px; }
+.row-star { padding: 5px; min-width: 24px; min-height: 24px; opacity: 0; transition: opacity 140ms ease, background-color 140ms ease; }
+row:hover .row-star, row:focus-within .row-star, .row-star.is-starred { opacity: 1; }
+.row-star.is-starred { color: @warning_color; }
+.context-menu button { padding: 8px 12px; border-radius: 8px; min-height: 24px; }
+.mail-card { background: @view_bg_color; border: 1px solid alpha(@window_fg_color, 0.08); border-radius: 18px; padding: 20px; }
+expander { background: alpha(@window_fg_color, 0.02); border: 1px solid alpha(@window_fg_color, 0.07); border-radius: 16px; padding: 16px; }
 .caption { font-size: 0.8em; opacity: 0.65; }
-textview { padding: 16px; }
+.reader-subject { font-size: 1.65em; font-weight: 750; }
+.reader-toolbar button { border-radius: 10px; padding: 8px; }
+.reader-body { font-size: 1.04em; }
+.compose-window { background: @view_bg_color; }
+.compose-fields { padding: 8px 22px; }
+.compose-fields entry { border: none; background: transparent; box-shadow: none; padding: 6px 0; }
+.compose-fields .subject-entry { font-size: 1.28em; font-weight: 650; padding: 12px 0; }
+.compose-field-label { min-width: 42px; font-size: 0.9em; color: alpha(@window_fg_color, 0.55); }
+.compose-toolbar { padding: 8px 18px; border-top: 1px solid alpha(@window_fg_color, 0.07); }
+.compose-toolbar button { border-radius: 9px; }
+.compose-footer { padding: 12px 20px; border-top: 1px solid alpha(@window_fg_color, 0.07); }
+.attachment-strip { padding: 10px 0; }
+.attachment-card { border: 1px solid alpha(@window_fg_color, 0.1); background: alpha(@window_fg_color, 0.025); border-radius: 12px; padding: 10px; transition: background-color 140ms ease; }
+.attachment-card:hover { background: alpha(@accent_bg_color, 0.07); }
+textview { padding: 18px; }
+.compose-window textview { padding: 20px 24px; }

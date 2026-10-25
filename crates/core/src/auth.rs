@@ -71,6 +71,10 @@ pub trait Vault: Send + Sync {
 
 pub struct SystemVault;
 
+#[cfg(target_os = "windows")]
+#[path = "windows_vault.rs"]
+mod windows_vault;
+
 #[cfg(target_os = "linux")]
 #[async_trait]
 impl Vault for SystemVault {
@@ -151,7 +155,7 @@ fn keyring_error(_: impl std::fmt::Display) -> Error {
     )
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 #[async_trait]
 impl Vault for SystemVault {
     async fn load(&self, _: &str) -> Result<Credentials> {

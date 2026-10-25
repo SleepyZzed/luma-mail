@@ -48,8 +48,35 @@ test -f "$gio_modules/libdconfsettings.so"
 install -Dm755 "$gio_modules/libdconfsettings.so" "$appdir/usr/lib/gio/modules/libdconfsettings.so"
 gio-querymodules "$appdir/usr/lib/gio/modules"
 cp -a /usr/share/icons/Adwaita "$appdir/usr/share/icons/"
+# WebKit and GTK media backends have helper processes/modules that are loaded
+# dynamically and are invisible to the main executable's ELF dependency scan.
+webkit_dir="$(pkg-config --variable=libdir webkitgtk-6.0)/webkitgtk-6.0"
+test -x "$webkit_dir/WebKitWebProcess"
+test -x "$webkit_dir/WebKitNetworkProcess"
+mkdir -p "$appdir$webkit_dir"
+# Preserve the distro-relative layout under AppDir/usr; the library prefixes are
+# relocated after deployment and the launcher establishes that working directory.
+cp -a "$webkit_dir/." "$appdir$webkit_dir/"
+media_dir="$(pkg-config --variable=libdir gtk4)/gtk-4.0/4.0.0/media"
+test -f "$media_dir/libmedia-gstreamer.so"
+install -Dm755 "$media_dir/libmedia-gstreamer.so" "$appdir/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so"
+gst_dir="$(pkg-config --variable=pluginsdir gstreamer-1.0)"
+mkdir -p "$appdir/usr/lib/gstreamer-1.0"
+cp -a "$gst_dir/"*.so "$appdir/usr/lib/gstreamer-1.0/"
+scanner="$(pkg-config --variable=pluginscannerdir gstreamer-1.0)/gst-plugin-scanner"
+test -x "$scanner"
+install -Dm755 "$scanner" "$appdir/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+install -Dm755 /usr/bin/bwrap "$appdir/usr/bin/bwrap"
+install -Dm755 /usr/bin/xdg-dbus-proxy "$appdir/usr/bin/xdg-dbus-proxy"
+deploy_extra=()
+while IFS= read -r -d '' item; do
+  if [[ -x "$item" && "$item" != *.so ]]; then deploy_extra+=(--executable "$item");
+  elif [[ "$item" == *.so ]]; then deploy_extra+=(--library "$item"); fi
+done < <(find "$appdir$webkit_dir" "$appdir/usr/lib/gtk-4.0" "$appdir/usr/lib/gstreamer-1.0" "$appdir/usr/libexec" -type f -print0)
+deploy_extra+=(--executable "$appdir/usr/bin/bwrap" --executable "$appdir/usr/bin/xdg-dbus-proxy")
 export APPIMAGE_EXTRACT_AND_RUN=1 DEPLOY_GTK_VERSION=4
-"$tool" --appdir "$appdir" --executable "$appdir/usr/bin/luma-mail" --desktop-file "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop" --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg" --plugin gtk
+"$tool" --appdir "$appdir" --executable "$appdir/usr/bin/luma-mail" "${deploy_extra[@]}" --desktop-file "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop" --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg" --plugin gtk
+python3 packaging/relocate-webkit.py "$appdir" "$webkit_dir"
 hook="$appdir/apprun-hooks/linuxdeploy-plugin-gtk.sh"
 test -f "$hook"
 sed -i '/^export GDK_BACKEND=x11 /d; /^export GTK_THEME=/d' "$hook"
@@ -57,6 +84,14 @@ cat >> "$hook" <<'EOF'
 # Use the bundled ABI-compatible settings module to read the host dconf daemon.
 export GIO_MODULE_DIR="$APPDIR/usr/lib/gio/modules"
 export GIO_EXTRA_MODULES="$APPDIR/usr/lib/gio/modules${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}"
+export GTK_EXE_PREFIX="$APPDIR/usr"
+export GST_PLUGIN_SYSTEM_PATH_1_0="$APPDIR/usr/lib/gstreamer-1.0"
+export GST_PLUGIN_SCANNER="$APPDIR/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+# Mail does not create an unbudgeted per-user GStreamer registry cache.
+export GST_REGISTRY=/dev/null
+export GST_REGISTRY_UPDATE=no
+# Release WebKit uses compiled helper paths, relocated relative to this directory.
+cd "$APPDIR/usr"
 # Keep host-installed cursor themes visible, including user-local themes.
 export XCURSOR_PATH="${XCURSOR_PATH:-${XDG_DATA_HOME:-$HOME/.local/share}/icons:$HOME/.icons:/usr/local/share/icons:/usr/share/icons:/usr/share/pixmaps}"
 EOF

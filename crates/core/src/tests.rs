@@ -545,6 +545,7 @@ async fn gmail_trash_and_restore_use_endpoints() {
     for action in ["trash", "untrash"] {
         Mock::given(method("POST"))
             .and(path(format!("/messages/m/{action}")))
+            .and(header("Content-Length", "0"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
             .expect(1)
             .mount(&server)
@@ -553,6 +554,15 @@ async fn gmail_trash_and_restore_use_endpoints() {
     let g = gmail(&server);
     g.act("m", true, &MailAction::Trash).await.unwrap();
     g.act("m", true, &MailAction::Restore).await.unwrap();
+    assert!(
+        server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .all(|r| r.body.is_empty()),
+        "Trash/untrash endpoints require an empty request body"
+    );
 }
 #[tokio::test]
 async fn remote_search_is_paged_and_does_not_fetch_bodies() {
@@ -569,11 +579,25 @@ async fn remote_search_is_paged_and_does_not_fetch_bodies() {
         .expect(1)
         .mount(&server)
         .await;
-    let m = message("m", 50);
+    let mut m = message("m", 50);
+    m.payload.headers.push(Header {
+        name: "Message-ID".into(),
+        value: "<search@example.com>".into(),
+    });
     Mock::given(method("GET"))
         .and(path("/threads/t"))
-        .and(query_param("format", "full"))
+        .and(query_param("format", "metadata"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"t","messages":[m]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param(
+            "q",
+            "has:attachment {rfc822msgid:\"search@example.com\"}",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[]})))
         .expect(1)
         .mount(&server)
         .await;
@@ -646,6 +670,128 @@ async fn google_403_quota_uses_bounded_read_retries() {
         .mount(&server)
         .await;
     assert!(gmail(&server).thread("a").await.is_err());
+}
+
+#[tokio::test]
+async fn forbidden_errors_explain_permissions_without_exposing_response_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(403).set_body_json(json!({"error":{
+            "message":"PRIVATE-RESPONSE-CONTENT", "errors":[{"reason":"insufficientPermissions"}]
+        }})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let error = gmail(&server).thread("a").await.unwrap_err().to_string();
+    assert!(error.contains("permission missing"));
+    assert!(!error.contains("PRIVATE-RESPONSE-CONTENT"));
+}
+
+#[tokio::test]
+async fn visible_list_uses_metadata_and_exact_bounded_attachment_query() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("q", "in:inbox "))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path("/threads/a"))
+        .and(query_param("format", "metadata"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{
+            "id":"m","threadId":"a","internalDate":"1","snippet":"preview", "payload":{"headers":[
+                {"name":"Message-ID","value":"<one@example.com>"},
+                {"name":"Subject","value":"visible subject"}
+            ]}
+        }]})))
+        .expect(1).mount(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param(
+            "q",
+            "has:attachment {rfc822msgid:\"one@example.com\"}",
+        ))
+        .and(query_param("maxResults", "100"))
+        .and(query_param("includeSpamTrash", "true"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = gmail(&server).list(&Folder::Inbox, "", None).await.unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].subject, "visible subject");
+    assert_eq!(page.items[0].snippet, "preview");
+    assert!(page.items[0].attachments);
+    let requests = server.received_requests().await.unwrap();
+    assert!(!requests.iter().any(|r| {
+        r.url
+            .query_pairs()
+            .any(|(k, v)| k == "format" && v == "full")
+    }));
+    assert_eq!(requests.len(), 3);
+}
+
+#[tokio::test]
+async fn invalid_rfc_id_uses_projected_metadata_without_query_injection() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("q", "in:inbox "))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path("/threads/a"))
+        .and(query_param("format", "metadata"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{
+            "id":"m", "payload":{"headers":[{"name":"Message-ID","value":"bad\"} OR in:anywhere"}]}
+        }]})))
+        .expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/threads/a"))
+        .and(query_param("format", "full"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{
+            "id":"m", "payload":{"parts":[{"filename":"one.txt", "body":{"size":12,"attachmentId":"att"}}]}
+        }]})))
+        .expect(1).mount(&server).await;
+    let page = gmail(&server).list(&Folder::Inbox, "", None).await.unwrap();
+    assert!(page.items[0].attachments);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 3);
+    assert!(
+        requests
+            .iter()
+            .filter_map(|r| r.url.query_pairs().find(|(k, _)| k == "fields"))
+            .all(|(_, v)| !v.contains("body(data"))
+    );
+}
+
+#[tokio::test]
+async fn empty_projected_attachment_search_keeps_visible_mail() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("q", "in:inbox "))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path("/threads/a")).and(query_param("format","metadata"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{"id":"m","threadId":"a","payload":{"headers":[{"name":"Message-ID","value":"<one@example.com>"}]}}]})))
+        .expect(1).mount(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param(
+            "q",
+            "has:attachment {rfc822msgid:\"one@example.com\"}",
+        ))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = gmail(&server).list(&Folder::Inbox, "", None).await.unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert!(!page.items[0].attachments);
 }
 #[test]
 fn only_uncertain_writes_require_reconciliation() {

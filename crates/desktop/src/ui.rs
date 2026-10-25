@@ -22,6 +22,11 @@ use std::{
     time::Duration,
 };
 
+#[path = "ui_actions.rs"]
+mod actions;
+#[path = "ui_rows.rs"]
+mod rows;
+
 pub struct State {
     pub app: adw::Application,
     pub window: adw::ApplicationWindow,
@@ -34,9 +39,18 @@ pub struct State {
     pub status: gtk::Label,
     pub sidebar: gtk::Box,
     pub list: gtk::ListBox,
+    row_widgets: RefCell<HashMap<ThreadKey, rows::MailRow>>,
+    changing_selection: Cell<bool>,
+    pub attachment_window: RefCell<glib::WeakRef<adw::Window>>,
+    mutation_serial: Cell<u64>,
+    row_revisions: RefCell<HashMap<ThreadKey, u64>>,
+    toasts: adw::ToastOverlay,
     list_scroll: gtk::ScrolledWindow,
     refresh_button: gtk::Button,
     pub reader: gtk::Box,
+    pub compose_stack: gtk::Stack,
+    pub(crate) editor: RefCell<Option<Rc<crate::compose::Editor>>>,
+    pub reply_slot: RefCell<glib::WeakRef<gtk::Box>>,
     pub title: gtk::Label,
     pub more: gtk::Button,
     pub folder: RefCell<Folder>,
@@ -50,7 +64,7 @@ pub struct State {
     pub unread: RefCell<HashMap<String, u64>>,
     labels_cache: RefCell<HashMap<String, Vec<Label>>>,
     operation_busy: Cell<bool>,
-    undo: RefCell<Vec<(String, String, Vec<MailAction>)>>,
+    undo: RefCell<Vec<actions::Undo>>,
     undo_button: gtk::Button,
     generation: Cell<u64>,
     reading: Cell<u64>,
@@ -100,6 +114,9 @@ impl State {
     pub fn info(&self, text: &str) {
         self.status.remove_css_class("error");
         self.status.set_text(text);
+    }
+    pub fn toast(&self, text: &str) {
+        self.toasts.add_toast(adw::Toast::new(text));
     }
     pub fn save(&self) {
         if let Some(timer) = self.pending_save.borrow_mut().take() {
@@ -176,6 +193,13 @@ pub fn button(icon: &str, tip: &str) -> gtk::Button {
 }
 
 pub fn create(app: &adw::Application, mailto: Option<String>) {
+    static ICONS: std::sync::Once = std::sync::Once::new();
+    ICONS.call_once(|| {
+        gio::resources_register_include!("luma.gresource").expect("Built-in icon resources")
+    });
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::IconTheme::for_display(&display).add_resource_path("/io/github/lumamail/Luma/icons");
+    }
     let setup = || -> Result<_> {
         let paths = Paths::discover()?;
         let settings = paths.load()?;
@@ -236,6 +260,11 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     );
     undo_button.set_sensitive(false);
     header.pack_start(&undo_button);
+    let select = gtk::ToggleButton::builder()
+        .icon_name("object-select-symbolic")
+        .tooltip_text("Select conversations for bulk actions")
+        .build();
+    header.pack_start(&select);
     header.pack_end(&prefs);
     let quit_button = button("application-exit-symbolic", "Quit Luma completely");
     header.pack_end(&quit_button);
@@ -261,11 +290,18 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     heading.append(&search);
     let scope = label("All enabled accounts", "caption");
     heading.append(&scope);
-    let search_options = gtk::Button::with_label("Search options & accounts…");
-    heading.append(&search_options);
+    let search_options = button("luma-filter-symbolic", "Search options and account filters");
+    search_options.add_css_class("flat");
+    let search_bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    heading.remove(&search);
+    search_bar.append(&search);
+    search_bar.append(&search_options);
+    heading.prepend(&search_bar);
+    heading.reorder_child_after(&search_bar, Some(&title));
     center.append(&heading);
     let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::Multiple);
+    list.set_sort_func(rows::sort);
+    list.set_selection_mode(gtk::SelectionMode::Single);
     list.add_css_class("navigation-sidebar");
     let list_scroll = gtk::ScrolledWindow::builder()
         .vexpand(true)
@@ -310,7 +346,13 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     margins(&status, 10);
     status.set_wrap(true);
     root.append(&status);
-    window.set_content(Some(&root));
+    let toasts = adw::ToastOverlay::new();
+    let compose_stack = gtk::Stack::new();
+    compose_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
+    compose_stack.set_transition_duration(160);
+    compose_stack.add_named(&root, Some("mail"));
+    toasts.set_child(Some(&compose_stack));
+    window.set_content(Some(&toasts));
     let s = Rc::new(State {
         app: app.clone(),
         window,
@@ -323,6 +365,15 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         status,
         sidebar,
         list,
+        row_widgets: RefCell::new(HashMap::new()),
+        changing_selection: Cell::new(false),
+        compose_stack,
+        editor: RefCell::new(None),
+        reply_slot: RefCell::new(glib::WeakRef::new()),
+        attachment_window: RefCell::new(glib::WeakRef::new()),
+        mutation_serial: Cell::new(0),
+        row_revisions: RefCell::new(HashMap::new()),
+        toasts,
         list_scroll,
         refresh_button: refresh.clone(),
         reader,
@@ -381,20 +432,51 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     }
     {
         let s = s.clone();
-        s.clone().more.connect_clicked(move |_| load_more(&s));
+        s.clone().more.connect_clicked(move |_| {
+            if s.more.label().as_deref() == Some("Retry loading Gmail") {
+                manual_refresh(&s);
+            } else {
+                load_more(&s);
+            }
+        });
     }
     {
         let s = s.clone();
         s.clone().search.connect_activate(move |_| reload(&s));
     }
     {
+        let state = s.clone();
+        select.connect_toggled(move |button| {
+            state.changing_selection.set(true);
+            state.list.unselect_all();
+            state.list.set_selection_mode(if button.is_active() {
+                gtk::SelectionMode::Multiple
+            } else {
+                gtk::SelectionMode::Single
+            });
+            if button.is_active() {
+                state.list.add_css_class("selection-mode");
+                state.info("Selection mode · Choose conversations for bulk actions");
+            } else {
+                state.list.remove_css_class("selection-mode");
+                if let Some(key) = state.selected.borrow().as_ref()
+                    && let Some(row) = state.row_widgets.borrow().get(key)
+                {
+                    state.list.select_row(Some(&row.row));
+                }
+                state.info("Selection mode off");
+            }
+            state.changing_selection.set(false);
+        });
+    }
+    {
         let s = s.clone();
         s.clone().list.connect_row_activated(move |_, r| {
-            let key = s
-                .rows
-                .borrow()
-                .get(r.index() as usize)
-                .map(|r| r.key.clone());
+            if s.changing_selection.get() || s.list.selection_mode() == gtk::SelectionMode::Multiple
+            {
+                return;
+            }
+            let key = rows::key(&s, r);
             if let Some(k) = key {
                 let current = s.selected.borrow().clone();
                 if current.as_ref() != Some(&k) {
@@ -406,12 +488,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     {
         let s = s.clone();
         s.clone().list.connect_row_selected(move |_, row| {
+            if s.changing_selection.get() || s.list.selection_mode() == gtk::SelectionMode::Multiple
+            {
+                return;
+            }
             if let Some(r) = row {
-                let key = s
-                    .rows
-                    .borrow()
-                    .get(r.index() as usize)
-                    .map(|r| r.key.clone());
+                let key = rows::key(&s, r);
                 if let Some(k) = key {
                     let current = s.selected.borrow().clone();
                     if current.as_ref() != Some(&k) {
@@ -474,6 +556,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     if let Some(uri) = mailto {
         crate::compose::mailto(&s, &uri);
     }
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|arg| arg == "--design-preview")
+        && std::env::var_os("LUMA_TEST_ROOT").is_some()
+    {
+        crate::design_preview::show(&s);
+    }
 }
 fn empty_reader(s: &State) {
     clear(&s.reader);
@@ -488,7 +576,13 @@ fn empty_reader(s: &State) {
 }
 pub fn sidebar(s: &Rc<State>) {
     clear(&s.sidebar);
-    let compose = gtk::Button::with_label("Compose");
+    let compose = gtk::Button::new();
+    compose.set_child(Some(
+        &adw::ButtonContent::builder()
+            .icon_name("mail-message-new-symbolic")
+            .label("Compose")
+            .build(),
+    ));
     compose.add_css_class("suggested-action");
     compose.add_css_class("pill");
     s.sidebar.append(&compose);
@@ -496,17 +590,24 @@ pub fn sidebar(s: &Rc<State>) {
         let s = s.clone();
         compose.connect_clicked(move |_| crate::compose::open(&s, None, None));
     }
-    for (name, folder) in [
-        ("Unified Inbox", Folder::Inbox),
-        ("All Mail", Folder::AllMail),
-        ("Unread", Folder::Unread),
-        ("Starred", Folder::Starred),
-        ("Sent", Folder::Sent),
-        ("Drafts", Folder::Drafts),
-        ("Archive", Folder::Archive),
-        ("Trash", Folder::Trash),
+    for (icon, name, folder) in [
+        ("luma-inbox-symbolic", "Unified Inbox", Folder::Inbox),
+        ("mail-unread-symbolic", "All Mail", Folder::AllMail),
+        ("mail-mark-important-symbolic", "Unread", Folder::Unread),
+        ("starred-symbolic", "Starred", Folder::Starred),
+        ("mail-send-symbolic", "Sent", Folder::Sent),
+        ("document-edit-symbolic", "Drafts", Folder::Drafts),
+        ("luma-archive-symbolic", "Archive", Folder::Archive),
+        ("user-trash-symbolic", "Trash", Folder::Trash),
     ] {
-        let b = gtk::Button::with_label(name);
+        let b = gtk::Button::new();
+        let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        content.append(&gtk::Image::from_icon_name(icon));
+        content.append(&label(name, ""));
+        b.set_child(Some(&content));
+        if *s.folder.borrow() == folder && s.filter.borrow().is_none() {
+            b.add_css_class("active-folder");
+        }
         b.add_css_class("flat");
         s.sidebar.append(&b);
         let s = s.clone();
@@ -514,6 +615,7 @@ pub fn sidebar(s: &Rc<State>) {
             *s.folder.borrow_mut() = folder.clone();
             *s.filter.borrow_mut() = None;
             s.title.set_text(name);
+            sidebar(&s);
             reload(&s);
         });
     }
@@ -521,16 +623,24 @@ pub fn sidebar(s: &Rc<State>) {
     heading.set_margin_top(20);
     s.sidebar.append(&heading);
     for a in s.settings.borrow().accounts.clone() {
-        let b = gtk::Button::with_label(&format!(
-            "{}\n{}{}",
-            format_args!(
-                "{} · {} unread",
-                a.name,
-                s.unread.borrow().get(&a.id).copied().unwrap_or(0)
-            ),
-            a.email,
-            if a.enabled { "" } else { " · disabled" }
-        ));
+        let b = gtk::Button::new();
+        let account = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        account.append(&rows::avatar(&a.email, 30));
+        let text = vbox(3);
+        text.set_hexpand(true);
+        let name = label(&a.name, "account-name");
+        name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        text.append(&name);
+        let email = label(&a.email, "account-caption");
+        email.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        email.set_max_width_chars(20);
+        text.append(&email);
+        account.append(&text);
+        let unread = s.unread.borrow().get(&a.id).copied().unwrap_or(0);
+        if unread > 0 {
+            account.append(&label(&unread.to_string(), "thread-count"));
+        }
+        b.set_child(Some(&account));
         b.add_css_class("flat");
         b.set_sensitive(a.enabled);
         s.sidebar.append(&b);
@@ -592,14 +702,23 @@ pub fn reload(s: &Rc<State>) {
     reload_view(s, false);
 }
 pub fn manual_refresh(s: &Rc<State>) {
-    reload(s);
+    if s.page_request
+        .borrow()
+        .as_ref()
+        .is_some_and(|task| !task.is_finished())
+    {
+        s.info("Refresh is already running · Your current view is kept");
+        return;
+    }
+    reload_view(s, true);
     if let Some(account) = s.filter.borrow().clone() {
         load_labels(s, &account);
     }
     crate::notifications::poll_now(s, false);
 }
 pub fn refresh_background(s: &Rc<State>) {
-    if s.rows.borrow().len() > 25
+    if s.operation_busy.get()
+        || s.rows.borrow().len() > 25
         || s.list.selected_rows().len() > 1
         || s.list_scroll.vadjustment().value() > 1.
     {
@@ -612,6 +731,10 @@ pub fn refresh_background(s: &Rc<State>) {
     reload_view(s, true);
 }
 fn reload_view(s: &Rc<State>, preserve_reader: bool) {
+    if preserve_reader && s.operation_busy.get() {
+        s.info("Gmail action in progress · Refresh again when it finishes");
+        return;
+    }
     s.refresh_button.remove_css_class("suggested-action");
     s.refresh_button.set_tooltip_text(Some(
         "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
@@ -620,12 +743,7 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
         s.list
             .selected_rows()
             .iter()
-            .filter_map(|row| {
-                s.rows
-                    .borrow()
-                    .get(row.index() as usize)
-                    .map(|v| v.key.clone())
-            })
+            .filter_map(|row| rows::key(s, row))
             .collect()
     } else {
         HashSet::new()
@@ -635,6 +753,7 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
     }
     s.generation.set(s.generation.get() + 1);
     if !preserve_reader {
+        crate::compose::park_inline(s);
         cancel_body_requests(s);
         s.reading.set(s.reading.get() + 1);
         if let Some(t) = s.reader_request.borrow_mut().take() {
@@ -643,11 +762,8 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
         *s.selected.borrow_mut() = None;
         *s.selected_message.borrow_mut() = None;
     }
-    s.rows.borrow_mut().clear();
-    while let Some(c) = s.list.first_child() {
-        s.list.remove(&c);
-    }
     if !preserve_reader {
+        rows::clear_rows(s);
         empty_reader(s);
     }
     let filter = s.filter.borrow().clone();
@@ -678,6 +794,8 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
     let pager = UnifiedPager::new(clients, s.folder.borrow().clone(), s.search.text().into());
     let shared = s.pager.clone();
     let generation = s.generation.get();
+    let scroll = s.list_scroll.vadjustment().value();
+    let revision = s.mutation_serial.get();
     s.info("Fetching current mailbox state from Gmail…");
     s.more.set_sensitive(false);
     let handle = async_work(
@@ -696,12 +814,31 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
             if s.generation.get() == generation {
                 match result {
                     Ok((rows, more)) => {
-                        display_rows(&s, rows, more);
-                        for (index, row) in s.rows.borrow().iter().enumerate() {
-                            if selection.contains(&row.key) {
-                                s.list
-                                    .select_row(s.list.row_at_index(index as i32).as_ref());
+                        let rows = rows::merge_read(&s, rows, revision, true);
+                        let selection: HashSet<_> = if preserve_reader {
+                            s.list
+                                .selected_rows()
+                                .iter()
+                                .filter_map(|row| rows::key(&s, row))
+                                .collect()
+                        } else {
+                            selection.clone()
+                        };
+                        rows::reconcile(&s, rows, more);
+                        s.changing_selection.set(true);
+                        for key in &selection {
+                            if let Some(row) = s.row_widgets.borrow().get(key) {
+                                s.list.select_row(Some(&row.row));
                             }
+                        }
+                        s.changing_selection.set(false);
+                        if preserve_reader {
+                            let weak = Rc::downgrade(&s);
+                            glib::idle_add_local_once(move || {
+                                if let Some(s) = weak.upgrade() {
+                                    s.list_scroll.vadjustment().set_value(scroll);
+                                }
+                            });
                         }
                     }
                     Err(error) => {
@@ -725,6 +862,7 @@ fn load_more(s: &Rc<State>) {
     s.info("Loading the next page…");
     let shared = s.pager.clone();
     let generation = s.generation.get();
+    let revision = s.mutation_serial.get();
     let handle = async_work(
         s,
         async move {
@@ -741,7 +879,10 @@ fn load_more(s: &Rc<State>) {
         move |s, result| {
             if s.generation.get() == generation {
                 match result {
-                    Ok((rows, more)) => display_rows(&s, rows, more),
+                    Ok((rows, more)) => {
+                        let rows = rows::merge_read(&s, rows, revision, false);
+                        display_rows(&s, rows, more);
+                    }
                     Err(error) => {
                         s.more.set_label("Retry loading more");
                         s.more.set_sensitive(true);
@@ -753,68 +894,11 @@ fn load_more(s: &Rc<State>) {
     );
     *s.page_request.borrow_mut() = Some(handle);
 }
-fn display_rows(s: &Rc<State>, rows: Vec<Conversation>, more: bool) {
-    s.more.set_label("Load 25 more conversations");
-    let accounts = s.settings.borrow().accounts.clone();
-    for item in &rows {
-        let row = vbox(if s.settings.borrow().compact { 3 } else { 7 });
-        margins(&row, 14);
-        let top = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let sender = label(&item.sender, if item.unread { "heading" } else { "" });
-        sender.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        sender.set_hexpand(true);
-        top.append(&sender);
-        if item.starred {
-            top.append(&gtk::Image::from_icon_name("starred-symbolic"));
-        }
-        if item.attachments {
-            top.append(&gtk::Image::from_icon_name("mail-attachment-symbolic"));
-        }
-        let date = chrono::DateTime::from_timestamp_millis(item.date)
-            .map(|t| t.with_timezone(&chrono::Local).format("%d %b").to_string())
-            .unwrap_or_default();
-        top.append(&label(&date, "dim-label"));
-        row.append(&top);
-        let subject = label(
-            if item.subject.is_empty() {
-                "(No subject)"
-            } else {
-                &item.subject
-            },
-            if item.unread { "heading" } else { "" },
-        );
-        subject.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        row.append(&subject);
-        let snippet = label(&item.snippet, "dim-label");
-        snippet.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        row.append(&snippet);
-        let source = accounts
-            .iter()
-            .find(|a| a.id == item.key.account)
-            .map(|a| a.email.as_str())
-            .unwrap_or("Unknown account");
-        row.append(&label(
-            &format!(
-                "{}{} · {}",
-                if item.unread { "● " } else { "" },
-                source,
-                item.count
-            ),
-            "caption",
-        ));
-        s.list.append(&row);
-    }
-    s.rows.borrow_mut().extend(rows);
-    s.more.set_sensitive(more && s.rows.borrow().len() < 1000);
-    s.info(&format!(
-        "{} conversations loaded · Online · Bodies fetched on demand",
-        s.rows.borrow().len()
-    ));
-    if s.rows.borrow().is_empty() {
-        s.info("No conversations match this view. Try another folder or Gmail search.");
-    }
+fn display_rows(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
+    rows::display(s, items, more);
 }
 pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
+    crate::compose::park_inline(s);
     cancel_body_requests(s);
     if let Some(t) = s.reader_request.borrow_mut().take() {
         t.abort();
@@ -844,67 +928,110 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                     .last()
                     .map(|m| m.payload.header("Subject"))
                     .unwrap_or("Conversation"),
-                "title-1",
+                "reader-subject",
             );
             title.set_wrap(true);
             s.reader.append(&title);
             let tools = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            tools.add_css_class("reader-toolbar");
+            let starred = thread.messages.iter().any(|m| m.has("STARRED"));
+            let trash = thread.messages.iter().any(|m| m.has("TRASH"));
             for (icon, tip, action) in [
                 (
-                    "mail-archive-symbolic",
-                    "Archive on Gmail",
+                    "luma-archive-symbolic",
+                    "Archive conversation",
                     MailAction::Archive,
                 ),
                 (
-                    "user-trash-symbolic",
-                    "Move to Gmail Trash",
-                    MailAction::Trash,
+                    if trash {
+                        "edit-undo-symbolic"
+                    } else {
+                        "user-trash-symbolic"
+                    },
+                    if trash {
+                        "Restore from Trash"
+                    } else {
+                        "Move to Trash"
+                    },
+                    if trash {
+                        MailAction::Restore
+                    } else {
+                        MailAction::Trash
+                    },
                 ),
+                ("mail-unread-symbolic", "Mark unread", MailAction::Unread),
                 (
-                    "mail-mark-unread-symbolic",
-                    "Mark unread",
-                    MailAction::Unread,
+                    if starred {
+                        "starred-symbolic"
+                    } else {
+                        "non-starred-symbolic"
+                    },
+                    if starred {
+                        "Remove star"
+                    } else {
+                        "Star conversation"
+                    },
+                    if starred {
+                        MailAction::Unstar
+                    } else {
+                        MailAction::Star
+                    },
                 ),
-                ("starred-symbolic", "Star", MailAction::Star),
-                ("non-starred-symbolic", "Unstar", MailAction::Unstar),
-                ("mail-inbox-symbolic", "Move to inbox", MailAction::Inbox),
-                (
-                    "edit-undo-symbolic",
-                    "Restore from Trash",
-                    MailAction::Restore,
-                ),
+                ("luma-inbox-symbolic", "Move to Inbox", MailAction::Inbox),
             ] {
                 let b = button(icon, tip);
+                b.add_css_class("flat");
                 tools.append(&b);
                 let s = s.clone();
                 b.connect_clicked(move |_| act_selected(&s, action.clone()));
             }
+            let labels = button("luma-tag-symbolic", "Manage labels");
+            labels.add_css_class("flat");
+            tools.append(&labels);
+            let reply = button("mail-reply-sender-symbolic", "Reply inline");
+            reply.add_css_class("flat");
+            tools.append(&reply);
+            {
+                let state = s.clone();
+                reply.connect_clicked(move |_| {
+                    let message = state.selected_message.borrow().clone();
+                    if let Some(message) = message {
+                        crate::compose::open(&state, Some((message, 0)), None);
+                    } else {
+                        state.info("Open a message before replying.");
+                    }
+                });
+            }
             s.reader.append(&tools);
-            let labels = gtk::Button::with_label("Labels…");
-            s.reader.append(&labels);
             {
                 let s = s.clone();
                 labels.connect_clicked(move |_| crate::settings::label_dialog(&s));
             }
             let last = thread.messages.len().saturating_sub(1);
             for (index, message) in thread.messages.into_iter().enumerate() {
-                let e = gtk::Expander::builder()
-                    .label(format!(
-                        "{}  ·  {}{}",
-                        message.payload.header("From"),
-                        chrono::DateTime::from_timestamp_millis(message.date())
-                            .map(|t| t
-                                .with_timezone(&chrono::Local)
-                                .format("%d %b %Y %H:%M")
-                                .to_string())
-                            .unwrap_or_default(),
-                        if message.has("UNREAD") {
-                            " · unread"
-                        } else {
-                            ""
-                        }
-                    ))
-                    .build();
+                let heading = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+                heading.append(&rows::avatar(message.payload.header("From"), 38));
+                let who = vbox(3);
+                who.set_hexpand(true);
+                who.append(&label(
+                    &rows::name(message.payload.header("From")),
+                    "heading",
+                ));
+                let recipients = label(&format!("to {}", message.payload.header("To")), "caption");
+                recipients.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                recipients.set_max_width_chars(36);
+                who.append(&recipients);
+                heading.append(&who);
+                let date = chrono::DateTime::from_timestamp_millis(message.date())
+                    .map(|t| {
+                        t.with_timezone(&chrono::Local)
+                            .format("%d %b · %H:%M")
+                            .to_string()
+                    })
+                    .unwrap_or_default();
+                heading.append(&label(&date, "caption"));
+                let e = gtk::Expander::new(None);
+                e.set_label_widget(Some(&heading));
                 let body = vbox(10);
                 margins(&body, 12);
                 e.set_child(Some(&body));
@@ -926,6 +1053,7 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                         if e.is_expanded() && !s.body_requests.borrow().contains_key(&request_key) {
                             load_message(&s, &body, m.clone(), reading);
                         } else if !e.is_expanded() {
+                            crate::compose::park_inline(&s);
                             if let Some((_, request)) =
                                 s.body_requests.borrow_mut().remove(&request_key)
                             {
@@ -1045,6 +1173,7 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             };
             clear(&target);
             *s.selected_message.borrow_mut() = Some(message.clone());
+            s.reply_slot.borrow_mut().set(Some(&target));
             let details = label(
                 &format!(
                     "From: {}\nTo: {}\nCc: {}",
@@ -1056,66 +1185,44 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             );
             details.set_wrap(true);
             details.set_selectable(true);
-            target.append(&details);
-            let text = label(&text, "");
-            text.set_wrap(true);
-            text.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-            text.set_selectable(true);
-            target.append(&text);
-            for part in message.payload.attachments() {
-                let b = gtk::Button::with_label(&format!(
-                    "Save {} · {} bytes",
-                    part.filename, part.body.size
-                ));
-                target.append(&b);
-                let s = s.clone();
-                let m = message.clone();
-                let p = part.clone();
-                b.connect_clicked(move |_| save_attachment(&s, &m, &p));
+            let recipients = gtk::Expander::builder()
+                .label("Message details")
+                .child(&details)
+                .build();
+            recipients.add_css_class("message-details");
+            target.append(&recipients);
+            if let Some(strip) =
+                crate::attachments::remote_strip(&s, &message, &completed_key.account)
+            {
+                target.append(&strip);
             }
+            target.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+            crate::rendering::append(&s, &target, &message, &text, &completed_key.account);
             let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            actions.add_css_class("message-replies");
             for (name, mode) in [("Reply", 0), ("Reply all", 1), ("Forward", 2)] {
-                let b = gtk::Button::with_label(name);
+                let b = gtk::Button::new();
+                b.add_css_class("flat");
+                b.set_child(Some(
+                    &adw::ButtonContent::builder()
+                        .icon_name(if mode == 2 {
+                            "mail-forward-symbolic"
+                        } else {
+                            "mail-reply-sender-symbolic"
+                        })
+                        .label(name)
+                        .build(),
+                ));
                 actions.append(&b);
                 let s = s.clone();
                 let m = message.clone();
-                b.connect_clicked(move |_| crate::compose::open(&s, Some((m.clone(), mode)), None));
-            }
-            target.append(&actions);
-            let operations = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-            for (name, action) in [
-                ("Mark unread", MailAction::Unread),
-                ("Star", MailAction::Star),
-                ("Unstar", MailAction::Unstar),
-                ("Important", MailAction::Important),
-                ("Not important", MailAction::Unimportant),
-                ("Trash message", MailAction::Trash),
-            ] {
-                let b = gtk::Button::with_label(name);
-                operations.append(&b);
-                let s = s.clone();
-                let id = message.id.clone();
-                let account = s
-                    .selected
-                    .borrow()
-                    .as_ref()
-                    .map(|k| k.account.clone())
-                    .unwrap_or_default();
+                let slot = target.downgrade();
                 b.connect_clicked(move |_| {
-                    perform_targets(
-                        &s,
-                        vec![(
-                            ThreadKey {
-                                account: account.clone(),
-                                id: id.clone(),
-                            },
-                            true,
-                        )],
-                        action.clone(),
-                    )
+                    s.reply_slot.borrow_mut().set(slot.upgrade().as_ref());
+                    crate::compose::open(&s, Some((m.clone(), mode)), None);
                 });
             }
-            target.append(&operations);
+            target.append(&actions);
             if message.has("DRAFT") {
                 let b = gtk::Button::with_label("Edit Gmail draft");
                 target.append(&b);
@@ -1126,51 +1233,13 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             if let Some(error) = read_error {
                 s.info(&format!("Message displayed; marking read failed: {error}"));
             } else {
-                s.info("Message fetched · Read status confirmed by Gmail · Remote images blocked");
+                s.info("Message fetched · Read status confirmed by Gmail");
             }
         },
     );
     s.body_requests
         .borrow_mut()
         .insert(request_key, (serial, handle));
-}
-fn save_attachment(s: &Rc<State>, message: &Message, part: &Part) {
-    let dialog = gtk::FileDialog::builder()
-        .title("Save attachment")
-        .initial_name(
-            std::path::Path::new(&part.filename)
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy(),
-        )
-        .build();
-    let s = s.clone();
-    let m = message.clone();
-    let p = part.clone();
-    let key = s.selected.borrow().clone();
-    glib::MainContext::default().spawn_local(async move {
-        let Ok(file) = dialog.save_future(Some(&s.window)).await else {
-            return;
-        };
-        let Some(path) = file.path() else { return };
-        let Some(key) = key else { return };
-        let Some(c) = s.clients.borrow().get(&key.account).cloned() else {
-            return;
-        };
-        async_work(
-            &s,
-            async move {
-                let data = if let Some(id) = &p.body.attachment_id {
-                    c.attachment(&m.id, id).await?
-                } else {
-                    luma_core::composer::decode_part(&p)?
-                };
-                tokio::fs::write(path, data).await?;
-                Ok(())
-            },
-            |s, ()| s.info("Attachment saved to your chosen location"),
-        );
-    });
 }
 pub fn act_selected(s: &Rc<State>, action: MailAction) {
     if s.operation_busy.get() {
@@ -1181,12 +1250,7 @@ pub fn act_selected(s: &Rc<State>, action: MailAction) {
         .list
         .selected_rows()
         .iter()
-        .filter_map(|r| {
-            s.rows
-                .borrow()
-                .get(r.index() as usize)
-                .map(|r| r.key.clone())
-        })
+        .filter_map(|r| rows::key(s, r))
         .collect();
     if keys.is_empty()
         && let Some(k) = s.selected.borrow().clone()
@@ -1213,6 +1277,8 @@ pub fn act_selected(s: &Rc<State>, action: MailAction) {
 }
 #[cfg(all(test, target_os = "linux"))]
 pub fn verify_view_behaviour(s: &Rc<State>) {
+    assert_eq!(s.list.selection_mode(), gtk::SelectionMode::Single);
+    s.list.set_selection_mode(gtk::SelectionMode::Multiple);
     let rows = (0..26)
         .map(|i| Conversation {
             key: ThreadKey {
@@ -1245,10 +1311,61 @@ pub fn verify_view_behaviour(s: &Rc<State>) {
         "background refresh cannot discard a bulk selection"
     );
     assert!(s.refresh_button.has_css_class("suggested-action"));
-    s.rows.borrow_mut().clear();
-    while let Some(child) = s.list.first_child() {
-        s.list.remove(&child);
-    }
+    let before = s.rows.borrow()[1].clone();
+    let unaffected = s.list.row_at_index(0).unwrap();
+    let changed = s.list.row_at_index(1).unwrap();
+    let mut starred = before.clone();
+    starred.starred = true;
+    let start = s.mutation_serial.get();
+    rows::apply(
+        s,
+        rows::Update {
+            key: before.key.clone(),
+            row: Some(starred),
+            visible: Some(true),
+            selected_labels: None,
+        },
+    );
+    assert_eq!(
+        s.list.row_at_index(0).unwrap(),
+        unaffected,
+        "unaffected widgets must stay in place"
+    );
+    assert_eq!(
+        s.list.row_at_index(1).unwrap(),
+        changed,
+        "star updates retain the selected row widget"
+    );
+    assert_eq!(s.list.selected_rows().len(), 2);
+    assert!(rows::merge_read(s, vec![before.clone()], start, false)[0].starred);
+    rows::apply(
+        s,
+        rows::Update {
+            key: before.key.clone(),
+            row: None,
+            visible: Some(false),
+            selected_labels: None,
+        },
+    );
+    assert!(
+        rows::merge_read(s, vec![before.clone()], start, false).is_empty(),
+        "late pages cannot resurrect archived rows"
+    );
+    rows::apply(
+        s,
+        rows::Update {
+            key: before.key.clone(),
+            row: Some(before),
+            visible: Some(true),
+            selected_labels: None,
+        },
+    );
+    assert_eq!(
+        s.rows.borrow().len(),
+        26,
+        "Undo restores only the removed row"
+    );
+    rows::clear_rows(s);
     s.selected.borrow_mut().take();
     empty_reader(s);
     s.refresh_button.remove_css_class("suggested-action");
@@ -1275,179 +1392,17 @@ pub fn verify_view_behaviour(s: &Rc<State>) {
     s.filter.borrow_mut().take();
     s.labels_cache.borrow_mut().clear();
     sidebar(s);
+    s.list.set_selection_mode(gtk::SelectionMode::Single);
+    crate::compose::verify_formatting();
 }
 fn perform_actions(s: &Rc<State>, keys: Vec<ThreadKey>, action: MailAction) {
     perform_targets(s, keys.into_iter().map(|k| (k, false)).collect(), action);
 }
 fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailAction) {
-    if s.operation_busy.replace(true) {
-        s.info("Wait for the current Gmail operation to finish.");
-        return;
-    }
-    s.undo_button.set_sensitive(false);
-    let label_source = if matches!(action, MailAction::AddLabel(_) | MailAction::RemoveLabel(_)) {
-        s.selected
-            .borrow()
-            .as_ref()
-            .and_then(|key| s.clients.borrow().get(&key.account).cloned())
-    } else {
-        None
-    };
-    let jobs: Vec<_> = keys
-        .into_iter()
-        .filter_map(|(k, message)| {
-            s.clients
-                .borrow()
-                .get(&k.account)
-                .cloned()
-                .map(|c| (k, c, message))
-        })
-        .collect();
-    s.info("Applying changes on Gmail…");
-    async_work(
-        s,
-        async move {
-            let mut success = 0;
-            let mut failures = Vec::new();
-            let mut undo = Vec::new();
-            let label_name = match &action {
-                MailAction::AddLabel(id) | MailAction::RemoveLabel(id) => {
-                    let Some(source) = &label_source else {
-                        return Ok((
-                            0,
-                            vec!["Open a source conversation before applying labels".into()],
-                            undo,
-                        ));
-                    };
-                    match source.labels().await.and_then(|labels| {
-                        labels
-                            .into_iter()
-                            .find(|label| &label.id == id)
-                            .map(|label| label.name)
-                            .ok_or_else(|| {
-                                Error::Invalid("The source label no longer exists".into())
-                            })
-                    }) {
-                        Ok(name) => Some(name),
-                        Err(error) => return Ok((0, vec![error.to_string()], undo)),
-                    }
-                }
-                _ => None,
-            };
-            let mut mapped_labels: HashMap<String, std::result::Result<String, String>> =
-                HashMap::new();
-            for (k, c, message) in jobs {
-                let mut target_action = action.clone();
-                if let Some(name) = &label_name
-                    && label_source
-                        .as_ref()
-                        .is_some_and(|source| source.account != c.account)
-                {
-                    if !mapped_labels.contains_key(&c.account) {
-                        mapped_labels.insert(
-                            c.account.clone(),
-                            c.matching_label(name).await.map_err(|e| e.to_string()),
-                        );
-                    }
-                    match &mapped_labels[&c.account] {
-                        Ok(id) => {
-                            target_action = match action {
-                                MailAction::AddLabel(_) => MailAction::AddLabel(id.clone()),
-                                _ => MailAction::RemoveLabel(id.clone()),
-                            }
-                        }
-                        Err(error) => {
-                            failures.push(format!("{}: {error}", k.account));
-                            continue;
-                        }
-                    }
-                }
-                let before = if message {
-                    c.message_metadata(&k.id).await.map(|m| vec![m])
-                } else {
-                    c.thread(&k.id).await.map(|t| t.messages)
-                };
-                let result = async {
-                    let before = before?;
-                    c.act(&k.id, message, &target_action).await?;
-                    Ok::<_, Error>(before)
-                }
-                .await;
-                match result {
-                    Ok(before) => {
-                        success += 1;
-                        for m in before {
-                            let actions = target_action.undo_for(&m);
-                            if !actions.is_empty() {
-                                undo.push((k.account.clone(), m.id, actions));
-                            }
-                        }
-                    }
-                    Err(e) => failures.push(format!("{}: {e}", k.account)),
-                }
-            }
-            Ok((success, failures, undo))
-        },
-        |s, (success, failures, undo)| {
-            s.operation_busy.set(false);
-            if !undo.is_empty() {
-                *s.undo.borrow_mut() = undo;
-            }
-            s.undo_button.set_sensitive(!s.undo.borrow().is_empty());
-            reload(&s);
-            s.info(&format!(
-                "Gmail confirmed {success} operations; {} failed. {}",
-                failures.len(),
-                failures.first().cloned().unwrap_or_default()
-            ));
-        },
-    );
+    actions::perform(s, keys, action);
 }
 fn undo_last(s: &Rc<State>) {
-    if s.operation_busy.replace(true) {
-        s.info("Wait for the current Gmail operation to finish.");
-        return;
-    }
-    let records = std::mem::take(&mut *s.undo.borrow_mut());
-    s.undo_button.set_sensitive(false);
-    let jobs: Vec<_> = records
-        .into_iter()
-        .filter_map(|(account, message, actions)| {
-            s.clients
-                .borrow()
-                .get(&account)
-                .cloned()
-                .map(|c| (c, account, message, actions))
-        })
-        .collect();
-    async_work(
-        s,
-        async move {
-            let mut failed = vec![];
-            for (c, a, m, actions) in jobs {
-                let mut remaining = vec![];
-                for action in actions {
-                    if c.act(&m, true, &action).await.is_err() {
-                        remaining.push(action);
-                    }
-                }
-                if !remaining.is_empty() {
-                    failed.push((a, m, remaining));
-                }
-            }
-            Ok(failed)
-        },
-        |s, failed| {
-            s.operation_busy.set(false);
-            let count = failed.len();
-            s.undo_button.set_sensitive(!failed.is_empty());
-            *s.undo.borrow_mut() = failed;
-            reload(&s);
-            s.info(&format!(
-                "Undo confirmed on Gmail; {count} messages need a retry"
-            ));
-        },
-    );
+    actions::undo(s);
 }
 pub fn add_account(s: &Rc<State>, drive: bool, expected: Option<String>) {
     crate::signin::open(s, drive, expected);

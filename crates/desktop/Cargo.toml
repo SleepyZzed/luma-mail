@@ -20,6 +20,10 @@ futures-util.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ksni = "0.3.7"
+webkit6 = "0.6"
 
 [dev-dependencies]
 ksni = "0.3.7"
+
+[build-dependencies]
+glib-build-tools = "0.22"

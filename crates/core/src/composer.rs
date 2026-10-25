@@ -345,7 +345,7 @@ pub fn readable(part: &Part) -> Result<String> {
         }
     });
     let Some(selected) = plain.or(html) else {
-        return Ok("No text body is available. Attachments can be saved below.".into());
+        return Ok("No text body is available.".into());
     };
     let data = URL_SAFE_NO_PAD
         .decode(
@@ -368,9 +368,12 @@ pub fn readable(part: &Part) -> Result<String> {
         encoding_rs::Encoding::for_label(charset.as_bytes()).unwrap_or(encoding_rs::UTF_8);
     let (text, _, _) = encoding.decode(&data);
     if selected.mime_type == "text/html" {
-        html2text::from_read(text.as_bytes(), 90)
-            .map_err(|_| Error::Invalid("Cannot display malformed HTML email".into()))
+        html_text(&text)
     } else {
         Ok(text.into_owned())
     }
+}
+pub fn html_text(html: &str) -> Result<String> {
+    html2text::from_read(html.as_bytes(), 90)
+        .map_err(|_| Error::Invalid("Cannot display malformed HTML email".into()))
 }

@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Native libraries
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libgtk-4-media-gstreamer libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav bubblewrap xdg-dbus-proxy libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

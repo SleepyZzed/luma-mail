@@ -1,4 +1,4 @@
-use crate::ui::{self, State, label, margins, vbox};
+use crate::ui::{self, State, label, vbox};
 use adw::prelude::*;
 use gtk::glib;
 use luma_core::{
@@ -14,9 +14,12 @@ use std::{
     time::Duration,
 };
 
-struct Editor {
+pub(crate) struct Editor {
     state: Rc<State>,
     window: adw::Window,
+    root: gtk::Box,
+    placement: Cell<u8>,
+    close_after_save: Cell<bool>,
     from: gtk::DropDown,
     accounts: Vec<luma_core::config::Account>,
     to: gtk::Entry,
@@ -36,10 +39,125 @@ struct Editor {
     busy: Cell<bool>,
     uncertain: Cell<bool>,
     status: gtk::Label,
+    progress: gtk::ProgressBar,
+    send_reveal: gtk::Revealer,
     send: gtk::Button,
     save: gtk::Button,
     debounce: RefCell<Option<glib::SourceId>>,
     closing: Cell<bool>,
+}
+impl Editor {
+    fn parent(&self) -> gtk::Window {
+        if self.placement.get() == 2 {
+            self.window.clone().upcast()
+        } else {
+            self.state.window.clone().upcast()
+        }
+    }
+}
+fn detach(e: &Editor) {
+    if e.placement.get() == 2 {
+        e.window.set_content(None::<&gtk::Widget>);
+    } else if let Some(parent) = e.root.parent() {
+        if let Some(stack) = parent.downcast_ref::<gtk::Stack>() {
+            stack.remove(&e.root);
+        } else if let Some(box_) = parent.downcast_ref::<gtk::Box>() {
+            box_.remove(&e.root);
+        }
+    }
+}
+fn show_full(e: &Rc<Editor>) {
+    if let Some(current) = e.state.editor.borrow().as_ref()
+        && !Rc::ptr_eq(current, e)
+    {
+        e.status
+            .set_text("Another draft is open in the main window. Finish or pop it out first.");
+        return;
+    }
+    let detached = e.placement.get() == 2;
+    detach(e);
+    e.placement.set(0);
+    e.root.remove_css_class("inline-composer");
+    e.state.compose_stack.add_named(&e.root, Some("compose"));
+    e.state.compose_stack.set_visible_child_name("compose");
+    *e.state.editor.borrow_mut() = Some(e.clone());
+    if detached {
+        e.window.set_visible(false);
+    }
+    e.state.window.present();
+    e.text.grab_focus();
+}
+fn pop_out(e: &Rc<Editor>) {
+    if e.placement.get() == 2 {
+        e.window.present();
+        return;
+    }
+    detach(e);
+    e.placement.set(2);
+    e.root.remove_css_class("inline-composer");
+    e.window.set_content(Some(&e.root));
+    e.state.editor.borrow_mut().take();
+    e.state.compose_stack.set_visible_child_name("mail");
+    e.window.present();
+    e.text.grab_focus();
+}
+pub fn park_inline(s: &Rc<State>) {
+    let editor = s.editor.borrow().clone();
+    if let Some(e) = editor
+        && e.placement.get() == 1
+    {
+        detach(&e);
+        e.placement.set(0);
+        e.root.remove_css_class("inline-composer");
+        s.compose_stack.add_named(&e.root, Some("compose"));
+        s.compose_stack.set_visible_child_name("mail");
+    }
+}
+fn finish(e: &Rc<Editor>) {
+    e.closing.set(true);
+    detach(e);
+    let owns = e
+        .state
+        .editor
+        .borrow()
+        .as_ref()
+        .is_some_and(|current| Rc::ptr_eq(current, e));
+    if owns {
+        e.state.editor.borrow_mut().take();
+        e.state.compose_stack.set_visible_child_name("mail");
+    }
+    e.window.destroy();
+}
+fn request_close(e: &Rc<Editor>) -> glib::Propagation {
+    if e.closing.get() {
+        return glib::Propagation::Proceed;
+    }
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|arg| arg == "--design-preview") {
+        return glib::Propagation::Proceed;
+    }
+    if e.busy.get() {
+        e.status.set_text("Finishing the current Gmail request…");
+        e.close_after_save.set(true);
+        return glib::Propagation::Stop;
+    }
+    if e.uncertain.get() {
+        let dialog=adw::AlertDialog::builder().heading("Close after an uncertain request?").body("Check Gmail Sent and Drafts before sending again. Copy any unsaved text you need before closing.").build();
+        dialog.add_responses(&[("cancel", "Keep editing"), ("close", "Close")]);
+        let editor = e.clone();
+        glib::MainContext::default().spawn_local(async move {
+            if dialog.choose_future(Some(&editor.parent())).await == "close" {
+                finish(&editor);
+            }
+        });
+        return glib::Propagation::Stop;
+    }
+    if e.revision.get() != e.saved.get() {
+        e.close_after_save.set(true);
+        persist(e, false);
+        return glib::Propagation::Stop;
+    }
+    glib::Propagation::Proceed
 }
 
 pub fn mailto(s: &Rc<State>, uri: &str) {
@@ -88,18 +206,24 @@ pub fn open(
                 Ok((account, m, parts))
             },
             |s, (account, message, parts)| {
-                open_internal(&s, Some((message, 2)), None, Some((account, parts)))
+                open_internal(&s, Some((message, 2)), None, Some((account, parts)), None)
             },
         );
         return;
     }
-    open_internal(s, reply, prepared, None);
+    let slot = if reply.as_ref().is_some_and(|(_, mode)| *mode < 2) {
+        s.reply_slot.borrow().upgrade()
+    } else {
+        None
+    };
+    open_internal(s, reply, prepared, None, slot);
 }
 fn open_internal(
     s: &Rc<State>,
     reply: Option<(Message, u8)>,
     prepared: Option<(String, Draft, Vec<RetainedAttachment>)>,
     forward: Option<(String, Vec<RetainedAttachment>)>,
+    slot: Option<gtk::Box>,
 ) {
     let (forced, draft, retained) = match prepared {
         Some((a, d, r)) => (Some(a), Some(d), r),
@@ -182,9 +306,40 @@ fn open_internal(
         c.text = a.signature;
     }
     c.retained = retained;
-    make(s, c, draft);
+    make_at(s, c, draft, slot);
+}
+#[cfg(debug_assertions)]
+pub(crate) fn design_preview(s: &Rc<State>, paths: Vec<PathBuf>) {
+    let mut message = Compose::new("alex@example.com".into());
+    message.to = "jamie@example.com".into();
+    message.subject = "Re: Weekend by the coast".into();
+    // Configure local cards after creation without scheduling a real save.
+    message.attachments = paths;
+    make(s, message, None);
+}
+#[cfg(any(debug_assertions, test))]
+pub(crate) fn verify_formatting() {
+    let buffer = gtk::TextBuffer::new(None::<&gtk::TextTagTable>);
+    buffer.set_text("Hello <world> & friends");
+    let tag = gtk::TextTag::new(Some("strong"));
+    buffer.tag_table().add(&tag);
+    buffer.apply_tag(&tag, &buffer.start_iter(), &buffer.iter_at_offset(5));
+    let html = formatted_html(&buffer);
+    assert!(html.contains("<strong>Hello</strong> &lt;world&gt; &amp; friends"));
+    assert!(has_formatting(&buffer));
 }
 fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
+    make_at(s, c, draft, None);
+}
+fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Box>) {
+    let existing = s.editor.borrow().clone();
+    if let Some(editor) = existing {
+        show_full(&editor);
+        editor
+            .status
+            .set_text("Finish or pop out this draft before starting another.");
+        return;
+    }
     let accounts: Vec<_> = s
         .settings
         .borrow()
@@ -204,34 +359,78 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
         .default_width(760)
         .default_height(720)
         .build();
-    let root = vbox(10);
-    root.append(&adw::HeaderBar::new());
-    let form = vbox(8);
-    margins(&form, 18);
+    window.add_css_class("compose-window");
+    let root = vbox(0);
+    let header = adw::HeaderBar::new();
+    header.set_show_end_title_buttons(false);
+    header.set_show_start_title_buttons(false);
+    let back = ui::button("go-previous-symbolic", "Save draft and return to mail");
+    header.pack_start(&back);
+    let popout = ui::button("window-new-symbolic", "Pop out into a separate window");
+    let expand = ui::button("view-fullscreen-symbolic", "Expand composer");
+    header.pack_end(&popout);
+    header.pack_end(&expand);
+    header.set_title_widget(Some(&adw::WindowTitle::new("New message", "Luma Mail")));
+    let save = ui::button("document-save-symbolic", "Save draft to Gmail");
+    save.add_css_class("flat");
+    header.pack_end(&save);
+    root.append(&header);
+    let form = vbox(0);
+    form.set_vexpand(true);
+    let fields = vbox(2);
+    fields.add_css_class("compose-fields");
     let names: Vec<_> = accounts.iter().map(|a| a.email.as_str()).collect();
     let from = gtk::DropDown::from_strings(&names);
+    from.set_hexpand(true);
     from.set_selected(accounts.iter().position(|a| a.email == c.from).unwrap_or(0) as u32);
-    form.append(&label("Sending account", "heading"));
-    form.append(&from);
-    let entry = |hint: &str, value: &str| {
-        let e = gtk::Entry::builder()
+    let from_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    from_row.append(&label("From", "compose-field-label"));
+    from_row.append(&from);
+    fields.append(&from_row);
+    let entry = |title: &str, hint: &str, value: &str| {
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        row.append(&label(title, "compose-field-label"));
+        let field = gtk::Entry::builder()
             .placeholder_text(hint)
             .text(value)
+            .hexpand(true)
             .build();
-        form.append(&e);
-        e
+        row.append(&field);
+        fields.append(&row);
+        (field, row)
     };
-    let to = entry("To · comma-separated recipients", &c.to);
-    let cc = entry("Cc", &c.cc);
-    let bcc = entry("Bcc", &c.bcc);
-    let subject = entry("Subject", &c.subject);
-    let html = gtk::CheckButton::with_label("HTML source mode");
-    html.set_active(c.html);
-    html.set_tooltip_text(Some(
-        "Send the editor contents as HTML. Received mail is always rendered safely as text.",
-    ));
-    form.append(&html);
+    let (to, to_row) = entry("To", "Recipients, separated by commas", &c.to);
+    let (cc, cc_row) = entry("Cc", "Copy recipients", &c.cc);
+    let (bcc, bcc_row) = entry("Bcc", "Hidden recipients", &c.bcc);
+    cc_row.set_visible(!c.cc.is_empty());
+    bcc_row.set_visible(!c.bcc.is_empty());
+    for (title, row) in [("Cc", cc_row), ("Bcc", bcc_row)] {
+        let toggle = gtk::ToggleButton::with_label(title);
+        toggle.add_css_class("flat");
+        toggle.set_active(row.is_visible());
+        toggle.connect_toggled(move |b| row.set_visible(b.is_active()));
+        to_row.append(&toggle);
+    }
+    fields.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    let subject = gtk::Entry::builder()
+        .placeholder_text("Subject")
+        .text(&c.subject)
+        .build();
+    subject.add_css_class("subject-entry");
+    fields.append(&subject);
+    let files = vbox(4);
+    files.add_css_class("attachment-strip");
+    fields.append(
+        &gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .max_content_height(180)
+            .propagate_natural_height(true)
+            .child(&files)
+            .build(),
+    );
+    form.append(&fields);
     let format = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    format.add_css_class("compose-toolbar");
     form.append(&format);
     let text = gtk::TextView::builder()
         .wrap_mode(gtk::WrapMode::WordChar)
@@ -240,6 +439,21 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
         .build();
     text.buffer().set_enable_undo(true);
     text.buffer().set_text(&c.text);
+    for (name, property) in [
+        ("strong", "weight"),
+        ("em", "style"),
+        ("u", "underline"),
+        ("s", "strikethrough"),
+    ] {
+        let tag = gtk::TextTag::new(Some(name));
+        match property {
+            "weight" => tag.set_weight(700),
+            "style" => tag.set_style(gtk::pango::Style::Italic),
+            "underline" => tag.set_underline(gtk::pango::Underline::Single),
+            _ => tag.set_strikethrough(true),
+        }
+        text.buffer().tag_table().add(&tag);
+    }
     form.append(
         &gtk::ScrolledWindow::builder()
             .vexpand(true)
@@ -247,35 +461,71 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
             .child(&text)
             .build(),
     );
-    let files = vbox(4);
-    form.append(&files);
+    let html = gtk::CheckButton::with_label("Edit HTML source");
+    html.set_active(c.html);
+    html.set_tooltip_text(Some(
+        "Advanced: edit the original HTML instead of formatted text",
+    ));
+    let advanced = gtk::Expander::builder()
+        .label("Advanced")
+        .child(&html)
+        .expanded(c.html)
+        .build();
+    advanced.add_css_class("compose-advanced");
+    form.append(&advanced);
+    let progress = gtk::ProgressBar::new();
+    progress.set_visible(false);
+    progress.add_css_class("compose-progress");
+    form.append(&progress);
     let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let attach = gtk::Button::with_label("Attach files");
-    let drive = gtk::Button::with_label("Drive link…");
-    let save = gtk::Button::with_label("Save draft");
-    let send = gtk::Button::with_label("Send");
+    bar.add_css_class("compose-footer");
+    let send = gtk::Button::new();
+    send.set_child(Some(
+        &adw::ButtonContent::builder()
+            .icon_name("mail-send-symbolic")
+            .label("Send")
+            .build(),
+    ));
     send.add_css_class("suggested-action");
-    let discard = gtk::Button::with_label("Discard");
-    for b in [&attach, &drive, &save, &discard, &send] {
-        bar.append(b);
+    send.set_tooltip_text(Some("Send message (Ctrl+Enter)"));
+    let attach = ui::button("mail-attachment-symbolic", "Attach files");
+    let drive = ui::button("folder-remote-symbolic", "Insert a Google Drive link");
+    let discard = ui::button("user-trash-symbolic", "Discard draft");
+    for b in [&attach, &drive, &discard] {
+        b.add_css_class("flat");
     }
-    form.append(&bar);
     let status = label(
         if draft.is_some() {
             "Saved in Gmail"
         } else {
             "Not yet saved"
         },
-        "dim-label",
+        "caption",
     );
+    status.set_hexpand(true);
     status.set_wrap(true);
-    form.append(&status);
-    root.append(&form);
-    window.set_content(Some(&root));
+    bar.append(&send);
+    bar.append(&attach);
+    bar.append(&drive);
+    bar.append(&status);
+    bar.append(&discard);
+    form.append(&bar);
+    let send_reveal = gtk::Revealer::builder()
+        .transition_type(gtk::RevealerTransitionType::SlideUp)
+        .transition_duration(220)
+        .reveal_child(true)
+        .vexpand(true)
+        .child(&form)
+        .build();
+    root.append(&send_reveal);
+
     let is_new = draft.is_none();
     let e = Rc::new(Editor {
         state: s.clone(),
         window,
+        root,
+        placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
+        close_after_save: Cell::new(false),
         from,
         accounts,
         to,
@@ -286,7 +536,7 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
         html,
         files,
         form,
-        attachments: RefCell::new(vec![]),
+        attachments: RefCell::new(c.attachments.clone()),
         retained: RefCell::new(c.retained.clone()),
         template: c,
         draft: RefCell::new(draft),
@@ -295,38 +545,95 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
         busy: Cell::new(false),
         uncertain: Cell::new(false),
         status,
+        progress,
+        send_reveal,
         send,
         save,
         debounce: RefCell::new(None),
         closing: Cell::new(false),
     });
-    for (name, start, end) in [
-        ("Bold", "<strong>", "</strong>"),
-        ("Italic", "<em>", "</em>"),
-        ("Underline", "<u>", "</u>"),
-        ("Strike", "<s>", "</s>"),
-        ("List", "<ul><li>", "</li></ul>"),
-        ("Numbered", "<ol><li>", "</li></ol>"),
-        ("Link", "<a href=\"https://example.com\">", "</a>"),
-    ] {
-        let b = gtk::Button::with_label(name);
-        format.append(&b);
+    {
         let weak = Rc::downgrade(&e);
-        b.connect_clicked(move |_| {
-            let Some(e) = weak.upgrade() else { return };
-            e.html.set_active(true);
-            let buffer = e.text.buffer();
-            if let Some((mut a, mut z)) = buffer.selection_bounds() {
-                let selected = buffer.text(&a, &z, false);
-                buffer.begin_user_action();
-                buffer.delete(&mut a, &mut z);
-                buffer.insert(&mut a, &format!("{start}{selected}{end}"));
-                buffer.end_user_action();
-            } else {
-                buffer.insert_at_cursor(&format!("{start}{end}"));
+        back.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade()
+                && request_close(&e) == glib::Propagation::Proceed
+            {
+                finish(&e);
+            }
+        });
+        let weak = Rc::downgrade(&e);
+        popout.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                pop_out(&e);
+            }
+        });
+        let weak = Rc::downgrade(&e);
+        expand.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                show_full(&e);
             }
         });
     }
+    for (icon, title, tag) in [
+        ("format-text-bold-symbolic", "Bold", "strong"),
+        ("format-text-italic-symbolic", "Italic", "em"),
+        ("format-text-underline-symbolic", "Underline", "u"),
+        ("format-text-strikethrough-symbolic", "Strikethrough", "s"),
+    ] {
+        let b = ui::button(icon, title);
+        b.add_css_class("flat");
+        format.append(&b);
+        let weak = Rc::downgrade(&e);
+        b.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                format_selection(&e, tag);
+            }
+        });
+    }
+    let list = ui::button("view-list-symbolic", "Insert bullet");
+    list.add_css_class("flat");
+    format.append(&list);
+    let weak = Rc::downgrade(&e);
+    list.connect_clicked(move |_| {
+        if let Some(e) = weak.upgrade() {
+            e.text.buffer().insert_at_cursor("• ");
+            e.text.grab_focus();
+        }
+    });
+    let link = ui::button("insert-link-symbolic", "Insert link");
+    link.add_css_class("flat");
+    format.append(&link);
+    let weak = Rc::downgrade(&e);
+    link.connect_clicked(move |_| {
+        if let Some(e) = weak.upgrade() {
+            insert_link(&e);
+        }
+    });
+    let keyboard = gtk::EventControllerKey::new();
+    let weak = Rc::downgrade(&e);
+    keyboard.connect_key_pressed(move |_, key, _, mods| {
+        let Some(e) = weak.upgrade() else {
+            return glib::Propagation::Proceed;
+        };
+        if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) {
+            if key == gtk::gdk::Key::Return {
+                persist(&e, true);
+                return glib::Propagation::Stop;
+            }
+            let tag = match key {
+                gtk::gdk::Key::b => Some("strong"),
+                gtk::gdk::Key::i => Some("em"),
+                gtk::gdk::Key::u => Some("u"),
+                _ => None,
+            };
+            if let Some(tag) = tag {
+                format_selection(&e, tag);
+                return glib::Propagation::Stop;
+            }
+        }
+        glib::Propagation::Proceed
+    });
+    e.window.add_controller(keyboard);
     for field in [&e.to, &e.cc, &e.bcc, &e.subject] {
         let weak = Rc::downgrade(&e);
         field.connect_changed(move |_| {
@@ -345,8 +652,22 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
     }
     {
         let weak = Rc::downgrade(&e);
-        e.html.connect_toggled(move |_| {
+        e.html.connect_toggled(move |mode| {
             if let Some(e) = weak.upgrade() {
+                let buffer = e.text.buffer();
+                if mode.is_active() {
+                    let source = formatted_html(&buffer);
+                    buffer.set_text(&source);
+                } else {
+                    let source = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+                    match luma_core::composer::html_text(&source) {
+                        Ok(text) => buffer.set_text(&text),
+                        Err(error) => {
+                            e.status.set_text(&error.to_string());
+                            return;
+                        }
+                    }
+                }
                 changed(&e);
             }
         });
@@ -403,27 +724,8 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
     {
         let weak = Rc::downgrade(&e);
         e.window.connect_close_request(move |_| {
-            let Some(e)=weak.upgrade()else{return glib::Propagation::Proceed};
-            if e.closing.get() {
-                return glib::Propagation::Proceed;
-            }
-            if e.busy.get() {
-                e.status
-                    .set_text("Wait for the current Gmail request to finish.");
-                return glib::Propagation::Stop;
-            }
-            if e.uncertain.get(){
-                let d=adw::AlertDialog::builder().heading("Close after an uncertain request?").body("Check Gmail Sent and Drafts before sending again. Copy any unsaved text you need before closing.").build();d.add_responses(&[("cancel","Keep open"),("close","Close")]);
-                glib::MainContext::default().spawn_local(async move{if d.choose_future(Some(&e.window)).await=="close"{e.closing.set(true);e.window.close();}});
-                return glib::Propagation::Stop;
-            }
-            if e.revision.get() != e.saved.get() {
-                persist(&e, false);
-                e.status
-                    .set_text("Saving changes. Close again after Gmail confirms Saved.");
-                return glib::Propagation::Stop;
-            }
-            glib::Propagation::Proceed
+            weak.upgrade()
+                .map_or(glib::Propagation::Proceed, |e| request_close(&e))
         });
     }
     // File-list drops use the same size checks as the native attachment picker.
@@ -460,7 +762,16 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
             lifetime.borrow_mut().take();
         });
     }
-    e.window.present();
+    *s.editor.borrow_mut() = Some(e.clone());
+    if let Some(slot) = slot {
+        e.root.add_css_class("inline-composer");
+        slot.append(&e.root);
+        e.text.set_height_request(200);
+        s.window.present();
+        e.text.grab_focus();
+    } else {
+        show_full(&e);
+    }
     render_files(&e);
     if is_new
         && (!e.template.text.is_empty()
@@ -491,6 +802,153 @@ fn changed(e: &Rc<Editor>) {
     });
     *e.debounce.borrow_mut() = Some(id);
 }
+fn format_selection(e: &Rc<Editor>, tag: &str) {
+    if e.html.is_active() {
+        e.status
+            .set_text("Switch off HTML source to use visual formatting.");
+        return;
+    }
+    let buffer = e.text.buffer();
+    if let Some((a, z)) = buffer.selection_bounds() {
+        if let Some(format) = buffer.tag_table().lookup(tag) {
+            if a.has_tag(&format) {
+                buffer.remove_tag(&format, &a, &z);
+            } else {
+                buffer.apply_tag(&format, &a, &z);
+            }
+            changed(e);
+        }
+    } else {
+        e.status
+            .set_text("Select some text, then apply formatting.");
+    }
+    e.text.grab_focus();
+}
+fn escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+fn formatting(iter: &gtk::TextIter) -> Vec<String> {
+    let mut names: Vec<_> = iter
+        .tags()
+        .iter()
+        .filter_map(|tag| tag.name().map(|n| n.to_string()))
+        .filter(|n| matches!(n.as_str(), "strong" | "em" | "u" | "s") || n.starts_with("link:"))
+        .collect();
+    names.sort();
+    names
+}
+fn has_formatting(buffer: &gtk::TextBuffer) -> bool {
+    let mut iter = buffer.start_iter();
+    while !iter.is_end() {
+        if !formatting(&iter).is_empty() {
+            return true;
+        }
+        iter.forward_char();
+    }
+    false
+}
+fn formatted_html(buffer: &gtk::TextBuffer) -> String {
+    let mut output = String::from("<div style=\"white-space:pre-wrap\">");
+    let mut iter = buffer.start_iter();
+    let mut previous: Vec<String> = Vec::new();
+    while !iter.is_end() {
+        let tags = formatting(&iter);
+        if tags != previous {
+            for tag in previous.iter().rev() {
+                output.push_str(&format!(
+                    "</{}>",
+                    if tag.starts_with("link:") { "a" } else { tag }
+                ));
+            }
+            for tag in &tags {
+                if let Some(url) = tag.strip_prefix("link:") {
+                    output.push_str(&format!("<a href=\"{}\">", escape(url)));
+                } else {
+                    output.push_str(&format!("<{tag}>"));
+                }
+            }
+            previous = tags;
+        }
+        let ch = iter.char();
+        if ch == '\n' {
+            output.push_str("<br>\n");
+        } else {
+            output.push_str(&escape(&ch.to_string()));
+        }
+        iter.forward_char();
+    }
+    for tag in previous.iter().rev() {
+        output.push_str(&format!(
+            "</{}>",
+            if tag.starts_with("link:") { "a" } else { tag }
+        ));
+    }
+    output.push_str("</div>");
+    output
+}
+fn insert_link(e: &Rc<Editor>) {
+    if e.html.is_active() {
+        e.status
+            .set_text("Switch off HTML source to insert a link visually.");
+        return;
+    }
+    let url = gtk::Entry::builder()
+        .placeholder_text("https://example.com")
+        .build();
+    let dialog = adw::AlertDialog::builder()
+        .heading("Insert link")
+        .extra_child(&url)
+        .build();
+    dialog.add_responses(&[("cancel", "Cancel"), ("insert", "Insert")]);
+    dialog.set_default_response(Some("insert"));
+    let e = e.clone();
+    glib::MainContext::default().spawn_local(async move {
+        if dialog.choose_future(Some(&e.parent())).await != "insert" {
+            return;
+        }
+        let Ok(url) = url::Url::parse(&url.text()) else {
+            e.status.set_text("Enter a valid https:// link.");
+            return;
+        };
+        if !matches!(url.scheme(), "https" | "http" | "mailto") {
+            e.status
+                .set_text("Use an https://, http:// or mailto: link.");
+            return;
+        }
+        let buffer = e.text.buffer();
+        let (a, z) = if let Some(bounds) = buffer.selection_bounds() {
+            bounds
+        } else {
+            let start = buffer.cursor_position();
+            buffer.insert_at_cursor(url.as_str());
+            (
+                buffer.iter_at_offset(start),
+                buffer.iter_at_offset(buffer.cursor_position()),
+            )
+        };
+        let name = format!("link:{url}");
+        let tag = buffer.tag_table().lookup(&name).unwrap_or_else(|| {
+            let tag = gtk::TextTag::new(Some(&name));
+            tag.set_underline(gtk::pango::Underline::Single);
+            buffer.tag_table().add(&tag);
+            tag
+        });
+        let existing: Vec<_> = a
+            .tags()
+            .into_iter()
+            .filter(|t| t.name().is_some_and(|n| n.starts_with("link:")))
+            .collect();
+        for tag in existing {
+            buffer.remove_tag(&tag, &a, &z);
+        }
+        buffer.apply_tag(&tag, &a, &z);
+        changed(&e);
+        e.text.grab_focus();
+    });
+}
 fn snapshot(e: &Editor) -> Result<Compose> {
     let a = e
         .accounts
@@ -505,6 +963,10 @@ fn snapshot(e: &Editor) -> Result<Compose> {
     let b = e.text.buffer();
     c.text = b.text(&b.start_iter(), &b.end_iter(), false).into();
     c.html = e.html.is_active();
+    if !c.html && has_formatting(&b) {
+        c.text = formatted_html(&b);
+        c.html = true;
+    }
     c.attachments = e.attachments.borrow().clone();
     c.retained = e.retained.borrow().clone();
     Ok(c)
@@ -545,6 +1007,42 @@ fn persist(e: &Rc<Editor>, send: bool) {
     } else {
         "Saving to Gmail…"
     });
+    let progress = std::sync::Arc::new(luma_core::http::UploadProgress::default());
+    let phase = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    e.progress.set_visible(true);
+    e.progress.set_fraction(0.);
+    let weak = Rc::downgrade(e);
+    let transfer = progress.clone();
+    let stage = phase.clone();
+    glib::timeout_add_local(Duration::from_millis(80), move || {
+        let Some(e) = weak.upgrade() else {
+            return glib::ControlFlow::Break;
+        };
+        if !e.busy.get() {
+            return glib::ControlFlow::Break;
+        }
+        let (sent, total) = transfer.snapshot();
+        if stage.load(std::sync::atomic::Ordering::Relaxed) {
+            e.progress.pulse();
+            e.status
+                .set_text("Sending · Waiting for Gmail confirmation…");
+        } else if total == 0 {
+            e.progress.pulse();
+            e.status.set_text("Preparing message and attachments…");
+        } else if sent < total {
+            e.progress.set_fraction(sent as f64 / total as f64);
+            e.status.set_text(&format!(
+                "Uploading message and attachments · {}%",
+                sent * 100 / total
+            ));
+        } else {
+            e.progress.pulse();
+            e.status.set_text("Upload transferred · Waiting for Gmail…");
+        }
+        glib::ControlFlow::Continue
+    });
+    let mut uploading = (*client).clone();
+    uploading.http = client.http.with_upload_progress(progress);
     ui::async_work(
         &e.state,
         async move {
@@ -562,7 +1060,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                 Ok(value) => value,
                 Err(e) => return Ok((Err(e), None, false)),
             };
-            let draft = match client
+            let draft = match uploading
                 .save_draft(existing.as_ref(), &raw, thread.as_deref())
                 .await
             {
@@ -572,6 +1070,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     return Ok((Err(e), None, uncertain));
                 }
             };
+            phase.store(true, std::sync::atomic::Ordering::Relaxed);
             if send && let Err(e) = client.send_draft(&draft).await {
                 let uncertain = e.write_may_have_succeeded();
                 return Ok((Err(e), Some(draft), uncertain));
@@ -580,6 +1079,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
         },
         move |_, (result, persisted, uncertain)| {
             editor.busy.set(false);
+            editor.progress.set_visible(false);
             editor.form.set_sensitive(true);
             editor.save.set_sensitive(true);
             if let Some(draft) = persisted {
@@ -597,9 +1097,35 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     });
                     if send {
                         editor.closing.set(true);
-                        editor.window.close();
-                        ui::reload(&editor.state);
+                        editor.send_reveal.set_reveal_child(false);
+                        editor.state.toast("Sent · Confirmed by Gmail");
+                        let delay = if gtk::Settings::default()
+                            .is_some_and(|s| s.is_gtk_enable_animations())
+                        {
+                            220
+                        } else {
+                            0
+                        };
+                        let sent = editor.clone();
+                        glib::timeout_add_local_once(Duration::from_millis(delay), move || {
+                            finish(&sent);
+                            let selected = sent.state.selected.borrow().clone();
+                            if let Some(key) = selected
+                                && sent
+                                    .draft
+                                    .borrow()
+                                    .as_ref()
+                                    .is_some_and(|d| d.message.thread_id == key.id)
+                            {
+                                ui::open_thread(&sent.state, key);
+                            }
+                            ui::refresh_background(&sent.state);
+                        });
                     } else {
+                        if editor.close_after_save.get() && editor.revision.get() == revision {
+                            finish(&editor);
+                            return;
+                        }
                         editor.send.set_sensitive(true);
                         if editor.revision.get() != revision {
                             changed(&editor);
@@ -628,7 +1154,7 @@ fn attach_files(e: &Rc<Editor>) {
         .build();
     let e = e.clone();
     glib::MainContext::default().spawn_local(async move {
-        let Ok(files) = dialog.open_multiple_future(Some(&e.window)).await else {
+        let Ok(files) = dialog.open_multiple_future(Some(&e.parent())).await else {
             return;
         };
         for i in 0..files.n_items() {
@@ -645,49 +1171,100 @@ fn attach_files(e: &Rc<Editor>) {
     });
 }
 fn render_files(e: &Rc<Editor>) {
+    use crate::attachments::{self, Source};
+    use luma_core::preview::{AUTO_IMAGE_BYTES, Kind};
     ui::clear(&e.files);
+    let count = e.retained.borrow().len() + e.attachments.borrow().len();
+    e.files.set_visible(count > 0);
+    if count == 0 {
+        return;
+    }
+    e.files
+        .append(&label(&format!("{count} attachments"), "caption"));
+    let flow = gtk::FlowBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .column_spacing(8)
+        .row_spacing(8)
+        .max_children_per_line(3)
+        .min_children_per_line(1)
+        .build();
+    e.files.append(&flow);
+    let mut auto_count = 0;
+    let mut auto_bytes = 0;
     for (index, file) in e.retained.borrow().iter().enumerate() {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        row.append(&label(
-            &format!(
-                "{} · {} bytes · Gmail attachment",
-                file.name,
-                file.data.len()
-            ),
-            "dim-label",
-        ));
-        let remove = gtk::Button::with_label("Remove");
-        row.append(&remove);
-        e.files.append(&row);
+        let card = attachments::card(&file.name, &file.mime_type, file.data.len() as u64, true);
         let weak = Rc::downgrade(e);
-        remove.connect_clicked(move |_| {
+        card.open.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade()
+                && let Some(file) = e.retained.borrow().get(index)
+            {
+                attachments::open(
+                    &e.state,
+                    &file.name,
+                    &file.mime_type,
+                    file.data.len() as u64,
+                    Source::Bytes(std::sync::Arc::new(file.data.clone())),
+                );
+            }
+        });
+        let weak = Rc::downgrade(e);
+        card.action.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
                 e.retained.borrow_mut().remove(index);
                 render_files(&e);
                 changed(&e);
             }
         });
+        flow.insert(&card.root, -1);
+        if Kind::of(&file.name, &file.mime_type) == Kind::Image
+            && file.data.len() as u64 <= AUTO_IMAGE_BYTES
+            && auto_count < 4
+            && auto_bytes + file.data.len() <= 12 * 1024 * 1024
+        {
+            auto_count += 1;
+            auto_bytes += file.data.len();
+            attachments::thumbnail(
+                &e.state,
+                &card,
+                Source::Bytes(std::sync::Arc::new(file.data.clone())),
+            );
+        }
     }
-    for (index, path) in e.attachments.borrow().clone().iter().enumerate() {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        row.append(&label(
-            &format!(
-                "{} · {} bytes",
-                path.file_name().unwrap_or_default().to_string_lossy(),
-                std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
-            ),
-            "dim-label",
-        ));
-        let remove = gtk::Button::with_label("Remove");
-        row.append(&remove);
-        e.files.append(&row);
+    for (index, path) in e.attachments.borrow().iter().enumerate() {
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        let bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        let source = Source::Local(path.clone());
+        let card = attachments::card(&name, "", bytes, true);
         let weak = Rc::downgrade(e);
-        remove.connect_clicked(move |_| {
-            let Some(e) = weak.upgrade() else { return };
-            e.attachments.borrow_mut().remove(index);
-            render_files(&e);
-            changed(&e);
+        let open_source = source.clone();
+        let title = name.clone();
+        card.open.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                attachments::open(&e.state, &title, "", bytes, open_source.clone());
+            }
         });
+        let weak = Rc::downgrade(e);
+        card.action.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                e.attachments.borrow_mut().remove(index);
+                render_files(&e);
+                changed(&e);
+            }
+        });
+        flow.insert(&card.root, -1);
+        if Kind::of(&name, "") == Kind::Image
+            && bytes <= AUTO_IMAGE_BYTES
+            && auto_count < 4
+            && auto_bytes as u64 + bytes <= 12 * 1024 * 1024
+        {
+            auto_count += 1;
+            auto_bytes += bytes as usize;
+            attachments::thumbnail(&e.state, &card, source);
+        }
     }
 }
 fn discard_editor(e: &Rc<Editor>) {
@@ -702,7 +1279,7 @@ fn discard_editor(e: &Rc<Editor>) {
     d.set_response_appearance("discard", adw::ResponseAppearance::Destructive);
     let e = e.clone();
     glib::MainContext::default().spawn_local(async move {
-        if d.choose_future(Some(&e.window)).await != "discard" {
+        if d.choose_future(Some(&e.parent())).await != "discard" {
             return;
         }
         // A save may have started while the confirmation was open.
@@ -731,16 +1308,14 @@ fn discard_editor(e: &Rc<Editor>) {
                     editor.busy.set(false);
                     match result {
                         Ok(()) => {
-                            editor.closing.set(true);
-                            editor.window.close();
+                            finish(&editor);
                         }
                         Err(err) => editor.status.set_text(&err.to_string()),
                     }
                 },
             );
         } else {
-            e.closing.set(true);
-            e.window.close();
+            finish(&e);
         }
     });
 }

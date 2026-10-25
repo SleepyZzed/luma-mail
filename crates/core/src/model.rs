@@ -113,7 +113,7 @@ pub struct Thread {
     pub messages: Vec<Message>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Conversation {
     pub key: ThreadKey,
     pub subject: String,
@@ -163,6 +163,29 @@ pub enum Folder {
 }
 
 impl Folder {
+    pub fn matches(&self, thread: &Thread) -> bool {
+        thread.messages.iter().any(|message| {
+            if matches!(self, Self::Trash) {
+                return message.has("TRASH");
+            }
+            if message.has("TRASH") || message.has("SPAM") {
+                return false;
+            }
+            match self {
+                Self::Inbox => message.has("INBOX"),
+                Self::AllMail => true,
+                Self::Unread => message.has("UNREAD"),
+                Self::Starred => message.has("STARRED"),
+                Self::Sent => message.has("SENT"),
+                Self::Drafts => message.has("DRAFT"),
+                Self::Archive => {
+                    !message.has("INBOX") && !message.has("SENT") && !message.has("DRAFT")
+                }
+                Self::Label(id) => message.has(id),
+                Self::Trash => unreachable!(),
+            }
+        })
+    }
     pub fn query(&self) -> String {
         match self {
             Self::Inbox => "in:inbox",
