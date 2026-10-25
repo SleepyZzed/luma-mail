@@ -16,7 +16,19 @@ PY
 gst-launch-1.0 -q videotestsrc num-buffers=30 ! video/x-raw,width=160,height=120,framerate=15/1 ! videoconvert ! vp8enc ! webmmux ! filesink location="$root/video.webm"
 mkdir -p "$root/app/config"
 printf '%s\n' '{"cache_mib":0,"cache_ttl_hours":0}' > "$root/app/config/settings.json"
-timeout 45s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root/app" LUMA_RENDER_MEDIA="$root" XDG_CACHE_HOME="$root/xdg-cache" GST_REGISTRY=/dev/null GST_REGISTRY_UPDATE=no APPIMAGE_EXTRACT_AND_RUN=1 "$1" --render-diagnostics
+mkdir -p "$root/runtime" "$root/xdg-cache"
+chmod 700 "$root/runtime"
+# Start the bus after the display/environment exist, so activated portals inherit
+# them too. A headless runner has no pre-existing graphical session environment.
+export LUMA_TEST_ROOT="$root/app" LUMA_RENDER_MEDIA="$root"
+export XDG_CACHE_HOME="$root/xdg-cache" XDG_RUNTIME_DIR="$root/runtime"
+export GST_REGISTRY=/dev/null GST_REGISTRY_UPDATE=no APPIMAGE_EXTRACT_AND_RUN=1
+export GTK_A11Y=none LIBGL_ALWAYS_SOFTWARE=1
+if ! timeout 45s xvfb-run -a dbus-run-session -- "$1" --render-diagnostics; then
+  echo 'Renderer launch failed; recent kernel sandbox diagnostics follow'
+  sudo journalctl -k --no-pager -n 60 || true
+  exit 1
+fi
 test ! -d "$root/app/cache/bodies"
 test ! -d "$root/app/config/composer"
 echo 'PASS zero-budget HTML/media creates no body cache, attachment spool or local draft store'
