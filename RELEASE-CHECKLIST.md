@@ -71,7 +71,7 @@ palette are tracked separately from the 20 mandatory behaviours.
 - [x] Retain label navigation and protect account-scoped bulk label actions.
 - [x] Retry failed reads, cancel unnecessary body requests and preserve busy views.
 - [x] Debounce preference text edits and flush settings on full exit.
-- [ ] Publish a checked development AppImage for the next Linux acceptance pass.
+- [x] Publish a checked development AppImage for the next Linux acceptance pass: v0.1.1-dev.1.
 
 See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 [docs/verification.md](docs/verification.md) for implementation details and test evidence.

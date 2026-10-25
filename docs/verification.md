@@ -71,3 +71,14 @@ search-date/query validation.
 checks the complete 0.1.1 implementation, including GTK selection/page retention
 and persistent label navigation. The acceptance fixture uses synthetic rows only
 inside the test executable; the shipped application has no fake inbox data.
+
+Final 0.1.1 release: [run 40220658468](https://github.com/SleepyZzed/luma-mail/actions/runs/40220658468)
+passed every check and published
+[v0.1.1-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.1-dev.1)
+from source `221c7a8c6619221ea963be0f16ca185c310b0710`. The downloaded
+42,093,048-byte AppImage matched SHA256SUMS and GitHub's asset digest:
+`10204ded4f2a672e1ea1446adb92c72cf06b18f59f94b49a81566c452d867a72`.
+The native package recipe is pinned to the same Rust implementation in
+`dd6db7d67d0c999a09f0d4e6920a290bad0afde7`; the release commit adds only native
+package/checklist/documentation updates. The recipe's codeload SHA-256 was also
+checked. makepkg/AUR and real Google/Noctalia acceptance remain unexecuted here.

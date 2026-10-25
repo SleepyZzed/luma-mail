@@ -13,7 +13,7 @@ The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptan
 criteria to implementation evidence and the remaining code/desktop checks.
 
 Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
-[Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.0-dev.1)
+[Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.1-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
