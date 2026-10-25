@@ -140,6 +140,16 @@ install the configured 0.1.2 AppImage for the next real Linux acceptance pass.
 - Assessed Gmail IMAP/SMTP OAuth, app passwords and JMAP against the original
   criteria. None removes Google's consent requirements while preserving the
   requested button-only Gmail experience. No provider migration was performed.
+- A browser-only request using Luma's registered client ID, Gmail modify scope,
+  S256 PKCE and a loopback return address reached Google's real account chooser,
+  displaying Luma Mail and the published privacy/terms links. No account was
+  selected and no permission, callback or token exchange was completed. This
+  checks the OAuth entry point, not an installed-app end-to-end login.
+- [Linux run 40226522760](https://github.com/SleepyZzed/luma-mail/actions/runs/40226522760)
+  passed the full build/test/AppImage workflow for homepage source commit
+  `328af0ce7f5d5154ccf0d7cb63c2dbf41e471a0a`. Rust application sources did not
+  change in this publication batch. GitHub's release API confirmed prerelease
+  status and the unchanged AppImage digest after the release-note update.
 
 The current protocol decision and verification limits are in [oauth.md](oauth.md).
 Formal verification, uncapped sign-in and the 20 live acceptance checks remain
