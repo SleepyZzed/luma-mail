@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Luma Mail — Privacy policy</title><link rel="stylesheet" href="site.css"></head>
+<body>
+<header><nav class="wrap" aria-label="Main navigation"><a class="brand" href="./">Luma Mail</a><div class="navlinks"><a href="https://github.com/SleepyZzed/luma-mail">Source</a><a href="privacy.html" aria-current="page">Privacy</a><a href="terms.html">Terms</a></div></nav></header>
+<main class="wrap prose">
+<p class="eyebrow">Effective 25 October 2026</p><h1>Privacy policy</h1>
+<p>This policy describes the Luma Mail desktop application and this project website. The project is maintained by <a href="https://github.com/SleepyZzed">SleepyZzed</a>. Privacy and support contact: <a href="mailto:mcverdict@gmail.com">mcverdict@gmail.com</a>.</p>
+<h2>Google data Luma accesses</h2>
+<p>When you connect an account, Luma accesses your Gmail address, message and conversation metadata, labels, unread counts, and message contents needed for the views and actions you request. It loads conversation lists in pages, bodies when expanded, and attachments when you open, save, forward or edit them. Searches run on Gmail. Polling retrieves recent changes for notifications.</p>
+<p>The <code>gmail.modify</code> permission enables reading, composing and sending email; creating and updating drafts and labels; and read/unread, star, archive and Trash operations. It does not allow immediate permanent deletion that bypasses Trash. You complete Google's consent in your browser; Luma does not request your Google password.</p>
+<p>If you enable optional Drive integration, Luma requests <code>drive.file</code> permission for files created or explicitly authorized for the application. Selected files can be uploaded to Drive, linked in mail and shared with the recipients you confirm. Luma does not automatically make files public. Existing-file selection is limited in the current early-access build.</p>
+<h2>Where data goes</h2>
+<p>The desktop application connects directly to Google over HTTPS. Luma has no application server that receives your mail, attachments or OAuth tokens. Sending mail and granting Drive sharing transmit the selected content to Google and the recipients you choose. Opening an external link uses your browser and the destination's own privacy practices.</p>
+<p>Luma does not sell Google user data, use it for advertising, build advertising profiles, or use it to train generalized AI or machine-learning models. It does not include analytics or automatic telemetry. The maintainer does not receive or routinely review your mailbox contents. Information you voluntarily send for support is visible to its recipients; public GitHub issues are public. Do not include private mail, credentials or tokens in reports.</p>
+<h2>Local storage and retention</h2>
+<p>Refresh tokens are stored in your Linux Secret Service keyring, with encrypted keyring transport. Access tokens are held in application memory. Account identifiers, preferences, polling state and optional bounded cached content are stored locally in XDG application locations. Your desktop session and keyring configuration control protection of data at rest.</p>
+<p>The content cache defaults to 100 MB and supports disabling, size limits, expiry, immediate clearing and clearing on exit. Luma does not maintain a full-mailbox mirror, local historical search index or attachment archive. Credentials, essential settings/account metadata and files explicitly saved to a location you choose are outside the disposable content-cache budget. See the <a href="https://github.com/SleepyZzed/luma-mail/blob/main/docs/storage.md">storage documentation</a> for exact limits.</p>
+<h2>Your controls and deletion</h2>
+<p>You can clear cached content, disable notifications or an account, and remove an account in Settings. Removal deletes its local credentials and cache and attempts to revoke authorization at Google. It does not delete mail from Gmail. You can also revoke Luma's access in <a href="https://myaccount.google.com/connections">Google Account connections</a>. Explicitly downloaded files remain until you delete them. Uninstalling the program alone may leave settings, cache and keyring items; use the <a href="https://github.com/SleepyZzed/luma-mail#uninstall">uninstall instructions</a>.</p>
+<h2>Website hosting</h2>
+<p>This static website is hosted on GitHub Pages. It has no sign-in form, analytics scripts or cookies set by Luma. GitHub processes connection information, including visitor IP addresses, under its <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">privacy statement</a>. Downloads and issue reports are also hosted by GitHub.</p>
+<h2>Google Limited Use</h2>
+<p>Luma Mail's use and transfer of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+<h2>Changes and questions</h2>
+<p>Policy changes are published here with an updated effective date and recorded in the public repository. Contact <a href="mailto:mcverdict@gmail.com">mcverdict@gmail.com</a> with questions or a deletion request for information you sent directly for support. The maintainer cannot delete data held only on your desktop or in your Google account on your behalf.</p>
+</main><footer><div class="wrap"><a href="./">Luma Mail home</a><a href="terms.html">Terms of use</a></div></footer>
+</body></html>
