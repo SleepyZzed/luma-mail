@@ -35,6 +35,19 @@ async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mut settings = paths.load()?;
     match args.get(1).map(String::as_str) {
+        Some("sanitize-local") => {
+            let html = std::fs::read_to_string(paths.config.join("inspected-mail.html"))?;
+            let safe = luma_core::html_mail::document(&html, std::collections::HashMap::new());
+            std::fs::write(paths.config.join("inspected-mail-sanitized.html"), &safe)?;
+            println!(
+                "Local render: {} tables preserved; grey background={}, purple button={}",
+                safe.matches("<table").count(),
+                safe.to_ascii_lowercase()
+                    .contains("background-color:#e5e3e8"),
+                safe.to_ascii_lowercase()
+                    .contains("background-color:#9147ff")
+            );
+        }
         Some("connect") => {
             let drive = args.iter().any(|a| a == "--drive");
             let filters = args.iter().any(|a| a == "--filters");
@@ -91,7 +104,7 @@ async fn main() -> Result<()> {
                 "PASS real Google consent, OS vault storage, fresh refresh-token exchange and Gmail profile"
             );
         }
-        Some("check") | Some("exercise") | Some("filters") => {
+        Some("check") | Some("exercise") | Some("filters") | Some("inspect-html") => {
             let account = settings
                 .accounts
                 .last()
@@ -104,6 +117,47 @@ async fn main() -> Result<()> {
             println!("Checking fresh OAuth refresh and profile…");
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
+            }
+            if args[1] == "inspect-html" {
+                let query = args.get(2).ok_or_else(|| {
+                    Error::Invalid("Specify the exact authorized message query".into())
+                })?;
+                let response: serde_json::Value = luma_core::http::json(
+                    gmail
+                        .call(
+                            reqwest::Method::GET,
+                            "/messages",
+                            &[
+                                ("q", query.clone()),
+                                ("maxResults", "1".into()),
+                                ("fields", "messages(id)".into()),
+                            ],
+                            None,
+                        )
+                        .await?,
+                )
+                .await?;
+                let id = response["messages"][0]["id"]
+                    .as_str()
+                    .ok_or_else(|| Error::Invalid("No matching message".into()))?;
+                let message = gmail.message(id).await?;
+                let html = luma_core::html_mail::body(&message.payload)?
+                    .ok_or_else(|| Error::Invalid("No HTML body".into()))?;
+                let sources = luma_core::mail_images::sources(&message.payload);
+                let safe = luma_core::html_mail::document(&html, std::collections::HashMap::new());
+                // Explicitly requested diagnostic artifact in the isolated test root.
+                std::fs::write(paths.config.join("inspected-mail.html"), &html)?;
+                std::fs::write(paths.config.join("inspected-mail-sanitized.html"), &safe)?;
+                println!(
+                    "HTML diagnostic only: {} bytes, {} image sources, {} style blocks, {} class attributes, {} tables; sanitized {} bytes, {} tables. Private source saved only in the isolated test directory.",
+                    html.len(),
+                    sources.len(),
+                    html.matches("<style").count(),
+                    html.matches("class=").count(),
+                    html.matches("<table").count(),
+                    safe.len(),
+                    safe.matches("<table").count()
+                );
             }
             if args[1] == "filters" {
                 if !account.sender_controls {

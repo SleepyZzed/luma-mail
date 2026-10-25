@@ -33,6 +33,10 @@ pub(crate) struct Editor {
     form: gtk::Box,
     attachments: RefCell<Vec<PathBuf>>,
     retained: RefCell<Vec<RetainedAttachment>>,
+    drive_files: RefCell<Vec<luma_core::drive::DriveFile>>,
+    uploads: luma_core::compose_drive::UploadCache,
+    upload_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    cancel_upload: gtk::Button,
     template: Compose,
     draft: RefCell<Option<Draft>>,
     revision: Cell<u64>,
@@ -277,6 +281,15 @@ fn open_internal(
     let mut c = Compose::new(a.email.clone());
     if let Some(d) = &draft {
         let p = &d.message.payload;
+        c.drive_files = match luma_core::compose_drive::draft_references(
+            p.header("X-Luma-Drive-Attachments"),
+        ) {
+            Ok(files) => files,
+            Err(error) => {
+                s.error(&error);
+                return;
+            }
+        };
         c.to = p.header("To").into();
         c.cc = p.header("Cc").into();
         c.bcc = p.header("Bcc").into();
@@ -355,6 +368,7 @@ pub(crate) fn verify_formatting() {
     let html = formatted_html(&buffer);
     assert!(html.contains("<strong>Hello</strong> &lt;world&gt; &amp; friends"));
     assert!(has_formatting(&buffer));
+    crate::compose_lists::verify();
 }
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
@@ -558,7 +572,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let progress = gtk::ProgressBar::new();
     progress.set_visible(false);
     progress.add_css_class("compose-progress");
-    form.append(&progress);
+    progress.set_show_text(true);
     let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     bar.add_css_class("compose-footer");
     let send = gtk::Button::new();
@@ -600,6 +614,11 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         .child(&form)
         .build();
     root.append(&send_reveal);
+    let cancel_upload = gtk::Button::with_label("Cancel Drive upload");
+    cancel_upload.set_visible(false);
+    cancel_upload.set_halign(gtk::Align::End);
+    root.append(&progress);
+    root.append(&cancel_upload);
 
     let is_new = draft.is_none();
     let e = Rc::new(Editor {
@@ -621,6 +640,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         form,
         attachments: RefCell::new(c.attachments.clone()),
         retained: RefCell::new(c.retained.clone()),
+        drive_files: RefCell::new(c.drive_files.clone()),
+        uploads: Default::default(),
+        upload_cancel: Default::default(),
+        cancel_upload,
         template: c,
         draft: RefCell::new(draft),
         revision: Cell::new(0),
@@ -635,6 +658,11 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         debounce: RefCell::new(None),
         closing: Cell::new(false),
     });
+    {
+        let flag = e.upload_cancel.clone();
+        e.cancel_upload
+            .connect_clicked(move |_| flag.store(true, std::sync::atomic::Ordering::Relaxed));
+    }
     {
         let weak = Rc::downgrade(&e);
         back.connect_clicked(move |_| {
@@ -673,13 +701,18 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             }
         });
     }
-    let list = ui::button("view-list-symbolic", "Insert bullet");
+    let list = ui::button("view-list-symbolic", "Toggle bullet list");
     list.add_css_class("flat");
     format.append(&list);
     let weak = Rc::downgrade(&e);
     list.connect_clicked(move |_| {
         if let Some(e) = weak.upgrade() {
-            e.text.buffer().insert_at_cursor("• ");
+            if e.html.is_active() {
+                e.status
+                    .set_text("Switch off HTML source to edit a visual list.");
+                return;
+            }
+            crate::compose_lists::toggle(&e.text.buffer());
             e.text.grab_focus();
         }
     });
@@ -693,6 +726,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         }
     });
     let keyboard = gtk::EventControllerKey::new();
+    keyboard.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = Rc::downgrade(&e);
     keyboard.connect_key_pressed(move |_, key, _, mods| {
         let Some(e) = weak.upgrade() else {
@@ -716,7 +750,55 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         }
         glib::Propagation::Proceed
     });
-    e.window.add_controller(keyboard);
+    e.root.add_controller(keyboard);
+    // Recipient fields and Subject form one text-entry focus chain; formatting,
+    // attachment and Cc/Bcc toggle controls do not interrupt ordinary Tab entry.
+    for (index, field) in [&e.to, &e.cc, &e.bcc, &e.subject].iter().enumerate() {
+        let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        let weak = Rc::downgrade(&e);
+        keys.connect_key_pressed(move |_, key, _, mods| {
+            if !matches!(key, gtk::gdk::Key::Tab | gtk::gdk::Key::ISO_Left_Tab)
+                || mods.intersects(
+                    gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::ALT_MASK,
+                )
+            {
+                return glib::Propagation::Proceed;
+            }
+            let Some(e) = weak.upgrade() else {
+                return glib::Propagation::Proceed;
+            };
+            let fields = [&e.to, &e.cc, &e.bcc, &e.subject];
+            let backwards = key == gtk::gdk::Key::ISO_Left_Tab
+                || mods.contains(gtk::gdk::ModifierType::SHIFT_MASK);
+            if backwards {
+                if let Some(field) = fields[..index].iter().rev().find(|f| f.is_mapped()) {
+                    field.grab_focus();
+                } else {
+                    e.from.grab_focus();
+                }
+            } else if let Some(field) = fields[index + 1..].iter().find(|f| f.is_mapped()) {
+                field.grab_focus();
+            } else {
+                e.text.grab_focus();
+            }
+            glib::Propagation::Stop
+        });
+        field.add_controller(keys);
+    }
+    let list_keys = gtk::EventControllerKey::new();
+    list_keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let weak = Rc::downgrade(&e);
+    list_keys.connect_key_pressed(move |_, key, _, mods| {
+        if let Some(e) = weak.upgrade()
+            && !e.html.is_active()
+            && crate::compose_lists::key(&e.text.buffer(), key, mods)
+        {
+            return glib::Propagation::Stop;
+        }
+        glib::Propagation::Proceed
+    });
+    e.text.add_controller(list_keys);
     for field in [&e.to, &e.cc, &e.bcc, &e.subject] {
         let weak = Rc::downgrade(&e);
         field.connect_changed(move |_| {
@@ -932,6 +1014,13 @@ fn formatting(iter: &gtk::TextIter) -> Vec<String> {
     names
 }
 fn has_formatting(buffer: &gtk::TextBuffer) -> bool {
+    if buffer
+        .text(&buffer.start_iter(), &buffer.end_iter(), false)
+        .lines()
+        .any(|line| crate::compose_lists::prefix(line).is_some())
+    {
+        return true;
+    }
     let mut iter = buffer.start_iter();
     while !iter.is_end() {
         if !formatting(&iter).is_empty() {
@@ -943,9 +1032,54 @@ fn has_formatting(buffer: &gtk::TextBuffer) -> bool {
 }
 fn formatted_html(buffer: &gtk::TextBuffer) -> String {
     let mut output = String::from("<div style=\"white-space:pre-wrap\">");
-    let mut iter = buffer.start_iter();
+    let mut depth = 0;
+    for n in 0..buffer.line_count() {
+        let start = buffer.iter_at_line(n).unwrap_or_else(|| buffer.end_iter());
+        let mut end = start;
+        end.forward_to_line_end();
+        let text = buffer.text(&start, &end, false);
+        if let Some((level, skip)) = crate::compose_lists::prefix(&text) {
+            let target = (level + 1).min(depth + 1);
+            if target > depth {
+                while depth < target {
+                    output.push_str("<ul><li>");
+                    depth += 1;
+                }
+            } else {
+                while depth > target {
+                    output.push_str("</li></ul>");
+                    depth -= 1;
+                }
+                output.push_str("</li><li>");
+            }
+            output.push_str(&formatted_range(
+                buffer,
+                start.offset() + skip,
+                end.offset(),
+            ));
+        } else {
+            while depth > 0 {
+                output.push_str("</li></ul>");
+                depth -= 1;
+            }
+            output.push_str(&formatted_range(buffer, start.offset(), end.offset()));
+            if n + 1 < buffer.line_count() {
+                output.push_str("<br>\n");
+            }
+        }
+    }
+    while depth > 0 {
+        output.push_str("</li></ul>");
+        depth -= 1;
+    }
+    output.push_str("</div>");
+    output
+}
+fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
+    let mut output = String::new();
+    let mut iter = buffer.iter_at_offset(begin);
     let mut previous: Vec<String> = Vec::new();
-    while !iter.is_end() {
+    while iter.offset() < end {
         let tags = formatting(&iter);
         if tags != previous {
             for tag in previous.iter().rev() {
@@ -977,7 +1111,6 @@ fn formatted_html(buffer: &gtk::TextBuffer) -> String {
             if tag.starts_with("link:") { "a" } else { tag }
         ));
     }
-    output.push_str("</div>");
     output
 }
 fn insert_link(e: &Rc<Editor>) {
@@ -1060,6 +1193,7 @@ fn snapshot(e: &Editor) -> Result<Compose> {
     }
     c.attachments = e.attachments.borrow().clone();
     c.retained = e.retained.borrow().clone();
+    c.drive_files = e.drive_files.borrow().clone();
     Ok(c)
 }
 fn persist(e: &Rc<Editor>, send: bool) {
@@ -1084,9 +1218,23 @@ fn persist(e: &Rc<Editor>, send: bool) {
         return;
     };
     let existing = e.draft.borrow().clone();
+    let drive_enabled = e
+        .state
+        .settings
+        .borrow()
+        .accounts
+        .iter()
+        .find(|account| account.id == a.id)
+        .is_some_and(|a| a.drive_enabled);
+    let cache = e.uploads.clone();
+    let cancel = e.upload_cancel.clone();
+    cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+    let (drive_progress, drive_rx) =
+        tokio::sync::watch::channel(luma_core::compose_drive::Progress::default());
     let revision = e.revision.get();
     let editor = e.clone();
     e.busy.set(true);
+    e.files.set_sensitive(false);
     if send {
         e.form.set_sensitive(false);
     }
@@ -1113,7 +1261,31 @@ fn persist(e: &Rc<Editor>, send: bool) {
             return glib::ControlFlow::Break;
         }
         let (sent, total) = transfer.snapshot();
-        if stage.load(std::sync::atomic::Ordering::Relaxed) {
+        let drive = drive_rx.borrow().clone();
+        e.cancel_upload
+            .set_visible(!drive.name.is_empty() && !drive.sharing);
+        if drive.sharing {
+            e.progress.pulse();
+            e.progress.set_text(Some("Granting recipient access"));
+            e.status.set_text(&format!(
+                "Sharing {} with the message recipients…",
+                drive.name
+            ));
+        } else if !drive.name.is_empty() {
+            e.progress
+                .set_fraction(drive.done as f64 / drive.total.max(1) as f64);
+            let text = format!(
+                "{} · {} / {} · {}%",
+                drive.name,
+                luma_core::preview::size(drive.done),
+                luma_core::preview::size(drive.total),
+                drive.done.saturating_mul(100) / drive.total.max(1)
+            );
+            e.progress.set_text(Some(&text));
+            e.status
+                .set_text("Uploading large attachment privately to Google Drive…");
+        } else if stage.load(std::sync::atomic::Ordering::Relaxed) {
+            e.progress.set_text(Some("Waiting for Gmail"));
             e.progress.pulse();
             e.status
                 .set_text("Sending · Waiting for Gmail confirmation…");
@@ -1138,16 +1310,32 @@ fn persist(e: &Rc<Editor>, send: bool) {
         &e.state,
         async move {
             // Keep errors in the completion value so controls recover on failure.
+            let c = match luma_core::compose_drive::prepare(
+                c,
+                &client,
+                drive_enabled,
+                cache,
+                drive_progress.clone(),
+                cancel,
+            )
+            .await
+            {
+                Ok(c) => c,
+                Err(error) => return Ok((Err(error), None, false)),
+            };
             let raw = match tokio::task::spawn_blocking(move || {
                 let raw = c.mime()?;
-                Ok::<_, Error>((raw, c.thread))
+                let mut sharing = c;
+                sharing.attachments.clear();
+                sharing.retained.clear();
+                Ok::<_, Error>((raw, sharing.thread.clone(), sharing))
             })
             .await
             {
                 Ok(v) => v,
                 Err(_) => Err(Error::Invalid("MIME preparation failed".into())),
             };
-            let (raw, thread) = match raw {
+            let (raw, thread, sharing) = match raw {
                 Ok(value) => value,
                 Err(e) => return Ok((Err(e), None, false)),
             };
@@ -1161,6 +1349,13 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     return Ok((Err(e), None, uncertain));
                 }
             };
+            if send
+                && let Err(error) =
+                    luma_core::compose_drive::share_for_send(&client, &sharing, &drive_progress)
+                        .await
+            {
+                return Ok((Err(error), Some(draft), false));
+            }
             phase.store(true, std::sync::atomic::Ordering::Relaxed);
             if send && let Err(e) = client.send_draft(&draft).await {
                 let uncertain = e.write_may_have_succeeded();
@@ -1171,6 +1366,9 @@ fn persist(e: &Rc<Editor>, send: bool) {
         move |_, (result, persisted, uncertain)| {
             editor.busy.set(false);
             editor.progress.set_visible(false);
+            editor.cancel_upload.set_visible(false);
+            editor.files.set_sensitive(true);
+            reconcile_drive_uploads(&editor);
             editor.form.set_sensitive(true);
             editor.save.set_sensitive(true);
             if let Some(draft) = persisted {
@@ -1241,7 +1439,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
 }
 fn attach_files(e: &Rc<Editor>) {
     let dialog = gtk::FileDialog::builder()
-        .title("Attach files (16 MiB combined)")
+        .title("Attach files · Large files use Google Drive")
         .build();
     let e = e.clone();
     glib::MainContext::default().spawn_local(async move {
@@ -1261,11 +1459,90 @@ fn attach_files(e: &Rc<Editor>) {
         changed(&e);
     });
 }
+fn reconcile_drive_uploads(e: &Rc<Editor>) {
+    let Some(account) = e.accounts.get(e.from.selected() as usize) else {
+        return;
+    };
+    let paths = e.attachments.borrow().clone();
+    for path in paths {
+        let Some(file) = luma_core::compose_drive::cached(&e.uploads, &account.id, &path) else {
+            continue;
+        };
+        if !e.drive_files.borrow().iter().any(|f| f.id == file.id) {
+            let mut block = Compose {
+                html: e.html.is_active(),
+                ..Default::default()
+            };
+            if luma_core::compose_drive::append_link(&mut block, &file).is_err() {
+                continue;
+            }
+            let buffer = e.text.buffer();
+            let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+            let link = luma_core::drive::verified_link(&file).unwrap_or_default();
+            if !text.contains(&link) {
+                let offset = buffer.end_iter().offset();
+                let mut end = buffer.end_iter();
+                buffer.begin_user_action();
+                buffer.insert(&mut end, &block.text);
+                if !e.html.is_active()
+                    && let Some(index) = block.text.find(&link)
+                {
+                    let name = format!("link:{link}");
+                    let tag = buffer.tag_table().lookup(&name).unwrap_or_else(|| {
+                        let tag = gtk::TextTag::builder()
+                            .name(&name)
+                            .underline(gtk::pango::Underline::Single)
+                            .foreground("#6254c7")
+                            .build();
+                        buffer.tag_table().add(&tag);
+                        tag
+                    });
+                    let start = offset + block.text[..index].chars().count() as i32;
+                    buffer.apply_tag(
+                        &tag,
+                        &buffer.iter_at_offset(start),
+                        &buffer.iter_at_offset(start + link.chars().count() as i32),
+                    );
+                }
+                buffer.end_user_action();
+            }
+            e.drive_files.borrow_mut().push(file);
+        }
+        e.attachments.borrow_mut().retain(|p| p != &path);
+    }
+    e.uploads.lock().expect("upload cache").clear();
+    render_files(e);
+}
+fn remove_drive_link(e: &Rc<Editor>, file: &luma_core::drive::DriveFile) {
+    let mut block = Compose {
+        html: e.html.is_active(),
+        ..Default::default()
+    };
+    if luma_core::compose_drive::append_link(&mut block, file).is_ok() {
+        let buffer = e.text.buffer();
+        let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+        if let Some(index) = text.find(&block.text) {
+            let start = text[..index].chars().count() as i32;
+            let end = start + block.text.chars().count() as i32;
+            buffer.begin_user_action();
+            buffer.delete(
+                &mut buffer.iter_at_offset(start),
+                &mut buffer.iter_at_offset(end),
+            );
+            buffer.end_user_action();
+        }
+    }
+    e.drive_files.borrow_mut().retain(|f| f.id != file.id);
+    render_files(e);
+    changed(e);
+    e.status.set_text("Drive link removed from this draft. The uploaded file stays private or retains existing sharing in Drive.");
+}
 fn render_files(e: &Rc<Editor>) {
     use crate::attachments::{self, Source};
     use luma_core::preview::{AUTO_IMAGE_BYTES, Kind};
     ui::clear(&e.files);
-    let count = e.retained.borrow().len() + e.attachments.borrow().len();
+    let count =
+        e.retained.borrow().len() + e.attachments.borrow().len() + e.drive_files.borrow().len();
     e.files.set_visible(count > 0);
     if count == 0 {
         return;
@@ -1280,6 +1557,37 @@ fn render_files(e: &Rc<Editor>) {
         .min_children_per_line(1)
         .build();
     e.files.append(&flow);
+    for file in e.drive_files.borrow().clone() {
+        let card = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        card.add_css_class("attachment-card");
+        let icon = gtk::Image::from_icon_name("folder-remote-symbolic");
+        card.append(&icon);
+        let labels = vbox(3);
+        let name = label(&file.name, "heading");
+        name.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+        name.set_max_width_chars(24);
+        labels.append(&name);
+        labels.append(&label("Google Drive · shared on Send", "caption"));
+        card.append(&labels);
+        let open = ui::button("external-link-symbolic", "Open Drive attachment");
+        let state = e.state.clone();
+        let link = luma_core::drive::verified_link(&file).ok();
+        open.connect_clicked(move |_| {
+            if let Some(link) = &link {
+                crate::rendering::open_link(&state, link);
+            }
+        });
+        card.append(&open);
+        let remove = ui::button("window-close-symbolic", "Remove Drive link from draft");
+        let weak = Rc::downgrade(e);
+        remove.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                remove_drive_link(&e, &file);
+            }
+        });
+        card.append(&remove);
+        flow.insert(&card, -1);
+    }
     let mut auto_count = 0;
     let mut auto_bytes = 0;
     for (index, file) in e.retained.borrow().iter().enumerate() {

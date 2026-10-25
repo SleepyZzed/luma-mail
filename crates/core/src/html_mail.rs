@@ -103,7 +103,9 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
             "overflow-wrap",
         ]))
         .attribute_filter(move |tag, attribute, value| {
-            if tag == "img" && attribute == "src" {
+            if attribute == "style" {
+                Some(Cow::Owned(normalize_backgrounds(value)))
+            } else if tag == "img" && attribute == "src" {
                 images
                     .get(value)
                     .filter(|s| s.starts_with("data:image/png;base64,"))
@@ -121,6 +123,58 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
     format!(
         r#"<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; connect-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{{color-scheme:light}}body{{margin:0;padding:16px;background:#fff;color:#202124;font:16px/1.5 system-ui,sans-serif;overflow-wrap:anywhere}}img{{max-width:100%;height:auto}}table{{max-width:100%}}pre{{white-space:pre-wrap}}a{{color:#6254c7}}</style></head><body>{safe}</body></html>"#
     )
+}
+// Newsletter templates commonly use background:#fff / background:#9147ff.
+// Normalize only inert colour shorthand before the CSS allowlist. Background
+// images, imports and arbitrary shorthand never become renderer requests.
+fn normalize_backgrounds(style: &str) -> String {
+    style
+        .split(';')
+        .filter_map(|declaration| {
+            let Some((name, value)) = declaration.split_once(':') else {
+                return Some(declaration.to_owned());
+            };
+            if !name.trim().eq_ignore_ascii_case("background") {
+                return Some(declaration.to_owned());
+            }
+            let value = value.trim().to_ascii_lowercase();
+            let (colour, priority) = value
+                .strip_suffix("!important")
+                .map(|v| (v.trim(), " !important"))
+                .unwrap_or((&value, ""));
+            let hex = colour.strip_prefix('#').is_some_and(|v| {
+                matches!(v.len(), 3 | 4 | 6 | 8) && v.bytes().all(|b| b.is_ascii_hexdigit())
+            });
+            let named = matches!(
+                colour,
+                "white"
+                    | "black"
+                    | "transparent"
+                    | "currentcolor"
+                    | "red"
+                    | "green"
+                    | "blue"
+                    | "gray"
+                    | "grey"
+                    | "yellow"
+                    | "purple"
+                    | "orange"
+            );
+            let numeric = ["rgb(", "rgba(", "hsl(", "hsla("].iter().any(|prefix| {
+                colour
+                    .strip_prefix(prefix)
+                    .and_then(|s| s.strip_suffix(')'))
+                    .is_some_and(|s| {
+                        !s.is_empty()
+                            && s.len() < 128
+                            && s.bytes()
+                                .all(|b| b.is_ascii_digit() || b".,% /+-".contains(&b))
+                    })
+            });
+            (hex || named || numeric).then(|| format!("background-color:{colour}{priority}"))
+        })
+        .collect::<Vec<_>>()
+        .join(";")
 }
 pub fn links(text: &str) -> Vec<(usize, usize, String)> {
     let mut finder = linkify::LinkFinder::new();
@@ -146,6 +200,27 @@ pub fn links(text: &str) -> Vec<(usize, usize, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn newsletter_background_shorthand_keeps_cards_and_buttons_without_urls() {
+        let html = r##"<table style="background:#E5E3E8"><tr><td style="background: #fff; padding:24px"><a href="https://example.com" style="background:#9147ff !important;color:#fff;display:inline-block;padding:12px 32px">Watch now</a><div style="background:rgb(239, 238, 241)">Footer</div><div style="background:url(https://tracker.invalid/x)">No remote background</div></td></tr></table>"##;
+        let safe = document(html, HashMap::new());
+        for expected in [
+            "background-color:#e5e3e8",
+            "background-color:#fff",
+            "background-color:#9147ff",
+            "background-color:rgb(239, 238, 241)",
+            "padding:12px 32px",
+        ] {
+            assert!(safe.contains(expected), "{expected}: {safe}");
+        }
+        assert!(!safe.contains("tracker.invalid"));
+        assert!(
+            !normalize_backgrounds(
+                "background:expression(alert(1));background:url(file:///private)"
+            )
+            .contains("expression")
+        );
+    }
     #[test]
     fn keeps_newsletter_layout_but_blocks_active_content_and_networks() {
         let html = r##"<table bgcolor="#eee" style="width:600px;background-image:url(https://tracker.invalid/x)"><tr><td style="color:#9146ff;padding:20px"><a href="https://example.com">Watch now</a><img src="https://tracker.invalid/pixel"><script>evil()</script><iframe src="file:///private"></iframe><form><input></form><img src="cid:photo" onerror="evil()"></td></tr></table>"##;

@@ -43,6 +43,7 @@ pub struct Compose {
     pub html: bool,
     pub attachments: Vec<PathBuf>,
     pub retained: Vec<RetainedAttachment>,
+    pub drive_files: Vec<crate::drive::DriveFile>,
     pub thread: Option<String>,
     pub reply_to: String,
     pub references: String,
@@ -245,6 +246,24 @@ impl Compose {
                 "In-Reply-To: {}\r\nReferences: {}\r\n",
                 self.reply_to, self.references
             ));
+        }
+        if !self.drive_files.is_empty() {
+            if self.drive_files.len() > 32 {
+                return Err(Error::ResponseLimit);
+            }
+            let references = serde_json::to_vec(&self.drive_files)?;
+            if references.len() > 8192 {
+                return Err(Error::ResponseLimit);
+            }
+            let encoded = URL_SAFE_NO_PAD.encode(references);
+            out.push_str("X-Luma-Drive-Attachments: ");
+            for (index, chunk) in encoded.as_bytes().chunks(76).enumerate() {
+                if index > 0 {
+                    out.push('\t');
+                }
+                out.push_str(std::str::from_utf8(chunk).expect("base64 ASCII"));
+                out.push_str("\r\n");
+            }
         }
         let boundary = format!("luma_{}", uuid::Uuid::new_v4());
         let multipart = !self.attachments.is_empty() || !self.retained.is_empty();

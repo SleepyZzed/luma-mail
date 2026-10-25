@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(mktemp -d)"
+if [[ -n ${2:-} ]]; then
+  mkdir -p "$(dirname "$2")"
+  export LUMA_RENDER_SCREENSHOT="$(realpath -m "$2")"
+fi
 trap 'rm -rf -- "$root"' EXIT
 python3 - "$root" <<'PY'
 import sys, wave

@@ -24,7 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Native libraries
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libgtk-4-media-gstreamer libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav bubblewrap xdg-dbus-proxy libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
+        timeout-minutes: 15
+        run: sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update && sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libgtk-4-media-gstreamer libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav bubblewrap xdg-dbus-proxy libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -55,7 +56,7 @@ jobs:
       - name: Native GTK launch
         run: dbus-run-session -- xvfb-run -a target/release/luma-mail --smoke-test
       - name: Native HTML and attachment playback
-        run: bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail"
+        run: bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail" dist/native-newsletter.png
       - name: Package AppImage
         run: bash packaging/appimage.sh
       - name: Launch bundled AppImage
@@ -66,7 +67,7 @@ jobs:
       - name: Bundled system cursor settings
         run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-*-x86_64.AppImage
       - name: Bundled HTML engine and attachment playback
-        run: bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage
+        run: bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-newsletter.png
       - uses: actions/upload-artifact@v4
         with:
           name: luma-mail-linux-x86_64

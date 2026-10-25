@@ -1,5 +1,6 @@
 mod attachments;
 mod compose;
+mod compose_lists;
 #[cfg(debug_assertions)]
 mod design_preview;
 mod desktop;

@@ -207,15 +207,15 @@ mod linux {
         view.connect_load_changed(move |view,event| {
             if event!=webkit6::LoadEvent::Finished||tested.replace(true) {return;}
             let weak=view.downgrade();
-            view.evaluate_javascript("JSON.stringify({table:document.querySelectorAll('table').length,link:document.querySelector('a').href,colour:getComputedStyle(document.querySelector('td')).color,scripts:document.querySelectorAll('script,iframe,form').length,executed:document.body.dataset.executed||'',image:document.querySelector('img').naturalWidth})",Some("LumaLayout"),None,None::<&gio::Cancellable>,move |result| {
+            view.evaluate_javascript("JSON.stringify({table:document.querySelectorAll('table').length,link:document.querySelector('a').href,colour:getComputedStyle(document.querySelector('td')).color,button:getComputedStyle(document.querySelector('a')).backgroundColor,background:getComputedStyle(document.querySelector('table')).backgroundColor,scripts:document.querySelectorAll('script,iframe,form').length,executed:document.body.dataset.executed||'',image:document.querySelector('img').naturalWidth})",Some("LumaLayout"),None,None::<&gio::Cancellable>,move |result| {
                 let value=result.expect("HTML engine must evaluate native isolated-world layout");
                 let value:serde_json::Value=serde_json::from_str(&value.to_str()).expect("renderer diagnostic JSON");
-                assert_eq!(value["table"],1);assert_eq!(value["link"],"https://example.com/");assert_eq!(value["colour"],"rgb(145, 70, 255)");assert_eq!(value["scripts"],0);assert_eq!(value["executed"],"");assert_eq!(value["image"],1);
+                assert_eq!(value["table"],1);assert_eq!(value["link"],"https://example.com/");assert_eq!(value["colour"],"rgb(145, 70, 255)");assert_eq!(value["button"],"rgb(145, 71, 255)");assert_eq!(value["background"],"rgb(229, 227, 232)");assert_eq!(value["scripts"],0);assert_eq!(value["executed"],"");assert_eq!(value["image"],1);
                 if let Some(view)=weak.upgrade(){view.set_widget_name("html-diagnostic-passed");}
                 println!("PASS actual WebKit HTML layout, hyperlink, prepared image and inert sender content");
             });
         });
-        let html = r##"<table style="width:500px"><tr><td style="color:#9146ff;padding:24px"><h1>Newsletter preview</h1><a href="https://example.com">Watch now</a><img src="cid:photo"><script>document.body.dataset.executed='yes'</script><iframe src="https://example.invalid"></iframe><form><input></form></td></tr></table>"##;
+        let html = r##"<table cellpadding="32" style="width:600px;background:#E5E3E8"><tr><td style="color:#9146ff;padding:32px;background:#fff;text-align:center"><h1>Newsletter preview</h1><p>A layout check with real HTML, colours and a button.</p><img src="cid:photo"><p><a href="https://example.com" style="background:#9147ff;color:#fff;display:inline-block;padding:12px 32px;border-radius:4px">Watch now</a></p><script>document.body.dataset.executed='yes'</script><iframe src="https://example.invalid"></iframe><form><input></form></td></tr></table>"##;
         let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
         view.load_html(
             &html_mail::document(html, HashMap::from([("cid:photo".into(), png.into())])),
@@ -241,6 +241,7 @@ mod linux {
             streams.push(media);
         }
         let app = s.app.clone();
+        let window = s.window.clone();
         let mut ticks = 0;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
             ticks += 1;
@@ -265,6 +266,17 @@ mod linux {
                 println!(
                     "PASS actual in-memory WAV and WebM decoding/playback; no attachment temp files"
                 );
+                if let Some(path) = std::env::var_os("LUMA_RENDER_SCREENSHOT") {
+                    let paintable = gtk::WidgetPaintable::new(Some(&window));
+                    let snapshot = gtk::Snapshot::new();
+                    paintable.snapshot(&snapshot, window.width() as f64, window.height() as f64);
+                    let node = snapshot.to_node().expect("visible renderer window");
+                    let renderer = window.renderer().expect("native renderer");
+                    renderer
+                        .render_texture(&node, None)
+                        .save_to_png(path)
+                        .expect("renderer screenshot");
+                }
                 app.quit();
                 return glib::ControlFlow::Break;
             }
