@@ -6,7 +6,7 @@ The release stays a development prerelease until every mandatory row passes.
 
 | # | Original acceptance criterion | Current evidence | What remains |
 |---|---|---|---|
-| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring implementation | Import a valid Desktop OAuth client, then verify consent and restart with two real accounts. The first Linux report exposed unclear missing-client onboarding; guided setup is being added. |
+| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring implementation; guided setup regression checked | Import a valid Desktop OAuth client, then verify consent and restart with two real accounts. The first Linux report exposed missing-client onboarding; the guided import fix is implemented. |
 | 2 | Both inboxes display correctly | Gmail list/metadata parsing and account isolation tests | Compare both real inboxes with Gmail, including Workspace if used. |
 | 3 | Unified Inbox merges and sorts accounts | Transactional paging and cross-account sorting tests | Verify live ordering and mailbox changes across two accounts. |
 | 4 | Unified All Mail without full-history downloads | Projected metadata requests, bounded pages, Spam/Trash exclusion tests | Inspect traffic/storage with large real mailboxes. |
@@ -18,7 +18,7 @@ The release stays a development prerelease until every mandatory row passes.
 | 10 | Archive changes Gmail | Removes INBOX with previous-state undo tests | Confirm in Gmail, including mixed-state bulk operations. |
 | 11 | Read/unread changes Gmail | Per-message and conversation remote operations tested | Confirm external persistence, undo and concurrent changes. |
 | 12 | Labels and stars synchronise | Remote label CRUD/modify and star operations implemented | Real persistence; account-scoped bulk label safety and navigation review. |
-| 13 | Search older mail without local indexing | Remote query/pagination tests; no local index | Live old-mail searches; advanced builder and matching-term highlighting. |
+| 13 | Search older mail without local indexing | Remote query/pagination tests, advanced builder/date validation/account subsets; no local index | Live old-mail searches and matching-term highlighting. |
 | 14 | Attachments work without a historical archive | On-demand retrieval, bounded MIME and reopened-draft tests | Real send/download tests; save-all, safe previews, new inline images. |
 | 15 | Large Drive attachments upload/share correctly | Resumable chunks, progress/cancel and recipient grants implemented | Real recipient access, interrupted upload recovery, partial-sharing cleanup and Picker. |
 | 16 | Notifications while running/backgrounded | Linux D-Bus acceptance verifies hide/hold/restore/Quit and system Notify transport | Real incoming Gmail, click-to-open, Noctalia/DND, suspend/reconnect and burst tests. |

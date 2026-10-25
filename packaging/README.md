@@ -3,7 +3,7 @@
 Run `makepkg -si` beside this PKGBUILD. The recipe downloads an immutable
 GitHub source revision, verifies its SHA-256, and builds/tests from the lockfile.
 It installs no daemon or autostart entry. The initial pin is the first published
-implementation; advance `_commit`, `_srcdir` and `sha256sums` together after
+0.1.1 implementation; advance `_commit`, `_srcdir` and `sha256sums` together after
 reviewing later revisions. The AppImage release is built from its tagged commit.
 
 For AUR publication, inspect dependencies and generate `.SRCINFO` with

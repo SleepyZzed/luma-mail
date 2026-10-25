@@ -18,6 +18,15 @@ dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
 
 The ignored Rust acceptance test is compiled only in the test executable. It is
 absent from the shipped application binary and uses a temporary configuration.
+The GTK check also verifies that a missing OAuth client opens one guided setup
+window, repeated Add clicks reuse it, background changes retain loaded pages
+and a bulk selection, and unread/sidebar updates keep label navigation.
+
+The bundled-settings check runs the AppImage on a private D-Bus session with
+isolated configuration, writes a cursor preference through the host dconf
+service, and checks the actual GTK settings inside the bundle. It then checks
+session cursor overrides. It verifies configuration transport, not cursor
+artwork or fractional scaling on the real compositor.
 
 ## Real Gmail tests (deliberate user actions)
 
@@ -61,6 +70,7 @@ tests. Permanent message deletion is not exposed.
 11. Leave Luma running and hide its window with Close to tray enabled. Send yourself a test email. Confirm notification/account,
     privacy mode and click-to-open. Restart: no old-mail notification storm.
     Change polling interval and per-account toggle; check no duplicate alerts.
+    Test a burst larger than 25 messages: later checks must continue the batch.
 12. Test the Noctalia instructions on the installed version: wallpaper, app
     light/dark mode, atomic palette replacement, invalid palette and removal.
 13. Start with cache disabled. Record `du` for the cache/config. Connect an account
@@ -74,6 +84,16 @@ tests. Permanent message deletion is not exposed.
     process after full exit.
 15. Verify keyboard navigation, tooltips, screen reader, HiDPI, fractional scaling,
     Wayland file picker, mailto handling and resizing on CachyOS/Hyprland.
+16. With no OAuth JSON configured, Add Google account must explain the setup
+    prerequisite. Import a Desktop client locally and confirm the default
+    browser opens; test reopen/copy-link, cancellation and timeout recovery.
+17. Verify the normal system cursor and size in Luma, including user-local theme
+    files. Change the configured desktop cursor while Luma runs; inspect the
+    effective cursor row in About & Diagnostics.
+18. Use Search options & accounts for date/attachment filters and a subset of
+    three accounts; compare the exact query in Gmail. Test Ctrl+1…9. Apply a
+    label to selected test conversations across accounts where same-named
+    labels have different IDs; a missing match must be reported without change.
 
 ## Development host boundary
 

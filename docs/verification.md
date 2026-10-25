@@ -48,3 +48,26 @@ integration, external notification display, makepkg/AUR publication.
 
 See `testing.md` for the manual test procedure and `STATUS.md` for outstanding
 features. A passing local build is not a substitute for those acceptance checks.
+
+## 0.1.1 development hardening
+
+The first Linux report found a missing-OAuth setup loop and incorrect system
+cursor behaviour in the AppImage. The account issue was confirmed to occur
+before any Desktop client JSON had been imported. No real Gmail consent was
+completed during that report.
+
+[Run 40219055786](https://github.com/SleepyZzed/luma-mail/actions/runs/40219055786)
+passed the guided-window regression check and the new bundled cursor settings
+check, including dconf transport and session overrides. Actual cursor artwork
+and fractional scaling on the reporter's compositor remain to be retested.
+
+The 0.1.1 host build passes formatting, strict Clippy, 56 core tests plus one tray
+test, an optimized build and a native launch of the guided sign-in empty state.
+New regressions cover burst notification continuation, body-lifetime network
+limits, backoff fairness, OAuth-client validation, cross-account label names and
+search-date/query validation.
+
+[Run 40220277862](https://github.com/SleepyZzed/luma-mail/actions/runs/40220277862)
+checks the complete 0.1.1 implementation, including GTK selection/page retention
+and persistent label navigation. The acceptance fixture uses synthetic rows only
+inside the test executable; the shipped application has no fake inbox data.
