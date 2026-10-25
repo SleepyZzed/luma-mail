@@ -38,7 +38,16 @@ impl ClientConfig {
         if metadata.len() > 64 * 1024 {
             return Err(Error::Invalid("The OAuth client JSON is unexpectedly large. Choose the Desktop app file downloaded from Google Cloud.".into()));
         }
-        let data = std::fs::read(path)?;
+        use std::io::Read;
+        let mut data = Vec::new();
+        std::fs::File::open(path)?
+            .take(64 * 1024 + 1)
+            .read_to_end(&mut data)?;
+        if data.len() > 64 * 1024 {
+            return Err(Error::Invalid(
+                "The OAuth client JSON exceeds the 64 KiB setup-file limit.".into(),
+            ));
+        }
         let client = serde_json::from_slice::<File>(&data).map_err(|_| Error::Invalid(
             "Choose a valid Google Desktop app OAuth JSON. Web application clients and service-account keys cannot be used for desktop sign-in.".into()))?.installed;
         if client.client_id.trim().is_empty() || client.client_secret.trim().is_empty() {

@@ -10,6 +10,7 @@ pub mod model;
 pub mod notifications;
 pub mod pagination;
 pub mod provider;
+pub mod search;
 pub mod theme;
 
 pub use error::{Error, Result};

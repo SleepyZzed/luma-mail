@@ -15,7 +15,7 @@ use luma_core::{
 };
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     future::Future,
     rc::Rc,
     sync::{Arc, Mutex},
@@ -34,16 +34,22 @@ pub struct State {
     pub status: gtk::Label,
     pub sidebar: gtk::Box,
     pub list: gtk::ListBox,
+    list_scroll: gtk::ScrolledWindow,
+    refresh_button: gtk::Button,
     pub reader: gtk::Box,
     pub title: gtk::Label,
     pub more: gtk::Button,
     pub folder: RefCell<Folder>,
     pub filter: RefCell<Option<String>>,
+    pub account_subset: RefCell<Option<HashSet<String>>>,
+    scope: gtk::Label,
     pub search: gtk::SearchEntry,
     pub rows: RefCell<Vec<Conversation>>,
     pub selected: RefCell<Option<ThreadKey>>,
     pub pager: Arc<tokio::sync::Mutex<Option<UnifiedPager>>>,
     pub unread: RefCell<HashMap<String, u64>>,
+    labels_cache: RefCell<HashMap<String, Vec<Label>>>,
+    operation_busy: Cell<bool>,
     undo: RefCell<Vec<(String, String, Vec<MailAction>)>>,
     undo_button: gtk::Button,
     generation: Cell<u64>,
@@ -51,6 +57,8 @@ pub struct State {
     pub selected_message: RefCell<Option<Message>>,
     page_request: RefCell<Option<tokio::task::AbortHandle>>,
     reader_request: RefCell<Option<tokio::task::AbortHandle>>,
+    body_requests: RefCell<HashMap<ThreadKey, (u64, tokio::task::AbortHandle)>>,
+    body_serial: Cell<u64>,
     pub theme_provider: gtk::CssProvider,
     theme_monitor: RefCell<Option<gio::FileMonitor>>,
     pub last_error: RefCell<Option<String>>,
@@ -61,6 +69,7 @@ pub struct State {
     pub poller: crate::notifications::Poller,
     pub signin_window: RefCell<Option<adw::Window>>,
     _cursor_settings: Option<gio::Settings>,
+    pending_save: RefCell<Option<glib::SourceId>>,
 }
 pub fn async_work<T: Send + 'static>(
     state: &Rc<State>,
@@ -93,9 +102,25 @@ impl State {
         self.status.set_text(text);
     }
     pub fn save(&self) {
+        if let Some(timer) = self.pending_save.borrow_mut().take() {
+            timer.remove();
+        }
         if let Err(e) = self.paths.save(&self.settings.borrow()) {
             self.error(&e);
         }
+    }
+    pub fn save_debounced(self: &Rc<Self>) {
+        if let Some(timer) = self.pending_save.borrow_mut().take() {
+            timer.remove();
+        }
+        let weak = Rc::downgrade(self);
+        let timer = glib::timeout_add_local_once(Duration::from_millis(500), move || {
+            if let Some(state) = weak.upgrade() {
+                state.pending_save.borrow_mut().take();
+                state.save();
+            }
+        });
+        *self.pending_save.borrow_mut() = Some(timer);
     }
     pub fn client_config(&self) -> Result<ClientConfig> {
         ClientConfig::load(
@@ -238,17 +263,20 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .hexpand(true)
         .build();
     heading.append(&search);
+    let scope = label("All enabled accounts", "caption");
+    heading.append(&scope);
+    let search_options = gtk::Button::with_label("Search options & accounts…");
+    heading.append(&search_options);
     center.append(&heading);
     let list = gtk::ListBox::new();
     list.set_selection_mode(gtk::SelectionMode::Multiple);
     list.add_css_class("navigation-sidebar");
-    center.append(
-        &gtk::ScrolledWindow::builder()
-            .vexpand(true)
-            .hscrollbar_policy(gtk::PolicyType::Never)
-            .child(&list)
-            .build(),
-    );
+    let list_scroll = gtk::ScrolledWindow::builder()
+        .vexpand(true)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .child(&list)
+        .build();
+    center.append(&list_scroll);
     let more = gtk::Button::with_label("Load 25 more conversations");
     margins(&more, 12);
     more.set_sensitive(false);
@@ -299,14 +327,20 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         status,
         sidebar,
         list,
+        list_scroll,
+        refresh_button: refresh.clone(),
         reader,
         title,
         more,
         search,
         folder: RefCell::new(Folder::Inbox),
         filter: RefCell::new(None),
+        account_subset: RefCell::new(None),
+        scope,
         rows: RefCell::new(vec![]),
         unread: RefCell::new(HashMap::new()),
+        labels_cache: RefCell::new(HashMap::new()),
+        operation_busy: Cell::new(false),
         undo: RefCell::new(vec![]),
         undo_button,
         selected: RefCell::new(None),
@@ -316,6 +350,8 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         reading: Cell::new(0),
         page_request: RefCell::new(None),
         reader_request: RefCell::new(None),
+        body_requests: RefCell::new(HashMap::new()),
+        body_serial: Cell::new(0),
         theme_provider: gtk::CssProvider::new(),
         theme_monitor: RefCell::new(None),
         last_error: RefCell::new(None),
@@ -326,9 +362,14 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         poller: Default::default(),
         signin_window: RefCell::new(None),
         _cursor_settings: cursor_settings,
+        pending_save: RefCell::new(None),
     });
     if let Err(e) = s.rebuild_clients() {
         s.error(&e);
+    }
+    {
+        let s = s.clone();
+        search_options.connect_clicked(move |_| crate::search::open(&s));
     }
     self::sidebar(&s);
     empty_reader(&s);
@@ -359,7 +400,10 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
                 .get(r.index() as usize)
                 .map(|r| r.key.clone());
             if let Some(k) = key {
-                open_thread(&s, k);
+                let current = s.selected.borrow().clone();
+                if current.as_ref() != Some(&k) {
+                    open_thread(&s, k);
+                }
             }
         });
     }
@@ -373,7 +417,10 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
                     .get(r.index() as usize)
                     .map(|r| r.key.clone());
                 if let Some(k) = key {
-                    open_thread(&s, k);
+                    let current = s.selected.borrow().clone();
+                    if current.as_ref() != Some(&k) {
+                        open_thread(&s, k);
+                    }
                 }
             }
         });
@@ -416,6 +463,11 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     crate::notifications::start(&s);
     crate::tray::start(&s);
     s.window.present();
+    if std::env::args().any(|arg| arg == "--smoke-test")
+        && std::env::args().any(|arg| arg == "--smoke-signin-setup")
+    {
+        add_account(&s, false, None);
+    }
     #[cfg(all(test, target_os = "linux"))]
     if std::env::var_os("LUMA_DESKTOP_TEST_ROOT").is_some() {
         crate::desktop_test::start(&s);
@@ -509,30 +561,34 @@ pub fn sidebar(s: &Rc<State>) {
         let s = s.clone();
         setup.connect_clicked(move |_| crate::settings::open(&s));
     }
+    if let Some(id) = s.filter.borrow().clone()
+        && let Some(labels) = s.labels_cache.borrow().get(&id).cloned()
+    {
+        s.sidebar.append(&label("LABELS", "heading"));
+        for item in labels.into_iter().filter(|label| label.kind == "user") {
+            let button = gtk::Button::with_label(&item.name);
+            button.add_css_class("flat");
+            s.sidebar.append(&button);
+            let s = s.clone();
+            let id = id.clone();
+            button.connect_clicked(move |_| {
+                *s.filter.borrow_mut() = Some(id.clone());
+                *s.folder.borrow_mut() = Folder::Label(item.id.clone());
+                s.title.set_text(&item.name);
+                reload(&s);
+            });
+        }
+    }
 }
-fn load_labels(s: &Rc<State>, account: &str) {
+pub fn load_labels(s: &Rc<State>, account: &str) {
     let Some(c) = s.clients.borrow().get(account).cloned() else {
         return;
     };
     let id = account.to_owned();
     async_work(s, async move { c.labels().await }, move |s, labels| {
-        if s.filter.borrow().as_ref() != Some(&id) {
-            return;
-        }
-        sidebar(&s);
-        s.sidebar.append(&label("LABELS", "heading"));
-        for l in labels.into_iter().filter(|l| l.kind == "user") {
-            let b = gtk::Button::with_label(&l.name);
-            b.add_css_class("flat");
-            s.sidebar.append(&b);
-            let s = s.clone();
-            let id = id.clone();
-            b.connect_clicked(move |_| {
-                *s.filter.borrow_mut() = Some(id.clone());
-                *s.folder.borrow_mut() = Folder::Label(l.id.clone());
-                s.title.set_text(&l.name);
-                reload(&s);
-            });
+        s.labels_cache.borrow_mut().insert(id.clone(), labels);
+        if s.filter.borrow().as_ref() == Some(&id) {
+            sidebar(&s);
         }
     });
 }
@@ -541,17 +597,49 @@ pub fn reload(s: &Rc<State>) {
 }
 pub fn manual_refresh(s: &Rc<State>) {
     reload(s);
+    if let Some(account) = s.filter.borrow().clone() {
+        load_labels(s, &account);
+    }
     crate::notifications::poll_now(s, false);
 }
 pub fn refresh_background(s: &Rc<State>) {
+    if s.rows.borrow().len() > 25
+        || s.list.selected_rows().len() > 1
+        || s.list_scroll.vadjustment().value() > 1.
+    {
+        s.refresh_button.add_css_class("suggested-action");
+        s.refresh_button
+            .set_tooltip_text(Some("Mailbox updates available · Refresh now (Ctrl+R)"));
+        s.info("Mailbox updates are available. Refresh when ready; your current position and selection are kept.");
+        return;
+    }
     reload_view(s, true);
 }
 fn reload_view(s: &Rc<State>, preserve_reader: bool) {
+    s.refresh_button.remove_css_class("suggested-action");
+    s.refresh_button.set_tooltip_text(Some(
+        "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
+    ));
+    let selection: HashSet<_> = if preserve_reader {
+        s.list
+            .selected_rows()
+            .iter()
+            .filter_map(|row| {
+                s.rows
+                    .borrow()
+                    .get(row.index() as usize)
+                    .map(|v| v.key.clone())
+            })
+            .collect()
+    } else {
+        HashSet::new()
+    };
     if let Some(t) = s.page_request.borrow_mut().take() {
         t.abort();
     }
     s.generation.set(s.generation.get() + 1);
     if !preserve_reader {
+        cancel_body_requests(s);
         s.reading.set(s.reading.get() + 1);
         if let Some(t) = s.reader_request.borrow_mut().take() {
             t.abort();
@@ -572,8 +660,20 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
         .borrow()
         .iter()
         .filter(|(id, _)| filter.as_ref().is_none_or(|f| *id == f))
+        .filter(|(id, _)| {
+            filter.is_some()
+                || s.account_subset
+                    .borrow()
+                    .as_ref()
+                    .is_none_or(|set| set.contains(*id))
+        })
         .map(|(_, c)| c.clone() as Arc<dyn MailProvider>)
         .collect();
+    s.scope.set_text(&format!(
+        "{} enabled account{} · server-side search",
+        clients.len(),
+        if clients.len() == 1 { "" } else { "s" }
+    ));
     if clients.is_empty() {
         s.info("Connect or enable a Google account in Settings.");
         s.more.set_sensitive(false);
@@ -587,15 +687,33 @@ fn reload_view(s: &Rc<State>, preserve_reader: bool) {
     let handle = async_work(
         s,
         async move {
-            let mut guard = shared.lock().await;
-            *guard = Some(pager);
-            let p = guard.as_mut().expect("set pager");
-            let rows = p.next_page().await?;
-            Ok((rows, p.has_more()))
+            Ok(async {
+                let mut guard = shared.lock().await;
+                *guard = Some(pager);
+                let p = guard.as_mut().expect("set pager");
+                let rows = p.next_page().await?;
+                Ok::<_, Error>((rows, p.has_more()))
+            }
+            .await)
         },
-        move |s, (rows, more)| {
+        move |s, result| {
             if s.generation.get() == generation {
-                display_rows(&s, rows, more);
+                match result {
+                    Ok((rows, more)) => {
+                        display_rows(&s, rows, more);
+                        for (index, row) in s.rows.borrow().iter().enumerate() {
+                            if selection.contains(&row.key) {
+                                s.list
+                                    .select_row(s.list.row_at_index(index as i32).as_ref());
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        s.more.set_label("Retry loading Gmail");
+                        s.more.set_sensitive(true);
+                        s.error(&error);
+                    }
+                }
             }
         },
     );
@@ -614,22 +732,33 @@ fn load_more(s: &Rc<State>) {
     let handle = async_work(
         s,
         async move {
-            let mut guard = shared.lock().await;
-            let p = guard
-                .as_mut()
-                .ok_or_else(|| Error::Invalid("Refresh this mailbox first".into()))?;
-            let rows = p.next_page().await?;
-            Ok((rows, p.has_more()))
+            Ok(async {
+                let mut guard = shared.lock().await;
+                let p = guard
+                    .as_mut()
+                    .ok_or_else(|| Error::Invalid("Refresh this mailbox first".into()))?;
+                let rows = p.next_page().await?;
+                Ok::<_, Error>((rows, p.has_more()))
+            }
+            .await)
         },
-        move |s, (rows, more)| {
+        move |s, result| {
             if s.generation.get() == generation {
-                display_rows(&s, rows, more);
+                match result {
+                    Ok((rows, more)) => display_rows(&s, rows, more),
+                    Err(error) => {
+                        s.more.set_label("Retry loading more");
+                        s.more.set_sensitive(true);
+                        s.error(&error);
+                    }
+                }
             }
         },
     );
     *s.page_request.borrow_mut() = Some(handle);
 }
 fn display_rows(s: &Rc<State>, rows: Vec<Conversation>, more: bool) {
+    s.more.set_label("Load 25 more conversations");
     let accounts = s.settings.borrow().accounts.clone();
     for item in &rows {
         let row = vbox(if s.settings.borrow().compact { 3 } else { 7 });
@@ -690,6 +819,7 @@ fn display_rows(s: &Rc<State>, rows: Vec<Conversation>, more: bool) {
     }
 }
 pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
+    cancel_body_requests(s);
     if let Some(t) = s.reader_request.borrow_mut().take() {
         t.abort();
     }
@@ -783,14 +913,36 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                 margins(&body, 12);
                 e.set_child(Some(&body));
                 s.reader.append(&e);
-                let loaded = Rc::new(Cell::new(false));
                 {
                     let s = s.clone();
                     let body = body.clone();
                     let m = message.clone();
+                    let request_key = ThreadKey {
+                        account: s
+                            .selected
+                            .borrow()
+                            .as_ref()
+                            .map(|key| key.account.clone())
+                            .unwrap_or_default(),
+                        id: m.id.clone(),
+                    };
                     e.connect_expanded_notify(move |e| {
-                        if e.is_expanded() && !loaded.replace(true) {
+                        if e.is_expanded() && !s.body_requests.borrow().contains_key(&request_key) {
                             load_message(&s, &body, m.clone(), reading);
+                        } else if !e.is_expanded() {
+                            if let Some((_, request)) =
+                                s.body_requests.borrow_mut().remove(&request_key)
+                            {
+                                request.abort();
+                            }
+                            clear(&body);
+                            if s.selected_message
+                                .borrow()
+                                .as_ref()
+                                .is_some_and(|message| message.id == m.id)
+                            {
+                                s.selected_message.borrow_mut().take();
+                            }
                         }
                     });
                 }
@@ -802,6 +954,11 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
     );
     *s.reader_request.borrow_mut() = Some(handle);
 }
+fn cancel_body_requests(s: &State) {
+    for (_, (_, request)) in s.body_requests.borrow_mut().drain() {
+        request.abort();
+    }
+}
 fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) {
     let Some(key) = s.selected.borrow().clone() else {
         return;
@@ -811,46 +968,85 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
     };
     let cache = s.cache.clone();
     let target = body.clone();
+    clear(&target);
     target.append(&label("Fetching message…", "dim-label"));
-    async_work(
+    let retry_message = message.clone();
+    let request_key = ThreadKey {
+        account: key.account.clone(),
+        id: message.id.clone(),
+    };
+    let completed_key = request_key.clone();
+    let serial = s.body_serial.get().wrapping_add(1);
+    s.body_serial.set(serial);
+    let handle = async_work(
         s,
         async move {
-            let cached = cache
-                .lock()
-                .expect("cache mutex")
-                .get(&key.account, &message.id)?;
-            let full = if let Some(data) = cached {
-                serde_json::from_slice::<Message>(&data)?
-            } else {
-                let full = client.message(&message.id).await?;
-                // Gmail can include small MIME attachments inline. Never persist
-                // attachment bytes as a side effect of caching an opened body.
-                if !full
-                    .payload
-                    .attachments()
-                    .iter()
-                    .any(|p| p.body.data.is_some())
-                {
-                    cache.lock().expect("cache mutex").put(
-                        &key.account,
-                        &message.id,
-                        &serde_json::to_vec(&full)?,
-                    )?;
-                }
-                full
-            };
-            let read_error = client
-                .act(&message.id, true, &MailAction::Read)
-                .await
-                .err()
-                .map(|e| e.to_string());
-            let text = readable(&full.payload)?;
-            Ok((full, text, read_error))
+            Ok(async {
+                let cached = cache
+                    .lock()
+                    .expect("cache mutex")
+                    .get(&key.account, &message.id)?;
+                let full = if let Some(data) = cached {
+                    serde_json::from_slice::<Message>(&data)?
+                } else {
+                    let full = client.message(&message.id).await?;
+                    // Gmail can include small MIME attachments inline. Never persist
+                    // attachment bytes as a side effect of caching an opened body.
+                    if !full
+                        .payload
+                        .attachments()
+                        .iter()
+                        .any(|p| p.body.data.is_some())
+                    {
+                        cache.lock().expect("cache mutex").put(
+                            &key.account,
+                            &message.id,
+                            &serde_json::to_vec(&full)?,
+                        )?;
+                    }
+                    full
+                };
+                let read_error = client
+                    .act(&message.id, true, &MailAction::Read)
+                    .await
+                    .err()
+                    .map(|e| e.to_string());
+                let text = readable(&full.payload)?;
+                Ok::<_, Error>((full, text, read_error))
+            }
+            .await)
         },
-        move |s, (message, text, read_error)| {
-            if s.reading.get() != reading {
+        move |s, result| {
+            if s.reading.get() != reading
+                || s.body_requests
+                    .borrow()
+                    .get(&completed_key)
+                    .is_none_or(|(epoch, _)| *epoch != serial)
+            {
                 return;
             }
+            let (message, text, read_error) = match result {
+                Ok(value) => value,
+                Err(error) => {
+                    s.body_requests.borrow_mut().remove(&completed_key);
+                    clear(&target);
+                    let text = label(&error.to_string(), "error");
+                    text.set_wrap(true);
+                    target.append(&text);
+                    let retry = gtk::Button::with_label("Retry opening message");
+                    target.append(&retry);
+                    let state = s.clone();
+                    let body = target.clone();
+                    retry.connect_clicked(move |_| {
+                        if state.reading.get() == reading
+                            && !state.body_requests.borrow().contains_key(&completed_key)
+                        {
+                            load_message(&state, &body, retry_message.clone(), reading);
+                        }
+                    });
+                    return;
+                }
+            };
             clear(&target);
             *s.selected_message.borrow_mut() = Some(message.clone());
             let details = label(
@@ -938,6 +1134,9 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             }
         },
     );
+    s.body_requests
+        .borrow_mut()
+        .insert(request_key, (serial, handle));
 }
 fn save_attachment(s: &Rc<State>, message: &Message, part: &Part) {
     let dialog = gtk::FileDialog::builder()
@@ -978,6 +1177,10 @@ fn save_attachment(s: &Rc<State>, message: &Message, part: &Part) {
     });
 }
 pub fn act_selected(s: &Rc<State>, action: MailAction) {
+    if s.operation_busy.get() {
+        s.info("Wait for the current Gmail operation to finish.");
+        return;
+    }
     let mut keys: Vec<_> = s
         .list
         .selected_rows()
@@ -1012,10 +1215,88 @@ pub fn act_selected(s: &Rc<State>, action: MailAction) {
         perform_actions(s, keys, action);
     }
 }
+#[cfg(all(test, target_os = "linux"))]
+pub fn verify_view_behaviour(s: &Rc<State>) {
+    let rows = (0..26)
+        .map(|i| Conversation {
+            key: ThreadKey {
+                account: "fixture".into(),
+                id: format!("thread-{i}"),
+            },
+            subject: "Synthetic acceptance fixture".into(),
+            sender: "Test".into(),
+            snippet: String::new(),
+            date: i,
+            unread: false,
+            starred: false,
+            attachments: false,
+            count: 1,
+        })
+        .collect();
+    display_rows(s, rows, true);
+    s.list.select_row(s.list.row_at_index(0).as_ref());
+    s.list.select_row(s.list.row_at_index(1).as_ref());
+    assert_eq!(s.list.selected_rows().len(), 2);
+    refresh_background(s);
+    assert_eq!(
+        s.rows.borrow().len(),
+        26,
+        "background refresh cannot discard loaded pages"
+    );
+    assert_eq!(
+        s.list.selected_rows().len(),
+        2,
+        "background refresh cannot discard a bulk selection"
+    );
+    assert!(s.refresh_button.has_css_class("suggested-action"));
+    s.rows.borrow_mut().clear();
+    while let Some(child) = s.list.first_child() {
+        s.list.remove(&child);
+    }
+    s.selected.borrow_mut().take();
+    empty_reader(s);
+    s.refresh_button.remove_css_class("suggested-action");
+    let label: Label = serde_json::from_value(
+        serde_json::json!({"id":"Label_test","name":"Fixture label","type":"user"}),
+    )
+    .unwrap();
+    s.labels_cache
+        .borrow_mut()
+        .insert("fixture".into(), vec![label]);
+    *s.filter.borrow_mut() = Some("fixture".into());
+    for _ in 0..2 {
+        sidebar(s);
+        let mut child = s.sidebar.first_child();
+        let mut found = false;
+        while let Some(widget) = child {
+            found |= widget
+                .downcast_ref::<gtk::Button>()
+                .is_some_and(|button| button.label().as_deref() == Some("Fixture label"));
+            child = widget.next_sibling();
+        }
+        assert!(found, "unread/sidebar updates must retain label navigation");
+    }
+    s.filter.borrow_mut().take();
+    s.labels_cache.borrow_mut().clear();
+    sidebar(s);
+}
 fn perform_actions(s: &Rc<State>, keys: Vec<ThreadKey>, action: MailAction) {
     perform_targets(s, keys.into_iter().map(|k| (k, false)).collect(), action);
 }
 fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailAction) {
+    if s.operation_busy.replace(true) {
+        s.info("Wait for the current Gmail operation to finish.");
+        return;
+    }
+    s.undo_button.set_sensitive(false);
+    let label_source = if matches!(action, MailAction::AddLabel(_) | MailAction::RemoveLabel(_)) {
+        s.selected
+            .borrow()
+            .as_ref()
+            .and_then(|key| s.clients.borrow().get(&key.account).cloned())
+    } else {
+        None
+    };
     let jobs: Vec<_> = keys
         .into_iter()
         .filter_map(|(k, message)| {
@@ -1033,7 +1314,58 @@ fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailActi
             let mut success = 0;
             let mut failures = Vec::new();
             let mut undo = Vec::new();
+            let label_name = match &action {
+                MailAction::AddLabel(id) | MailAction::RemoveLabel(id) => {
+                    let Some(source) = &label_source else {
+                        return Ok((
+                            0,
+                            vec!["Open a source conversation before applying labels".into()],
+                            undo,
+                        ));
+                    };
+                    match source.labels().await.and_then(|labels| {
+                        labels
+                            .into_iter()
+                            .find(|label| &label.id == id)
+                            .map(|label| label.name)
+                            .ok_or_else(|| {
+                                Error::Invalid("The source label no longer exists".into())
+                            })
+                    }) {
+                        Ok(name) => Some(name),
+                        Err(error) => return Ok((0, vec![error.to_string()], undo)),
+                    }
+                }
+                _ => None,
+            };
+            let mut mapped_labels: HashMap<String, std::result::Result<String, String>> =
+                HashMap::new();
             for (k, c, message) in jobs {
+                let mut target_action = action.clone();
+                if let Some(name) = &label_name
+                    && label_source
+                        .as_ref()
+                        .is_some_and(|source| source.account != c.account)
+                {
+                    if !mapped_labels.contains_key(&c.account) {
+                        mapped_labels.insert(
+                            c.account.clone(),
+                            c.matching_label(name).await.map_err(|e| e.to_string()),
+                        );
+                    }
+                    match &mapped_labels[&c.account] {
+                        Ok(id) => {
+                            target_action = match action {
+                                MailAction::AddLabel(_) => MailAction::AddLabel(id.clone()),
+                                _ => MailAction::RemoveLabel(id.clone()),
+                            }
+                        }
+                        Err(error) => {
+                            failures.push(format!("{}: {error}", k.account));
+                            continue;
+                        }
+                    }
+                }
                 let before = if message {
                     c.message_metadata(&k.id).await.map(|m| vec![m])
                 } else {
@@ -1041,7 +1373,7 @@ fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailActi
                 };
                 let result = async {
                     let before = before?;
-                    c.act(&k.id, message, &action).await?;
+                    c.act(&k.id, message, &target_action).await?;
                     Ok::<_, Error>(before)
                 }
                 .await;
@@ -1049,7 +1381,7 @@ fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailActi
                     Ok(before) => {
                         success += 1;
                         for m in before {
-                            let actions = action.undo_for(&m);
+                            let actions = target_action.undo_for(&m);
                             if !actions.is_empty() {
                                 undo.push((k.account.clone(), m.id, actions));
                             }
@@ -1061,8 +1393,11 @@ fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailActi
             Ok((success, failures, undo))
         },
         |s, (success, failures, undo)| {
-            s.undo_button.set_sensitive(!undo.is_empty());
-            *s.undo.borrow_mut() = undo;
+            s.operation_busy.set(false);
+            if !undo.is_empty() {
+                *s.undo.borrow_mut() = undo;
+            }
+            s.undo_button.set_sensitive(!s.undo.borrow().is_empty());
             reload(&s);
             s.info(&format!(
                 "Gmail confirmed {success} operations; {} failed. {}",
@@ -1073,6 +1408,10 @@ fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailActi
     );
 }
 fn undo_last(s: &Rc<State>) {
+    if s.operation_busy.replace(true) {
+        s.info("Wait for the current Gmail operation to finish.");
+        return;
+    }
     let records = std::mem::take(&mut *s.undo.borrow_mut());
     s.undo_button.set_sensitive(false);
     let jobs: Vec<_> = records
@@ -1103,6 +1442,7 @@ fn undo_last(s: &Rc<State>) {
             Ok(failed)
         },
         |s, failed| {
+            s.operation_busy.set(false);
             let count = failed.len();
             s.undo_button.set_sensitive(!failed.is_empty());
             *s.undo.borrow_mut() = failed;
@@ -1172,6 +1512,33 @@ fn watch_theme(s: &Rc<State>) {
     }
 }
 fn install_shortcuts(s: &Rc<State>) {
+    for index in 0..9 {
+        let action = gio::SimpleAction::new(&format!("account-{}", index + 1), None);
+        let state = s.clone();
+        action.connect_activate(move |_, _| {
+            let account = state
+                .settings
+                .borrow()
+                .accounts
+                .iter()
+                .filter(|a| a.enabled)
+                .nth(index)
+                .cloned();
+            if let Some(account) = account {
+                *state.filter.borrow_mut() = Some(account.id.clone());
+                *state.folder.borrow_mut() = Folder::Inbox;
+                state.title.set_text(&account.name);
+                sidebar(&state);
+                reload(&state);
+                load_labels(&state, &account.id);
+            }
+        });
+        s.window.add_action(&action);
+        s.app.set_accels_for_action(
+            &format!("win.account-{}", index + 1),
+            &[&format!("<Primary>{}", index + 1)],
+        );
+    }
     for (name, accels) in [
         ("refresh", vec!["<Primary>r"]),
         ("compose", vec!["<Primary>n"]),

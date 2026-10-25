@@ -33,7 +33,8 @@ The release stays a development prerelease until every mandatory row passes.
 - [ ] Recipient chips/autocomplete and authorised sending aliases.
 - [ ] Whole-conversation forwarding and safe attachment conveniences.
 - [ ] Draft conflict reconciliation and recovery that preserves unsaved text.
-- [ ] Account-subset filters, advanced search, highlighting and view preferences.
+- [x] Account-subset filters and advanced search builder (live acceptance pending).
+- [ ] Matching-term highlighting and remaining view preferences.
 - [ ] Opt-in autostart/background behaviour, optional sound and account shortcuts.
 - [ ] Custom accents, account identity polish and full accessible labels/navigation.
 - [ ] Network/offline/account state, useful retry controls and partial-failure handling.
@@ -62,10 +63,14 @@ palette are tracked separately from the 20 mandatory behaviours.
 - [x] Release transfer slots during quota backoff so unrelated requests can proceed.
 - [x] Resume notification bursts inside a history page instead of losing its tail.
 - [x] Add regression tests for these three behaviours.
-- [ ] Replace recursive missing-OAuth Settings with one guided import/sign-in window.
-- [ ] Use asynchronous desktop browser launching, retry/copy-link and cancellation.
-- [ ] Bundle the dconf settings module and honour host/session cursor preferences.
-- [ ] Verify missing-client onboarding and bundled settings transport in Linux CI.
+- [x] Replace recursive missing-OAuth Settings with one guided import/sign-in window.
+- [x] Use asynchronous desktop browser launching, retry/copy-link and cancellation.
+- [x] Bundle the dconf settings module and honour host/session cursor preferences.
+- [x] Verify missing-client onboarding and bundled settings transport in Linux CI (run 40219055786).
+- [x] Add advanced search/account subsets and Ctrl+1…9 account navigation.
+- [x] Retain label navigation and protect account-scoped bulk label actions.
+- [x] Retry failed reads, cancel unnecessary body requests and preserve busy views.
+- [x] Debounce preference text edits and flush settings on full exit.
 - [ ] Publish a checked development AppImage for the next Linux acceptance pass.
 
 See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and

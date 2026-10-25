@@ -162,6 +162,9 @@ fn import_client(flow: &Rc<SignIn>) {
         let Ok(file) = dialog.open_future(Some(&flow.window)).await else {
             return;
         };
+        if !flow.window.is_visible() {
+            return;
+        }
         let Some(path) = file.path() else { return };
         let result = (|| -> Result<ClientConfig> {
             let config = ClientConfig::load(&path)?;

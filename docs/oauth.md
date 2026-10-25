@@ -12,11 +12,22 @@ It cannot authenticate before you finish Google's consent screen.
    JSON. Import it in Luma Settings → Accounts. Alternatively place it at
    `$XDG_CONFIG_HOME/luma-mail/oauth-client.json`, using `~/.config` when unset,
    or set `LUMA_OAUTH_CLIENT` to a JSON path.
+   Clicking Add Google account with no client opens a guided setup window with
+   an import button; selecting a valid JSON continues into browser sign-in.
 4. Add an account in Luma, choose the correct account in the default browser,
    and grant Gmail access. The callback listens only on `127.0.0.1` at an
    ephemeral port, validates a random state token and uses S256 PKCE.
 5. Repeat for each account. Reconnect an expired/revoked account from Settings.
    Reconnecting verifies that the Google email address matches that account.
+
+If Add only reopened Settings in v0.1.0-dev.1, the OAuth client was missing. That
+build hid the useful error behind another Settings dialog. The guided flow in
+0.1.1 explains this prerequisite. The JSON identifies your Google Cloud app; it
+is not an exported Gmail account, a password file, or a service-account key.
+
+If the default browser cannot be launched, use Open browser again or Copy sign-in
+link in the sign-in window. Finish the same request within five minutes. Close
+the window to cancel or start a fresh attempt after timeout.
 
 The desktop client ID and client secret identify a public installed app. They
 are not treated as a confidential user secret by Google. They are stored in the

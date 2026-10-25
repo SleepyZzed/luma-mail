@@ -14,6 +14,7 @@ pub fn start(s: &Rc<State>) {
         ticks += 1;
         assert!(ticks < 250, "desktop D-Bus integration test timed out");
         if stage == 0 && s.tray_available.get() {
+            crate::ui::verify_view_behaviour(&s);
             // Missing OAuth setup must explain the prerequisite in one window,
             // never recursively reopen Settings when Add is clicked again.
             crate::signin::open(&s, false, None);

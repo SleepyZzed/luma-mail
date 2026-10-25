@@ -37,6 +37,20 @@ an immediate new-mail polling check. Overlapping polling requests are prevented.
 Periodic polling defaults to 120 seconds and is configurable. Gmail push is not
 claimed. No always-running daemon or autostart entry is installed.
 
+## Daily-use controls
+
+**Search options & accounts** builds Gmail queries for sender, recipient,
+subject, dates, unread/starred status and attachments, and lets you choose any
+subset of enabled accounts. It searches All Mail remotely. **Ctrl+1…9** switches
+to an account's Inbox in your configured order.
+
+Background changes preserve a multi-page view, scroll position or bulk selection;
+Refresh is highlighted when an update is waiting. Failed pages and message bodies
+have retry buttons. Collapsing a message or changing conversations cancels body
+work that is no longer needed. Label navigation survives unread-count updates.
+Cross-account label actions match label names in each account and report a
+missing label without applying an unrelated ID.
+
 ## Build on Arch Linux / CachyOS
 
 ```sh
@@ -64,6 +78,8 @@ native empty state and exits after three seconds without authenticating.
 
 1. Follow [Google OAuth setup](docs/oauth.md) to create a **Desktop app** client.
 2. Open Settings → Accounts → Import Google Desktop OAuth client.
+   Add Google account also offers a guided import when setup is missing, and
+   starts browser sign-in immediately after importing a valid Desktop JSON.
 3. Add a Google account and finish consent in your default browser. Repeat for
    another account. A running, unlocked Secret Service keyring is required.
 4. Select a folder or account. Search supports Gmail operators. Enter submits
@@ -71,6 +87,10 @@ native empty state and exits after three seconds without authenticating.
 
 No test credentials, fabricated inbox data, telemetry, servers, or scheduled
 services are included. No account login is simulated.
+
+The sign-in window has **Open browser again** and **Copy sign-in link** for a
+desktop browser-launch failure. Closing it cancels the pending callback listener.
+Web-client JSON and service-account keys are rejected with a setup explanation.
 
 ## Project structure
 

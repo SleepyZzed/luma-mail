@@ -40,7 +40,7 @@ impl Http {
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(15))
                 .timeout(Duration::from_secs(60))
-                .user_agent("LumaMail/0.1")
+                .user_agent(format!("LumaMail/{}", env!("CARGO_PKG_VERSION")))
                 .build()?,
             permits: Arc::new(Semaphore::new(4)),
         })

@@ -108,6 +108,20 @@ impl Gmail {
     pub async fn create_label(&self, name: &str) -> Result<Label> {
         json(self.call(Method::POST, "/labels", &[], Some(&json!({"name":name,"labelListVisibility":"labelShow","messageListVisibility":"show"}))).await?).await
     }
+    /// Label IDs belong to one account. Resolve a user-selected label by name
+    /// before using it in a different account; never reuse an unrelated ID.
+    pub async fn matching_label(&self, name: &str) -> Result<String> {
+        self.labels()
+            .await?
+            .into_iter()
+            .find(|label| label.kind == "user" && label.name == name)
+            .map(|label| label.id)
+            .ok_or_else(|| {
+                Error::Invalid(format!(
+                    "The label ‘{name}’ does not exist in this account. No label change was made."
+                ))
+            })
+    }
     pub async fn rename_label(&self, id: &str, name: &str) -> Result<Label> {
         check_id(id)?;
         json(

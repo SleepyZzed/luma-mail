@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.1.0-dev.1
+        default: v0.1.1-dev.1
 permissions:
   contents: read
 jobs:
@@ -37,9 +37,12 @@ jobs:
       - name: Package AppImage
         run: bash packaging/appimage.sh
       - name: Launch bundled AppImage
-        run: dbus-run-session -- xvfb-run -a env APPIMAGE_EXTRACT_AND_RUN=1 dist/Luma-Mail-0.1.0-x86_64.AppImage --smoke-test
+        run: |
+          images=(dist/Luma-Mail-*-x86_64.AppImage)
+          test "${#images[@]}" -eq 1
+          dbus-run-session -- xvfb-run -a env APPIMAGE_EXTRACT_AND_RUN=1 "${images[0]}" --smoke-test
       - name: Bundled system cursor settings
-        run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-0.1.0-x86_64.AppImage
+        run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-*-x86_64.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: luma-mail-linux-x86_64

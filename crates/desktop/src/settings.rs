@@ -69,7 +69,7 @@ pub fn open(s: &Rc<State>) {
                 {
                     a.name = e.text().into();
                 }
-                s.save();
+                s.save_debounced();
                 ui::sidebar(&s);
             });
         }
@@ -138,7 +138,7 @@ pub fn open(s: &Rc<State>) {
                 {
                     a.signature = e.text().into();
                 }
-                s.save();
+                s.save_debounced();
             });
         }
         for (title, mode) in [
@@ -386,10 +386,21 @@ pub fn open(s: &Rc<State>) {
         .icon_name("help-about-symbolic")
         .build();
     let g = adw::PreferencesGroup::builder()
-        .title("Luma Mail 0.1.0 · GPL-3.0-or-later")
+        .title(format!(
+            "Luma Mail {} · GPL-3.0-or-later",
+            env!("CARGO_PKG_VERSION")
+        ))
         .description("Development build. See STATUS.md for verified and outstanding features.")
         .build();
-    for(title,subtitle)in[("Configuration",s.paths.config.display().to_string()),("Cache",s.paths.cache.display().to_string()),("Connected providers",format!("{} enabled Gmail accounts",s.clients.borrow().len())),("Recent error",s.last_error.borrow().clone().unwrap_or_else(||"None recorded".into())),("Keyboard shortcuts","Ctrl+N compose · Ctrl+F search · Ctrl+R refresh · Ctrl+E archive · Delete trash · Ctrl+Shift+U unread".into())]{g.add(&adw::ActionRow::builder().title(title).subtitle(subtitle).build());}
+    for (title, subtitle) in [
+        ("Configuration", s.paths.config.display().to_string()),
+        ("Cache", s.paths.cache.display().to_string()),
+        ("Google OAuth setup", if s.client_config().is_ok() { "Desktop client imported" } else { "Import a Google Desktop app OAuth JSON before sign-in" }.into()),
+        ("GTK cursor", crate::desktop::cursor_diagnostic()),
+        ("Connected providers", format!("{} enabled Gmail accounts", s.clients.borrow().len())),
+        ("Recent error", s.last_error.borrow().clone().unwrap_or_else(|| "None recorded".into())),
+        ("Keyboard shortcuts", "Ctrl+N compose · Ctrl+F search · Ctrl+R refresh · Ctrl+E archive · Delete trash · Ctrl+Shift+U unread · Ctrl+1…9 account".into()),
+    ] { g.add(&adw::ActionRow::builder().title(title).subtitle(subtitle).build()); }
     about.add(&g);
     dialog.add(&about);
     dialog.present(Some(&s.window));
@@ -544,9 +555,15 @@ pub fn label_dialog(s: &Rc<State>) {
                         return;
                     };
                     let name = name.text().to_string();
-                    ui::async_work(&s, async move { c.create_label(&name).await }, |s, _| {
-                        s.info("Label created on Gmail. Reopen Labels to refresh.")
-                    });
+                    let account = c.account.clone();
+                    ui::async_work(
+                        &s,
+                        async move { c.create_label(&name).await },
+                        move |s, _| {
+                            ui::load_labels(&s, &account);
+                            s.info("Label created on Gmail. Reopen Labels to refresh.")
+                        },
+                    );
                 });
             }
             root.append(
@@ -584,12 +601,16 @@ fn mutate_label(s: &Rc<State>, id: String, name: String, delete: bool) {
             &s,
             async move {
                 if delete {
-                    c.delete_label(&id).await
+                    c.delete_label(&id).await?;
                 } else {
-                    c.rename_label(&id, &name).await.map(|_| ())
+                    c.rename_label(&id, &name).await?;
                 }
+                Ok(c.account.clone())
             },
-            |s, ()| s.info("Gmail label updated. Reopen Labels to refresh."),
+            |s, account| {
+                ui::load_labels(&s, &account);
+                s.info("Gmail label updated. Reopen Labels to refresh.");
+            },
         );
     });
 }

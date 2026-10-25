@@ -14,6 +14,12 @@ pub fn follow_cursor() -> Option<gio::Settings> {
         .ok()
         .and_then(|v| v.parse::<i32>().ok())
         .filter(|v| (8..=256).contains(v));
+    if let Some(name) = &theme {
+        gtk.set_gtk_cursor_theme_name(Some(name));
+    }
+    if let Some(value) = size {
+        gtk.set_gtk_cursor_theme_size(value);
+    }
     let source = gio::SettingsSchemaSource::default()?;
     let schema = source.lookup("org.gnome.desktop.interface", true)?;
     if !schema.has_key("cursor-theme") || !schema.has_key("cursor-size") {

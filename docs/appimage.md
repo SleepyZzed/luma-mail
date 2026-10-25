@@ -12,14 +12,14 @@ Download the AppImage and `SHA256SUMS` from the repository's Releases page:
 
 ```sh
 sha256sum --check SHA256SUMS
-chmod +x Luma-Mail-0.1.0-x86_64.AppImage
-./Luma-Mail-0.1.0-x86_64.AppImage
+chmod +x Luma-Mail-0.1.1-x86_64.AppImage
+./Luma-Mail-0.1.1-x86_64.AppImage
 ```
 
 If your desktop lacks FUSE support, use:
 
 ```sh
-APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.1.0-x86_64.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.1.1-x86_64.AppImage
 ```
 
 The bundle includes GTK/libadwaita dependencies and application resources. It
@@ -27,6 +27,12 @@ still uses your user-session D-Bus, existing notification daemon, Secret Service
 keyring and StatusNotifier tray host. Enable Noctalia's tray widget. It does not
 bundle a second notification daemon or simulate received mail. Configure a Google
 Desktop OAuth client before connecting accounts; no credentials are shipped.
+
+The bundle includes the dconf GSettings module so GTK can read your existing
+desktop preferences. User-local and host cursor theme directories remain visible;
+`XCURSOR_THEME`/`XCURSOR_SIZE` are honoured, and explicitly configured desktop
+cursor preferences update live. Settings → About & Diagnostics shows the
+effective GTK cursor. No separate cursor selector or theme is installed.
 
 It does not force X11 or override libadwaita's theme choice. Native Wayland and
 wallpaper palette integration still require verification on your real desktop.

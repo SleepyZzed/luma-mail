@@ -53,10 +53,11 @@ export GIO_EXTRA_MODULES="$APPDIR/usr/lib/gio/modules${GIO_EXTRA_MODULES:+:$GIO_
 # Keep host-installed cursor themes visible, including user-local themes.
 export XCURSOR_PATH="${XCURSOR_PATH:-${XDG_DATA_HOME:-$HOME/.local/share}/icons:$HOME/.icons:/usr/local/share/icons:/usr/share/icons:/usr/share/pixmaps}"
 EOF
-export OUTPUT="$(pwd)/dist/Luma-Mail-0.1.0-x86_64.AppImage" ARCH=x86_64
+version="$(cargo metadata --locked --no-deps --format-version 1 | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "luma-mail"))')"
+export OUTPUT="$(pwd)/dist/Luma-Mail-$version-x86_64.AppImage" ARCH=x86_64
 "$tool" --appdir "$appdir" --output appimage
 chmod +x "$OUTPUT"
 (
   cd dist
-  sha256sum Luma-Mail-0.1.0-x86_64.AppImage > SHA256SUMS
+  sha256sum "$(basename "$OUTPUT")" > SHA256SUMS
 )

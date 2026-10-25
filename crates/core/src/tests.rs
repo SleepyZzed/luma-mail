@@ -146,6 +146,64 @@ fn label_changes_are_scoped() {
         vec!["Label_1"]
     );
 }
+#[tokio::test]
+async fn cross_account_labels_resolve_by_name_and_reject_missing_matches() {
+    let server = MockServer::start().await;
+    Mock::given(path("/labels"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"labels":[
+            {"id":"Label_1", "name":"Unrelated", "type":"user"},
+            {"id":"Label_9", "name":"Projects", "type":"user"}
+        ]})))
+        .mount(&server)
+        .await;
+    let client = gmail(&server);
+    assert_eq!(client.matching_label("Projects").await.unwrap(), "Label_9");
+    assert!(client.matching_label("Missing").await.is_err());
+}
+
+#[test]
+fn search_builder_validates_dates_and_preserves_field_boundaries() {
+    let query = search::Search {
+        from: "Ann Example".into(),
+        subject: "quarterly report".into(),
+        after: "2025-01-01".into(),
+        before: "2026-01-01".into(),
+        unread: true,
+        attachments: true,
+        ..Default::default()
+    }
+    .query()
+    .unwrap();
+    assert_eq!(
+        query,
+        "from:\"Ann Example\" subject:\"quarterly report\" after:2025/01/01 before:2026/01/01 is:unread has:attachment"
+    );
+    assert!(
+        search::Search {
+            after: "2026-02-30".into(),
+            ..Default::default()
+        }
+        .query()
+        .is_err()
+    );
+    assert!(
+        search::Search {
+            after: "2026-02-01".into(),
+            before: "2025-01-01".into(),
+            ..Default::default()
+        }
+        .query()
+        .is_err()
+    );
+    assert!(
+        search::Search {
+            from: "Ann\" OR is:unread".into(),
+            ..Default::default()
+        }
+        .query()
+        .is_err()
+    );
+}
 #[test]
 fn parse_plain_mime() {
     assert_eq!(readable(&message("m", 0).payload).unwrap(), "Hello world");
