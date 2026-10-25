@@ -53,7 +53,7 @@ impl Gmail {
         path: &str,
         query: &[(&str, String)],
         body: Option<&serde_json::Value>,
-    ) -> Result<reqwest::Response> {
+    ) -> Result<crate::http::HttpResponse> {
         self.http
             .request(
                 method,

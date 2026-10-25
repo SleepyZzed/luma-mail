@@ -33,9 +33,20 @@ impl ClientConfig {
         struct File {
             installed: ClientConfig,
         }
-        let data = std::fs::read(path).map_err(|_| Error::Invalid(
-            "Set up a Google Desktop OAuth client first. See docs/oauth.md and place oauth-client.json in the config directory.".into()))?;
-        Ok(serde_json::from_slice::<File>(&data)?.installed)
+        let metadata = std::fs::metadata(path).map_err(|_| Error::Invalid(
+            "Import a Google Desktop OAuth client JSON before signing in. This development preview does not include a public OAuth client.".into()))?;
+        if metadata.len() > 64 * 1024 {
+            return Err(Error::Invalid("The OAuth client JSON is unexpectedly large. Choose the Desktop app file downloaded from Google Cloud.".into()));
+        }
+        let data = std::fs::read(path)?;
+        let client = serde_json::from_slice::<File>(&data).map_err(|_| Error::Invalid(
+            "Choose a valid Google Desktop app OAuth JSON. Web application clients and service-account keys cannot be used for desktop sign-in.".into()))?.installed;
+        if client.client_id.trim().is_empty() || client.client_secret.trim().is_empty() {
+            return Err(Error::Invalid(
+                "The Desktop OAuth client JSON is missing its client ID or client secret.".into(),
+            ));
+        }
+        Ok(client)
     }
 }
 

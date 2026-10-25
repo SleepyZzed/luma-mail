@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Native libraries
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -38,6 +38,8 @@ jobs:
         run: bash packaging/appimage.sh
       - name: Launch bundled AppImage
         run: dbus-run-session -- xvfb-run -a env APPIMAGE_EXTRACT_AND_RUN=1 dist/Luma-Mail-0.1.0-x86_64.AppImage --smoke-test
+      - name: Bundled system cursor settings
+        run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-0.1.0-x86_64.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: luma-mail-linux-x86_64

@@ -31,12 +31,28 @@ install -Dm644 data/io.github.lumamail.Luma.desktop "$appdir/usr/share/applicati
 install -Dm644 data/io.github.lumamail.Luma.svg "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg"
 install -Dm644 data/noctalia/luma.toml.in "$appdir/usr/share/luma-mail/noctalia/luma.toml.in"
 install -Dm644 LICENSE "$appdir/usr/share/licenses/luma-mail/LICENSE"
+# dconf is a dynamically loaded GIO module, so ELF dependency scanning alone
+# misses it. Without it the bundle sees schema defaults instead of user settings.
+gio_modules="$(pkg-config --variable=giomoduledir gio-2.0)"
+if [[ -z "$gio_modules" ]]; then
+  gio_modules="$(pkg-config --variable=libdir gio-2.0)/gio/modules"
+fi
+test -f "$gio_modules/libdconfsettings.so"
+install -Dm755 "$gio_modules/libdconfsettings.so" "$appdir/usr/lib/gio/modules/libdconfsettings.so"
+gio-querymodules "$appdir/usr/lib/gio/modules"
 cp -a /usr/share/icons/Adwaita "$appdir/usr/share/icons/"
 export APPIMAGE_EXTRACT_AND_RUN=1 DEPLOY_GTK_VERSION=4
 "$tool" --appdir "$appdir" --executable "$appdir/usr/bin/luma-mail" --desktop-file "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop" --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg" --plugin gtk
 hook="$appdir/apprun-hooks/linuxdeploy-plugin-gtk.sh"
 test -f "$hook"
 sed -i '/^export GDK_BACKEND=x11 /d; /^export GTK_THEME=/d' "$hook"
+cat >> "$hook" <<'EOF'
+# Use the bundled ABI-compatible settings module to read the host dconf daemon.
+export GIO_MODULE_DIR="$APPDIR/usr/lib/gio/modules"
+export GIO_EXTRA_MODULES="$APPDIR/usr/lib/gio/modules${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}"
+# Keep host-installed cursor themes visible, including user-local themes.
+export XCURSOR_PATH="${XCURSOR_PATH:-${XDG_DATA_HOME:-$HOME/.local/share}/icons:$HOME/.icons:/usr/local/share/icons:/usr/share/icons:/usr/share/pixmaps}"
+EOF
 export OUTPUT="$(pwd)/dist/Luma-Mail-0.1.0-x86_64.AppImage" ARCH=x86_64
 "$tool" --appdir "$appdir" --output appimage
 chmod +x "$OUTPUT"

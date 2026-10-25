@@ -3,7 +3,28 @@ use futures_util::StreamExt;
 use reqwest::{Client, Method, Response, StatusCode};
 use serde::de::DeserializeOwned;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+
+/// Keep the concurrency slot until the body is consumed or dropped, including
+/// when a caller cancels decoding. Headers alone do not finish a transfer.
+pub struct HttpResponse {
+    response: Response,
+    permit: Option<OwnedSemaphorePermit>,
+}
+impl std::ops::Deref for HttpResponse {
+    type Target = Response;
+    fn deref(&self) -> &Self::Target {
+        &self.response
+    }
+}
+impl From<Response> for HttpResponse {
+    fn from(response: Response) -> Self {
+        Self {
+            response,
+            permit: None,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Http {
@@ -32,13 +53,14 @@ impl Http {
         token: &str,
         query: &[(&str, String)],
         body: Option<&serde_json::Value>,
-    ) -> Result<Response> {
-        let _permit = self
-            .permits
-            .acquire()
-            .await
-            .map_err(|_| Error::Invalid("Client closed".into()))?;
+    ) -> Result<HttpResponse> {
         for attempt in 0..4 {
+            let permit = self
+                .permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|_| Error::Invalid("Client closed".into()))?;
             let mut request = self
                 .client
                 .request(method.clone(), url)
@@ -50,7 +72,10 @@ impl Http {
             let response = request.send().await?;
             let status = response.status();
             if status.is_success() {
-                return Ok(response);
+                return Ok(HttpResponse {
+                    response,
+                    permit: Some(permit),
+                });
             }
             if status == StatusCode::UNAUTHORIZED {
                 return Err(Error::Reauthenticate);
@@ -82,6 +107,8 @@ impl Http {
             let retry = method == Method::GET
                 && (quota || status == StatusCode::TOO_MANY_REQUESTS || status.is_server_error());
             if retry && attempt < 3 {
+                // Backoff must not occupy a transfer slot or starve other mail.
+                drop(permit);
                 tokio::time::sleep(Duration::from_secs(wait)).await;
                 continue;
             }
@@ -95,7 +122,11 @@ impl Http {
     }
 }
 
-pub async fn bounded_bytes(response: Response, max: usize) -> Result<Vec<u8>> {
+pub async fn bounded_bytes(response: impl Into<HttpResponse>, max: usize) -> Result<Vec<u8>> {
+    let HttpResponse {
+        response,
+        permit: _permit,
+    } = response.into();
     if response
         .content_length()
         .is_some_and(|len| len > max as u64)
@@ -113,7 +144,7 @@ pub async fn bounded_bytes(response: Response, max: usize) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
-pub async fn json<T: DeserializeOwned>(response: Response) -> Result<T> {
+pub async fn json<T: DeserializeOwned>(response: impl Into<HttpResponse>) -> Result<T> {
     Ok(serde_json::from_slice(
         &bounded_bytes(response, 8 * 1024 * 1024).await?,
     )?)

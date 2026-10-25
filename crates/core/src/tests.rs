@@ -49,6 +49,38 @@ fn config() -> ClientConfig {
         client_secret: "public-client-secret".into(),
     }
 }
+#[test]
+fn oauth_import_requires_a_desktop_client_and_explains_setup_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("client.json");
+    assert!(
+        ClientConfig::load(&file)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("Import a Google Desktop")
+    );
+    std::fs::write(&file, r#"{"web":{"client_id":"web","client_secret":"x"}}"#).unwrap();
+    assert!(
+        ClientConfig::load(&file)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("Desktop app")
+    );
+    std::fs::write(
+        &file,
+        r#"{"installed":{"client_id":"","client_secret":"x"}}"#,
+    )
+    .unwrap();
+    assert!(ClientConfig::load(&file).is_err());
+    std::fs::write(
+        &file,
+        r#"{"installed":{"client_id":"desktop","client_secret":"public"}}"#,
+    )
+    .unwrap();
+    assert_eq!(ClientConfig::load(&file).unwrap().client_id, "desktop");
+}
 fn gmail(server: &MockServer) -> Gmail {
     let http = Http::new().unwrap();
     let mut tokens = TokenManager::new(
@@ -621,6 +653,128 @@ async fn notification_baseline_never_alerts_old_mail() {
         .unwrap();
     assert!(items.is_empty());
     assert!(!changed);
+}
+#[tokio::test]
+async fn notification_burst_resumes_inside_history_records_without_losing_mail() {
+    let server = MockServer::start().await;
+    Mock::given(path("/profile"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"emailAddress":"a@example.com","historyId":"100"})),
+        )
+        .mount(&server)
+        .await;
+    let added: Vec<_> = (0..30)
+        .map(|i| json!({"message":{"id":format!("m{i}")}}))
+        .collect();
+    Mock::given(path("/history"))
+        .and(query_param("startHistoryId", "100"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "history":[{"messagesAdded":added}], "historyId":"200"
+        })))
+        .expect(2)
+        .mount(&server)
+        .await;
+    for i in 0..30 {
+        Mock::given(path(format!("/messages/m{i}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(message(&format!("m{i}"), i)))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let client = gmail(&server);
+    let mut monitor = notifications::Monitor::default();
+    monitor.poll(&client).await.unwrap();
+    let first = monitor.poll(&client).await.unwrap().0;
+    let second = monitor.poll(&client).await.unwrap().0;
+    assert_eq!(first.len(), 25);
+    assert_eq!(second.len(), 5);
+    assert_eq!(second[0].id, "m25");
+    assert_eq!(second[4].id, "m29");
+}
+
+#[tokio::test]
+async fn network_limit_covers_response_bodies_and_releases_on_drop() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("body"))
+        .mount(&server)
+        .await;
+    let http = Http::new().unwrap();
+    let mut responses = Vec::new();
+    for _ in 0..4 {
+        responses.push(
+            http.request(reqwest::Method::GET, &server.uri(), "t", &[], None)
+                .await
+                .unwrap(),
+        );
+    }
+    let task = {
+        let http = http.clone();
+        let url = server.uri();
+        tokio::spawn(async move {
+            http.request(reqwest::Method::GET, &url, "t", &[], None)
+                .await
+        })
+    };
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    assert!(
+        !task.is_finished(),
+        "a fifth body cannot bypass the transfer limit"
+    );
+    drop(responses.pop());
+    let response = tokio::time::timeout(Duration::from_secs(2), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(http::bounded_bytes(response, 16).await.unwrap(), b"body");
+}
+
+#[tokio::test]
+async fn rate_limit_backoff_does_not_starve_other_requests() {
+    let server = MockServer::start().await;
+    Mock::given(path("/limited"))
+        .respond_with(ResponseTemplate::new(429).insert_header("Retry-After", "2"))
+        .mount(&server)
+        .await;
+    Mock::given(path("/ready"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    let http = Http::new().unwrap();
+    let mut tasks = Vec::new();
+    for _ in 0..4 {
+        let http = http.clone();
+        let url = format!("{}/limited", server.uri());
+        tasks.push(tokio::spawn(async move {
+            http.request(reqwest::Method::GET, &url, "t", &[], None)
+                .await
+        }));
+    }
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while server.received_requests().await.unwrap().len() < 4 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    tokio::time::timeout(
+        Duration::from_millis(500),
+        http.request(
+            reqwest::Method::GET,
+            &format!("{}/ready", server.uri()),
+            "t",
+            &[],
+            None,
+        ),
+    )
+    .await
+    .expect("sleeping retries must release their slots")
+    .unwrap();
+    for task in tasks {
+        task.abort();
+    }
 }
 #[test]
 fn notifications_are_deduplicated() {

@@ -9,6 +9,9 @@ local mail mirror, search index, or attachment archive.
 implemented features, limitations and the verification boundary. No Google
 account has been connected during development in this workspace.
 
+The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptance
+criteria to implementation evidence and the remaining code/desktop checks.
+
 Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.0-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before

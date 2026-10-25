@@ -14,6 +14,16 @@ pub fn start(s: &Rc<State>) {
         ticks += 1;
         assert!(ticks < 250, "desktop D-Bus integration test timed out");
         if stage == 0 && s.tray_available.get() {
+            // Missing OAuth setup must explain the prerequisite in one window,
+            // never recursively reopen Settings when Add is clicked again.
+            crate::signin::open(&s, false, None);
+            let first = s.signin_window.borrow().as_ref().unwrap().clone();
+            assert_eq!(first.title().as_deref(), Some("Connect Google account"));
+            crate::signin::open(&s, false, None);
+            assert_eq!(s.signin_window.borrow().as_ref(), Some(&first));
+            assert_eq!(s.app.windows().len(), 2);
+            first.close();
+            assert!(s.signin_window.borrow().is_none());
             s.window.close();
             assert!(!s.window.is_visible(), "close must hide the main window");
             assert!(

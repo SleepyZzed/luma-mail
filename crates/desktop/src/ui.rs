@@ -2,10 +2,10 @@ use adw::prelude::*;
 use gtk::{gio, glib};
 use luma_core::{
     Error, Result,
-    auth::{Authorization, ClientConfig, Credentials, SystemVault, TokenManager, Vault},
+    auth::{ClientConfig, SystemVault, TokenManager},
     cache::Cache,
     composer::readable,
-    config::{Account, Paths, Settings},
+    config::{Paths, Settings},
     gmail::Gmail,
     http::Http,
     model::*,
@@ -59,6 +59,8 @@ pub struct State {
     pub background_hold: RefCell<Option<gio::ApplicationHoldGuard>>,
     pub tray_task: RefCell<Option<tokio::task::AbortHandle>>,
     pub poller: crate::notifications::Poller,
+    pub signin_window: RefCell<Option<adw::Window>>,
+    _cursor_settings: Option<gio::Settings>,
 }
 pub fn async_work<T: Send + 'static>(
     state: &Rc<State>,
@@ -191,6 +193,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
     }
+    let cursor_settings = crate::desktop::follow_cursor();
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("Luma Mail")
@@ -321,6 +324,8 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         background_hold: RefCell::new(None),
         tray_task: RefCell::new(None),
         poller: Default::default(),
+        signin_window: RefCell::new(None),
+        _cursor_settings: cursor_settings,
     });
     if let Err(e) = s.rebuild_clients() {
         s.error(&e);
@@ -1109,88 +1114,7 @@ fn undo_last(s: &Rc<State>) {
     );
 }
 pub fn add_account(s: &Rc<State>, drive: bool, expected: Option<String>) {
-    let config = match s.client_config() {
-        Ok(c) => c,
-        Err(e) => {
-            s.error(&e);
-            crate::settings::open(s);
-            return;
-        }
-    };
-    let c = config.clone();
-    s.info("Opening Google sign-in in your browser…");
-    async_work(
-        s,
-        async move { Authorization::begin(&c, drive).await },
-        move |s, auth| {
-            if let Err(e) = gio::AppInfo::launch_default_for_uri(
-                auth.url.as_str(),
-                None::<&gio::AppLaunchContext>,
-            ) {
-                s.info(&format!("Could not launch your default browser: {e}"));
-                return;
-            }
-            let http = s.http.clone();
-            let existing = s.settings.borrow().accounts.clone();
-            async_work(
-                &s,
-                async move {
-                    let token = auth.complete(&http, &config).await?;
-                    let p = Gmail::profile_with_token(&http, &token.access_token).await?;
-                    if let Some(email) = expected
-                        && !p.email_address.eq_ignore_ascii_case(&email)
-                    {
-                        return Err(Error::Invalid(
-                            "Sign in with the same Google account when reconnecting".into(),
-                        ));
-                    }
-                    let id = existing
-                        .iter()
-                        .find(|a| a.email.eq_ignore_ascii_case(&p.email_address))
-                        .map(|a| a.id.clone())
-                        .unwrap_or_else(luma_core::composer::new_id);
-                    let refresh=token.refresh_token.as_ref().ok_or_else(||Error::Invalid("Google did not return a refresh token. Revoke the previous grant and reconnect.".into()))?;
-                    SystemVault
-                        .store(
-                            &id,
-                            &Credentials {
-                                refresh_token: refresh.clone(),
-                            },
-                        )
-                        .await?;
-                    Ok((id, p.email_address))
-                },
-                move |s, (id, email)| {
-                    let mut p = s.settings.borrow_mut();
-                    if let Some(a) = p.accounts.iter_mut().find(|a| a.id == id) {
-                        a.enabled = true;
-                        a.drive_enabled = drive;
-                    } else {
-                        p.accounts.push(Account {
-                            id: id.clone(),
-                            email: email.clone(),
-                            name: email.split('@').next().unwrap_or(&email).into(),
-                            enabled: true,
-                            notifications: true,
-                            signature: String::new(),
-                            drive_enabled: drive,
-                        });
-                    }
-                    if p.default_account.is_none() {
-                        p.default_account = Some(id);
-                    }
-                    drop(p);
-                    s.save();
-                    if let Err(e) = s.rebuild_clients() {
-                        s.error(&e);
-                        return;
-                    }
-                    sidebar(&s);
-                    reload(&s);
-                },
-            );
-        },
-    );
+    crate::signin::open(s, drive, expected);
 }
 pub fn apply_theme(s: &Rc<State>) {
     let style = adw::StyleManager::default();

@@ -1,8 +1,10 @@
 mod compose;
+mod desktop;
 #[cfg(all(test, target_os = "linux"))]
 mod desktop_test;
 mod notifications;
 mod settings;
+mod signin;
 mod tray;
 mod ui;
 use adw::prelude::*;
@@ -22,6 +24,22 @@ fn main() -> glib::ExitCode {
     app.connect_open(|app, files, _| ui::create(app, files.first().map(|f| f.uri().to_string())));
     if std::env::args().any(|a| a == "--smoke-test") {
         app.connect_activate(|app| {
+            if std::env::args().any(|a| a == "--desktop-diagnostics") {
+                println!("GTK cursor: {}", crate::desktop::cursor_diagnostic());
+                if let Some(source) = gio::SettingsSchemaSource::default()
+                    && let Some(schema) = source.lookup("org.gnome.desktop.interface", true)
+                {
+                    let settings =
+                        gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None);
+                    println!(
+                        "Desktop settings backend: {}",
+                        settings
+                            .backend()
+                            .map(|b| b.type_().name().to_string())
+                            .unwrap_or_else(|| "Default backend".into())
+                    );
+                }
+            }
             let app = app.clone();
             glib::timeout_add_local_once(std::time::Duration::from_secs(3), move || {
                 if let Some(path) = std::env::var_os("LUMA_SMOKE_SCREENSHOT")
