@@ -50,8 +50,16 @@ pub fn plain(s: &Rc<State>, text: &str) -> gtk::Label {
 pub fn append(s: &Rc<State>, body: &gtk::Box, message: &Message, text: &str, account: &str) {
     #[cfg(target_os = "linux")]
     if let Ok(Some(html)) = html_mail::body(&message.payload) {
-        linux::append(s, body, message, account, html);
-        return;
+        if linux::sandbox_available() {
+            linux::append(s, body, message, account, html);
+            return;
+        }
+        let notice = ui::label(
+            "HTML preview is unavailable because this system blocks its sandbox. Showing readable text. See Troubleshooting for native package/AppArmor setup.",
+            "caption",
+        );
+        notice.set_wrap(true);
+        body.append(&notice);
     }
     body.append(&plain(s, text));
     crate::message_images::append(s, body, message, account);
@@ -69,6 +77,30 @@ mod linux {
     use luma_core::{Result, mail_images, preview};
     use std::{cell::Cell, collections::HashMap};
     use webkit6::prelude::*;
+
+    pub(super) fn sandbox_available() -> bool {
+        static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *AVAILABLE.get_or_init(|| {
+            let executable = std::env::var_os("APPDIR")
+                .map(|root| std::path::PathBuf::from(root).join("usr/bin/bwrap"))
+                .unwrap_or_else(|| "/usr/bin/bwrap".into());
+            // Probe the same namespace capability before WebKit's fatal helper
+            // launch. Never disable its sandbox to make HTML available.
+            std::process::Command::new(executable)
+                .args([
+                    "--ro-bind",
+                    "/",
+                    "/",
+                    "--unshare-user",
+                    "--unshare-pid",
+                    "--unshare-net",
+                    "--die-with-parent",
+                    "/usr/bin/true",
+                ])
+                .output()
+                .is_ok_and(|r| r.status.success())
+        })
+    }
 
     fn view(s: &Rc<State>) -> webkit6::WebView {
         let settings = webkit6::Settings::new();
@@ -163,6 +195,10 @@ mod linux {
         );
     }
     pub(super) fn diagnostic(s: &Rc<State>) {
+        assert!(
+            sandbox_available(),
+            "WebKit namespace sandbox is unavailable on this runner"
+        );
         ui::clear(&s.reader);
         let view = view(s);
         s.reader.append(&view);

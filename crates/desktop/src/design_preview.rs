@@ -187,7 +187,10 @@ pub fn show(s: &Rc<State>) {
     card.append(&reply);
     let state = s.clone();
     let compose_paths = paths.clone();
-    reply.connect_clicked(move |_| crate::compose::design_preview(&state, compose_paths.clone()));
+    let slot = card.clone();
+    reply.connect_clicked(move |_| {
+        crate::compose::design_reply(&state, compose_paths.clone(), slot.clone())
+    });
     s.reader.append(&card);
     s.info("Synthetic design preview · No remote mailbox connected");
     crate::compose::verify_formatting();

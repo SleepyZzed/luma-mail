@@ -23,6 +23,19 @@ APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.1.2-x86_64.AppImage
 ```
 
 The bundle includes GTK/libadwaita dependencies and application resources. It
+also includes matching WebKit helpers and GTK/GStreamer media codecs for HTML
+and attachment playback. This increases application size, not mailbox cache use.
+Bundled distro copyright notices and common license texts are under
+`usr/share/licenses/luma-mail/native` after `--appimage-extract`.
+`NATIVE-SOURCES.tsv` accompanies the release and records exact native source-package
+versions and source download pages. Luma's matching application source is the
+release's GitHub source archive; Rust dependencies are pinned in Cargo.lock.
+WebKit helper-prefix relocation is implemented in packaging/relocate-webkit.py.
+To replace an LGPL library, extract the AppImage, replace its matching shared
+library/helpers under usr/lib, and run squashfs-root/AppRun; no signature check
+prevents modification. Preserve ABI compatibility and rebuild matching helpers.
+
+The bundle
 still uses your user-session D-Bus, existing notification daemon, Secret Service
 keyring and StatusNotifier tray host. Enable Noctalia's tray widget. It does not
 bundle a second notification daemon or simulate received mail. Finish Google's

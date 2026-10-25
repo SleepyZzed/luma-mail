@@ -77,6 +77,7 @@ deploy_extra+=(--executable "$appdir/usr/bin/bwrap" --executable "$appdir/usr/bi
 export APPIMAGE_EXTRACT_AND_RUN=1 DEPLOY_GTK_VERSION=4
 "$tool" --appdir "$appdir" --executable "$appdir/usr/bin/luma-mail" "${deploy_extra[@]}" --desktop-file "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop" --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg" --plugin gtk
 python3 packaging/relocate-webkit.py "$appdir" "$webkit_dir"
+python3 packaging/native-notices.py "$appdir"
 hook="$appdir/apprun-hooks/linuxdeploy-plugin-gtk.sh"
 test -f "$hook"
 sed -i '/^export GDK_BACKEND=x11 /d; /^export GTK_THEME=/d' "$hook"

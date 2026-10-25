@@ -6,8 +6,10 @@ fetches individual message bodies only when you expand them. It never builds a
 local mail mirror, search index, or attachment archive.
 
 **Early access, not production-ready.** See [STATUS.md](STATUS.md) for
-implemented features, limitations and the verification boundary. No Google
-account has been connected during development in this workspace.
+implemented features, limitations and the verification boundary. Real browser
+consent, Windows keyring, synthetic self-mail operations and Gmail sender-filter
+creation/removal have been tested with the maintainer's authorized account.
+Two-account and target Linux desktop acceptance remain outstanding.
 
 The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptance
 criteria to implementation evidence and the remaining code/desktop checks.
@@ -54,6 +56,40 @@ claimed. No always-running daemon or autostart entry is installed.
 
 ## Daily-use controls
 
+**Unified Inbox** combines Inbox messages from enabled accounts. **All Mail**
+combines their Inbox, sent and archived mail, excluding Spam and Trash. Click an
+account in the sidebar for that account's Inbox.
+
+Mail actions update confirmed rows in place, with Undo and arrival/removal
+transitions. A normal click opens one conversation; **Select** enables bulk
+selection. Right-click a row for its actions. Refresh and Load more fetch only
+bounded metadata pages, with a rolling quota budget and batched reads.
+
+Compose opens inside the main window; replies open inline below their message.
+Expand or pop out the same draft as needed. Bold, italic, underline, strike,
+bullets and Insert link are available, with real upload-byte progress and a
+separate Gmail confirmation stage. **Ctrl+Enter** sends.
+
+Attachments sit in a separate strip below message headers and above the body.
+Image thumbnails are bounded; image, DOCX/text, audio and video previews load on
+demand in memory. Audio/video playback depends on available codecs. DOCX previews
+show extracted text, not original pagination. Composer attachments use the same
+cards. Original files are saved only to a location you choose.
+
+Linux HTML mail uses a sandboxed WebKit renderer with sanitized layout, tables,
+colours and clickable links. External images remain blocked until **Load images**;
+that explicit request contacts the sender's image servers. Embedded images are
+decoded and resized first. Sender scripts and local-file/network access are blocked.
+Windows development builds use selectable text and an image gallery fallback.
+
+**Block sender…** creates a Gmail filter for the receiving account, sending future
+mail from that address to Gmail Trash while Luma is closed. Existing mail is kept.
+It requests optional Gmail settings/filter permission on first use. Manage rules
+under **Settings → account → Blocked senders**. Unblock removes only the exact rule
+Luma created; edited filters must be reviewed in Gmail. This is a Gmail filter,
+not an entry in Gmail's separate native blocked-address list. **Report spam**
+and **Not spam** operate on existing selected mail and are available separately.
+
 **Search options & accounts** builds Gmail queries for sender, recipient,
 subject, dates, unread/starred status and attachments, and lets you choose any
 subset of enabled accounts. It searches All Mail remotely. **Ctrl+1…9** switches
@@ -69,7 +105,7 @@ missing label without applying an unrelated ID.
 ## Build on Arch Linux / CachyOS
 
 ```sh
-sudo pacman -S --needed base-devel rust gtk4 libadwaita pkgconf gnome-keyring
+sudo pacman -S --needed base-devel rust gtk4 libadwaita webkitgtk-6.0 gst-plugins-good gst-libav pkgconf gnome-keyring
 cargo build --locked
 cargo run --locked -p luma-mail
 ```

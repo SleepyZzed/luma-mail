@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.1.2-dev.1
+        default: v0.2.0-dev.1
 permissions:
   contents: read
 jobs:
@@ -36,6 +36,18 @@ jobs:
         run: dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
       - name: Media fixture tools
         run: sudo apt-get install -y gstreamer1.0-tools
+      - name: Allow sandbox namespaces on the disposable Ubuntu runner
+        run: |
+          # Ubuntu 24.04 requires explicit userns permission for third-party
+          # sandbox executables. Keep the global restriction and WebKit sandbox.
+          sudo tee /etc/apparmor.d/luma-ci-bwrap >/dev/null <<'PROFILE'
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile luma-ci-bwrap /{usr/bin/bwrap,tmp/**/usr/bin/bwrap} flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser -r /etc/apparmor.d/luma-ci-bwrap
       - name: Require app registration before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: cargo check --locked -p luma-mail --features require-google-client

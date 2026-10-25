@@ -154,3 +154,32 @@ install the configured 0.1.2 AppImage for the next real Linux acceptance pass.
 The current protocol decision and verification limits are in [oauth.md](oauth.md).
 Formal verification, uncapped sign-in and the 20 live acceptance checks remain
 separate full-release requirements.
+
+## 0.2.0 mail experience and authorized live checks
+
+Historical "not executed" notes above describe earlier releases. Subsequent
+authorized testing completed browser consent/PKCE/loopback, Windows Credential
+Manager, token refresh and synthetic self-mail draft create/reload/edit/conflict,
+send, inline photo/DOCX/audio attachments, search/star/read/labels, archive/Inbox
+and Trash/restore. Gmail archive responses were checked for labels without INBOX.
+Empty projected attachment-search and bodyless Trash POST handling were fixed
+from observed responses. Private mailbox content is not in the repository.
+
+A bounded metadata test measured Inbox 25/25 snippets 0.93s, next page 0.70s,
+Archive 1.12s and All Mail 0.88s; network/account/quota conditions affect results.
+With explicit permission approval, a random example.invalid sender filter was
+created, read back and ownership-checked deleted; its absence was confirmed.
+Google normalizes away redundant remove-INBOX on a TRASH filter, now tested.
+No existing mail was changed by this filter test.
+
+[Linux run 40235667937](https://github.com/SleepyZzed/luma-mail/actions/runs/40235667937)
+passed tests, GTK/D-Bus acceptance, release build, AppImage packaging/launch and
+cursor settings. It did not instantiate WebKit. Deeper rendering run 40237135136
+exposed Ubuntu 24.04's namespace/AppArmor restriction. Luma now probes and falls
+back to text; CI grants userns specifically to its disposable runner bwrap.
+WebKit's sandbox and the global OS restriction remain enabled. Final rendering,
+media and 0.2.0 release results will be recorded after completion.
+
+Remaining: second account, target Secret Service/Wayland/Noctalia, real incoming
+notification presentation/clicks, Drive recipient access, sustained giant-mailbox
+profiling, Google verification and the full control audit.

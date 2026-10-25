@@ -118,6 +118,9 @@ pub fn park_inline(s: &Rc<State>) {
 }
 fn finish(e: &Rc<Editor>) {
     e.closing.set(true);
+    if let Some(timer) = e.debounce.borrow_mut().take() {
+        timer.remove();
+    }
     detach(e);
     let owns = e
         .state
@@ -313,12 +316,20 @@ fn open_internal(
 }
 #[cfg(debug_assertions)]
 pub(crate) fn design_preview(s: &Rc<State>, paths: Vec<PathBuf>) {
+    design_at(s, paths, None);
+}
+#[cfg(debug_assertions)]
+pub(crate) fn design_reply(s: &Rc<State>, paths: Vec<PathBuf>, slot: gtk::Box) {
+    design_at(s, paths, Some(slot));
+}
+#[cfg(debug_assertions)]
+fn design_at(s: &Rc<State>, paths: Vec<PathBuf>, slot: Option<gtk::Box>) {
     let mut message = Compose::new("alex@example.com".into());
     message.to = "jamie@example.com".into();
     message.subject = "Re: Weekend by the coast".into();
     // Configure local cards after creation without scheduling a real save.
     message.attachments = paths;
-    make(s, message, None);
+    make_at(s, message, None, slot);
 }
 #[cfg(any(debug_assertions, test))]
 pub(crate) fn verify_formatting() {
@@ -330,6 +341,60 @@ pub(crate) fn verify_formatting() {
     let html = formatted_html(&buffer);
     assert!(html.contains("<strong>Hello</strong> &lt;world&gt; &amp; friends"));
     assert!(has_formatting(&buffer));
+}
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
+    let account = luma_core::config::Account {
+        id: "composer-fixture".into(),
+        email: "fixture@example.invalid".into(),
+        name: "Fixture".into(),
+        enabled: true,
+        notifications: false,
+        signature: String::new(),
+        drive_enabled: false,
+        sender_controls: false,
+        blocked_senders: vec![],
+    };
+    s.settings.borrow_mut().accounts.push(account);
+    make(s, Compose::new("fixture@example.invalid".into()), None);
+    let e = s.editor.borrow().as_ref().unwrap().clone();
+    assert_eq!(
+        s.compose_stack.visible_child_name().as_deref(),
+        Some("compose")
+    );
+    pop_out(&e);
+    assert!(s.editor.borrow().is_none());
+    assert_eq!(e.window.content().as_ref(), Some(e.root.upcast_ref()));
+    show_full(&e);
+    assert!(!e.window.is_visible());
+    assert!(s.editor.borrow().is_some());
+    e.window.close();
+    assert!(s.editor.borrow().is_none());
+    assert!(e.root.parent().is_none());
+    let slot = ui::vbox(0);
+    s.reader.append(&slot);
+    make_at(
+        s,
+        Compose::new("fixture@example.invalid".into()),
+        None,
+        Some(slot.clone()),
+    );
+    let e = s.editor.borrow().as_ref().unwrap().clone();
+    assert_eq!(e.placement.get(), 1);
+    assert_eq!(e.root.parent().as_ref(), Some(slot.upcast_ref()));
+    park_inline(s);
+    assert_eq!(e.placement.get(), 0);
+    assert_eq!(
+        s.compose_stack.visible_child_name().as_deref(),
+        Some("mail")
+    );
+    e.window.close();
+    assert!(s.editor.borrow().is_none());
+    s.reader.remove(&slot);
+    s.settings
+        .borrow_mut()
+        .accounts
+        .retain(|a| a.id != "composer-fixture");
 }
 fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
     make_at(s, c, draft, None);

@@ -44,6 +44,16 @@ struct Images(RefCell<Vec<String>>);
 impl TokenSink for Images {
     type Handle = ();
     fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+        if let Token::TagToken(ref tag) = token
+            && tag.kind == StartTag
+        {
+            if tag.name == html5ever::local_name!("script") {
+                return TokenSinkResult::RawData(html5ever::tokenizer::states::RawKind::ScriptData);
+            }
+            if matches!(tag.name.as_ref(), "style" | "textarea" | "title") {
+                return TokenSinkResult::RawData(html5ever::tokenizer::states::RawKind::Rawtext);
+            }
+        }
         if let Token::TagToken(tag) = token
             && tag.kind == StartTag
             && tag.name == html5ever::local_name!("img")
@@ -99,11 +109,15 @@ fn public_ip(ip: IpAddr) -> bool {
             let segments = ip.segments();
             (segments[0] & 0xe000) == 0x2000
                 && segments[0] != 0x2002
-                && !(segments[0] == 0x2001 && (segments[1] == 0 || segments[1] == 0x0db8))
+                && !(segments[0] == 0x2001 && (segments[1] < 0x0200 || segments[1] == 0x0db8))
+                && !(segments[0] == 0x3fff && segments[1] < 0x1000)
         }
     }
 }
 fn external_url(value: &str) -> Result<url::Url> {
+    if value.len() > 8192 {
+        return Err(Error::ResponseLimit);
+    }
     let url = url::Url::parse(value)
         .map_err(|_| Error::Invalid("Invalid external image address".into()))?;
     if url.scheme() != "https"
@@ -210,6 +224,9 @@ mod tests {
             "224.0.0.1",
             "2001:db8::1",
             "2002:7f00:1::",
+            "2001:10::1",
+            "2001:20::1",
+            "3fff::1",
         ] {
             assert!(!public_ip(ip.parse().unwrap()));
         }
