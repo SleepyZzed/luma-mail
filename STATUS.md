@@ -71,7 +71,9 @@ publication is gated on valid app registration values. Luma's Desktop client is
 now created and the two GitHub build values are configured. Google remains in
 External Testing mode, with limited test users and seven-day grants. Live consent,
 keyring acceptance and public Google verification remain pending. The published
-0.1.1 binary still uses the old flow until replaced with the configured 0.1.2 build.
+0.1.1 binary uses the old flow. The configured 0.1.2 development AppImage is now
+published as v0.1.2-dev.1 with its own Desktop registration. This is a private
+Google testing milestone, not completion of public sign-in verification.
 - AppImage dconf module and host cursor-theme paths; session cursor overrides,
   live desktop cursor settings and diagnostics. Configuration transport passed
   Linux CI; the reporter's cursor artwork still needs another desktop check.

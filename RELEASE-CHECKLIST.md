@@ -49,10 +49,13 @@ palette are tracked separately from the 20 mandatory behaviours.
 
 ## Distribution gates
 
-- [x] Provision Luma's public Desktop OAuth client; the next release embeds it
+- [x] Provision Luma's Desktop OAuth client; the 0.1.2 release embeds it
   at build time. No runtime JSON import remains. Publication is gated on this.
 - [ ] Resolve Google's scope verification, consent-screen/privacy-policy and any
   applicable assessment requirements before presenting an official public client.
+- [ ] Public Google sign-in works without a per-user test-list entry. Record
+  Google's assessment decision and any verification/hosting/API costs before
+  calling this a full public release; a permanent allowlist is not the goal.
 - [ ] All mandatory live acceptance checks recorded with build/version and results.
 - [ ] Source/archive/AppImage checksums, repeatable build and clear upgrade/uninstall instructions.
 - [ ] Signing/release ownership and native package verification.
@@ -80,7 +83,7 @@ palette are tracked separately from the 20 mandatory behaviours.
 - [x] Gate release publication on a configured, validated app registration.
 - [x] Create/configure the Google registration and repository build values.
 - [ ] Verify live consent and keyring storage with listed test accounts.
-- [ ] Publish the configured 0.1.2 development AppImage for Linux acceptance.
+- [x] Publish the configured 0.1.2 development AppImage for Linux acceptance: v0.1.2-dev.1.
 
 See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 [docs/verification.md](docs/verification.md) for implementation details and test evidence.

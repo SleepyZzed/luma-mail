@@ -86,9 +86,32 @@ compliance with the Google API Services User Data Policy. A security assessment
 may be required depending on how restricted data is handled. Local test success
 does not establish Google approval.
 
+## Public sign-in and costs
+
+The test-user list is temporary. The full-release goal is Google's approved
+production consent flow without adding each person manually. Completing testing
+or embedding a client ID alone does not establish that approval. Preparation
+includes a homepage/privacy policy on a verified domain, scope justification,
+and a demonstration of real consent and the mail features that need each scope.
+
+Luma connects directly from the user's desktop to Google and has no mail-handling
+application server. Google's restricted-scope guidance ties annual independent
+assessment to access through third-party servers. The expectation for this local
+architecture must be confirmed with Google's review team before promising that
+assessment is unnecessary. Google itself does not charge assessment fees, but
+independent assessors may charge; total production costs are not guaranteed.
+
+Standard Gmail API use is currently free within its standard quotas. Google has
+announced planned charges for usage above daily thresholds, with notice before
+they take effect. Review the current terms/quotas before a large public rollout.
+Public sign-in, assessment applicability and any actual hosting/API costs remain
+explicit release gates rather than reasons to keep a permanent test-user list.
+
 References:
 
 - [Desktop OAuth and PKCE](https://developers.google.com/identity/protocols/oauth2/native-app)
 - [Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes)
 - [Restricted scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification)
 - [Testing and production audiences](https://support.google.com/cloud/answer/15549945)
+- [Assessment fees](https://support.google.com/cloud/answer/13463817)
+- [Gmail API quotas and pricing](https://developers.google.com/workspace/gmail/api/reference/quota)

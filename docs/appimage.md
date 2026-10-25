@@ -12,14 +12,14 @@ Download the AppImage and `SHA256SUMS` from the repository's Releases page:
 
 ```sh
 sha256sum --check SHA256SUMS
-chmod +x Luma-Mail-0.1.1-x86_64.AppImage
-./Luma-Mail-0.1.1-x86_64.AppImage
+chmod +x Luma-Mail-0.1.2-x86_64.AppImage
+./Luma-Mail-0.1.2-x86_64.AppImage
 ```
 
 If your desktop lacks FUSE support, use:
 
 ```sh
-APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.1.1-x86_64.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.1.2-x86_64.AppImage
 ```
 
 The bundle includes GTK/libadwaita dependencies and application resources. It

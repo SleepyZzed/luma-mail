@@ -106,6 +106,17 @@ build/launch and cursor settings transport. This run preceded Google provisionin
 and tested an unconfigured developer bundle.
 
 Luma's Google Desktop client and both repository build values were then created.
-Google's audience remains External Testing. The configured build, live consent/
-keyring tests and broad public Google verification remain to be recorded. The
-0.1.1 release does not acquire these changes automatically.
+Google's audience remains External Testing with the chosen test account listed.
+
+Configured release [run 40224992927](https://github.com/SleepyZzed/luma-mail/actions/runs/40224992927)
+passed every build, test, launch, package and publish check, including the required
+app-registration feature and validation of the real build-time values. It published
+[v0.1.2-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.2-dev.1)
+from `35cd52c500329c9884802715c15e2978cf6b78f0`. The downloaded 42,097,144-byte
+AppImage matched both SHA256SUMS and GitHub's digest:
+`59423a3c26feea44545061270e71bb4e614f96a5756f139a301c669dd6a438eb`.
+The exact-tag source ZIP passed its archive integrity check.
+
+Live Google consent/keyring tests and broad public Google verification remain
+unexecuted. The 0.1.1 binary does not acquire these changes automatically;
+install the configured 0.1.2 AppImage for the next real Linux acceptance pass.

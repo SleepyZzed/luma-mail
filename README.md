@@ -13,12 +13,12 @@ The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptan
 criteria to implementation evidence and the remaining code/desktop checks.
 
 Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
-[Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.1-dev.1)
+[Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.2-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
-Main now uses the maintainer's bundled Google app registration with **Sign in
-with Google**. The older 0.1.1 binary still has the removed JSON import flow.
+The 0.1.2 build uses the maintainer's bundled Google app registration with
+**Sign in with Google**. The older 0.1.1 binary still has the removed JSON import flow.
 Luma's Desktop registration is provisioned and supplied through the release
 build. Google currently has the app in **Testing**: only accounts added to its
 test-user list can sign in, and grants expire after seven days. Public Google
