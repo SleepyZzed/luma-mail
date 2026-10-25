@@ -44,9 +44,10 @@ GObject introspection, librsvg, patchelf and desktop-file-utils. Then run:
 bash packaging/appimage.sh
 ```
 
-Use a fresh `target/appimage/Luma.AppDir`. The script refuses to overlay an old
-AppDir. Downloaded linuxdeploy is checksum-pinned; the GTK plugin is pinned to an
-immutable upstream commit. If the upstream continuous binary changes, review
+Each invocation creates and cleans a private temporary staging directory, so a
+restored Cargo cache cannot reuse an old AppDir. Downloaded linuxdeploy is
+checksum-pinned; the GTK plugin is pinned to an immutable upstream commit and
+checksum. If the upstream continuous binary changes, review
 the new official release and update the checksum deliberately. The packaging
 step removes the plugin's old forced-X11 / forced-GTK-theme hook lines so GTK4
 and libadwaita retain their native backend and appearance behaviour.

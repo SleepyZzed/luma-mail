@@ -30,8 +30,10 @@ displays notifications or simulate new Gmail messages.
 
 [Run 40206359687](https://github.com/SleepyZzed/luma-mail/actions/runs/40206359687)
 also passed the optimized Linux build, native GTK launch, AppImage packaging,
-and launch of the bundled AppImage with extraction mode on Ubuntu 24.04. The
-later run repeats those checks with the additional D-Bus acceptance test.
+and launch of the bundled AppImage with extraction mode on Ubuntu 24.04. Run
+40206680811 also passed all those checks with the additional D-Bus acceptance
+test. A subsequent release attempt exposed a restored staging-directory
+collision; packaging now uses an automatically cleaned private temporary path.
 
 Not executed: real Google OAuth consent or Gmail/Drive
 operations, actual Secret Service D-Bus interaction, Noctalia/Hyprland/Wayland
