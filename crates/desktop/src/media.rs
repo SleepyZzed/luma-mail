@@ -1,6 +1,22 @@
 //! GTK's Linux GStreamer backend aborts on MemoryInputStream. A sealed anonymous
 //! RAM file gives it a seekable URI, with no path in the disk cache or /tmp.
 #[cfg(target_os = "linux")]
+pub fn configure() -> luma_core::Result<()> {
+    let runtime = gtk::glib::user_runtime_dir().join("luma-mail");
+    luma_core::config::private_dir(&runtime)?;
+    let registry = runtime.join("gstreamer");
+    luma_core::config::private_dir(&registry)?;
+    // WebKit exposes GST_REGISTRY's parent directory to its sandbox. /dev/null
+    // would cause it to rebind all of /dev, breaking its private device mounts.
+    // Use a private runtime directory and forbid writing the registry instead.
+    // SAFETY: called at the very start of main, before GTK/GIO/Tokio threads.
+    unsafe {
+        std::env::set_var("GST_REGISTRY", registry.join("disabled-registry.bin"));
+        std::env::set_var("GST_REGISTRY_UPDATE", "no");
+    }
+    Ok(())
+}
+#[cfg(target_os = "linux")]
 pub fn from_bytes(bytes: Vec<u8>) -> luma_core::Result<gtk::MediaFile> {
     use adw::prelude::*;
     use std::{

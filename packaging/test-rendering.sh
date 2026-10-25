@@ -22,7 +22,7 @@ chmod 700 "$root/runtime"
 # them too. A headless runner has no pre-existing graphical session environment.
 export LUMA_TEST_ROOT="$root/app" LUMA_RENDER_MEDIA="$root"
 export XDG_CACHE_HOME="$root/xdg-cache" XDG_RUNTIME_DIR="$root/runtime"
-export GST_REGISTRY=/dev/null GST_REGISTRY_UPDATE=no APPIMAGE_EXTRACT_AND_RUN=1
+export APPIMAGE_EXTRACT_AND_RUN=1
 export GTK_A11Y=none LIBGL_ALWAYS_SOFTWARE=1
 if ! timeout 45s xvfb-run -a dbus-run-session -- "$1" --render-diagnostics; then
   echo 'Renderer launch failed; recent kernel sandbox diagnostics follow'
@@ -31,4 +31,5 @@ if ! timeout 45s xvfb-run -a dbus-run-session -- "$1" --render-diagnostics; then
 fi
 test ! -d "$root/app/cache/bodies"
 test ! -d "$root/app/config/composer"
+test ! -e "$root/runtime/luma-mail/gstreamer/disabled-registry.bin"
 echo 'PASS zero-budget HTML/media creates no body cache, attachment spool or local draft store'

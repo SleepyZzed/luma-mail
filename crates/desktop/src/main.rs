@@ -20,6 +20,11 @@ mod ui;
 use adw::prelude::*;
 use gtk::{gio, glib};
 fn main() -> glib::ExitCode {
+    #[cfg(target_os = "linux")]
+    if let Err(error) = media::configure() {
+        eprintln!("Cannot prepare private media runtime: {error}");
+        return glib::ExitCode::FAILURE;
+    }
     let flags = if cfg!(debug_assertions) && std::env::args().any(|a| a == "--design-preview") {
         gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::NON_UNIQUE
     } else {
