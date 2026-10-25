@@ -8,7 +8,7 @@ were available and no real Google account was connected or modified.
 
 | Area | Implemented | Verification boundary |
 |---|---|---|
-| Foundation | Rust workspace; native three-pane GTK4/libadwaita window; XDG settings; loading/error status; worker runtime | Windows GTK build and native launch checked. Linux build/keyring remains to be verified. |
+| Foundation | Rust workspace; native three-pane GTK4/libadwaita window; XDG settings; loading/error status; worker runtime | Windows GTK build/native launch and Linux Clippy/tests checked. Real keyring interaction remains manual. |
 | Authentication | Default browser, loopback listener, S256 PKCE, state validation, scopes, per-account refresh serialization, Linux Secret Service, reconnect/revoke | OAuth URL, state and mocked refresh tested. Real consent, keyring prompts and revocation need Linux testing. |
 | Mail access | Multiple enabled Gmail accounts, metadata projection, 25-row provider pages, transactional unified merge, account identity, one-body-per-expansion retrieval | Mocked response/search/pagination tests; real mailbox not connected. |
 | Mail changes | Conversation and individual read/unread, stars, archive, inbox, Trash/restore, importance; labels CRUD/add/remove; cross-account dispatch; previous-state undo | Endpoint and semantic tests. UI waits for server confirmation; no speculative local success. Real persistence needs browser comparison. |
@@ -17,10 +17,10 @@ were available and no real Google account was connected or modified.
 | Drafts | Gmail creation/update/delete/send; 2-second debounce; save state; message-ID conflict check; reopen with attachments fetched only on explicit edit, bounded to 16 MiB | Mocked create/conflict/attachment tests. Gmail lacks atomic draft CAS, so a residual cross-client race remains. |
 | Attachments | Native picker/drop, file list/removal, MIME attachments up to 16 MiB combined, on-demand save | MIME/size tests. Received attachment responses capped; no historical archive. |
 | Drive | Opt-in consent; 256 KiB resumable chunks; real progress; cancellation; existing authorized file IDs; explicit recipient read access | Implemented against documented API. Requires live upload/sharing verification; no mock claim of recipient access. |
-| Desktop | Real system notification-service requests, bounded history polling, Refresh now / Ctrl+R, privacy settings; close-to-tray, Open/Quit menu, lost-tray fallback; mailto; launcher/icon | Dedup/baseline/close-policy/menu tests. Real daemon, tray host and notification clicks need desktop testing. |
+| Desktop | Real system notification-service requests, bounded history polling, Refresh now / Ctrl+R, privacy settings; close-to-tray, Open/Quit menu, lost-tray fallback; mailto; launcher/icon | Dedup/baseline/close-policy/menu tests; Linux D-Bus acceptance verifies actual GTK hide/hold/restore, tray Quit and notification transport. Noctalia display and notification clicks remain manual. |
 | Themes | System/dark/light/Noctalia modes, validated palette, parent-directory file monitor, contrast fallback, documented v5/v4 templates | Palette parsing/validation tested. Installed Noctalia unavailable on Windows; wallpaper hot reload needs Linux test. |
 | Storage | Enforced allocated-byte cache, presets/custom limit, TTL, LRU, per-account clearing, clear-on-exit, disabled = zero contents | Budget/eviction/expiry tests and synthetic 100,000-message paging test. Real giant-mailbox acceptance remains manual. |
-| Delivery | Source, lockfile, license, desktop assets, Arch package recipe, Linux CI, setup/privacy/test/troubleshooting guides | Windows checks recorded below. CI and makepkg are supplied, not claimed executed. |
+| Delivery | Source, lockfile, license, desktop assets, Arch package recipe, Linux CI, setup/privacy/test/troubleshooting guides | Executed checks recorded in docs/verification.md. makepkg has not been run. |
 
 ## Still incomplete
 

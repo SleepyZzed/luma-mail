@@ -3,8 +3,21 @@
 Automated tests use synthetic Gmail responses and a local mock HTTP server.
 They never authenticate to or mutate a real Google account. Run all checks in
 the README. Linux CI also runs a native launch under Xvfb and a private D-Bus
-session. CI configuration is provided; it has not been executed on a remote
-runner in this workspace.
+session. See `verification.md` for the executed run and results.
+
+The Linux-only desktop acceptance test exercises the real GTK close handler,
+application lifetime hold, SNI tray activation, D-Bus menu Quit, and GIO delivery
+to `org.freedesktop.Notifications.Notify` while hidden. Its test service is an
+isolated protocol fixture, not an application notification UI. No email is
+simulated. It does not establish how Noctalia displays or routes an alert.
+To run it on Debian/Ubuntu with `python3-dbus`, `python3-gi`, Xvfb and D-Bus:
+
+```sh
+dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
+```
+
+The ignored Rust acceptance test is compiled only in the test executable. It is
+absent from the shipped application binary and uses a temporary configuration.
 
 ## Real Gmail tests (deliberate user actions)
 

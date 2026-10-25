@@ -28,5 +28,13 @@
 - **No notifications:** keep Luma running, enable account notifications and check
   the desktop's notification permission / Do Not Disturb. This is polling, not
   Gmail push. Initial history baselines deliberately suppress old messages.
+- **Check the notification daemon:** Settings → Notifications & Privacy → Send
+  a system test notification uses the same desktop notification service as mail
+  alerts. Press Refresh / Ctrl+R for an immediate Gmail history check. The app
+  must remain running, including while hidden in the tray.
+- **Close exits rather than hiding:** enable Close to system tray and start a
+  StatusNotifier host before launching Luma; on Noctalia enable its tray widget.
+  The safe fallback is to exit when no usable tray exists. Tray → Quit always
+  exits completely; a pending composer save can keep the app open for attention.
 - **Reset settings:** exit Luma, back up `settings.json`, then correct the invalid
   JSON or move that one file aside. Do not erase unrelated user directories.

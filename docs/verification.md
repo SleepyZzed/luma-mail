@@ -18,14 +18,22 @@ Passed on the development host:
 The preview PNG is rendered from the running GTK window through GTK/GSK, using
 an isolated test configuration/cache directory. No account fixture is injected.
 
-Linux CI is running at https://github.com/SleepyZzed/luma-mail/actions.
-It also exercises GTK close-to-tray, restore and menu Quit against an isolated
+Linux CI: [run 40206680811](https://github.com/SleepyZzed/luma-mail/actions/runs/40206680811)
+on Ubuntu 24.04, source `b27c6ce9cd49aa5c8239bc2dfc7a56bd246200df`.
+Formatting, strict Clippy, 51 regular tests and the separate desktop D-Bus
+acceptance check passed. The latter exercises GTK close-to-tray, restore and
+menu Quit against an isolated
 StatusNotifier watcher, and verifies that a labelled test notification reaches
 the standard `org.freedesktop.Notifications.Notify` D-Bus endpoint while hidden.
 That fixture tests transport; it does not prove how a particular desktop daemon
 displays notifications or simulate new Gmail messages.
 
-Not executed locally: Linux compilation/runtime, real Google OAuth consent or Gmail/Drive
+[Run 40206359687](https://github.com/SleepyZzed/luma-mail/actions/runs/40206359687)
+also passed the optimized Linux build, native GTK launch, AppImage packaging,
+and launch of the bundled AppImage with extraction mode on Ubuntu 24.04. The
+later run repeats those checks with the additional D-Bus acceptance test.
+
+Not executed: real Google OAuth consent or Gmail/Drive
 operations, actual Secret Service D-Bus interaction, Noctalia/Hyprland/Wayland
 integration, external notification display, makepkg/AUR publication.
 

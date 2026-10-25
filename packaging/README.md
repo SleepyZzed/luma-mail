@@ -1,11 +1,12 @@
 # Native Arch / CachyOS package
 
-The adjacent delivery includes `luma-mail-0.1.0.tar.gz`. Copy that source archive
-beside this PKGBUILD, then run `makepkg -si`. The recipe is checksum-pinned and
-builds/tests from the lockfile. It installs no daemon or autostart entry.
+Run `makepkg -si` beside this PKGBUILD. The recipe downloads an immutable
+GitHub source revision, verifies its SHA-256, and builds/tests from the lockfile.
+It installs no daemon or autostart entry. The initial pin is the first published
+implementation; advance `_commit`, `_srcdir` and `sha256sums` together after
+reviewing later revisions. The AppImage release is built from its tagged commit.
 
-For AUR publication, first publish the source archive to a repository you own,
-replace the local source filename with the real versioned HTTPS release URL,
-regenerate checksums with `updpkgsums`, inspect dependencies, and generate `.SRCINFO`
-with `makepkg --printsrcinfo`. No fictional repository/release URL is provided.
+For AUR publication, inspect dependencies and generate `.SRCINFO` with
+`makepkg --printsrcinfo`. This recipe has not been tested with makepkg or
+published to the AUR.
 Google OAuth verification and a public privacy policy are separate release tasks.
