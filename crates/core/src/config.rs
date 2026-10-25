@@ -13,6 +13,15 @@ pub struct Account {
     pub signature: String,
     #[serde(default)]
     pub drive_enabled: bool,
+    #[serde(default)]
+    pub sender_controls: bool,
+    #[serde(default)]
+    pub blocked_senders: Vec<BlockedSender>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BlockedSender {
+    pub address: String,
+    pub filter_id: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

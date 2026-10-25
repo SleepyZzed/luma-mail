@@ -34,12 +34,16 @@ jobs:
       - run: cargo test --locked --workspace
       - name: Tray and system notification D-Bus acceptance
         run: dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
+      - name: Media fixture tools
+        run: sudo apt-get install -y gstreamer1.0-tools
       - name: Require app registration before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: cargo check --locked -p luma-mail --features require-google-client
       - run: cargo build --locked --release
       - name: Native GTK launch
         run: dbus-run-session -- xvfb-run -a target/release/luma-mail --smoke-test
+      - name: Native HTML and attachment playback
+        run: bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail"
       - name: Package AppImage
         run: bash packaging/appimage.sh
       - name: Launch bundled AppImage
@@ -49,6 +53,8 @@ jobs:
           dbus-run-session -- xvfb-run -a env APPIMAGE_EXTRACT_AND_RUN=1 "${images[0]}" --smoke-test
       - name: Bundled system cursor settings
         run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-*-x86_64.AppImage
+      - name: Bundled HTML engine and attachment playback
+        run: bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: luma-mail-linux-x86_64

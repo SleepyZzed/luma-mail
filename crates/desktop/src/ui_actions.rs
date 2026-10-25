@@ -92,6 +92,8 @@ pub(super) fn perform(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailA
         MailAction::Read => "Marked as read",
         MailAction::Unread => "Marked as unread",
         MailAction::Restore => "Restored from Trash",
+        MailAction::Spam => "Marked as spam",
+        MailAction::NotSpam => "Moved out of Spam",
         _ => "Changes saved",
     }
     .to_owned();

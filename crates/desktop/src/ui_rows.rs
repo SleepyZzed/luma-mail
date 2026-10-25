@@ -284,6 +284,7 @@ pub(super) fn reconcile(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
         }
     }
     *s.rows.borrow_mut() = items;
+    update_reader_star(s);
     s.changing_selection.set(false);
     display(s, vec![], more);
 }
@@ -312,7 +313,7 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
             widget.row.set_sensitive(false);
             widget.reveal.set_reveal_child(false);
             let weak = Rc::downgrade(s);
-            glib::timeout_add_local_once(Duration::from_millis(150), move || {
+            glib::timeout_add_local_once(Duration::from_millis(230), move || {
                 if let Some(s) = weak.upgrade()
                     && widget.row.parent().is_some()
                 {
@@ -359,6 +360,7 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
     if update.visible.is_none() {
         s.refresh_button.add_css_class("suggested-action");
     }
+    update_reader_star(s);
 }
 // A page started before a confirmed write must not resurrect removed rows or
 // replace their new labels with an older response. Keep only bounded tombstones.
@@ -451,6 +453,19 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         ("luma-archive-symbolic", "Archive", MailAction::Archive),
         ("luma-inbox-symbolic", "Move to Inbox", MailAction::Inbox),
         (
+            "mail-mark-junk-symbolic",
+            if matches!(*s.folder.borrow(), Folder::Spam) {
+                "Not spam"
+            } else {
+                "Report spam"
+            },
+            if matches!(*s.folder.borrow(), Folder::Spam) {
+                MailAction::NotSpam
+            } else {
+                MailAction::Spam
+            },
+        ),
+        (
             "emblem-important-symbolic",
             "Mark important",
             MailAction::Important,
@@ -490,6 +505,21 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         box_.append(&b);
     }
     box_.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    if targets.len() == 1 {
+        let block = gtk::Button::with_label("Block sender…");
+        block.add_css_class("flat");
+        let state = s.clone();
+        let account = target.account.clone();
+        let sender = item.sender.clone();
+        let weak = pop.downgrade();
+        block.connect_clicked(move |_| {
+            if let Some(p) = weak.upgrade() {
+                p.popdown();
+            }
+            crate::sender_controls::block(&state, &account, &sender);
+        });
+        box_.append(&block);
+    }
     let open = gtk::Button::with_label("Open conversation");
     open.add_css_class("flat");
     let state = s.clone();

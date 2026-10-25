@@ -37,3 +37,10 @@ expander { background: alpha(@window_fg_color, 0.02); border: 1px solid alpha(@w
 .attachment-card:hover { background: alpha(@accent_bg_color, 0.07); }
 textview { padding: 18px; }
 .compose-window textview { padding: 20px 24px; }
+.inline-composer { margin-top: 20px; border: 1px solid alpha(@accent_bg_color, 0.3); border-radius: 16px; background: @view_bg_color; }
+.loading-placeholder { padding: 20px 8px; }
+.skeleton-line { background: alpha(@window_fg_color, 0.07); border-radius: 6px; }
+.mail-loading trough { min-height: 2px; background: transparent; }
+.mail-loading progress { min-height: 2px; border-radius: 2px; }
+.message-details { padding: 4px 8px; border: none; background: transparent; }
+.message-replies { margin-top: 14px; }

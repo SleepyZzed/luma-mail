@@ -18,6 +18,7 @@ pub(crate) struct Editor {
     state: Rc<State>,
     window: adw::Window,
     root: gtk::Box,
+    header: adw::HeaderBar,
     placement: Cell<u8>,
     close_after_save: Cell<bool>,
     from: gtk::DropDown,
@@ -77,6 +78,7 @@ fn show_full(e: &Rc<Editor>) {
     let detached = e.placement.get() == 2;
     detach(e);
     e.placement.set(0);
+    e.header.set_show_end_title_buttons(false);
     e.root.remove_css_class("inline-composer");
     e.state.compose_stack.add_named(&e.root, Some("compose"));
     e.state.compose_stack.set_visible_child_name("compose");
@@ -94,6 +96,7 @@ fn pop_out(e: &Rc<Editor>) {
     }
     detach(e);
     e.placement.set(2);
+    e.header.set_show_end_title_buttons(true);
     e.root.remove_css_class("inline-composer");
     e.window.set_content(Some(&e.root));
     e.state.editor.borrow_mut().take();
@@ -524,6 +527,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         state: s.clone(),
         window,
         root,
+        header,
         placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
         close_after_save: Cell::new(false),
         from,
@@ -724,8 +728,16 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     {
         let weak = Rc::downgrade(&e);
         e.window.connect_close_request(move |_| {
-            weak.upgrade()
-                .map_or(glib::Propagation::Proceed, |e| request_close(&e))
+            let Some(e) = weak.upgrade() else {
+                return glib::Propagation::Proceed;
+            };
+            if e.closing.get() {
+                return glib::Propagation::Proceed;
+            }
+            if request_close(&e) == glib::Propagation::Proceed {
+                finish(&e);
+            }
+            glib::Propagation::Stop
         });
     }
     // File-list drops use the same size checks as the native attachment picker.

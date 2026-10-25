@@ -10,6 +10,7 @@ mod message_images;
 mod notifications;
 mod rendering;
 mod search;
+mod sender_controls;
 mod settings;
 mod signin;
 mod tray;
@@ -73,7 +74,9 @@ fn main() -> glib::ExitCode {
             });
         });
         app.run_with_args(&["luma-mail"])
-    } else if cfg!(debug_assertions) && std::env::args().any(|a| a == "--design-preview") {
+    } else if std::env::args().any(|a| a == "--render-diagnostics")
+        || (cfg!(debug_assertions) && std::env::args().any(|a| a == "--design-preview"))
+    {
         app.run_with_args(&["luma-mail"])
     } else {
         app.run()

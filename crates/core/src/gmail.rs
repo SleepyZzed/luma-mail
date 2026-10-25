@@ -597,6 +597,13 @@ fn quota_cost(method: &Method, path: &str, query: &[(&str, String)]) -> u32 {
     match parts.as_slice() {
         ["profile"] => 1,
         ["history"] => 2,
+        ["settings", "filters"] | ["settings", "filters", _] => {
+            if *method == Method::GET {
+                1
+            } else {
+                5
+            }
+        }
         ["labels"] | ["labels", _] => {
             if *method == Method::GET {
                 1
@@ -671,7 +678,7 @@ impl MailProvider for Gmail {
             ("q", format!("{} {search}", folder.query())),
             (
                 "includeSpamTrash",
-                matches!(folder, Folder::Trash).to_string(),
+                matches!(folder, Folder::Trash | Folder::Spam).to_string(),
             ),
         ];
         if let Some(page) = page {

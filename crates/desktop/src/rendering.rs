@@ -56,6 +56,10 @@ pub fn append(s: &Rc<State>, body: &gtk::Box, message: &Message, text: &str, acc
     body.append(&plain(s, text));
     crate::message_images::append(s, body, message, account);
 }
+#[cfg(target_os = "linux")]
+pub fn diagnostic(s: &Rc<State>) {
+    linux::diagnostic(s);
+}
 
 #[cfg(target_os = "linux")]
 mod linux {
@@ -157,6 +161,79 @@ mod linux {
                 }
             },
         );
+    }
+    pub(super) fn diagnostic(s: &Rc<State>) {
+        ui::clear(&s.reader);
+        let view = view(s);
+        s.reader.append(&view);
+        let done = Rc::new(Cell::new(false));
+        let tested = done.clone();
+        view.connect_load_changed(move |view,event| {
+            if event!=webkit6::LoadEvent::Finished||tested.replace(true) {return;}
+            let weak=view.downgrade();
+            view.evaluate_javascript("JSON.stringify({table:document.querySelectorAll('table').length,link:document.querySelector('a').href,colour:getComputedStyle(document.querySelector('td')).color,scripts:document.querySelectorAll('script,iframe,form').length,executed:document.body.dataset.executed||'',image:document.querySelector('img').naturalWidth})",Some("LumaLayout"),None,None::<&gio::Cancellable>,move |result| {
+                let value=result.expect("HTML engine must evaluate native isolated-world layout");
+                let value:serde_json::Value=serde_json::from_str(&value.to_str()).expect("renderer diagnostic JSON");
+                assert_eq!(value["table"],1);assert_eq!(value["link"],"https://example.com/");assert_eq!(value["colour"],"rgb(145, 70, 255)");assert_eq!(value["scripts"],0);assert_eq!(value["executed"],"");assert_eq!(value["image"],1);
+                if let Some(view)=weak.upgrade(){view.set_widget_name("html-diagnostic-passed");}
+                println!("PASS actual WebKit HTML layout, hyperlink, prepared image and inert sender content");
+            });
+        });
+        let html = r##"<table style="width:500px"><tr><td style="color:#9146ff;padding:24px"><h1>Newsletter preview</h1><a href="https://example.com">Watch now</a><img src="cid:photo"><script>document.body.dataset.executed='yes'</script><iframe src="https://example.invalid"></iframe><form><input></form></td></tr></table>"##;
+        let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+        view.load_html(
+            &html_mail::document(html, HashMap::from([("cid:photo".into(), png.into())])),
+            Some("about:blank"),
+        );
+        let root = std::path::PathBuf::from(
+            std::env::var_os("LUMA_RENDER_MEDIA").expect("media fixtures required"),
+        );
+        let mut streams = Vec::new();
+        for name in ["audio.wav", "video.webm"] {
+            let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(
+                std::fs::read(root.join(name)).expect("synthetic media"),
+            ));
+            let media = gtk::MediaFile::for_input_stream(&input);
+            media.set_muted(true);
+            if name.ends_with("webm") {
+                let video = gtk::Video::for_media_stream(Some(&media));
+                video.set_autoplay(false);
+                s.reader.append(&video);
+            } else {
+                s.reader.append(&gtk::MediaControls::new(Some(&media)));
+            }
+            streams.push(media);
+        }
+        let app = s.app.clone();
+        let mut ticks = 0;
+        glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            ticks += 1;
+            assert!(ticks < 300, "HTML/media diagnostics timed out");
+            for media in &streams {
+                assert!(
+                    media.error().is_none(),
+                    "Media decoding failed: {:?}",
+                    media.error()
+                );
+                if media.is_prepared() && !media.is_playing() && media.timestamp() == 0 {
+                    media.play();
+                }
+            }
+            if view.widget_name() == "html-diagnostic-passed"
+                && streams.iter().all(|m| m.timestamp() > 0 || m.is_ended())
+            {
+                for media in &streams {
+                    media.pause();
+                    media.clear();
+                }
+                println!(
+                    "PASS actual in-memory WAV and WebM decoding/playback; no attachment temp files"
+                );
+                app.quit();
+                return glib::ControlFlow::Break;
+            }
+            glib::ControlFlow::Continue
+        });
     }
     async fn image_map(
         message: Message,

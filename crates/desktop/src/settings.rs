@@ -137,6 +137,7 @@ pub fn open(s: &Rc<State>) {
             ("Enable Drive permission", 3),
             ("Clear this account's cache", 4),
             ("Revoke authorization and remove account", 5),
+            ("Blocked senders", 6),
         ] {
             let row = adw::ActionRow::builder()
                 .title(title)
@@ -151,6 +152,7 @@ pub fn open(s: &Rc<State>) {
                 2=>ui::add_account(&s,a.drive_enabled,Some(a.email.clone())),
                 3=>{let d=adw::AlertDialog::builder().heading("Allow Google Drive files?").body("Google will request gmail.modify and drive.file together. Luma can manage files you select or create with this app. Sharing still requires a separate choice for each upload.").build();d.add_responses(&[("cancel","Cancel"),("allow","Continue to Google")]);let s=s.clone();let email=a.email.clone();glib::MainContext::default().spawn_local(async move{if d.choose_future(Some(&s.window)).await=="allow"{ui::add_account(&s,true,Some(email));}});},
                 4=>match s.cache.lock().expect("cache mutex").clear_account(&a.id){Ok(())=>s.info("Account cache cleared"),Err(e)=>s.error(&e)},
+                6=>crate::sender_controls::manage(&s,&a.id),
                 _=>remove_account(&s,&a.id,&a.email),
             });
         }

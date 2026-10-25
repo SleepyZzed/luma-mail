@@ -15,6 +15,7 @@ pub mod preview;
 pub mod provider;
 mod rate;
 pub mod search;
+pub mod sender_rules;
 pub mod theme;
 
 pub use error::{Error, Result};

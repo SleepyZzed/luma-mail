@@ -37,7 +37,8 @@ async fn main() -> Result<()> {
     match args.get(1).map(String::as_str) {
         Some("connect") => {
             let drive = args.iter().any(|a| a == "--drive");
-            let authorization = Authorization::begin(&config, drive).await?;
+            let filters = args.iter().any(|a| a == "--filters");
+            let authorization = Authorization::begin_with_settings(&config, drive, filters).await?;
             println!("BROWSER_URL={}", authorization.url);
             std::io::stdout().flush()?;
             let token = authorization.complete(&http, &config).await?;
@@ -64,6 +65,7 @@ async fn main() -> Result<()> {
                 .await?;
             if let Some(account) = settings.accounts.iter_mut().find(|a| a.id == id) {
                 account.drive_enabled = drive;
+                account.sender_controls = filters;
             } else {
                 settings.accounts.push(Account {
                     id: id.clone(),
@@ -73,6 +75,8 @@ async fn main() -> Result<()> {
                     notifications: false,
                     signature: String::new(),
                     drive_enabled: drive,
+                    sender_controls: filters,
+                    blocked_senders: vec![],
                 });
             }
             settings.default_account = Some(id.clone());
@@ -87,7 +91,7 @@ async fn main() -> Result<()> {
                 "PASS real Google consent, OS vault storage, fresh refresh-token exchange and Gmail profile"
             );
         }
-        Some("check") | Some("exercise") => {
+        Some("check") | Some("exercise") | Some("filters") => {
             let account = settings
                 .accounts
                 .last()
@@ -100,6 +104,57 @@ async fn main() -> Result<()> {
             println!("Checking fresh OAuth refresh and profile…");
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
+            }
+            if args[1] == "filters" {
+                if !account.sender_controls {
+                    return Err(Error::Invalid("Connect with --filters first".into()));
+                }
+                let report = paths.config.join("filter-test.json");
+                let (address, id) = if report.is_file() {
+                    let saved: serde_json::Value =
+                        serde_json::from_slice(&std::fs::read(&report)?)?;
+                    (
+                        saved["address"].as_str().unwrap().to_owned(),
+                        saved["id"].as_str().unwrap().to_owned(),
+                    )
+                } else {
+                    let address = format!(
+                        "luma-test-{}@example.invalid",
+                        uuid::Uuid::new_v4().simple()
+                    );
+                    let created = gmail.create_sender_block(&address).await?;
+                    (address, created.id)
+                };
+                // Record only this synthetic rule so cleanup can be repeated after interruption.
+                std::fs::write(
+                    &report,
+                    serde_json::to_vec(&serde_json::json!({"address":address,"id":id}))?,
+                )?;
+                let listed = gmail.sender_filters().await?;
+                let found = listed.iter().any(|f| {
+                    f.id == id
+                        && f.criteria["from"] == address
+                        && f.action["addLabelIds"]
+                            .as_array()
+                            .is_some_and(|a| a.iter().any(|id| id == "TRASH"))
+                });
+                if args.iter().any(|a| a == "--inspect-synthetic-rule") {
+                    println!(
+                        "Synthetic rule: {}",
+                        serde_json::to_string(listed.iter().find(|f| f.id == id).unwrap())?
+                    );
+                }
+                gmail.remove_sender_block(&id, &address).await?;
+                let absent = !gmail.sender_filters().await?.iter().any(|f| f.id == id);
+                if !found || !absent {
+                    return Err(Error::Invalid(
+                        "Filter create/list/delete verification failed".into(),
+                    ));
+                }
+                std::fs::remove_file(report)?;
+                println!(
+                    "PASS real Gmail filter create, persisted server listing, ownership-checked delete and cleanup; no existing mail changed"
+                );
             }
             if args[1] == "check" {
                 let started = std::time::Instant::now();

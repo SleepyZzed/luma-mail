@@ -73,7 +73,7 @@ fn google_registration_requires_valid_build_time_fields() {
     assert_eq!(client.client_id, valid);
     assert!(ClientConfig::from_registration(valid, &"x".repeat(257)).is_err());
 }
-fn gmail(server: &MockServer) -> Gmail {
+pub(crate) fn gmail(server: &MockServer) -> Gmail {
     let http = Http::new().unwrap();
     let mut tokens = TokenManager::new(
         "account-a".into(),
@@ -85,6 +85,171 @@ fn gmail(server: &MockServer) -> Gmail {
     let mut client = Gmail::new("account-a".into(), http, Arc::new(tokens));
     client.test_base(server.uri());
     client
+}
+
+#[tokio::test]
+async fn sender_filter_is_server_side_and_unblock_checks_ownership() {
+    use crate::sender_rules::address;
+    assert_eq!(
+        address("Spam Sender <Junk@Example.com>").unwrap(),
+        "junk@example.com"
+    );
+    for invalid in [
+        "",
+        "a@example.com,b@example.com",
+        "bad\r\nBcc: other@example.com",
+    ] {
+        assert!(address(invalid).is_err());
+    }
+    let server = MockServer::start().await;
+    let client = gmail(&server);
+    let rule = json!({"id":"filter_1","criteria":{"from":"junk@example.com"},"action":{"addLabelIds":["TRASH"],"removeLabelIds":["INBOX"]}});
+    Mock::given(method("POST")).and(path("/settings/filters")).and(header("authorization","Bearer test-access"))
+        .and(body_json(json!({"criteria":{"from":"junk@example.com"},"action":{"addLabelIds":["TRASH"],"removeLabelIds":["INBOX"]}})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&rule)).expect(1).mount(&server).await;
+    let filter = client
+        .create_sender_block("Junk <junk@example.com>")
+        .await
+        .unwrap();
+    assert_eq!(filter.id, "filter_1");
+    Mock::given(method("GET"))
+        .and(path("/settings/filters/filter_1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&rule))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/settings/filters/filter_1"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    client
+        .remove_sender_block(&filter.id, "junk@example.com")
+        .await
+        .unwrap();
+    let normalized = json!({"id":"filter_normalized","criteria":{"from":"junk@example.com"},"action":{"addLabelIds":["TRASH"]}});
+    Mock::given(method("GET"))
+        .and(path("/settings/filters/filter_normalized"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(normalized))
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/settings/filters/filter_normalized"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    client
+        .remove_sender_block("filter_normalized", "junk@example.com")
+        .await
+        .unwrap();
+    let mut changed = rule;
+    changed["id"] = json!("filter_2");
+    changed["action"]["forward"] = json!("archive@example.com");
+    Mock::given(method("GET"))
+        .and(path("/settings/filters/filter_2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(changed))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/settings/filters/filter_2"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(0)
+        .mount(&server)
+        .await;
+    assert!(
+        client
+            .remove_sender_block("filter_2", "junk@example.com")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("changed in Gmail")
+    );
+    let mut spam = message("spam", 0);
+    for removed in MailAction::Spam.labels().1 {
+        spam.label_ids.retain(|id| id != &removed);
+    }
+    spam.label_ids.extend(MailAction::Spam.labels().0);
+    let thread = Thread {
+        id: "thread-a".into(),
+        messages: vec![spam],
+        ..Default::default()
+    };
+    assert!(Folder::Spam.matches(&thread));
+    assert!(!Folder::Inbox.matches(&thread));
+    assert!(!Folder::AllMail.matches(&thread));
+}
+
+#[tokio::test]
+async fn gmail_filter_permission_is_requested_only_when_needed() {
+    let normal = Authorization::begin(&config(), false).await.unwrap();
+    let scope = normal
+        .url
+        .query_pairs()
+        .find(|(key, _)| key == "scope")
+        .unwrap()
+        .1
+        .into_owned();
+    assert_eq!(scope, GMAIL_SCOPE);
+    let filters = Authorization::begin_with_settings(&config(), true, true)
+        .await
+        .unwrap();
+    let scope = filters
+        .url
+        .query_pairs()
+        .find(|(key, _)| key == "scope")
+        .unwrap()
+        .1
+        .into_owned();
+    assert!(scope.split_whitespace().any(|s| s == GMAIL_SCOPE));
+    assert!(scope.split_whitespace().any(|s| s == DRIVE_SCOPE));
+    assert!(scope.split_whitespace().any(|s| s == SETTINGS_SCOPE));
+    assert!(
+        filters
+            .url
+            .query_pairs()
+            .any(|(key, value)| key == "include_granted_scopes" && value == "true")
+    );
+}
+#[tokio::test]
+async fn upload_progress_matches_real_json_transport_and_is_scoped() {
+    let server = MockServer::start().await;
+    let body = json!({"raw":"x".repeat(100000)});
+    let bytes = serde_json::to_vec(&body).unwrap().len() as u64;
+    Mock::given(method("POST"))
+        .and(path("/draft"))
+        .and(body_json(&body))
+        .and(header("content-type", "application/json"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok":true})))
+        .expect(2)
+        .mount(&server)
+        .await;
+    let http = Http::new().unwrap();
+    let progress = Arc::new(crate::http::UploadProgress::default());
+    let scoped = http.with_upload_progress(progress.clone());
+    scoped
+        .request(
+            reqwest::Method::POST,
+            &format!("{}/draft", server.uri()),
+            "test",
+            &[],
+            Some(&body),
+        )
+        .await
+        .unwrap();
+    assert_eq!(progress.snapshot(), (bytes, bytes));
+    http.request(
+        reqwest::Method::POST,
+        &format!("{}/draft", server.uri()),
+        "test",
+        &[],
+        Some(&body),
+    )
+    .await
+    .unwrap();
+    assert_eq!(progress.snapshot(), (bytes, bytes));
 }
 fn message(id: &str, date: i64) -> Message {
     serde_json::from_value(json!({"id":id,"threadId":"thread-a","internalDate":date.to_string(),"labelIds":["INBOX","UNREAD"],"payload":{"mimeType":"text/plain","headers":[{"name":"Subject","value":"Hello"},{"name":"From","value":"Ann <ann@example.com>"}],"body":{"data":URL_SAFE_NO_PAD.encode("Hello world")}}})).unwrap()

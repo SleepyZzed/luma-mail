@@ -24,6 +24,8 @@ pub fn show(s: &Rc<State>) {
         notifications: false,
         signature: String::new(),
         drive_enabled: false,
+        sender_controls: false,
+        blocked_senders: vec![],
     };
     s.settings.borrow_mut().accounts.push(account);
     ui::sidebar(s);

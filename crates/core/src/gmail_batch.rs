@@ -148,6 +148,55 @@ fn parse(content_type: &str, bytes: &[u8], ids: &[String]) -> Result<Vec<Read>> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn batch_transport_handles_google_preamble_and_retries_only_failed_read() {
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{body_string_contains, header, method, path},
+        };
+        let server = MockServer::start().await;
+        let client = crate::tests::gmail(&server);
+        let response = "\r\n--batch\r\nContent-Type: application/http\r\nContent-ID: <response-luma-0>\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"id\":\"a\",\"messages\":[]}\r\n--batch\r\nContent-Type: application/http\r\nContent-ID: <response-luma-1>\r\n\r\nHTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\n\r\n{}\r\n--batch--\r\n";
+        Mock::given(method("POST"))
+            .and(path("/batch"))
+            .and(header("authorization", "Bearer test-access"))
+            .and(body_string_contains(
+                "GET /gmail/v1/users/me/threads/a?format=metadata",
+            ))
+            .and(body_string_contains(
+                "GET /gmail/v1/users/me/threads/b?format=metadata",
+            ))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_raw(response, "multipart/mixed; boundary=batch"),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/threads/b"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"id":"b","messages":[]})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/threads/a"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(0)
+            .mount(&server)
+            .await;
+        let result = client
+            .metadata_page(vec!["a".into(), "b".into()])
+            .await
+            .unwrap();
+        assert_eq!(
+            result.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+    }
     #[test]
     fn batch_parser_preserves_identity_and_partial_failures() {
         let bytes=b"--batch\r\nContent-Type: application/http\r\nContent-ID: <response-luma-0>\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"id\":\"a\",\"messages\":[]}\r\n--batch\r\nContent-Type: application/http\r\n\r\nHTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\n\r\n{}\r\n--batch--\r\n";
