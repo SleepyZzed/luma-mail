@@ -35,6 +35,13 @@ and launch of the bundled AppImage with extraction mode on Ubuntu 24.04. Run
 test. A subsequent release attempt exposed a restored staging-directory
 collision; packaging now uses an automatically cleaned private temporary path.
 
+Final release verification: [run 40207648619](https://github.com/SleepyZzed/luma-mail/actions/runs/40207648619)
+passed every build/test/package/launch step and published
+[v0.1.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.0-dev.1)
+from source `5f2929cd649e989b7872dc0e7dcc60342ecc9053`. The downloaded
+41,961,976-byte x86_64 AppImage matched both the published SHA256SUMS and GitHub's
+asset digest: `a1e7b790c079f1f32653df24204f292e469f58f13daf88c3ce9b603a6f33fc7f`.
+
 Not executed: real Google OAuth consent or Gmail/Drive
 operations, actual Secret Service D-Bus interaction, Noctalia/Hyprland/Wayland
 integration, external notification display, makepkg/AUR publication.

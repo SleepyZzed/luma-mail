@@ -10,9 +10,9 @@ implemented features, limitations and the verification boundary. No Google
 account has been connected during development in this workspace.
 
 Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
-Check [Releases](https://github.com/SleepyZzed/luma-mail/releases) for available
-development AppImages. Linux CI builds and launch-checks the bundle before
-release publishing is permitted. See [AppImage packaging](docs/appimage.md).
+[Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.0-dev.1)
+and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
+publishing it. See [AppImage packaging](docs/appimage.md).
 
 ## Tray, notifications and Refresh now
 
