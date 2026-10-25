@@ -1,10 +1,11 @@
 # Troubleshooting
 
-- **OAuth client missing:** import a Desktop app JSON in Settings. A Web client
-  is unsuitable. `LUMA_OAUTH_CLIENT` overrides the normal imported file.
-- **Add keeps reopening Settings in 0.1.0:** install the newer preview. The
-  development build needs your own Google Desktop OAuth client JSON; the new
-  guided setup explains this and opens sign-in after a valid import.
+- **Sign-in unavailable in this build:** this is an unconfigured developer build.
+  Install the maintainer's sign-in-enabled build. Account setup has no JSON
+  import; the app registration is supplied during compilation by the maintainer.
+- **Old import/setup screen:** 0.1.0 and 0.1.1 binaries predate button-only login.
+  Update to the configured 0.1.2 build once published. Old client JSON files and
+  `LUMA_OAUTH_CLIENT` are ignored by the new code.
 - **Browser launch fails:** use Open browser again or Copy sign-in link in the
   sign-in window. Closing it cancels the listener; an attempt expires in five
   minutes. A normal desktop URI handler/portal must be configured.
@@ -12,8 +13,8 @@
   support and keeps host/user cursor paths visible. About & Diagnostics shows
   the effective GTK cursor. Check `XCURSOR_THEME`, `XCURSOR_SIZE` and the normal
   desktop cursor preference if it differs; no app-specific cursor is installed.
-- **Access blocked / testing warning:** add the exact account as a test user in
-  Google Cloud. Workspace administrators may restrict OAuth. Follow Google's
+- **Access blocked / testing warning:** ask Luma's maintainer to add the account
+  to the app's test users during private testing. Workspace administrators may restrict OAuth. Follow Google's
   verification process for distribution; Luma cannot bypass consent policies.
 - **Keyring unavailable:** run and unlock GNOME Keyring or a KWallet Secret
   Service backend in your user D-Bus session. On Hyprland, configure your normal

@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+build_features=()
+if [[ ${1:-} == --require-google-client ]]; then
+  build_features=(--features require-google-client)
+elif [[ $# -gt 0 ]]; then
+  echo 'Usage: packaging/appimage.sh [--require-google-client]' >&2
+  exit 1
+fi
 if [[ $(uname -s) != Linux || $(uname -m) != x86_64 ]]; then
   echo 'AppImage packaging requires x86_64 Linux.' >&2
   exit 1
@@ -25,7 +32,7 @@ printf '%s  %s\n' b0f4cbc684a0103a9651f0955b635eaea0096b3a66c0f5a2c2aa3379603751
 # The plugin is pinned to an immutable upstream commit, and its output hook is
 # adjusted below so GTK chooses Wayland and libadwaita manages its own theme.
 chmod +x "$tool" "$plugin"
-cargo build --locked --release -p luma-mail
+cargo build --locked --release -p luma-mail "${build_features[@]}"
 install -Dm755 target/release/luma-mail "$appdir/usr/bin/luma-mail"
 install -Dm644 data/io.github.lumamail.Luma.desktop "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop"
 install -Dm644 data/io.github.lumamail.Luma.svg "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg"

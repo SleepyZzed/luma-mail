@@ -3,8 +3,7 @@ use adw::prelude::*;
 use gtk::glib;
 use luma_core::{
     Error,
-    auth::{ClientConfig, SystemVault, TokenManager},
-    config::private_dir,
+    auth::{SystemVault, TokenManager},
     model::MailAction,
 };
 use std::{
@@ -26,18 +25,8 @@ pub fn open(s: &Rc<State>) {
         .title("Google accounts")
         .description("Gmail is the source of truth. Disconnecting never deletes mail.")
         .build();
-    let import = adw::ActionRow::builder()
-        .title("Import Google Desktop OAuth client")
-        .subtitle("Choose the JSON downloaded from Google Cloud Console")
-        .activatable(true)
-        .build();
-    group.add(&import);
-    {
-        let s = s.clone();
-        import.connect_activated(move |_| import_oauth(&s));
-    }
     let add = adw::ActionRow::builder()
-        .title("Add Google account")
+        .title("Sign in with Google")
         .subtitle("Opens Google's consent screen in your default browser")
         .activatable(true)
         .build();
@@ -395,7 +384,7 @@ pub fn open(s: &Rc<State>) {
     for (title, subtitle) in [
         ("Configuration", s.paths.config.display().to_string()),
         ("Cache", s.paths.cache.display().to_string()),
-        ("Google OAuth setup", if s.client_config().is_ok() { "Desktop client imported" } else { "Import a Google Desktop app OAuth JSON before sign-in" }.into()),
+        ("Google sign-in", if s.client_config().is_ok() { "Available" } else { "Unavailable in this build; app registration pending" }.into()),
         ("GTK cursor", crate::desktop::cursor_diagnostic()),
         ("Connected providers", format!("{} enabled Gmail accounts", s.clients.borrow().len())),
         ("Recent error", s.last_error.borrow().clone().unwrap_or_else(|| "None recorded".into())),
@@ -422,29 +411,6 @@ fn update_cache(s: &Rc<State>, size: Option<u64>, ttl: Option<u64>) {
         Ok(()) => s.save(),
         Err(e) => s.error(&e),
     }
-}
-fn import_oauth(s: &Rc<State>) {
-    let picker = gtk::FileDialog::builder()
-        .title("Google Desktop OAuth client JSON")
-        .build();
-    let s = s.clone();
-    glib::MainContext::default().spawn_local(async move {
-        let Ok(file) = picker.open_future(Some(&s.window)).await else {
-            return;
-        };
-        let Some(path) = file.path() else { return };
-        let result = (|| {
-            ClientConfig::load(&path)?;
-            private_dir(&s.paths.config)?;
-            std::fs::copy(path, s.paths.config.join("oauth-client.json"))?;
-            luma_core::config::private_file(&s.paths.config.join("oauth-client.json"))?;
-            Ok::<_, Error>(())
-        })();
-        match result {
-            Ok(()) => s.info("OAuth client imported. Add a Google account to complete consent."),
-            Err(e) => s.error(&e),
-        }
-    });
 }
 fn remove_account(s: &Rc<State>, id: &str, email: &str) {
     let d=adw::AlertDialog::builder().heading(format!("Disconnect {email}?" )).body("Revokes Luma's Google authorization and removes local credentials and cached contents. Gmail messages are kept.").build();

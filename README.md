@@ -17,6 +17,12 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
+Main now uses the maintainer's bundled Google app registration with **Sign in
+with Google**. The older 0.1.1 binary still has the removed JSON import flow.
+The next AppImage is gated on provisioning Luma's Google registration; an
+unconfigured developer build cannot authenticate and is not published as a
+sign-in-ready release.
+
 ## Tray, notifications and Refresh now
 
 On Linux, closing the main window hides Luma in the system tray when a live
@@ -76,11 +82,11 @@ native empty state and exits after three seconds without authenticating.
 
 ## Connect accounts
 
-1. Follow [Google OAuth setup](docs/oauth.md) to create a **Desktop app** client.
-2. Open Settings → Accounts → Import Google Desktop OAuth client.
-   Add Google account also offers a guided import when setup is missing, and
-   starts browser sign-in immediately after importing a valid Desktop JSON.
-3. Add a Google account and finish consent in your default browser. Repeat for
+1. Install a sign-in-enabled Luma build.
+2. Click **Sign in with Google** and finish consent in your default browser.
+   Luma supplies its own app registration; no JSON import or Google Cloud setup
+   is needed by the person connecting an account.
+3. Repeat for
    another account. A running, unlocked Secret Service keyring is required.
 4. Select a folder or account. Search supports Gmail operators. Enter submits
    the query to Google; Load more fetches the next page.
@@ -90,7 +96,11 @@ services are included. No account login is simulated.
 
 The sign-in window has **Open browser again** and **Copy sign-in link** for a
 desktop browser-launch failure. Closing it cancels the pending callback listener.
-Web-client JSON and service-account keys are rejected with a setup explanation.
+The maintainer configures the app once before building, following
+[Google app registration](docs/oauth.md). User configuration files and the old
+`LUMA_OAUTH_CLIENT` path are no longer read. People who connected an account
+using their own client in an older preview must reconnect to grant Luma's new
+registration access; existing refresh tokens belong to the previous client.
 
 ## Project structure
 

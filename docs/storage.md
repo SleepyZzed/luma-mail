@@ -35,8 +35,8 @@ There is no SQLite database, WAL, disk image preview, temporary upload spool or
 attachment cache. Cache writes are disposable and do not duplicate entries into
 temporary files. Invalid/incomplete cache entries are removed on access.
 
-The budget excludes small essential configuration files, the imported public
-OAuth client configuration, desktop-keyring storage, app binaries/libraries, and
+The budget excludes small essential configuration files, desktop-keyring
+storage, app binaries/libraries (including the public OAuth registration), and
 files explicitly saved to a user-selected location. It also excludes filesystem
 journal, snapshots and filesystem-global metadata that the application cannot
 control or reliably attribute. Cache usage shown by Luma includes its conservative

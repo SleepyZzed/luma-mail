@@ -15,12 +15,31 @@ pub fn start(s: &Rc<State>) {
         assert!(ticks < 250, "desktop D-Bus integration test timed out");
         if stage == 0 && s.tray_available.get() {
             crate::ui::verify_view_behaviour(&s);
-            // Missing OAuth setup must explain the prerequisite in one window,
-            // never recursively reopen Settings when Add is clicked again.
-            crate::signin::open(&s, false, None);
+            // Exercise an unconfigured developer build without launching a real
+            // browser, even when CI has the maintainer's app registration.
+            crate::signin::open_unconfigured(&s);
             let first = s.signin_window.borrow().as_ref().unwrap().clone();
-            assert_eq!(first.title().as_deref(), Some("Connect Google account"));
-            crate::signin::open(&s, false, None);
+            assert_eq!(first.title().as_deref(), Some("Sign in with Google"));
+            fn inspect(widget: &gtk::Widget, buttons: &mut Vec<(String, bool)>) {
+                if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+                    assert!(!label.text().contains("JSON"));
+                    assert!(!label.text().contains("Import"));
+                }
+                if let Some(button) = widget.downcast_ref::<gtk::Button>() {
+                    let text = button.label().unwrap_or_default().to_string();
+                    assert!(!text.contains("Import"));
+                    buttons.push((text, button.is_sensitive()));
+                }
+                let mut child = widget.first_child();
+                while let Some(widget) = child {
+                    inspect(&widget, buttons);
+                    child = widget.next_sibling();
+                }
+            }
+            let mut buttons = Vec::new();
+            inspect(first.upcast_ref(), &mut buttons);
+            assert!(buttons.contains(&("Sign in with Google".into(), false)));
+            crate::signin::open_unconfigured(&s);
             assert_eq!(s.signin_window.borrow().as_ref(), Some(&first));
             assert_eq!(s.app.windows().len(), 2);
             first.close();

@@ -6,7 +6,7 @@ The release stays a development prerelease until every mandatory row passes.
 
 | # | Original acceptance criterion | Current evidence | What remains |
 |---|---|---|---|
-| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring implementation; guided setup regression checked | Import a valid Desktop OAuth client, then verify consent and restart with two real accounts. The first Linux report exposed missing-client onboarding; the guided import fix is implemented. |
+| 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; encrypted Linux keyring; button-only sign-in with build-time app registration | Provision Luma's public Desktop client, then verify consent and restart with two real accounts. Runtime JSON import has been removed. |
 | 2 | Both inboxes display correctly | Gmail list/metadata parsing and account isolation tests | Compare both real inboxes with Gmail, including Workspace if used. |
 | 3 | Unified Inbox merges and sorts accounts | Transactional paging and cross-account sorting tests | Verify live ordering and mailbox changes across two accounts. |
 | 4 | Unified All Mail without full-history downloads | Projected metadata requests, bounded pages, Spam/Trash exclusion tests | Inspect traffic/storage with large real mailboxes. |
@@ -49,8 +49,8 @@ palette are tracked separately from the 20 mandatory behaviours.
 
 ## Distribution gates
 
-- [ ] Decide and provision the public Desktop OAuth client; this preview currently
-  requires each tester to import their own. Never publish fabricated credentials.
+- [ ] Provision Luma's public Desktop OAuth client; the next release embeds it
+  at build time. No runtime JSON import remains. Publication is gated on this.
 - [ ] Resolve Google's scope verification, consent-screen/privacy-policy and any
   applicable assessment requirements before presenting an official public client.
 - [ ] All mandatory live acceptance checks recorded with build/version and results.
@@ -72,6 +72,14 @@ palette are tracked separately from the 20 mandatory behaviours.
 - [x] Retry failed reads, cancel unnecessary body requests and preserve busy views.
 - [x] Debounce preference text edits and flush settings on full exit.
 - [x] Publish a checked development AppImage for the next Linux acceptance pass: v0.1.1-dev.1.
+
+## Button-only Google sign-in batch
+
+- [x] Remove JSON import controls, file loading and runtime client overrides.
+- [x] Embed the maintainer's Desktop app identity at compile time.
+- [x] Gate release publication on a configured, validated app registration.
+- [ ] Create/configure the Google registration and repository build values.
+- [ ] Verify live consent and keyring storage, then publish the configured 0.1.2 AppImage.
 
 See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 [docs/verification.md](docs/verification.md) for implementation details and test evidence.

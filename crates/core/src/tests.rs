@@ -50,36 +50,28 @@ fn config() -> ClientConfig {
     }
 }
 #[test]
-fn oauth_import_requires_a_desktop_client_and_explains_setup_errors() {
-    let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("client.json");
+fn google_registration_requires_valid_build_time_fields() {
     assert!(
-        ClientConfig::load(&file)
+        ClientConfig::from_registration("", "")
             .err()
             .unwrap()
             .to_string()
-            .contains("Import a Google Desktop")
+            .contains("maintainer")
     );
-    std::fs::write(&file, r#"{"web":{"client_id":"web","client_secret":"x"}}"#).unwrap();
-    assert!(
-        ClientConfig::load(&file)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("Desktop app")
-    );
-    std::fs::write(
-        &file,
-        r#"{"installed":{"client_id":"","client_secret":"x"}}"#,
-    )
-    .unwrap();
-    assert!(ClientConfig::load(&file).is_err());
-    std::fs::write(
-        &file,
-        r#"{"installed":{"client_id":"desktop","client_secret":"public"}}"#,
-    )
-    .unwrap();
-    assert_eq!(ClientConfig::load(&file).unwrap().client_id, "desktop");
+    let valid = "1234567890-example.apps.googleusercontent.com";
+    for (id, secret) in [
+        ("", "public"),
+        (valid, ""),
+        ("invalid", "public"),
+        (".apps.googleusercontent.com", "public"),
+        ("injected\n.apps.googleusercontent.com", "public"),
+        (valid, "contains\nnewline"),
+    ] {
+        assert!(ClientConfig::from_registration(id, secret).is_err());
+    }
+    let client = ClientConfig::from_registration(&format!(" {valid}\n"), "public").unwrap();
+    assert_eq!(client.client_id, valid);
+    assert!(ClientConfig::from_registration(valid, &"x".repeat(257)).is_err());
 }
 fn gmail(server: &MockServer) -> Gmail {
     let http = Http::new().unwrap();
@@ -494,6 +486,7 @@ async fn oauth_refresh_is_serialized_and_not_plaintext() {
             "a",
             &Credentials {
                 refresh_token: "refresh".into(),
+                client_id: config().client_id,
             },
         )
         .await
@@ -504,6 +497,29 @@ async fn oauth_refresh_is_serialized_and_not_plaintext() {
     let results = futures_util::future::join_all((0..8).map(|_| t.access_token())).await;
     assert!(results.into_iter().all(|r| r.unwrap() == "fresh"));
     assert_eq!(vault.1.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
+async fn changing_google_client_requires_consent_before_any_refresh_request() {
+    let server = MockServer::start().await;
+    let vault = Arc::new(MemoryVault::default());
+    let legacy: Credentials = serde_json::from_value(json!({"refresh_token":"legacy"})).unwrap();
+    for credential in [
+        legacy,
+        Credentials {
+            refresh_token: "different-client".into(),
+            client_id: "another-client".into(),
+        },
+    ] {
+        vault.store("a", &credential).await.unwrap();
+        let mut tokens =
+            TokenManager::new("a".into(), config(), Http::new().unwrap(), vault.clone());
+        tokens.test_endpoint(format!("{}/token", server.uri()));
+        assert!(matches!(
+            tokens.access_token().await,
+            Err(Error::Reauthenticate)
+        ));
+    }
+    assert!(server.received_requests().await.unwrap().is_empty());
 }
 #[tokio::test]
 async fn gmail_archive_hits_correct_remote_resource() {

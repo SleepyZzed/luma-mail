@@ -123,11 +123,7 @@ impl State {
         *self.pending_save.borrow_mut() = Some(timer);
     }
     pub fn client_config(&self) -> Result<ClientConfig> {
-        ClientConfig::load(
-            &std::env::var_os("LUMA_OAUTH_CLIENT")
-                .map(std::path::PathBuf::from)
-                .unwrap_or_else(|| self.paths.config.join("oauth-client.json")),
-        )
+        crate::google::client_config()
     }
     pub fn rebuild_clients(&self) -> Result<()> {
         self.clients.borrow_mut().clear();
@@ -547,14 +543,14 @@ pub fn sidebar(s: &Rc<State>) {
             load_labels(&s, &a.id);
         });
     }
-    let add = gtk::Button::with_label("＋ Add Google account");
+    let add = gtk::Button::with_label("Sign in with Google");
     add.add_css_class("flat");
     s.sidebar.append(&add);
     {
         let s = s.clone();
         add.connect_clicked(move |_| add_account(&s, false, None));
     }
-    let setup = gtk::Button::with_label("Settings & OAuth setup");
+    let setup = gtk::Button::with_label("Settings");
     setup.add_css_class("flat");
     s.sidebar.append(&setup);
     {

@@ -4,7 +4,7 @@ use gtk::glib;
 use luma_core::{
     Error, Result,
     auth::{Authorization, ClientConfig, Credentials, SystemVault, Vault},
-    config::{Account, private_dir, private_file},
+    config::Account,
     gmail::Gmail,
 };
 use std::{
@@ -17,7 +17,6 @@ struct SignIn {
     window: adw::Window,
     status: gtk::Label,
     spinner: gtk::Spinner,
-    import: gtk::Button,
     browser: gtk::Button,
     copy: gtk::Button,
     url: RefCell<Option<String>>,
@@ -28,6 +27,20 @@ struct SignIn {
 }
 
 pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
+    open_with_config(s, drive, expected, s.client_config());
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) fn open_unconfigured(s: &Rc<State>) {
+    open_with_config(s, false, None, ClientConfig::from_registration("", ""));
+}
+
+fn open_with_config(
+    s: &Rc<State>,
+    drive: bool,
+    expected: Option<String>,
+    config: Result<ClientConfig>,
+) {
     if let Some(window) = s.signin_window.borrow().as_ref() {
         window.present();
         return;
@@ -35,7 +48,7 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
     let window = adw::Window::builder()
         .application(&s.app)
         .transient_for(&s.window)
-        .title("Connect Google account")
+        .title("Sign in with Google")
         .default_width(560)
         .default_height(420)
         .build();
@@ -45,7 +58,7 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
     ui::margins(&content, 24);
     content.append(&ui::label("Connect your Gmail account", "title-2"));
     let intro = ui::label(
-        "This development preview needs a Google Desktop app OAuth client JSON. Import it once, then complete Google's consent in your default browser. Your Google password is never entered in Luma.",
+        "Choose your Google account and allow Luma to access Gmail in your browser. Your password stays with Google. You can revoke access from your Google Account at any time.",
         "",
     );
     intro.set_wrap(true);
@@ -56,11 +69,7 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
     content.append(&status);
     let spinner = gtk::Spinner::new();
     content.append(&spinner);
-    let import = gtk::Button::with_label("Import Desktop OAuth JSON…");
-    content.append(&import);
-    let guide = gtk::Button::with_label("Open Google OAuth setup guide");
-    content.append(&guide);
-    let browser = gtk::Button::with_label("Start Google sign-in");
+    let browser = gtk::Button::with_label("Sign in with Google");
     browser.add_css_class("suggested-action");
     browser.set_sensitive(false);
     content.append(&browser);
@@ -74,7 +83,6 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
         window,
         status,
         spinner,
-        import,
         browser,
         copy,
         url: RefCell::new(None),
@@ -86,20 +94,15 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
     *s.signin_window.borrow_mut() = Some(flow.window.clone());
     {
         let weak = Rc::downgrade(&flow);
-        flow.import.connect_clicked(move |_| {
-            if let Some(flow) = weak.upgrade() {
-                import_client(&flow);
-            }
-        });
-    }
-    {
-        let weak = Rc::downgrade(&flow);
         flow.browser.connect_clicked(move |_| {
             if let Some(flow) = weak.upgrade() {
                 if flow.url.borrow().is_some() {
                     launch_browser(&flow);
-                } else if let Ok(config) = flow.state.client_config() {
-                    begin(&flow, config);
+                } else {
+                    match flow.state.client_config() {
+                        Ok(config) => begin(&flow, config),
+                        Err(error) => failed(&flow, &error),
+                    }
                 }
             }
         });
@@ -110,20 +113,6 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
             if let Some(flow) = weak.upgrade() && let Some(url) = flow.url.borrow().as_ref() {
                 flow.window.clipboard().set_text(url);
                 flow.status.set_text("Sign-in link copied. Open it in your browser and finish consent within five minutes.");
-            }
-        });
-    }
-    {
-        let weak = Rc::downgrade(&flow);
-        guide.connect_clicked(move |_| {
-            if let Some(flow) = weak.upgrade() {
-                let flow = flow.clone();
-                glib::MainContext::default().spawn_local(async move {
-                    if gtk::UriLauncher::new("https://github.com/SleepyZzed/luma-mail/blob/main/docs/oauth.md")
-                        .launch_future(Some(&flow.window)).await.is_err() {
-                        flow.status.set_text("Could not open the browser. The setup guide is docs/oauth.md in the source repository.");
-                    }
-                });
             }
         });
     }
@@ -147,47 +136,16 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
         });
     }
     flow.window.present();
-    match s.client_config() {
+    match config {
         Ok(config) => begin(&flow, config),
         Err(error) => flow.status.set_text(&error.to_string()),
     }
-}
-
-fn import_client(flow: &Rc<SignIn>) {
-    let flow = flow.clone();
-    glib::MainContext::default().spawn_local(async move {
-        let dialog = gtk::FileDialog::builder()
-            .title("Import Google Desktop app OAuth JSON")
-            .build();
-        let Ok(file) = dialog.open_future(Some(&flow.window)).await else {
-            return;
-        };
-        if !flow.window.is_visible() {
-            return;
-        }
-        let Some(path) = file.path() else { return };
-        let result = (|| -> Result<ClientConfig> {
-            let config = ClientConfig::load(&path)?;
-            private_dir(&flow.state.paths.config)?;
-            let target = flow.state.paths.config.join("oauth-client.json");
-            let temp = flow.state.paths.config.join("oauth-client.json.tmp");
-            std::fs::copy(path, &temp)?;
-            private_file(&temp)?;
-            std::fs::rename(temp, target)?;
-            Ok(config)
-        })();
-        match result {
-            Ok(config) => begin(&flow, config),
-            Err(error) => flow.status.set_text(&error.to_string()),
-        }
-    });
 }
 
 fn begin(flow: &Rc<SignIn>, config: ClientConfig) {
     if flow.active.replace(true) {
         return;
     }
-    flow.import.set_sensitive(false);
     flow.browser.set_sensitive(false);
     flow.spinner.start();
     flow.status.set_text("Preparing secure Google sign-in…");
@@ -243,10 +201,13 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
         let id = existing.iter().find(|a| a.email.eq_ignore_ascii_case(&profile.email_address))
             .map(|a| a.id.clone()).unwrap_or_else(luma_core::composer::new_id);
         if let Some(refresh) = &token.refresh_token {
-            SystemVault.store(&id, &Credentials { refresh_token: refresh.clone() }).await?;
+            SystemVault.store(&id, &Credentials { refresh_token: refresh.clone(), client_id: config.client_id.clone() }).await?;
         } else {
             // A reconnect can legitimately omit an unchanged refresh token.
-            SystemVault.load(&id).await.map_err(|_| Error::Invalid("Google did not return a refresh token. Revoke the previous grant in Google Account permissions and reconnect.".into()))?;
+            let saved = SystemVault.load(&id).await.map_err(|_| Error::Invalid("Google did not return a refresh token. Revoke the previous grant in Google Account permissions and reconnect.".into()))?;
+            if saved.client_id != config.client_id {
+                return Err(Error::Invalid("Google did not return a refresh token for Luma's app registration. Revoke the previous Luma grant in Google Account permissions and reconnect.".into()));
+            }
         }
         Ok::<_, Error>((id, profile.email_address))
     }.await)
@@ -295,8 +256,8 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
 fn failed(flow: &SignIn, error: &Error) {
     flow.active.set(false);
     flow.spinner.stop();
-    flow.import.set_sensitive(true);
-    flow.browser.set_sensitive(true);
+    flow.browser
+        .set_sensitive(flow.state.client_config().is_ok());
     flow.browser.set_label("Try Google sign-in again");
     flow.copy.set_sensitive(false);
     flow.url.borrow_mut().take();

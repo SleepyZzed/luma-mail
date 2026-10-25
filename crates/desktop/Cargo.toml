@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+require-google-client = []
+
 [dependencies]
 luma-core = { path = "../core" }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_5"] }

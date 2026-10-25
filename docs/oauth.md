@@ -1,69 +1,92 @@
-# Google OAuth setup
+# Google sign-in and app registration
 
-Luma requires your own Google Cloud OAuth client for this development release.
-It cannot authenticate before you finish Google's consent screen.
+## Connecting an account
 
-1. Create/select a Google Cloud project, enable Gmail API, and optionally enable
-   Google Drive API if you intend to use Drive attachments.
-2. Configure the Google Auth Platform consent screen. Choose the appropriate
-   audience (Internal only for an eligible Workspace organization; otherwise
-   External). In Testing mode, add each intended Gmail address as a test user.
-3. Create an OAuth client with application type **Desktop app** and download its
-   JSON. Import it in Luma Settings → Accounts. Alternatively place it at
-   `$XDG_CONFIG_HOME/luma-mail/oauth-client.json`, using `~/.config` when unset,
-   or set `LUMA_OAUTH_CLIENT` to a JSON path.
-   Clicking Add Google account with no client opens a guided setup window with
-   an import button; selecting a valid JSON continues into browser sign-in.
-4. Add an account in Luma, choose the correct account in the default browser,
-   and grant Gmail access. The callback listens only on `127.0.0.1` at an
-   ephemeral port, validates a random state token and uses S256 PKCE.
-5. Repeat for each account. Reconnect an expired/revoked account from Settings.
-   Reconnecting verifies that the Google email address matches that account.
+Click **Sign in with Google** in Luma and finish Google's consent in your normal
+browser. Repeat for additional accounts. There is no JSON import, manual client
+configuration or Google Cloud project creation in the installed application's
+account flow. Passwords stay with Google. Access tokens stay in process memory;
+refresh tokens are kept in the Linux Secret Service keyring.
 
-If Add only reopened Settings in v0.1.0-dev.1, the OAuth client was missing. That
-build hid the useful error behind another Settings dialog. The guided flow in
-0.1.1 explains this prerequisite. The JSON identifies your Google Cloud app; it
-is not an exported Gmail account, a password file, or a service-account key.
+If the browser cannot launch, use **Open browser again** or **Copy sign-in link**.
+Complete the same request within five minutes. Closing the window cancels the
+callback listener. The callback uses an ephemeral `127.0.0.1` port, a random
+state token and S256 PKCE. No application server is involved.
 
-If the default browser cannot be launched, use Open browser again or Copy sign-in
-link in the sign-in window. Finish the same request within five minutes. Close
-the window to cancel or start a fresh attempt after timeout.
+## One-time setup for the app maintainer
 
-The desktop client ID and client secret identify a public installed app. They
-are not treated as a confidential user secret by Google. They are stored in the
-imported configuration JSON; access tokens stay in process memory and refresh
-tokens are kept in Secret Service. There is no plaintext-token fallback.
+The maintainer must create Luma's app registration before distributing a working
+build. This is not a task for each user. The repository does not invent or borrow
+another application's client ID, and an unconfigured developer build reports
+that sign-in is unavailable. Published releases are blocked without registration.
 
-## Scopes
+1. Create/select the Luma Google Cloud project and enable Gmail API. Enable Drive
+   API if offering optional Drive attachments.
+2. Configure Google Auth Platform branding, support/developer contacts and an
+   External audience for consumer Gmail accounts. During private testing, add
+   the intended account addresses as test users. Follow Google's requirements
+   for production publication and applicable verification before broad release.
+3. Create a client with application type **Desktop app**. A Web application or
+   service-account client is unsuitable. Use its client ID and client secret as
+   the build-time values `LUMA_GOOGLE_CLIENT_ID` and `LUMA_GOOGLE_CLIENT_SECRET`.
+   Do not use a user's password, token or confidential server credential.
+4. For GitHub releases, set both names as repository Actions secrets. The Linux
+   build job supplies them to compilation, validates the pair in tests and uses
+   the `require-google-client` feature to block publication if either is missing.
+   Fork pull requests have no access to repository secrets and can still compile
+   and test the deliberately unconfigured developer build.
+5. Run the Linux workflow with publication enabled only after live consent and
+   keyring tests. Every person installing that build uses the same app identity
+   and separately authorizes their own account.
+
+For a local distributable build, supply the two values in your build environment:
+
+```sh
+cargo test --locked --workspace
+cargo build --locked --release -p luma-mail --features require-google-client
+bash packaging/appimage.sh --require-google-client
+```
+
+`option_env!` embeds the registration at compile time; runtime environment
+variables cannot replace it. Cargo tracks changes to these build-time values.
+Installed desktop clients are public OAuth clients: the embedded ID and client
+secret can be extracted from the binary and must not be treated as confidential.
+Repository secrets reduce accidental disclosure in build logs; they do not make
+the installed app's registration secret. User refresh tokens are never bundled.
+
+## Migrating from earlier previews
+
+The old `oauth-client.json` import and `LUMA_OAUTH_CLIENT` override have been
+removed. Existing files are ignored and are not uploaded or erased. Refresh
+tokens issued to a previous client cannot be reused with Luma's new client;
+reconnect the same account from Settings to authorize the new registration.
+
+## Scopes and Google consent
 
 `https://www.googleapis.com/auth/gmail.modify` supports reading, labels, drafts,
-sending, archive and Trash. Permanent message deletion is intentionally absent;
-Luma never requests the broader `https://mail.google.com/` scope.
+sending, archive and Trash. Permanent deletion is absent, and Luma does not
+request the broader `https://mail.google.com/` scope.
 
 Drive is opt-in through Settings → Account → Enable Drive permission.
 Reauthorization requests Gmail plus `https://www.googleapis.com/auth/drive.file`
 together because installed apps do not support incremental authorization.
-Only app-created or app-authorized files can be accessed. Pasting an arbitrary
-Drive file ID does not bypass that restriction. A Google Picker is not yet
-implemented. Upload sharing is separately confirmed, recipient-specific and
+Only app-created or app-authorized files can be accessed. A Google Picker is not
+yet implemented. Upload sharing is separately confirmed, recipient-specific and
 read-only; Luma never creates an `anyone` permission.
 
-Google may expire refresh tokens for an External application in Testing mode
-(commonly after seven days for these scopes), and Workspace admins may restrict
-access. Handle this by reconnecting, not by saving passwords.
+An External app in Testing mode is restricted to listed test users and these
+Gmail grants/refresh tokens expire after seven days. Workspace administrators
+may restrict access. Reconnect to renew an expired or revoked grant.
 
-## Public distribution
+Gmail modify is a restricted scope. Broad distribution requires applicable
+Google OAuth verification, an accurate consent screen and privacy policy, and
+compliance with the Google API Services User Data Policy. A security assessment
+may be required depending on how restricted data is handled. Local test success
+does not establish Google approval.
 
-Gmail modify is a restricted scope. Publishing a widely distributed client
-requires Google's OAuth verification, an accurate consent screen, privacy
-policy, and compliance with the Google API Services User Data Policy. A security
-assessment may be required depending on how restricted data is handled. Local
-testing success does not imply approval for public distribution. The developer
-must resolve these requirements before publishing an official OAuth client.
-
-Authoritative references checked during implementation:
+References:
 
 - [Desktop OAuth and PKCE](https://developers.google.com/identity/protocols/oauth2/native-app)
-- [Gmail scopes and verification](https://developers.google.com/workspace/gmail/api/auth/scopes)
-- [Desktop loopback support](https://developers.google.com/identity/protocols/oauth2/resources/loopback-migration)
-- [Drive uploads](https://developers.google.com/workspace/drive/api/guides/manage-uploads)
+- [Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes)
+- [Restricted scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification)
+- [Testing and production audiences](https://support.google.com/cloud/answer/15549945)

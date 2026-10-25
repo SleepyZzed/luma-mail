@@ -12,12 +12,15 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.1.1-dev.1
+        default: v0.1.2-dev.1
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      LUMA_GOOGLE_CLIENT_ID: ${{ secrets.LUMA_GOOGLE_CLIENT_ID }}
+      LUMA_GOOGLE_CLIENT_SECRET: ${{ secrets.LUMA_GOOGLE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - name: Native libraries
@@ -31,6 +34,9 @@ jobs:
       - run: cargo test --locked --workspace
       - name: Tray and system notification D-Bus acceptance
         run: dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
+      - name: Require app registration before publishing
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        run: cargo check --locked -p luma-mail --features require-google-client
       - run: cargo build --locked --release
       - name: Native GTK launch
         run: dbus-run-session -- xvfb-run -a target/release/luma-mail --smoke-test

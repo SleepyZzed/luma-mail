@@ -18,8 +18,8 @@ dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
 
 The ignored Rust acceptance test is compiled only in the test executable. It is
 absent from the shipped application binary and uses a temporary configuration.
-The GTK check also verifies that a missing OAuth client opens one guided setup
-window, repeated Add clicks reuse it, background changes retain loaded pages
+The GTK check also verifies that an unconfigured developer build opens one
+sign-in window without JSON/import controls, repeated clicks reuse it, background changes retain loaded pages
 and a bulk selection, and unread/sidebar updates keep label navigation.
 
 The bundled-settings check runs the AppImage on a private D-Bus session with
@@ -30,8 +30,8 @@ artwork or fractional scaling on the real compositor.
 
 ## Real Gmail tests (deliberate user actions)
 
-Use disposable test messages in two accounts. Configure your OAuth app and
-finish consent yourself. These steps modify messages only when you click the
+Use disposable test messages in two accounts. Install a build containing Luma's
+app registration and finish consent yourself. These steps modify messages only when you click the
 corresponding action in Luma. Do not use production messages for destructive
 tests. Permanent message deletion is not exposed.
 
@@ -84,9 +84,12 @@ tests. Permanent message deletion is not exposed.
     process after full exit.
 15. Verify keyboard navigation, tooltips, screen reader, HiDPI, fractional scaling,
     Wayland file picker, mailto handling and resizing on CachyOS/Hyprland.
-16. With no OAuth JSON configured, Add Google account must explain the setup
-    prerequisite. Import a Desktop client locally and confirm the default
-    browser opens; test reopen/copy-link, cancellation and timeout recovery.
+16. In a configured build, Sign in with Google must immediately open the default
+    browser without an import/file picker. Test reopen/copy-link, cancellation
+    and timeout recovery. An unconfigured developer build must explain that the
+    maintainer needs to publish a configured build, without asking for JSON.
+    Building with `--features require-google-client` and no build-time client
+    must fail; a configured build must pass registration validation tests.
 17. Verify the normal system cursor and size in Luma, including user-local theme
     files. Change the configured desktop cursor while Luma runs; inspect the
     effective cursor row in About & Diagnostics.

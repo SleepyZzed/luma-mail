@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use oauth2::{CsrfToken, PkceCodeChallenge};
 use serde::{Deserialize, Serialize};
 use std::{
-    path::Path,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -22,46 +21,45 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 pub const GMAIL_SCOPE: &str = "https://www.googleapis.com/auth/gmail.modify";
 pub const DRIVE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone)]
 pub struct ClientConfig {
     pub client_id: String,
     pub client_secret: String,
 }
 impl ClientConfig {
-    pub fn load(path: &Path) -> Result<Self> {
-        #[derive(Deserialize)]
-        struct File {
-            installed: ClientConfig,
-        }
-        let metadata = std::fs::metadata(path).map_err(|_| Error::Invalid(
-            "Import a Google Desktop OAuth client JSON before signing in. This development preview does not include a public OAuth client.".into()))?;
-        if metadata.len() > 64 * 1024 {
-            return Err(Error::Invalid("The OAuth client JSON is unexpectedly large. Choose the Desktop app file downloaded from Google Cloud.".into()));
-        }
-        use std::io::Read;
-        let mut data = Vec::new();
-        std::fs::File::open(path)?
-            .take(64 * 1024 + 1)
-            .read_to_end(&mut data)?;
-        if data.len() > 64 * 1024 {
+    /// The maintainer's public Desktop app registration, embedded at build time.
+    /// This is not a user's password, refresh token or confidential server key.
+    pub fn from_registration(client_id: &str, client_secret: &str) -> Result<Self> {
+        let client_id = client_id.trim();
+        let client_secret = client_secret.trim();
+        if client_id.is_empty() || client_secret.is_empty() {
             return Err(Error::Invalid(
-                "The OAuth client JSON exceeds the 64 KiB setup-file limit.".into(),
+                "Google sign-in is unavailable in this build. Luma's maintainer must configure the app registration and publish a sign-in-enabled build.".into(),
             ));
         }
-        let client = serde_json::from_slice::<File>(&data).map_err(|_| Error::Invalid(
-            "Choose a valid Google Desktop app OAuth JSON. Web application clients and service-account keys cannot be used for desktop sign-in.".into()))?.installed;
-        if client.client_id.trim().is_empty() || client.client_secret.trim().is_empty() {
-            return Err(Error::Invalid(
-                "The Desktop OAuth client JSON is missing its client ID or client secret.".into(),
-            ));
+        if client_id.len() > 256
+            || client_secret.len() > 256
+            || !client_id.ends_with(".apps.googleusercontent.com")
+            || client_id == ".apps.googleusercontent.com"
+            || !client_id
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
+            || !client_secret.bytes().all(|c| c.is_ascii_graphic())
+        {
+            return Err(Error::Invalid("This build contains an invalid Google app registration. Contact Luma's maintainer for a corrected build.".into()));
         }
-        Ok(client)
+        Ok(Self {
+            client_id: client_id.into(),
+            client_secret: client_secret.into(),
+        })
     }
 }
 
 #[derive(Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct Credentials {
     pub refresh_token: String,
+    #[serde(default)]
+    pub client_id: String,
 }
 
 #[async_trait]
@@ -327,6 +325,11 @@ impl TokenManager {
             return Ok(access.token.clone());
         }
         let credential = self.vault.load(&self.account).await?;
+        // Refresh tokens belong to the client that obtained consent. Earlier
+        // previews allowed personal clients; require a fresh grant on migration.
+        if credential.client_id != self.client.client_id {
+            return Err(Error::Reauthenticate);
+        }
         let response = self
             .http
             .client
@@ -349,6 +352,7 @@ impl TokenManager {
                     &self.account,
                     &Credentials {
                         refresh_token: refresh.clone(),
+                        client_id: self.client.client_id.clone(),
                     },
                 )
                 .await?;

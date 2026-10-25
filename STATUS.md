@@ -61,6 +61,14 @@ launch with zero connected accounts, not fabricated mailbox contents.
 
 - Guided one-window OAuth setup/import, asynchronous browser launch, copy-link,
   retry and cancellation. A public OAuth client is still not provisioned.
+
+## 0.1.2 Google sign-in change
+
+Main removes the JSON importer and runtime file override. Sign in with Google
+uses the maintainer's Desktop client embedded at compile time, keeping browser
+launch/retry/cancellation and the existing PKCE/Secret Service flow. Release
+publication is gated on valid app registration values. Google provisioning and
+live consent remain pending; the published 0.1.1 binary still uses the old flow.
 - AppImage dconf module and host cursor-theme paths; session cursor overrides,
   live desktop cursor settings and diagnostics. Configuration transport passed
   Linux CI; the reporter's cursor artwork still needs another desktop check.
