@@ -289,13 +289,14 @@ mod tests {
         assert!(bytes < data.len() as u64 + 8192);
         assert_eq!(cache.get("a", "message").unwrap().unwrap(), data);
         assert!(cache.account_usage("a").unwrap() <= cache.usage().unwrap());
+        let elapsed = started.elapsed();
         println!(
             "Cache audit: payload={} file={} allocated={} legacy-json={} write/read/scan={:?}",
             data.len(),
             bytes,
             cache.usage().unwrap(),
             serde_json::to_vec(&data).unwrap().len(),
-            started.elapsed()
+            elapsed
         );
     }
     #[test]

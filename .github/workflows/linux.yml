@@ -28,7 +28,12 @@ jobs:
         run: |
           # The runner's Azure mirror stalled on WebKit downloads. Use Ubuntu's
           # primary archive with bounded retries; package signatures stay enforced.
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+          # Hosted images can put the real URL behind mirror+file: indirection.
+          for source in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/apt-mirrors.txt /etc/apt/apt-mirrors-security.txt; do
+            if [[ -f "$source" ]]; then
+              sudo sed -i -E 's|https?://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libgtk-4-media-gstreamer libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav bubblewrap xdg-dbus-proxy libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
       - uses: dtolnay/rust-toolchain@stable

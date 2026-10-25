@@ -17,6 +17,27 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
 };
+#[test]
+fn upgrade_keeps_gmail_drafts_and_custom_polling_preferences() {
+    let root = tempfile::tempdir().unwrap();
+    let paths = Paths {
+        config: root.path().join("config"),
+        cache: root.path().join("cache"),
+    };
+    std::fs::create_dir_all(&paths.config).unwrap();
+    let settings = paths.config.join("settings.json");
+    std::fs::write(&settings, r#"{"poll_seconds":120,"local_drafts":true}"#).unwrap();
+    let migrated = paths.load().unwrap();
+    assert_eq!(migrated.poll_seconds, 60);
+    assert!(
+        !migrated.local_drafts,
+        "an old preference cannot enable new local draft copies"
+    );
+    std::fs::write(&settings, r#"{"poll_seconds":300}"#).unwrap();
+    assert_eq!(paths.load().unwrap().poll_seconds, 300);
+    std::fs::write(&settings, r#"{"poll_seconds":120,"poll_version":1}"#).unwrap();
+    assert_eq!(paths.load().unwrap().poll_seconds, 120);
+}
 
 #[derive(Default)]
 struct MemoryVault(

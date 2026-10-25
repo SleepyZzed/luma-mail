@@ -12,6 +12,13 @@ Luma Mail 0.2.0 early access
   Report spam/Not spam actions and a Spam folder.
 - System cursor settings, notification-daemon delivery, close-to-tray/Open/Quit,
   manual refresh and the existing bounded-cache controls.
+- Quiet 60-second history checks update new mail and unread replies in place;
+  automatic checks have no page-loading bar. Simple phone mail uses themed text.
+- Compact composer Restore, initial To focus, Tab/Shift+Tab text-field traversal,
+  bounded recent-recipient completion and blue Ctrl+click links.
+- Full-content newsletter height, Settings stacking fixes and one filename
+  hyperlink per Drive attachment. Drafts autosave to Gmail; new local copies
+  are disabled. Existing unsent recovery copies are kept until saved/discarded.
 
 Sign in with Google opens your browser. No OAuth JSON or personal Cloud project
 is needed. There is no test-user list; Google's unverified warning and lifetime

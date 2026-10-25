@@ -339,6 +339,11 @@ fn show_full(e: &Rc<Editor>) {
     focus_message(e);
 }
 fn pop_out(e: &Rc<Editor>) {
+    if e.expand.icon_name().as_deref() == Some("view-restore-symbolic") {
+        e.parent().unfullscreen();
+        e.expand.set_icon_name("view-fullscreen-symbolic");
+        e.expand.set_tooltip_text(Some("Expand composer"));
+    }
     if e.placement.get() == 2 {
         e.window.present();
         return;

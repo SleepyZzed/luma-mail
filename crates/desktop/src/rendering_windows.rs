@@ -308,6 +308,10 @@ pub(super) fn append(
         let state = s.clone();
         let weak = area.downgrade();
         let handle = view.clone();
+        let minimum = std::env::var("LUMA_EXPECT_HTML_MIN_HEIGHT")
+            .ok()
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or(200);
         let mut stage = 0;
         let mut ticks = 0;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
@@ -319,10 +323,10 @@ pub(super) fn append(
                 return glib::ControlFlow::Continue;
             };
             match stage {
-                0 if area.height_request() > 200 => {
+                0 if area.height_request() > minimum => {
                     assert!(
-                        area.height_request() < 2000,
-                        "synthetic newsletter fits its real content height"
+                        area.height_request() < 60000,
+                        "synthetic newsletter fits within the bounded full-content view"
                     );
                     println!(
                         "PASS WebView2 content height {} GTK units",

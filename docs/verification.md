@@ -183,3 +183,24 @@ media and 0.2.0 release results will be recorded after completion.
 Remaining: second account, target Secret Service/Wayland/Noctalia, real incoming
 notification presentation/clicks, Drive recipient access, sustained giant-mailbox
 profiling, Google verification and the full control audit.
+
+## Composer and newsletter regressions — 25 October 2026
+
+Native Windows GTK diagnostics passed To focus, recent-recipient completion,
+Tab/Shift+Tab through text fields, one filename hyperlink, fullscreen Expand and
+compact Restore, and absence of new local draft files. This caught a real empty
+paragraph serialization bug that repeated the next line, including Drive links.
+
+Actual WebView2 diagnostics measured a short newsletter at 615 GTK units and a
+9,000-CSS-pixel synthetic newsletter at 13,778 GTK units on the fractional-DPI
+host. Both hid their native child beneath Settings and restored after closing it.
+WebView2 emits a nonfatal native window-class cleanup diagnostic at shutdown.
+Its InPrivate runtime metadata used approximately 1.5–2.6 MB in these synthetic
+runs; this overhead is separate from the disposable body budget. Linux uses an
+ephemeral WebKit session instead. No private email fixtures are published.
+
+Local checks passed strict Clippy, cache corruption/binary overhead, legacy draft
+safety, and migration to Gmail drafts with preserved custom polling preferences.
+Linux CI exercises the new-reply unread update without replacing loaded widgets,
+plus actual native and AppImage HTML/media with the mail cache disabled. Results
+must be recorded from the completed run before claiming the new AppImage passed.
