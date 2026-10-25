@@ -1,0 +1,122 @@
+use crate::{Error, Result};
+use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Account {
+    pub id: String,
+    pub email: String,
+    pub name: String,
+    pub enabled: bool,
+    pub notifications: bool,
+    #[serde(default)]
+    pub signature: String,
+    #[serde(default)]
+    pub drive_enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Settings {
+    pub accounts: Vec<Account>,
+    pub default_account: Option<String>,
+    pub cache_mib: u64,
+    pub cache_ttl_hours: u64,
+    pub clear_cache_on_exit: bool,
+    pub theme: String,
+    pub compact: bool,
+    pub poll_seconds: u64,
+    pub notification_privacy: bool,
+    pub close_to_tray: bool,
+    pub window_width: i32,
+    pub window_height: i32,
+    pub list_width: i32,
+    pub sidebar_width: i32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            accounts: vec![],
+            default_account: None,
+            cache_mib: 100,
+            cache_ttl_hours: 24,
+            clear_cache_on_exit: false,
+            theme: "system".into(),
+            compact: false,
+            poll_seconds: 120,
+            notification_privacy: false,
+            close_to_tray: true,
+            window_width: 1320,
+            window_height: 840,
+            list_width: 390,
+            sidebar_width: 230,
+        }
+    }
+}
+impl Settings {
+    pub fn hides_on_close(&self, tray_available: bool, quitting: bool) -> bool {
+        self.close_to_tray && tray_available && !quitting
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Paths {
+    pub config: PathBuf,
+    pub cache: PathBuf,
+}
+
+impl Paths {
+    pub fn discover() -> Result<Self> {
+        // Explicit, isolated launch-test paths; normal desktop runs use XDG.
+        if let Some(root) = std::env::var_os("LUMA_TEST_ROOT") {
+            let root = PathBuf::from(root);
+            return Ok(Self {
+                config: root.join("config"),
+                cache: root.join("cache"),
+            });
+        }
+        let dirs = directories::ProjectDirs::from("", "", "luma-mail")
+            .ok_or_else(|| Error::Invalid("Cannot find the user's XDG directories".into()))?;
+        Ok(Self {
+            config: dirs.config_dir().into(),
+            cache: dirs.cache_dir().into(),
+        })
+    }
+    pub fn load(&self) -> Result<Settings> {
+        match fs::read(self.config.join("settings.json")) {
+            Ok(data) => Ok(serde_json::from_slice(&data)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
+    pub fn save(&self, settings: &Settings) -> Result<()> {
+        private_dir(&self.config)?;
+        let temp = self.config.join("settings.json.tmp");
+        fs::write(&temp, serde_json::to_vec_pretty(settings)?)?;
+        private_file(&temp)?;
+        // Settings never contain tokens or a mailbox mirror.
+        fs::rename(temp, self.config.join("settings.json"))?;
+        Ok(())
+    }
+}
+
+pub fn private_dir(path: &std::path::Path) -> Result<()> {
+    fs::create_dir_all(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(())
+}
+pub fn private_file(path: &std::path::Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}

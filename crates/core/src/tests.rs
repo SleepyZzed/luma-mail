@@ -1,0 +1,787 @@
+use crate::{
+    auth::*, cache::Cache, composer::*, config::*, gmail::Gmail, http::Http, model::*,
+    pagination::UnifiedPager, provider::*, *,
+};
+use async_trait::async_trait;
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use serde_json::json;
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
+use wiremock::{
+    Mock, MockServer, ResponseTemplate,
+    matchers::{body_json, header, method, path, query_param},
+};
+
+#[derive(Default)]
+struct MemoryVault(
+    tokio::sync::Mutex<HashMap<String, Credentials>>,
+    AtomicUsize,
+);
+#[async_trait]
+impl Vault for MemoryVault {
+    async fn load(&self, a: &str) -> Result<Credentials> {
+        self.1.fetch_add(1, Ordering::SeqCst);
+        self.0
+            .lock()
+            .await
+            .get(a)
+            .cloned()
+            .ok_or(Error::Reauthenticate)
+    }
+    async fn store(&self, a: &str, c: &Credentials) -> Result<()> {
+        self.0.lock().await.insert(a.into(), c.clone());
+        Ok(())
+    }
+    async fn delete(&self, a: &str) -> Result<()> {
+        self.0.lock().await.remove(a);
+        Ok(())
+    }
+}
+fn config() -> ClientConfig {
+    ClientConfig {
+        client_id: "desktop-test".into(),
+        client_secret: "public-client-secret".into(),
+    }
+}
+fn gmail(server: &MockServer) -> Gmail {
+    let http = Http::new().unwrap();
+    let mut tokens = TokenManager::new(
+        "account-a".into(),
+        config(),
+        http.clone(),
+        Arc::new(MemoryVault::default()),
+    );
+    tokens.test_access("test-access");
+    let mut client = Gmail::new("account-a".into(), http, Arc::new(tokens));
+    client.test_base(server.uri());
+    client
+}
+fn message(id: &str, date: i64) -> Message {
+    serde_json::from_value(json!({"id":id,"threadId":"thread-a","internalDate":date.to_string(),"labelIds":["INBOX","UNREAD"],"payload":{"mimeType":"text/plain","headers":[{"name":"Subject","value":"Hello"},{"name":"From","value":"Ann <ann@example.com>"}],"body":{"data":URL_SAFE_NO_PAD.encode("Hello world")}}})).unwrap()
+}
+
+#[test]
+fn gmail_response_and_thread_identity() {
+    let m = message("m", 123);
+    let t = Thread {
+        id: "same".into(),
+        messages: vec![m],
+        ..Default::default()
+    };
+    let a = Conversation::from_thread("a", &t).unwrap();
+    let b = Conversation::from_thread("b", &t).unwrap();
+    assert_ne!(a.key, b.key);
+    assert!(a.unread);
+    assert_eq!(a.subject, "Hello");
+    assert_eq!(a.date, 123);
+}
+#[test]
+fn all_mail_excludes_spam_and_trash() {
+    assert_eq!(Folder::AllMail.query(), "-in:spam -in:trash");
+    assert!(Folder::Archive.query().contains("-in:inbox"));
+}
+#[test]
+fn archive_only_removes_inbox() {
+    assert_eq!(MailAction::Archive.labels(), (vec![], vec!["INBOX".into()]));
+}
+#[test]
+fn undo_restores_mixed_read_states() {
+    let mut read = message("read", 0);
+    read.label_ids.retain(|l| l != "UNREAD");
+    let unread = message("unread", 0);
+    assert!(MailAction::Read.undo_for(&read).is_empty());
+    assert_eq!(
+        MailAction::Read.undo_for(&unread),
+        vec![MailAction::AddLabel("UNREAD".into())]
+    );
+    assert_eq!(
+        MailAction::Archive.undo_for(&read),
+        vec![MailAction::AddLabel("INBOX".into())]
+    );
+}
+#[test]
+fn label_changes_are_scoped() {
+    assert_eq!(MailAction::Star.labels().0, vec!["STARRED"]);
+    assert_eq!(MailAction::Read.labels().1, vec!["UNREAD"]);
+    assert_eq!(
+        MailAction::AddLabel("Label_1".into()).labels().0,
+        vec!["Label_1"]
+    );
+}
+#[test]
+fn parse_plain_mime() {
+    assert_eq!(readable(&message("m", 0).payload).unwrap(), "Hello world");
+}
+#[test]
+fn html_does_not_execute_or_load() {
+    let p:Part=serde_json::from_value(json!({"mimeType":"text/html","body":{"data":URL_SAFE_NO_PAD.encode("<script>alert('x')</script><p>Hello</p><img src='https://tracker.invalid/x'>")}})).unwrap();
+    let text = readable(&p).unwrap();
+    assert!(text.contains("Hello"));
+    assert!(!text.contains("alert("));
+}
+#[test]
+fn charset_decoding() {
+    let p = Part {
+        mime_type: "text/plain".into(),
+        headers: vec![Header {
+            name: "Content-Type".into(),
+            value: "text/plain; charset=iso-8859-1".into(),
+        }],
+        body: PartBody {
+            data: Some(URL_SAFE_NO_PAD.encode([0x63, 0x61, 0x66, 0xe9])),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert_eq!(readable(&p).unwrap(), "café");
+}
+#[test]
+fn attachment_is_not_body() {
+    let p = Part {
+        mime_type: "text/plain".into(),
+        filename: "secret.txt".into(),
+        body: PartBody {
+            data: Some(URL_SAFE_NO_PAD.encode("secret")),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert!(!readable(&p).unwrap().contains("secret"));
+}
+#[test]
+fn malformed_base64_is_rejected() {
+    let mut m = message("a", 0);
+    m.payload.body.data = Some("%%%".into());
+    assert!(readable(&m.payload).is_err());
+}
+#[test]
+fn header_injection_is_rejected() {
+    let mut c = Compose::new("a@example.com".into());
+    c.to = "b@example.com".into();
+    c.subject = "Hi\r\nBcc: victim@example.com".into();
+    assert!(c.mime().is_err());
+}
+#[test]
+fn recipients_are_required_to_send() {
+    let c = Compose::new("a@example.com".into());
+    assert!(c.validate_send().is_err());
+    assert!(recipients("invalid").is_err());
+}
+#[test]
+fn quoted_display_names_are_single_recipients() {
+    let r = recipients("\"Smith, Ann\" <ann@example.com>, Bob <bob@example.com>").unwrap();
+    assert_eq!(r.len(), 2);
+    assert!(recipients("a@@example.com").is_err());
+    assert!(recipients("\"unclosed <a@example.com>").is_err());
+}
+#[test]
+fn reply_all_uses_exact_mailboxes() {
+    let mut m = message("m", 0);
+    m.payload.headers.push(Header {
+        name: "To".into(),
+        value: "me@example.com, otherme@example.com, \"Smith, Ann\" <ann@example.com>".into(),
+    });
+    let c = Compose::reply("me@example.com".into(), &m, true);
+    assert_eq!(c.cc, "otherme@example.com");
+}
+#[test]
+fn long_unicode_subjects_are_folded_safely() {
+    let mut c = Compose::new("a@example.com".into());
+    c.subject = "🌒".repeat(200);
+    let raw = String::from_utf8(c.mime().unwrap()).unwrap();
+    assert!(raw.lines().all(|line| line.len() < 998));
+    assert!(raw.contains("\r\n =?UTF-8?B?"));
+}
+#[test]
+fn reply_headers_and_account_are_preserved() {
+    let mut m = message("m", 0);
+    m.payload.headers.push(Header {
+        name: "Message-ID".into(),
+        value: "<old@example.com>".into(),
+    });
+    m.payload.headers.push(Header {
+        name: "References".into(),
+        value: "<first@example.com>".into(),
+    });
+    let c = Compose::reply("me@example.com".into(), &m, false);
+    let mime = String::from_utf8(c.mime().unwrap()).unwrap();
+    assert!(mime.contains("In-Reply-To: <old@example.com>"));
+    assert!(mime.contains("References: <first@example.com> <old@example.com>"));
+    assert_eq!(c.thread.as_deref(), Some("thread-a"));
+}
+#[test]
+fn attachments_have_encoded_filenames() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("a plus+.txt");
+    std::fs::write(&p, b"data").unwrap();
+    let mut c = Compose::new("a@example.com".into());
+    c.attachments.push(p);
+    let raw = String::from_utf8(c.mime().unwrap()).unwrap();
+    assert!(raw.contains("filename*=UTF-8''a%20plus%2B.txt"));
+    assert!(raw.contains("ZGF0YQ=="));
+}
+#[test]
+fn reopened_draft_preserves_inline_and_regular_parts() {
+    let mut c = Compose::new("a@example.com".into());
+    c.html = true;
+    c.text = "<img src=\"cid:photo\">".into();
+    c.retained.push(RetainedAttachment {
+        name: "photo.png".into(),
+        mime_type: "image/png".into(),
+        data: vec![1, 2, 3],
+        content_id: Some("<photo>".into()),
+    });
+    let raw = String::from_utf8(c.mime().unwrap()).unwrap();
+    assert!(raw.contains("Content-ID: <photo>"));
+    assert!(raw.contains("Content-Disposition: inline"));
+    assert!(raw.contains("AQID"));
+}
+#[tokio::test]
+async fn draft_attachments_download_only_when_editing() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/drafts/d")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"d","message":{"id":"m","payload":{"mimeType":"multipart/mixed","parts":[{"mimeType":"text/plain","body":{"data":URL_SAFE_NO_PAD.encode("body")}},{"mimeType":"application/octet-stream","filename":"one.bin","body":{"size":3,"attachmentId":"att"}}]}}}))).mount(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/messages/m/attachments/att"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"size":3,"data":URL_SAFE_NO_PAD.encode([1,2,3])})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let (_, parts) = gmail(&server).edit_draft("d").await.unwrap();
+    assert_eq!(parts.len(), 1);
+    assert_eq!(parts[0].data, vec![1, 2, 3]);
+}
+#[test]
+fn oversize_attachment_rejected_before_read() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("big");
+    std::fs::File::create(&p)
+        .unwrap()
+        .set_len(MAX_ATTACHMENT_BYTES + 1)
+        .unwrap();
+    let mut c = Compose::new("a@example.com".into());
+    c.attachments.push(p);
+    assert!(c.mime().is_err());
+}
+#[test]
+fn cache_zero_does_not_store() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Cache::new(d.path().join("bodies"), 0, Duration::from_secs(3600)).unwrap();
+    assert!(!c.put("a", "m", b"private").unwrap());
+    assert_eq!(c.usage().unwrap(), 0);
+    assert!(!c.root().exists());
+}
+#[test]
+fn cache_budget_enforced_under_many_messages() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Cache::new(
+        d.path().join("bodies"),
+        64 * 1024,
+        Duration::from_secs(3600),
+    )
+    .unwrap();
+    for i in 0..1000 {
+        c.put("a", &i.to_string(), &[1; 1000]).unwrap();
+        assert!(c.usage().unwrap() <= 64 * 1024);
+    }
+    assert!(c.get("a", "0").unwrap().is_none());
+    assert!(c.get("a", "999").unwrap().is_some());
+}
+#[test]
+fn cache_lru_touches_reads() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Cache::new(d.path().join("bodies"), 32768, Duration::from_secs(3600)).unwrap();
+    c.put("a", "1", &[1; 1024]).unwrap();
+    c.put("a", "2", &[2; 1024]).unwrap();
+    let budget = c.usage().unwrap();
+    c.configure(budget, Duration::from_secs(3600)).unwrap();
+    for entry in std::fs::read_dir(c.root()).unwrap() {
+        let path = entry.unwrap().path();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + Duration::from_secs(10))
+            .unwrap();
+    }
+    c.get("a", "1").unwrap();
+    c.put("a", "3", &[3; 1024]).unwrap();
+    assert!(c.get("a", "1").unwrap().is_some());
+    assert!(c.get("a", "2").unwrap().is_none());
+    assert!(c.get("a", "3").unwrap().is_some());
+    assert!(c.usage().unwrap() <= budget);
+}
+#[test]
+fn cache_clear_and_account_isolation() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Cache::new(d.path().join("bodies"), 100000, Duration::from_secs(3600)).unwrap();
+    c.put("a", "same", b"one").unwrap();
+    c.put("b", "same", b"two").unwrap();
+    assert_eq!(c.get("a", "same").unwrap().unwrap(), b"one");
+    assert!(c.account_usage("a").unwrap() > 0);
+    c.clear_account("a").unwrap();
+    assert!(c.get("a", "same").unwrap().is_none());
+    assert_eq!(c.get("b", "same").unwrap().unwrap(), b"two");
+    c.clear().unwrap();
+    assert_eq!(c.usage().unwrap(), 0);
+}
+#[test]
+fn cache_shrink_to_zero() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Cache::new(d.path().join("bodies"), 100000, Duration::from_secs(3600)).unwrap();
+    c.put("a", "m", b"body").unwrap();
+    c.configure(0, Duration::from_secs(3600)).unwrap();
+    assert_eq!(c.usage().unwrap(), 0);
+}
+#[test]
+fn cache_expiry_is_enforced() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Cache::new(d.path().join("bodies"), 100000, Duration::from_secs(3600)).unwrap();
+    c.put("a", "m", b"body").unwrap();
+    c.configure(100000, Duration::ZERO).unwrap();
+    assert!(c.get("a", "m").unwrap().is_none());
+}
+#[test]
+fn settings_roundtrip_contains_no_tokens() {
+    let d = tempfile::tempdir().unwrap();
+    let p = Paths {
+        config: d.path().join("config"),
+        cache: d.path().join("cache"),
+    };
+    p.save(&Settings::default()).unwrap();
+    assert_eq!(p.load().unwrap().cache_mib, 100);
+    let data = std::fs::read_to_string(p.config.join("settings.json")).unwrap();
+    assert!(!data.contains("token"));
+}
+#[test]
+fn closing_hides_only_with_a_live_tray() {
+    let mut s = Settings::default();
+    assert!(s.hides_on_close(true, false));
+    assert!(!s.hides_on_close(false, false));
+    assert!(!s.hides_on_close(true, true));
+    s.close_to_tray = false;
+    assert!(!s.hides_on_close(true, false));
+}
+#[test]
+fn csrf_comparison() {
+    assert!(valid_state("secret", "secret"));
+    assert!(!valid_state("secret", "other"));
+    assert!(!valid_state("secret", ""));
+}
+#[tokio::test]
+async fn pkce_loopback_flow_is_real() {
+    let a = Authorization::begin(&config(), false).await.unwrap();
+    let p: HashMap<_, _> = a.url.query_pairs().into_owned().collect();
+    assert_eq!(p["code_challenge_method"], "S256");
+    assert_eq!(p["code_challenge"].len(), 43);
+    assert!(p["redirect_uri"].starts_with("http://127.0.0.1:"));
+    assert_eq!(p["scope"], GMAIL_SCOPE);
+    assert_eq!(p["access_type"], "offline");
+}
+#[tokio::test]
+async fn oauth_refresh_is_serialized_and_not_plaintext() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"access_token":"fresh","expires_in":3600})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let vault = Arc::new(MemoryVault::default());
+    vault
+        .store(
+            "a",
+            &Credentials {
+                refresh_token: "refresh".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let mut t = TokenManager::new("a".into(), config(), Http::new().unwrap(), vault.clone());
+    t.test_endpoint(format!("{}/token", server.uri()));
+    let t = Arc::new(t);
+    let results = futures_util::future::join_all((0..8).map(|_| t.access_token())).await;
+    assert!(results.into_iter().all(|r| r.unwrap() == "fresh"));
+    assert_eq!(vault.1.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
+async fn gmail_archive_hits_correct_remote_resource() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/threads/thread-a/modify"))
+        .and(header("authorization", "Bearer test-access"))
+        .and(body_json(
+            json!({"addLabelIds":[],"removeLabelIds":["INBOX"]}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    gmail(&server)
+        .act("thread-a", false, &MailAction::Archive)
+        .await
+        .unwrap();
+}
+#[tokio::test]
+async fn gmail_trash_and_restore_use_endpoints() {
+    let server = MockServer::start().await;
+    for action in ["trash", "untrash"] {
+        Mock::given(method("POST"))
+            .and(path(format!("/messages/m/{action}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let g = gmail(&server);
+    g.act("m", true, &MailAction::Trash).await.unwrap();
+    g.act("m", true, &MailAction::Restore).await.unwrap();
+}
+#[tokio::test]
+async fn remote_search_is_paged_and_does_not_fetch_bodies() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("maxResults", "25"))
+        .and(query_param("pageToken", "next"))
+        .and(query_param("q", "-in:spam -in:trash older:2020/01/01"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"threads":[{"id":"t"}],"nextPageToken":"later"})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let m = message("m", 50);
+    Mock::given(method("GET"))
+        .and(path("/threads/t"))
+        .and(query_param("format", "full"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"t","messages":[m]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = gmail(&server)
+        .list(&Folder::AllMail, "older:2020/01/01", Some("next"))
+        .await
+        .unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.next.as_deref(), Some("later"));
+    let requests = server.received_requests().await.unwrap();
+    let get = requests
+        .iter()
+        .find(|r| r.url.path() == "/threads/t")
+        .unwrap();
+    let fields = get
+        .url
+        .query_pairs()
+        .find(|(k, _)| k == "fields")
+        .unwrap()
+        .1;
+    assert!(!fields.contains("data"));
+}
+#[tokio::test]
+async fn expired_credentials_surface_reconnect() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(401))
+        .mount(&server)
+        .await;
+    assert!(matches!(
+        gmail(&server).thread("a").await,
+        Err(Error::Reauthenticate)
+    ));
+}
+#[tokio::test]
+async fn mutating_requests_are_never_replayed() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(503))
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(
+        gmail(&server)
+            .act("a", false, &MailAction::Trash)
+            .await
+            .is_err()
+    );
+}
+#[tokio::test]
+async fn rate_limited_reads_retry_boundedly() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(429).insert_header("Retry-After", "0"))
+        .expect(4)
+        .mount(&server)
+        .await;
+    assert!(gmail(&server).thread("a").await.is_err());
+}
+#[tokio::test]
+async fn google_403_quota_uses_bounded_read_retries() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(
+            ResponseTemplate::new(403)
+                .insert_header("Retry-After", "0")
+                .set_body_json(json!({"error":{"errors":[{"reason":"userRateLimitExceeded"}]}})),
+        )
+        .expect(4)
+        .mount(&server)
+        .await;
+    assert!(gmail(&server).thread("a").await.is_err());
+}
+#[test]
+fn only_uncertain_writes_require_reconciliation() {
+    assert!(!Error::Invalid("Invalid recipient".into()).write_may_have_succeeded());
+    assert!(
+        !Error::Api {
+            status: 403,
+            reason: "permission".into()
+        }
+        .write_may_have_succeeded()
+    );
+    assert!(
+        Error::Api {
+            status: 503,
+            reason: "unavailable".into()
+        }
+        .write_may_have_succeeded()
+    );
+    assert!(Error::ResponseLimit.write_may_have_succeeded());
+}
+#[tokio::test]
+async fn draft_conflict_prevents_overwrite() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/drafts/d"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"id":"d","message":{"id":"newer"}})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let d = gmail::Draft {
+        id: "d".into(),
+        message: message("old", 0),
+    };
+    assert!(matches!(
+        gmail(&server).save_draft(Some(&d), b"mail", None).await,
+        Err(Error::DraftConflict)
+    ));
+}
+#[tokio::test]
+async fn draft_create_contains_thread_and_encoded_mime() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/drafts"))
+        .and(body_json(
+            json!({"message":{"raw":URL_SAFE_NO_PAD.encode(b"MIME"),"threadId":"t"}}),
+        ))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"id":"d","message":{"id":"m"}})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert_eq!(
+        gmail(&server)
+            .save_draft(None, b"MIME", Some("t"))
+            .await
+            .unwrap()
+            .id,
+        "d"
+    );
+}
+#[tokio::test]
+async fn notification_baseline_never_alerts_old_mail() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/profile"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"emailAddress":"a@example.com","historyId":"100"})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let (items, changed) = notifications::Monitor::default()
+        .poll(&gmail(&server))
+        .await
+        .unwrap();
+    assert!(items.is_empty());
+    assert!(!changed);
+}
+#[test]
+fn notifications_are_deduplicated() {
+    let mut d = notifications::Dedup::default();
+    assert!(d.fresh("a"));
+    assert!(!d.fresh("a"));
+    for i in 0..1000 {
+        d.fresh(&i.to_string());
+    }
+    assert!(d.fresh("a"));
+}
+fn palette() -> String {
+    "mode='dark'\nbackground='#101010'\nsurface='#202020'\ntext='#ffffff'\nmuted='#bbbbbb'\naccent='#aabbff'\non_accent='#000000'\noutline='#555555'\nhover='#333333'".into()
+}
+#[test]
+fn theme_parses_and_reloads_new_values() {
+    let a = theme::Palette::parse(&palette()).unwrap();
+    let b = theme::Palette::parse(&palette().replace("#aabbff", "#bbffaa")).unwrap();
+    assert_ne!(a.css(), b.css());
+    assert_eq!(a.mode, "dark");
+}
+#[test]
+fn theme_rejects_css_injection_and_bad_contrast() {
+    assert!(
+        theme::Palette::parse(&palette().replace("#101010", "url(file:///etc/passwd)")).is_err()
+    );
+    assert!(theme::Palette::parse(&palette().replace("#ffffff", "#111111")).is_err());
+}
+#[test]
+fn invalid_resource_id_cannot_change_path() {
+    assert!(gmail::check_id("../threads").is_err());
+    assert!(gmail::check_id("a?x=1").is_err());
+}
+
+#[derive(Default)]
+struct FakeProvider {
+    account: String,
+    pages: Vec<Vec<i64>>,
+    calls: AtomicUsize,
+    behavior: AtomicUsize,
+}
+#[async_trait]
+impl MailProvider for FakeProvider {
+    fn account_id(&self) -> &str {
+        &self.account
+    }
+    async fn list(&self, _: &Folder, _: &str, page: Option<&str>) -> Result<Page<Conversation>> {
+        if page.is_some() {
+            match self.behavior.swap(0, Ordering::SeqCst) {
+                1 => return Err(Error::Timeout),
+                2 => tokio::time::sleep(Duration::from_secs(1)).await,
+                _ => (),
+            }
+        }
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let n = page.unwrap_or("0").parse::<usize>().unwrap();
+        Ok(Page {
+            items: self.pages[n]
+                .iter()
+                .map(|date| Conversation {
+                    key: ThreadKey {
+                        account: self.account.clone(),
+                        id: date.to_string(),
+                    },
+                    subject: String::new(),
+                    sender: String::new(),
+                    snippet: String::new(),
+                    date: *date,
+                    unread: false,
+                    starred: false,
+                    attachments: false,
+                    count: 1,
+                })
+                .collect(),
+            next: if n + 1 < self.pages.len() {
+                Some((n + 1).to_string())
+            } else {
+                None
+            },
+        })
+    }
+    async fn thread(&self, _: &str) -> Result<Thread> {
+        unreachable!()
+    }
+    async fn message(&self, _: &str) -> Result<Message> {
+        unreachable!()
+    }
+    async fn act(&self, _: &str, _: bool, _: &MailAction) -> Result<()> {
+        unreachable!()
+    }
+    async fn labels(&self) -> Result<Vec<Label>> {
+        unreachable!()
+    }
+}
+#[tokio::test]
+async fn unified_merge_refills_frontiers_and_preserves_accounts() {
+    let a = Arc::new(FakeProvider {
+        account: "a".into(),
+        pages: vec![vec![100, 90], vec![80, 70]],
+        calls: AtomicUsize::new(0),
+        behavior: AtomicUsize::new(0),
+    });
+    let b = Arc::new(FakeProvider {
+        account: "b".into(),
+        pages: vec![vec![95, 85], vec![80, 60]],
+        calls: AtomicUsize::new(0),
+        behavior: AtomicUsize::new(0),
+    });
+    let mut p = UnifiedPager::new(vec![a, b], Folder::Inbox, String::new());
+    let rows = p.next_page().await.unwrap();
+    assert_eq!(
+        rows.iter().map(|r| r.date).collect::<Vec<_>>(),
+        vec![100, 95, 90, 85, 80, 80, 70, 60]
+    );
+    assert_ne!(rows[4].key, rows[5].key);
+    assert!(!p.has_more());
+}
+#[tokio::test]
+async fn large_mailbox_fetches_only_required_pages() {
+    let a = Arc::new(FakeProvider {
+        account: "a".into(),
+        pages: (0..4000)
+            .map(|p| (0..25).map(|i| 100000 - p * 25 - i).collect())
+            .collect(),
+        calls: AtomicUsize::new(0),
+        behavior: AtomicUsize::new(0),
+    });
+    let mut p = UnifiedPager::new(vec![a.clone()], Folder::Inbox, String::new());
+    assert_eq!(p.next_page().await.unwrap().len(), 25);
+    assert_eq!(a.calls.load(Ordering::SeqCst), 1);
+    assert!(p.has_more());
+}
+#[tokio::test]
+async fn pagination_failure_does_not_consume_unshown_rows() {
+    let provider = Arc::new(FakeProvider {
+        account: "a".into(),
+        pages: vec![vec![5, 4, 3], vec![2, 1]],
+        behavior: AtomicUsize::new(1),
+        ..Default::default()
+    });
+    let mut p = UnifiedPager::new(vec![provider], Folder::Inbox, String::new());
+    assert!(p.next_page().await.is_err());
+    let rows = p.next_page().await.unwrap();
+    assert_eq!(
+        rows.iter().map(|r| r.date).collect::<Vec<_>>(),
+        vec![5, 4, 3, 2, 1]
+    );
+}
+#[tokio::test]
+async fn pagination_cancellation_does_not_consume_unshown_rows() {
+    let provider = Arc::new(FakeProvider {
+        account: "a".into(),
+        pages: vec![vec![5, 4, 3], vec![2, 1]],
+        behavior: AtomicUsize::new(2),
+        ..Default::default()
+    });
+    let mut p = UnifiedPager::new(vec![provider], Folder::Inbox, String::new());
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), p.next_page())
+            .await
+            .is_err()
+    );
+    assert_eq!(p.next_page().await.unwrap().len(), 5);
+}

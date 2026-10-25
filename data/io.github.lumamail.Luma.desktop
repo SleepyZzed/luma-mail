@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Luma Mail
+Comment=Online-first email for your Linux desktop
+Exec=luma-mail %u
+Icon=io.github.lumamail.Luma
+Terminal=false
+Categories=Network;Email;
+MimeType=x-scheme-handler/mailto;
+StartupNotify=true
+Keywords=Gmail;Email;Mail;

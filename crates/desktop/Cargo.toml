@@ -1,0 +1,22 @@
+[package]
+name = "luma-mail"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+luma-core = { path = "../core" }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_5"] }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_12"] }
+tokio.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+url.workspace = true
+futures-util.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = "0.3.7"
+
+[dev-dependencies]
+ksni = "0.3.7"

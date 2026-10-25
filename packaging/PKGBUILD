@@ -1,0 +1,32 @@
+pkgname=luma-mail
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Online-first native Rust Gmail client (development release)'
+arch=('x86_64' 'aarch64')
+license=('GPL-3.0-or-later')
+depends=('gtk4>=4.12' 'libadwaita>=1.5' 'dbus')
+makedepends=('rust' 'cargo' 'pkgconf')
+optdepends=('gnome-keyring: secure Google refresh-token storage' 'kwallet: alternative Secret Service backend')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP') # Replaced with the delivery archive checksum before packaging.
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+build() {
+  cd "$pkgname-$pkgver"
+  cargo build --frozen --release
+}
+check() {
+  cd "$pkgname-$pkgver"
+  cargo test --frozen --workspace
+}
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/luma-mail "$pkgdir/usr/bin/luma-mail"
+  install -Dm644 data/io.github.lumamail.Luma.desktop "$pkgdir/usr/share/applications/io.github.lumamail.Luma.desktop"
+  install -Dm644 data/io.github.lumamail.Luma.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg"
+  install -Dm644 data/noctalia/luma.toml.in "$pkgdir/usr/share/luma-mail/noctalia/luma.toml.in"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/luma-mail/LICENSE"
+}
