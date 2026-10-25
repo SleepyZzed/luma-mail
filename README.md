@@ -79,6 +79,10 @@ cargo build --locked --release
 The core can be tested independently: `cargo test --locked -p luma-core`.
 On a Linux display session, `cargo run -p luma-mail -- --smoke-test` opens the
 native empty state and exits after three seconds without authenticating.
+For a sign-in-enabled distributable, the maintainer supplies the two build-time
+Google app registration values and builds with `--features require-google-client`;
+see [app registration](docs/oauth.md). A plain unconfigured source build remains
+useful for UI/core development and cannot connect accounts.
 
 ## Connect accounts
 
@@ -86,8 +90,7 @@ native empty state and exits after three seconds without authenticating.
 2. Click **Sign in with Google** and finish consent in your default browser.
    Luma supplies its own app registration; no JSON import or Google Cloud setup
    is needed by the person connecting an account.
-3. Repeat for
-   another account. A running, unlocked Secret Service keyring is required.
+3. Repeat for another account. A running, unlocked Secret Service keyring is required.
 4. Select a folder or account. Search supports Gmail operators. Enter submits
    the query to Google; Load more fetches the next page.
 

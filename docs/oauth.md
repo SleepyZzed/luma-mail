@@ -60,6 +60,8 @@ The old `oauth-client.json` import and `LUMA_OAUTH_CLIENT` override have been
 removed. Existing files are ignored and are not uploaded or erased. Refresh
 tokens issued to a previous client cannot be reused with Luma's new client;
 reconnect the same account from Settings to authorize the new registration.
+New keyring records also identify the client that obtained consent. An unknown
+or different client requires reconnecting before any refresh request is sent.
 
 ## Scopes and Google consent
 

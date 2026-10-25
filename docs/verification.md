@@ -82,3 +82,24 @@ The native package recipe is pinned to the same Rust implementation in
 `dd6db7d67d0c999a09f0d4e6920a290bad0afde7`; the release commit adds only native
 package/checklist/documentation updates. The recipe's codeload SHA-256 was also
 checked. makepkg/AUR and real Google/Noctalia acceptance remain unexecuted here.
+
+## 0.1.2 button-only sign-in
+
+Source `466c707fbcf49ba2835d1b666e779d481afaef6a` removes both JSON import
+screens, the file loader and runtime client override. The maintainer supplies
+Google's public Desktop client registration at build time. The new keyring
+client-ID binding rejects legacy or different-client refresh tokens before any
+network request, and reconnecting requires a grant for the current app identity.
+
+Local verification passed formatting, strict Clippy, 57 core tests, two desktop
+unit tests and a native GTK launch of the unconfigured sign-in state. A separate
+check confirmed that `require-google-client` rejects an unconfigured build and
+accepts a synthetic registration fixture in the test executable. The fixture is
+not an application login, user credential or published binary configuration.
+The native recipe's pinned source checksum and both shell scripts' syntax were
+also checked. Native makepkg remains unexecuted.
+
+Linux verification: [run 40223256605](https://github.com/SleepyZzed/luma-mail/actions/runs/40223256605).
+Google Cloud registration, live consent/keyring tests and the configured 0.1.2
+AppImage publication remain pending. The 0.1.1 release does not acquire these
+changes automatically.
