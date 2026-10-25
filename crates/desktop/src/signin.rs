@@ -30,6 +30,11 @@ struct SignIn {
 type Ready = Box<dyn FnOnce(Rc<State>, String)>;
 
 pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|a| a == "--design-preview") {
+        s.info("Use the normal Luma window to connect an account. This preview contains synthetic test data.");
+        return;
+    }
     let account = expected.as_ref().and_then(|email| {
         s.settings
             .borrow()

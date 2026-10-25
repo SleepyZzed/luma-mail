@@ -12,7 +12,9 @@ pub fn prefix(line: &str) -> Option<(usize, i32)> {
 fn line(buffer: &gtk::TextBuffer, n: i32) -> (gtk::TextIter, String) {
     let start = buffer.iter_at_line(n).unwrap_or_else(|| buffer.end_iter());
     let mut end = start;
-    end.forward_to_line_end();
+    if !end.ends_line() {
+        end.forward_to_line_end();
+    }
     (start, buffer.text(&start, &end, false).into())
 }
 fn selected_lines(buffer: &gtk::TextBuffer) -> (i32, i32) {
@@ -87,10 +89,11 @@ pub fn key(buffer: &gtk::TextBuffer, key: gdk::Key, modifiers: gdk::ModifierType
     {
         buffer.begin_user_action();
         if text.chars().skip(count as usize).all(char::is_whitespace) {
+            let line_index = caret.line();
             delete_prefix(buffer, start, count);
             buffer.place_cursor(
                 &buffer
-                    .iter_at_line(caret.line())
+                    .iter_at_line(line_index)
                     .unwrap_or_else(|| buffer.end_iter()),
             );
         } else {

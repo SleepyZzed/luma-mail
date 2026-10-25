@@ -12,6 +12,7 @@ use luma_core::{
 use std::rc::Rc;
 
 pub fn show(s: &Rc<State>) {
+    s.window.set_title(Some("Luma Mail · Synthetic preview"));
     assert!(
         s.clients.borrow().is_empty(),
         "Use a fresh isolated test root"
@@ -28,6 +29,8 @@ pub fn show(s: &Rc<State>) {
         blocked_senders: vec![],
     };
     s.settings.borrow_mut().accounts.push(account);
+    s.local_compose
+        .set_accounts(s.settings.borrow().accounts.iter().map(|a| a.id.clone()));
     ui::sidebar(s);
     let items = [
         (
@@ -194,6 +197,10 @@ pub fn show(s: &Rc<State>) {
     s.reader.append(&card);
     s.info("Synthetic design preview · No remote mailbox connected");
     crate::compose::verify_formatting();
+    if std::env::args().any(|a| a == "--compose-diagnostics") {
+        crate::compose::diagnostic(s);
+        return;
+    }
     if std::env::args().any(|a| a == "--preview-html") {
         ui::clear(&s.reader);
         s.reader

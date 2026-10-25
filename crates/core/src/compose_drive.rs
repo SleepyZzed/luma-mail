@@ -103,26 +103,82 @@ pub fn draft_references(header: &str) -> Result<Vec<DriveFile>> {
 }
 pub fn append_link(c: &mut Compose, file: &DriveFile) -> Result<()> {
     let link = drive::verified_link(file)?;
-    if c.text.contains(&link) {
+    if contains_link(c, &link) {
         return Ok(());
     }
-    if c.html {
-        let escape = |s: &str| {
-            s.replace('&', "&amp;")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;")
-                .replace('"', "&quot;")
-        };
-        c.text.push_str(&format!(
-            "<p><a href=\"{}\">{} (Google Drive)</a></p>",
-            escape(&link),
-            escape(&file.name)
-        ));
-    } else {
-        c.text
-            .push_str(&format!("\n\n{} (Google Drive): {link}\n", file.name));
+    if !c.html {
+        c.text = format!(
+            "<div style=\"white-space:pre-wrap\">{}</div>",
+            escape(&c.text)
+        );
+        c.html = true;
     }
+    c.text.push_str(&format!(
+        "<p><a href=\"{}\">{}</a></p>",
+        escape(&link),
+        escape(&file.name)
+    ));
     Ok(())
+}
+fn escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+/// Attribute values must be decoded as HTML: Drive query strings often contain
+/// '&amp;' after a visual composer save. Raw substring checks duplicate links.
+pub fn contains_link(c: &Compose, link: &str) -> bool {
+    if !c.html {
+        return c.text.contains(link);
+    }
+    use html5ever::tokenizer::{
+        BufferQueue, StartTag, Token, TokenSink, TokenSinkResult, Tokenizer,
+    };
+    struct Links<'a> {
+        target: &'a str,
+        found: std::cell::Cell<bool>,
+    }
+    impl TokenSink for Links<'_> {
+        type Handle = ();
+        fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+            if let Token::TagToken(tag) = token
+                && tag.kind == StartTag
+            {
+                if tag.name == html5ever::local_name!("script") {
+                    return TokenSinkResult::RawData(
+                        html5ever::tokenizer::states::RawKind::ScriptData,
+                    );
+                }
+                if matches!(tag.name.as_ref(), "style" | "textarea" | "title") {
+                    return TokenSinkResult::RawData(
+                        html5ever::tokenizer::states::RawKind::Rawtext,
+                    );
+                }
+                if tag.name == html5ever::local_name!("a")
+                    && tag.attrs.iter().any(|a| {
+                        a.name.local == html5ever::local_name!("href")
+                            && a.value.as_ref() == self.target
+                    })
+                {
+                    self.found.set(true);
+                }
+            }
+            TokenSinkResult::Continue
+        }
+    }
+    let input = BufferQueue::default();
+    input.push_back(c.text.clone().into());
+    let tokenizer = Tokenizer::new(
+        Links {
+            target: link,
+            found: std::cell::Cell::new(false),
+        },
+        Default::default(),
+    );
+    let _ = tokenizer.feed(&input);
+    tokenizer.end();
+    tokenizer.sink.found.get()
 }
 pub async fn prepare(
     mut c: Compose,
@@ -200,7 +256,7 @@ pub async fn share_for_send(
     }
     for reference in &c.drive_files {
         let link = drive::verified_link(reference)?;
-        if !c.text.contains(&link) {
+        if !contains_link(c, &link) {
             continue;
         }
         // Gmail draft headers are untrusted. Verify the actual file and private
@@ -236,6 +292,35 @@ pub async fn share_for_send(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn named_drive_links_survive_repeated_saves_without_duplicates() {
+        let file = DriveFile {
+            id: "file123".into(),
+            name: "Project & notes.docx".into(),
+            web_view_link: Some("https://drive.google.com/file/d/file123/view?a=1&b=2".into()),
+            owned_by_me: true,
+            app_properties: Default::default(),
+        };
+        let mut c = Compose {
+            text: "Hello <team>\nNext line".into(),
+            ..Default::default()
+        };
+        append_link(&mut c, &file).unwrap();
+        assert!(c.html);
+        assert!(c.text.contains("Hello &lt;team&gt;\nNext line"));
+        assert!(c.text.contains(">Project &amp; notes.docx</a>"));
+        assert!(contains_link(&c, file.web_view_link.as_deref().unwrap()));
+        let once = c.text.clone();
+        append_link(&mut c, &file).unwrap();
+        append_link(&mut c, &file).unwrap();
+        assert_eq!(c.text, once);
+        assert_eq!(c.text.matches("<a ").count(), 1);
+        c.text = format!(
+            "<script>let x='<a href=\"{}\">'</script>",
+            file.web_view_link.as_deref().unwrap()
+        );
+        assert!(!contains_link(&c, file.web_view_link.as_deref().unwrap()));
+    }
     #[test]
     fn largest_files_move_to_drive_without_reading_or_spooling_contents() {
         let dir = tempfile::tempdir().unwrap();

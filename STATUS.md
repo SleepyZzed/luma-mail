@@ -41,9 +41,10 @@ executed results rather than assuming runtime success from compilation.
 
 - Two real Gmail accounts and restart in Linux Secret Service; account-isolated
   sorting/actions, incoming notification clicks and installed Noctalia/Wayland.
-- Real Drive upload, recipient access, cancellation and partial-sharing recovery.
+- User-tested automatic Drive upload works; recipient access, cancellation and
+  partial-sharing recovery still need formal acceptance.
   Existing authorized file IDs work; Google Picker remains absent.
-- Recipient chips/autocomplete, real contact photos (current avatars use initials),
+- Recipient chips, real contact photos (current avatars use initials),
   send-as aliases, richer lists and inline-image insertion in compose.
   Existing HTML drafts reopen as source; full visual HTML re-editing is incomplete.
 - Draft conflict reconciliation, editing attachments over 16 MiB combined, save-all,

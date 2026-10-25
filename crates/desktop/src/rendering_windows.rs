@@ -15,6 +15,24 @@ use std::{
 use wry::{WebView, WebViewBuilder, WebViewBuilderExtWindows, WebViewExtWindows};
 
 struct Parent(isize);
+enum Event {
+    Link(String),
+    Loaded,
+    Height(f64, i32),
+    Wheel(f64),
+}
+fn measure(view: &WebView, area: &gtk::DrawingArea, events: std::sync::mpsc::Sender<Event>) {
+    let scale = area.scale_factor() as f64;
+    let width = area.width();
+    let _ = view.evaluate_script_with_callback(
+        "document.body ? Math.ceil(document.body.getBoundingClientRect().height * devicePixelRatio) : 160",
+        move |value| {
+            if let Ok(height) = serde_json::from_str::<f64>(&value) && height.is_finite() {
+                let _ = events.send(Event::Height(height / scale, width));
+            }
+        },
+    );
+}
 impl HasWindowHandle for Parent {
     fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
         let handle =
@@ -32,21 +50,57 @@ pub(super) fn append(
 ) {
     let area = gtk::DrawingArea::builder()
         .hexpand(true)
-        .height_request(560)
+        .height_request(160)
         .build();
     area.set_widget_name("html-mail-view");
     let view: Rc<RefCell<Option<WebView>>> = Default::default();
     let geometry = Rc::new(Cell::new(None::<[i32; 9]>));
     let document = Arc::new(Mutex::new(html_mail::document(&html, HashMap::new())));
-    let (links, received) = std::sync::mpsc::channel::<String>();
+    let (links, received) = std::sync::mpsc::channel::<Event>();
     let state = s.clone();
     let weak_area = area.downgrade();
+    let handle = view.clone();
+    let events = links.clone();
     glib::timeout_add_local(std::time::Duration::from_millis(60), move || {
-        if weak_area.upgrade().is_none() {
+        let Some(area) = weak_area.upgrade() else {
             return glib::ControlFlow::Break;
-        }
-        while let Ok(uri) = received.try_recv() {
-            open_link(&state, &uri);
+        };
+        while let Ok(event) = received.try_recv() {
+            match event {
+                Event::Link(uri) => open_link(&state, &uri),
+                Event::Height(height, width) if width == area.width() => {
+                    area.set_height_request(height.ceil().clamp(48., 60000.) as i32);
+                }
+                Event::Loaded => {
+                    if let Some(view) = handle.borrow().as_ref() {
+                        measure(view, &area, events.clone());
+                        // Privileged host code only. Sender scripts remain disabled,
+                        // sanitized away and forbidden by CSP. A full-height document
+                        // forwards wheel motion to the GTK conversation scroll view.
+                        let _ = view.evaluate_script("if(!window.lumaWheel){window.lumaWheel=true;addEventListener('wheel',e=>{if(!e.ctrlKey){e.preventDefault();window.ipc.postMessage(String(e.deltaY*(e.deltaMode===1?24:e.deltaMode===2?innerHeight:1)*devicePixelRatio));}},{passive:false});}");
+                    }
+                }
+                Event::Wheel(delta) if delta.is_finite() => {
+                    let mut parent = area.parent();
+                    while let Some(widget) = parent {
+                        if let Some(scroll) = widget.downcast_ref::<gtk::ScrolledWindow>() {
+                            let adjustment = scroll.vadjustment();
+                            adjustment.set_value(
+                                (adjustment.value()
+                                    + delta.clamp(-3000., 3000.) / area.scale_factor() as f64)
+                                    .clamp(
+                                        adjustment.lower(),
+                                        (adjustment.upper() - adjustment.page_size())
+                                            .max(adjustment.lower()),
+                                    ),
+                            );
+                            break;
+                        }
+                        parent = widget.parent();
+                    }
+                }
+                _ => (),
+            }
         }
         glib::ControlFlow::Continue
     });
@@ -54,8 +108,12 @@ pub(super) fn append(
     let source = document.clone();
     let state = s.clone();
     let layout = geometry.clone();
+    let width = Rc::new(Cell::new(0));
+    let mapped_width = width.clone();
+    let map_events = links.clone();
     area.connect_map(move |area| {
         layout.set(None);
+        mapped_width.set(0);
         if handle.borrow().is_some() { return; }
         if wry::webview_version().ok().and_then(|v|v.split('.').next()?.parse::<u32>().ok()).is_none_or(|v|v<101) { state.info("HTML preview requires Microsoft Edge WebView2 Runtime 101 or newer for private rendering."); return; }
         let Some(surface)=state.window.surface().and_then(|s| s.downcast::<gdk_win32::Win32Surface>().ok()) else { return; };
@@ -63,7 +121,8 @@ pub(super) fn append(
         let root=state.paths.cache.join("webview2-runtime");
         if luma_core::config::private_dir(&root).is_err() { return; }
         let mut context=wry::WebContext::new(Some(root));
-        let data=source.clone(); let navigation=links.clone(); let new_window=links.clone();
+        let data=source.clone(); let navigation=map_events.clone(); let new_window=map_events.clone();
+        let loaded=map_events.clone(); let wheel=map_events.clone();
         let result=WebViewBuilder::new_with_web_context(&mut context)
             .with_incognito(true).with_javascript_disabled().with_devtools(false)
             .with_focused(false).with_visible(false).with_default_context_menus(false)
@@ -75,15 +134,38 @@ pub(super) fn append(
             })
             .with_navigation_handler(move |uri| {
                 if uri=="http://luma.mail/document" { return true; }
-                if uri.starts_with("https://") || uri.starts_with("http://") || uri.starts_with("mailto:") { let _=navigation.send(uri); }
+                if uri.starts_with("https://") || uri.starts_with("http://") || uri.starts_with("mailto:") { let _=navigation.send(Event::Link(uri)); }
                 false
             })
-            .with_new_window_req_handler(move |uri,_| { let _=new_window.send(uri); wry::NewWindowResponse::Deny })
+            .with_new_window_req_handler(move |uri,_| { let _=new_window.send(Event::Link(uri)); wry::NewWindowResponse::Deny })
+            .with_on_page_load_handler(move |event,_| { if matches!(event,wry::PageLoadEvent::Finished) { let _=loaded.send(Event::Loaded); } })
+            .with_ipc_handler(move |request| { if let Ok(delta)=request.body().parse::<f64>() { let _=wheel.send(Event::Wheel(delta)); } })
             .with_download_started_handler(|_,_| false)
             .with_url("luma://mail/document").build_as_child(&parent);
         match result {
             Ok(webview) => { *handle.borrow_mut()=Some(webview); area.queue_draw(); },
             Err(error) => state.info(&format!("HTML preview unavailable: {error}. Install or update Microsoft Edge WebView2 Runtime.")),
+        }
+    });
+    // WebView2 is a native child window, outside GTK's dialog stacking. Hide it
+    // immediately when libadwaita presents Settings or another modal sheet.
+    let handle = Rc::downgrade(&view);
+    let layout = geometry.clone();
+    let dialog_signal = s.window.connect_visible_dialog_notify(move |window| {
+        layout.set(None);
+        if let Some(handle) = handle.upgrade()
+            && let Some(view) = handle.borrow().as_ref()
+        {
+            let _ = view.set_visible(window.visible_dialog().is_none());
+        }
+    });
+    let owner = s.window.downgrade();
+    let dialog_signal = RefCell::new(Some(dialog_signal));
+    area.connect_destroy(move |_| {
+        if let Some(owner) = owner.upgrade()
+            && let Some(signal) = dialog_signal.borrow_mut().take()
+        {
+            owner.disconnect(signal);
         }
     });
     let handle = view.clone();
@@ -96,6 +178,14 @@ pub(super) fn append(
         let Some(view) = handle.as_ref() else {
             return glib::ControlFlow::Continue;
         };
+        if window.visible_dialog().is_some() {
+            geometry.set(None);
+            let _ = view.set_visible(false);
+            return glib::ControlFlow::Continue;
+        }
+        if width.replace(area.width()) != area.width() {
+            measure(view, area, links.clone());
+        }
         let Some(bounds) = area.compute_bounds(&window) else {
             let _ = view.set_visible(false);
             return glib::ControlFlow::Continue;
@@ -129,8 +219,16 @@ pub(super) fn append(
             return glib::ControlFlow::Continue;
         }
         let _ = view.set_bounds(wry::Rect {
-            position: wry::dpi::LogicalPosition::new(bounds.x() as f64, bounds.y() as f64).into(),
-            size: wry::dpi::LogicalSize::new(bounds.width() as f64, bounds.height() as f64).into(),
+            position: wry::dpi::PhysicalPosition::new(
+                (bounds.x() * area.scale_factor() as f32).round() as i32,
+                (bounds.y() * area.scale_factor() as f32).round() as i32,
+            )
+            .into(),
+            size: wry::dpi::PhysicalSize::new(
+                (bounds.width() * area.scale_factor() as f32).round() as u32,
+                (bounds.height() * area.scale_factor() as f32).round() as u32,
+            )
+            .into(),
         });
         // Native children do not participate in GTK snapshot clipping. Restrict
         // their window region to the visible message viewport in physical pixels.
@@ -205,6 +303,63 @@ pub(super) fn append(
         });
     }
     body.append(&area);
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|a| a == "--html-diagnostics") {
+        let state = s.clone();
+        let weak = area.downgrade();
+        let handle = view.clone();
+        let mut stage = 0;
+        let mut ticks = 0;
+        glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            ticks += 1;
+            assert!(ticks < 150, "native HTML diagnostics timed out");
+            let area = weak.upgrade().expect("HTML surface stays mapped");
+            let handle = handle.borrow();
+            let Some(view) = handle.as_ref() else {
+                return glib::ControlFlow::Continue;
+            };
+            match stage {
+                0 if area.height_request() > 200 => {
+                    assert!(
+                        area.height_request() < 2000,
+                        "synthetic newsletter fits its real content height"
+                    );
+                    println!(
+                        "PASS WebView2 content height {} GTK units",
+                        area.height_request()
+                    );
+                    crate::settings::open(&state);
+                    stage = 1;
+                }
+                1 => {
+                    assert!(state.window.visible_dialog().is_some());
+                    let mut visible = Default::default();
+                    unsafe {
+                        view.controller().IsVisible(&mut visible).unwrap();
+                    }
+                    assert!(!visible.as_bool(), "native HTML must not overlap Settings");
+                    state.window.visible_dialog().unwrap().force_close();
+                    println!("PASS native newsletter is hidden under Settings");
+                    stage = 2;
+                }
+                2 if state.window.visible_dialog().is_none() => {
+                    let mut visible = Default::default();
+                    unsafe {
+                        view.controller().IsVisible(&mut visible).unwrap();
+                    }
+                    assert!(
+                        visible.as_bool(),
+                        "newsletter restores after Settings closes"
+                    );
+                    println!("PASS native newsletter restores after Settings");
+                    state.app.quit();
+                    return glib::ControlFlow::Break;
+                }
+                _ => (),
+            }
+            glib::ControlFlow::Continue
+        });
+    }
     let client = s.clients.borrow().get(account).cloned();
     let message = message.clone();
     let handle = view;

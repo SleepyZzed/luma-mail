@@ -22,6 +22,7 @@ pub(crate) struct Editor {
     root: gtk::Box,
     header: adw::HeaderBar,
     placement: Cell<u8>,
+    inline_origin: glib::WeakRef<gtk::Box>,
     close_after_save: Cell<bool>,
     from: gtk::DropDown,
     accounts: Vec<luma_core::config::Account>,
@@ -59,6 +60,8 @@ pub(crate) struct Editor {
     completion: RefCell<Option<String>>,
     local_sequence: Cell<u64>,
     local_closed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    automatic_links: RefCell<Vec<gtk::TextTag>>,
+    links_pending: Cell<bool>,
 }
 impl Editor {
     fn parent(&self) -> gtk::Window {
@@ -76,20 +79,231 @@ fn focus_message(e: &Editor) {
         e.text.grab_focus();
     }
 }
-fn expand_editor(e: &Rc<Editor>) {
-    if e.placement.get() == 1 {
-        show_full(e);
+// Handle traversal at the editor root, before GtkText/Entry/TextView consume it.
+// In the body, Tab still indents lists; Shift+Tab returns to Subject.
+fn focus_tab(e: &Editor, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -> bool {
+    if !matches!(key, gtk::gdk::Key::Tab | gtk::gdk::Key::ISO_Left_Tab)
+        || mods.intersects(gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::ALT_MASK)
+    {
+        return false;
     }
-    let window = e.parent();
-    if window.is_fullscreen() {
-        window.unfullscreen();
+    let Some(focus) = gtk::prelude::GtkWindowExt::focus(&e.parent()) else {
+        return false;
+    };
+    let backwards =
+        key == gtk::gdk::Key::ISO_Left_Tab || mods.contains(gtk::gdk::ModifierType::SHIFT_MASK);
+    let fields = [&e.to, &e.cc, &e.bcc, &e.subject];
+    if let Some(index) = fields
+        .iter()
+        .position(|f| focus == **f || focus.is_ancestor(*f))
+    {
+        if !backwards && index < 3 && recipients::complete(e, fields[index]) {
+            return true;
+        }
+        if backwards {
+            if let Some(field) = fields[..index].iter().rev().find(|f| f.is_mapped()) {
+                field.grab_focus();
+            } else {
+                e.from.grab_focus();
+            }
+        } else if let Some(field) = fields[index + 1..].iter().find(|f| f.is_mapped()) {
+            field.grab_focus();
+        } else {
+            e.text.grab_focus();
+        }
+        return true;
+    }
+    if backwards && (focus == e.text || focus.is_ancestor(&e.text)) {
+        e.subject.grab_focus();
+        return true;
+    }
+    if !backwards && (focus == e.from || focus.is_ancestor(&e.from)) {
+        e.to.grab_focus();
+        return true;
+    }
+    false
+}
+fn expand_editor(e: &Rc<Editor>) {
+    if e.expand.icon_name().as_deref() == Some("view-restore-symbolic") {
+        e.parent().unfullscreen();
         e.expand.set_icon_name("view-fullscreen-symbolic");
         e.expand.set_tooltip_text(Some("Expand composer"));
+        if let Some(slot) = e
+            .inline_origin
+            .upgrade()
+            .filter(|slot| slot.root().is_some())
+        {
+            detach(e);
+            e.placement.set(1);
+            e.header.set_show_end_title_buttons(false);
+            e.root.add_css_class("inline-composer");
+            slot.append(&e.root);
+            e.state.compose_stack.set_visible_child_name("mail");
+            *e.state.editor.borrow_mut() = Some(e.clone());
+            e.window.set_visible(false);
+        } else {
+            pop_out(e);
+            e.window.unmaximize();
+            e.window.set_default_size(760, 640);
+        }
+        focus_message(e);
     } else {
-        window.fullscreen();
+        if e.placement.get() == 1 {
+            show_full(e);
+        }
+        e.parent().fullscreen();
         e.expand.set_icon_name("view-restore-symbolic");
         e.expand.set_tooltip_text(Some("Restore composer size"));
     }
+}
+#[cfg(debug_assertions)]
+pub(crate) fn diagnostic(s: &Rc<State>) {
+    assert!(s.clients.borrow().is_empty() && std::env::var_os("LUMA_TEST_ROOT").is_some());
+    let recent = Compose {
+        to: "Jamie Chen <jamie@example.invalid>".into(),
+        ..Default::default()
+    };
+    s.local_compose.remember("design-fixture", &recent).unwrap();
+    make(s, Compose::new("alex@example.com".into()), None);
+    let original = s.editor.borrow().clone().unwrap();
+    let state = s.clone();
+    let mut stage = 0;
+    let mut ticks = 0;
+    glib::timeout_add_local(Duration::from_millis(150), move || {
+        ticks += 1;
+        assert!(ticks < 80, "composer diagnostics timed out");
+        let current = state.editor.borrow().clone();
+        match stage {
+            0 => {
+                let e = current.unwrap();
+                let focus =
+                    gtk::prelude::GtkWindowExt::focus(&e.parent()).expect("new composer focus");
+                assert!(
+                    focus == e.to || focus.is_ancestor(&e.to),
+                    "new composer starts in To"
+                );
+                e.to.set_text("ja");
+                e.to.set_position(-1);
+                if e.recipients.borrow().is_empty() {
+                    return glib::ControlFlow::Continue;
+                }
+                assert!(recipients::complete(&e, &e.to));
+                assert!(e.to.text().contains("jamie@example.invalid"));
+                let key = |backwards: bool| {
+                    let controllers = e.root.observe_controllers();
+                    for i in 0..controllers.n_items() {
+                        if let Some(key) = controllers
+                            .item(i)
+                            .and_then(|o| o.downcast::<gtk::EventControllerKey>().ok())
+                            && key.propagation_phase() == gtk::PropagationPhase::Capture
+                            && key.emit_by_name::<bool>(
+                                "key-pressed",
+                                &[
+                                    &if backwards {
+                                        gtk::gdk::Key::ISO_Left_Tab
+                                    } else {
+                                        gtk::gdk::Key::Tab
+                                    },
+                                    &0u32,
+                                    &if backwards {
+                                        gtk::gdk::ModifierType::SHIFT_MASK
+                                    } else {
+                                        gtk::gdk::ModifierType::empty()
+                                    },
+                                ],
+                            )
+                        {
+                            break;
+                        }
+                    }
+                };
+                key(false);
+                let focus = gtk::prelude::GtkWindowExt::focus(&e.parent()).unwrap();
+                assert!(
+                    focus == e.subject || focus.is_ancestor(&e.subject),
+                    "Tab skips labels and hidden Cc/Bcc"
+                );
+                key(false);
+                assert_eq!(
+                    gtk::prelude::GtkWindowExt::focus(&e.parent()).unwrap(),
+                    e.text.clone().upcast::<gtk::Widget>(),
+                    "Subject Tab reaches body"
+                );
+                key(true);
+                let focus = gtk::prelude::GtkWindowExt::focus(&e.parent()).unwrap();
+                assert!(
+                    focus == e.subject || focus.is_ancestor(&e.subject),
+                    "Body Shift+Tab reaches Subject"
+                );
+                key(true);
+                let focus = gtk::prelude::GtkWindowExt::focus(&e.parent()).unwrap();
+                assert!(
+                    focus == e.to || focus.is_ancestor(&e.to),
+                    "Subject Shift+Tab skips hidden address fields"
+                );
+                let sample = gtk::TextView::new();
+                insert_named_link(
+                    &sample,
+                    "Project notes.docx",
+                    "https://drive.google.com/file/d/123/view?a=1&b=2",
+                    false,
+                );
+                let output = formatted_html(&sample.buffer());
+                assert!(output.contains(">Project notes.docx</a>"));
+                assert_eq!(
+                    output.matches("https://").count(),
+                    1,
+                    "Drive URL occurs only in href"
+                );
+                e.subject.set_text("Local recovery check");
+                e.text
+                    .buffer()
+                    .set_text("Unsent words and https://example.com");
+                e.text.buffer().apply_tag(
+                    &e.text.buffer().tag_table().lookup("strong").unwrap(),
+                    &e.text.buffer().start_iter(),
+                    &e.text.buffer().iter_at_offset(6),
+                );
+                e.expand.emit_clicked();
+                println!(
+                    "PASS new compose To focus, recipient completion, Tab/Shift+Tab and filename hyperlink"
+                );
+                stage = 1;
+            }
+            1 => {
+                let e = current.unwrap();
+                if e.links_pending.get() {
+                    return glib::ControlFlow::Continue;
+                }
+                assert_eq!(
+                    e.expand.icon_name().as_deref(),
+                    Some("view-restore-symbolic")
+                );
+                #[cfg(target_os = "windows")]
+                assert!(
+                    e.parent().is_fullscreen(),
+                    "Windows acknowledges composer fullscreen"
+                );
+                assert!(
+                    !e.automatic_links.borrow().is_empty(),
+                    "typed links are highlighted"
+                );
+                e.expand.emit_clicked();
+                assert_eq!(e.placement.get(), 2, "Restore opens compact composer");
+                finish(&e);
+                stage = 2;
+                println!("PASS Expand and automatic blue link tags");
+            }
+            2 if original.closing.get() => {
+                assert!(state.local_compose.drafts().unwrap().is_empty());
+                println!("PASS normal composition creates no local draft files; Gmail owns drafts");
+                state.app.quit();
+                return glib::ControlFlow::Break;
+            }
+            _ => (),
+        }
+        glib::ControlFlow::Continue
+    });
 }
 fn detach(e: &Editor) {
     if e.placement.get() == 2 {
@@ -680,6 +894,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         root,
         header,
         placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
+        inline_origin: slot.as_ref().map(|s| s.downgrade()).unwrap_or_default(),
         close_after_save: Cell::new(false),
         from,
         accounts,
@@ -717,6 +932,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         completion: RefCell::new(None),
         local_sequence: Cell::new(0),
         local_closed: Default::default(),
+        automatic_links: RefCell::new(Vec::new()),
+        links_pending: Cell::new(false),
     });
     {
         let flag = e.upload_cancel.clone();
@@ -792,6 +1009,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let Some(e) = weak.upgrade() else {
             return glib::Propagation::Proceed;
         };
+        if focus_tab(&e, key, mods) {
+            return glib::Propagation::Stop;
+        }
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) {
             if key == gtk::gdk::Key::Return {
                 persist(&e, true);
@@ -811,44 +1031,6 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         glib::Propagation::Proceed
     });
     e.root.add_controller(keyboard);
-    // Recipient fields and Subject form one text-entry focus chain; formatting,
-    // attachment and Cc/Bcc toggle controls do not interrupt ordinary Tab entry.
-    for (index, field) in [&e.to, &e.cc, &e.bcc, &e.subject].iter().enumerate() {
-        let keys = gtk::EventControllerKey::new();
-        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
-        let weak = Rc::downgrade(&e);
-        keys.connect_key_pressed(move |_, key, _, mods| {
-            if !matches!(key, gtk::gdk::Key::Tab | gtk::gdk::Key::ISO_Left_Tab)
-                || mods.intersects(
-                    gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::ALT_MASK,
-                )
-            {
-                return glib::Propagation::Proceed;
-            }
-            let Some(e) = weak.upgrade() else {
-                return glib::Propagation::Proceed;
-            };
-            let fields = [&e.to, &e.cc, &e.bcc, &e.subject];
-            let backwards = key == gtk::gdk::Key::ISO_Left_Tab
-                || mods.contains(gtk::gdk::ModifierType::SHIFT_MASK);
-            if !backwards && index < 3 && recipients::complete(&e, fields[index]) {
-                return glib::Propagation::Stop;
-            }
-            if backwards {
-                if let Some(field) = fields[..index].iter().rev().find(|f| f.is_mapped()) {
-                    field.grab_focus();
-                } else {
-                    e.from.grab_focus();
-                }
-            } else if let Some(field) = fields[index + 1..].iter().find(|f| f.is_mapped()) {
-                field.grab_focus();
-            } else {
-                e.text.grab_focus();
-            }
-            glib::Propagation::Stop
-        });
-        field.add_controller(keys);
-    }
     let list_keys = gtk::EventControllerKey::new();
     list_keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = Rc::downgrade(&e);
@@ -878,11 +1060,11 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
                 e.text
                     .window_to_buffer_coords(gtk::TextWindowType::Widget, x as i32, y as i32);
             if let Some(iter) = e.text.iter_at_location(x, y)
-                && let Some(uri) = iter
-                    .tags()
-                    .iter()
-                    .filter_map(|t| t.name())
-                    .find_map(|n| n.strip_prefix("link:").map(str::to_owned))
+                && let Some(uri) = iter.tags().iter().filter_map(|t| t.name()).find_map(|n| {
+                    n.strip_prefix("link:")
+                        .or_else(|| n.strip_prefix("auto-link:"))
+                        .map(str::to_owned)
+                })
             {
                 crate::rendering::open_link(&e.state, &uri);
                 gesture.set_state(gtk::EventSequenceState::Claimed);
@@ -905,6 +1087,15 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         e.text.buffer().connect_changed(move |_| {
             if let Some(e) = weak.upgrade() {
                 changed(&e);
+                if !e.links_pending.replace(true) {
+                    let weak = Rc::downgrade(&e);
+                    glib::idle_add_local_once(move || {
+                        if let Some(e) = weak.upgrade() {
+                            e.links_pending.set(false);
+                            highlight_links(&e);
+                        }
+                    });
+                }
             }
         });
     }
@@ -967,7 +1158,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         drive.connect_clicked(move |_| {
             let Some(e) = weak.upgrade() else { return };
             if let Some(a) = e.accounts.get(e.from.selected() as usize) {
-                crate::settings::drive_dialog(&e.state, &e.text, &a.id);
+                crate::settings::drive_dialog(&e.state, &e.text, &a.id, e.html.is_active());
             }
         });
     }
@@ -1039,6 +1230,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         show_full(&e);
     }
     render_files(&e);
+    highlight_links(&e);
     let store = s.local_compose.clone();
     let weak = Rc::downgrade(&e);
     ui::async_work(
@@ -1169,11 +1361,9 @@ fn save_local(e: &Rc<Editor>, close: bool) {
     ui::async_work(
         &e.state,
         async move {
-            Ok(
-                tokio::task::spawn_blocking(move || store.save_if_open(draft, &closed))
-                    .await
-                    .map_err(|_| Error::Invalid("Local recovery write failed".into()))?,
-            )
+            tokio::task::spawn_blocking(move || store.save_if_open(draft, &closed))
+                .await
+                .map_err(|_| Error::Invalid("Local recovery write failed".into()))
         },
         move |_, result| {
             if let Some(e) = weak.upgrade() {
@@ -1217,7 +1407,7 @@ pub fn local_drafts(s: &Rc<State>) {
     let root = vbox(12);
     root.append(&adw::HeaderBar::new());
     let notice = label(
-        "Unsent work on this device · Up to 8 drafts, 512 KiB each. Attachments stay in their original files or Gmail.",
+        "Recovery from an older development build. Save these to Gmail Drafts or discard them. New drafts are stored in Gmail.",
         "caption",
     );
     notice.set_wrap(true);
@@ -1484,7 +1674,9 @@ fn formatted_html(buffer: &gtk::TextBuffer) -> String {
     for n in 0..buffer.line_count() {
         let start = buffer.iter_at_line(n).unwrap_or_else(|| buffer.end_iter());
         let mut end = start;
-        end.forward_to_line_end();
+        if !end.ends_line() {
+            end.forward_to_line_end();
+        }
         let text = buffer.text(&start, &end, false);
         if let Some((level, skip)) = crate::compose_lists::prefix(&text) {
             let target = (level + 1).min(depth + 1);
@@ -1624,6 +1816,74 @@ fn link_tag(buffer: &gtk::TextBuffer, url: &str) -> gtk::TextTag {
         buffer.tag_table().add(&tag);
         tag
     })
+}
+pub(crate) fn insert_named_link(text: &gtk::TextView, name: &str, url: &str, html: bool) {
+    let buffer = text.buffer();
+    if html {
+        buffer.insert_at_cursor(&format!(
+            "<p><a href=\"{}\">{}</a></p>",
+            escape(url),
+            escape(name)
+        ));
+    } else {
+        buffer.begin_user_action();
+        let block = buffer.cursor_position();
+        buffer.insert_at_cursor(&format!("\n\n{name}\n"));
+        let end = buffer.cursor_position() - 1;
+        let start = block + 2;
+        buffer.tag_table().foreach(|tag| {
+            if tag.name().is_some_and(|name| name.starts_with("link:")) {
+                buffer.remove_tag(
+                    tag,
+                    &buffer.iter_at_offset(block),
+                    &buffer.iter_at_offset(end + 1),
+                );
+            }
+        });
+        buffer.apply_tag(
+            &link_tag(&buffer, url),
+            &buffer.iter_at_offset(start),
+            &buffer.iter_at_offset(end),
+        );
+        buffer.end_user_action();
+    }
+}
+fn has_visual_link(buffer: &gtk::TextBuffer, url: &str) -> bool {
+    let Some(tag) = buffer.tag_table().lookup(&format!("link:{url}")) else {
+        return false;
+    };
+    let mut iter = buffer.start_iter();
+    iter.has_tag(&tag) || iter.forward_to_tag_toggle(Some(&tag))
+}
+fn highlight_links(e: &Editor) {
+    let buffer = e.text.buffer();
+    for tag in e.automatic_links.borrow_mut().drain(..) {
+        buffer.tag_table().remove(&tag);
+    }
+    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+    if text.len() > 512 * 1024 {
+        return;
+    }
+    for (start, end, url) in luma_core::html_mail::links(&text).into_iter().take(256) {
+        let tag = gtk::TextTag::builder()
+            .name(format!("auto-link:{url}"))
+            .foreground("#4285f4")
+            .underline(gtk::pango::Underline::Single)
+            .build();
+        // Repeated URLs can share one tag; do not accumulate tags while typing.
+        let tag = if let Some(existing) = buffer.tag_table().lookup(&format!("auto-link:{url}")) {
+            existing
+        } else {
+            buffer.tag_table().add(&tag);
+            e.automatic_links.borrow_mut().push(tag.clone());
+            tag
+        };
+        buffer.apply_tag(
+            &tag,
+            &buffer.iter_at_offset(text[..start].chars().count() as i32),
+            &buffer.iter_at_offset(text[..end].chars().count() as i32),
+        );
+    }
 }
 fn snapshot(e: &Editor) -> Result<Compose> {
     snapshot_impl(e, true)
@@ -1900,6 +2160,14 @@ fn persist(e: &Rc<Editor>, send: bool) {
                             ui::refresh_background(&sent.state);
                         });
                     } else {
+                        if !editor.state.settings.borrow().local_drafts {
+                            // A recovered legacy copy is retired only after Gmail
+                            // confirms saving this exact revision.
+                            if editor.revision.get() == revision {
+                                let _ =
+                                    editor.state.local_compose.remove(&editor.local_id.borrow());
+                            }
+                        }
                         if editor.close_after_save.get() && editor.revision.get() == revision {
                             if editor.state.settings.borrow().local_drafts {
                                 save_local(&editor, true);
@@ -1964,33 +2232,28 @@ fn reconcile_drive_uploads(e: &Rc<Editor>) {
             continue;
         };
         if !e.drive_files.borrow().iter().any(|f| f.id == file.id) {
-            let mut block = Compose {
+            let Ok(link) = luma_core::drive::verified_link(&file) else {
+                continue;
+            };
+            let buffer = e.text.buffer();
+            let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+            let source = Compose {
+                text: text.to_string(),
                 html: e.html.is_active(),
                 ..Default::default()
             };
-            if luma_core::compose_drive::append_link(&mut block, &file).is_err() {
-                continue;
-            }
-            let buffer = e.text.buffer();
-            let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-            let link = luma_core::drive::verified_link(&file).unwrap_or_default();
-            if !text.contains(&link) {
-                let offset = buffer.end_iter().offset();
-                let mut end = buffer.end_iter();
-                buffer.begin_user_action();
-                buffer.insert(&mut end, &block.text);
-                if !e.html.is_active()
-                    && let Some(index) = block.text.find(&link)
-                {
-                    let tag = link_tag(&buffer, &link);
-                    let start = offset + block.text[..index].chars().count() as i32;
-                    buffer.apply_tag(
-                        &tag,
-                        &buffer.iter_at_offset(start),
-                        &buffer.iter_at_offset(start + link.chars().count() as i32),
-                    );
-                }
-                buffer.end_user_action();
+            if !has_visual_link(&buffer, &link)
+                && !luma_core::compose_drive::contains_link(&source, &link)
+            {
+                let caret = buffer.create_mark(
+                    None,
+                    &buffer.iter_at_offset(buffer.cursor_position()),
+                    false,
+                );
+                buffer.place_cursor(&buffer.end_iter());
+                insert_named_link(&e.text, &file.name, &link, e.html.is_active());
+                buffer.place_cursor(&buffer.iter_at_mark(&caret));
+                buffer.delete_mark(&caret);
             }
             e.drive_files.borrow_mut().push(file);
         }
@@ -2000,8 +2263,24 @@ fn reconcile_drive_uploads(e: &Rc<Editor>) {
     render_files(e);
 }
 fn remove_drive_link(e: &Rc<Editor>, file: &luma_core::drive::DriveFile) {
+    if !e.html.is_active()
+        && let Ok(link) = luma_core::drive::verified_link(file)
+        && let Some(tag) = e.text.buffer().tag_table().lookup(&format!("link:{link}"))
+    {
+        let buffer = e.text.buffer();
+        let mut start = buffer.start_iter();
+        buffer.begin_user_action();
+        while start.has_tag(&tag) || start.forward_to_tag_toggle(Some(&tag)) {
+            let mut end = start;
+            if !end.forward_to_tag_toggle(Some(&tag)) {
+                end = buffer.end_iter();
+            }
+            buffer.delete(&mut start, &mut end);
+        }
+        buffer.end_user_action();
+    }
     let mut block = Compose {
-        html: e.html.is_active(),
+        html: true,
         ..Default::default()
     };
     if luma_core::compose_drive::append_link(&mut block, file).is_ok() {

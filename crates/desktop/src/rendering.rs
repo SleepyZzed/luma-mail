@@ -87,6 +87,12 @@ pub(crate) fn preview_html(s: &Rc<State>, body: &gtk::Box, html: String) {
     linux::append(s, body, &Message::default(), "design-fixture", html);
 }
 pub fn append(s: &Rc<State>, body: &gtk::Box, message: &Message, text: &str, account: &str) {
+    if let Ok(Some(html)) = html_mail::body(&message.payload)
+        && !html_mail::needs_layout(&html)
+    {
+        body.append(&plain(s, text));
+        return;
+    }
     #[cfg(target_os = "windows")]
     if let Ok(Some(html)) = html_mail::body(&message.payload) {
         windows::append(s, body, message, account, html);
@@ -284,7 +290,7 @@ mod linux {
     fn measure(view: &webkit6::WebView) {
         let weak = view.downgrade();
         view.evaluate_javascript(
-            "Math.min(6000, Math.max(48, document.body ? document.body.scrollHeight + 8 : 160))",
+            "Math.min(60000, Math.max(48, document.body ? Math.ceil(document.body.getBoundingClientRect().height) : 160))",
             Some("LumaLayout"),
             None,
             None::<&gio::Cancellable>,
@@ -292,7 +298,7 @@ mod linux {
                 if let (Some(view), Ok(value)) = (weak.upgrade(), result) {
                     let height = value.to_double();
                     if height.is_finite() {
-                        view.set_height_request(height.clamp(48., 6000.) as i32);
+                        view.set_height_request(height.clamp(48., 60000.) as i32);
                     }
                 }
             },

@@ -298,6 +298,11 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
         revisions.retain(|_, v| *v >= cutoff);
     }
     drop(revisions);
+    if let Some((id, labels)) = update.selected_labels.as_ref()
+        && !labels.iter().any(|l| l == "UNREAD")
+    {
+        hide_unread_marker(s, id);
+    }
     if let Some((id, labels)) = update.selected_labels
         && let Some(message) = s.selected_message.borrow_mut().as_mut()
         && message.id == id
@@ -356,11 +361,96 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
             glib::idle_add_local_once(move || reveal.set_reveal_child(true));
         }
     }
+    s.rows
+        .borrow_mut()
+        .sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.key.cmp(&b.key)));
     s.changing_selection.set(false);
     if update.visible.is_none() {
         s.refresh_button.add_css_class("suggested-action");
     }
     update_reader_star(s);
+}
+pub(super) fn incoming(s: &Rc<State>, updates: Vec<Update>) {
+    let adjustment = s.list_scroll.vadjustment();
+    let scroll = adjustment.value();
+    let anchor = (scroll > 1.)
+        .then(|| s.list.row_at_y(scroll as i32))
+        .flatten()
+        .and_then(|row| {
+            Some((
+                key(s, &row)?,
+                scroll - row.compute_bounds(&s.list)?.y() as f64,
+            ))
+        });
+    for update in updates {
+        if s.row_widgets
+            .borrow()
+            .get(&update.key)
+            .is_some_and(|w| w.row.has_css_class("pending"))
+        {
+            mark_updates(s);
+            continue;
+        }
+        if s.selected.borrow().as_ref() == Some(&update.key)
+            && let Some(incoming) = update.row.as_ref()
+            && incoming.unread
+            && s.rows.borrow().iter().any(|old| {
+                old.key == update.key && (incoming.count > old.count || incoming.date > old.date)
+            })
+        {
+            new_reply(s, &update.key);
+        }
+        apply(s, update);
+    }
+    while s.rows.borrow().len() > 1000 {
+        let last = s
+            .rows
+            .borrow()
+            .iter()
+            .rev()
+            .find(|r| {
+                s.selected.borrow().as_ref() != Some(&r.key)
+                    && anchor.as_ref().is_none_or(|(k, _)| k != &r.key)
+            })
+            .map(|r| r.key.clone());
+        let Some(key) = last else {
+            break;
+        };
+        apply(
+            s,
+            Update {
+                key,
+                row: None,
+                visible: Some(false),
+                selected_labels: None,
+            },
+        );
+    }
+    if let Some((key, offset)) = anchor {
+        let weak = Rc::downgrade(s);
+        let started = std::time::Instant::now();
+        let previous = Cell::new(scroll);
+        s.list.add_tick_callback(move |_, _| {
+            let Some(s) = weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+            let adjustment = s.list_scroll.vadjustment();
+            if started.elapsed() > Duration::from_millis(300)
+                || (adjustment.value() - previous.get()).abs() > 2.
+            {
+                return glib::ControlFlow::Break;
+            }
+            let Some(row) = s.row_widgets.borrow().get(&key).cloned() else {
+                return glib::ControlFlow::Break;
+            };
+            let Some(bounds) = row.row.compute_bounds(&s.list) else {
+                return glib::ControlFlow::Break;
+            };
+            adjustment.set_value((bounds.y() as f64 + offset).max(0.));
+            previous.set(adjustment.value());
+            glib::ControlFlow::Continue
+        });
+    }
 }
 // A page started before a confirmed write must not resurrect removed rows or
 // replace their new labels with an older response. Keep only bounded tombstones.

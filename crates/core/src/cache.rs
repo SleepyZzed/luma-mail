@@ -270,3 +270,57 @@ fn allocated(meta: &fs::Metadata) -> u64 {
         meta.len().div_ceil(4096) * 4096 + 4096
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn binary_envelope_avoids_json_byte_array_inflation() {
+        let root = tempfile::tempdir().unwrap();
+        let mut cache = Cache::new(
+            root.path().join("bodies"),
+            4 * 1024 * 1024,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        let data = vec![255; 1024 * 1024];
+        let started = Instant::now();
+        assert!(cache.put("a", "message", &data).unwrap());
+        let bytes = cache.path("a", "message").metadata().unwrap().len();
+        assert!(bytes < data.len() as u64 + 8192);
+        assert_eq!(cache.get("a", "message").unwrap().unwrap(), data);
+        assert!(cache.account_usage("a").unwrap() <= cache.usage().unwrap());
+        println!(
+            "Cache audit: payload={} file={} allocated={} legacy-json={} write/read/scan={:?}",
+            data.len(),
+            bytes,
+            cache.usage().unwrap(),
+            serde_json::to_vec(&data).unwrap().len(),
+            started.elapsed()
+        );
+    }
+    #[test]
+    fn truncated_or_oversized_cache_headers_are_disposable_misses() {
+        let root = tempfile::tempdir().unwrap();
+        let mut cache = Cache::new(
+            root.path().join("bodies"),
+            1024 * 1024,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        cache.put("a", "m", b"hello").unwrap();
+        let path = cache.path("a", "m");
+        fs::write(&path, [MAGIC.as_slice(), &u32::MAX.to_le_bytes()].concat()).unwrap();
+        assert!(cache.get("a", "m").unwrap().is_none());
+        assert!(!path.exists());
+        cache.put("a", "m", b"hello").unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(16)
+            .unwrap();
+        assert!(cache.get("a", "m").unwrap().is_none());
+        cache.configure(0, Duration::from_secs(60)).unwrap();
+        assert!(!cache.root().exists());
+    }
+}

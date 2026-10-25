@@ -53,6 +53,49 @@ pub fn image_data(bytes: &[u8]) -> Result<String> {
         STANDARD.encode(png.into_inner())
     ))
 }
+/// Ordinary phone mail often contains only div/p/br wrappers. Avoid creating a
+/// browser surface for it. Keep layout, images, links and rich text in HTML.
+pub fn needs_layout(html: &str) -> bool {
+    use html5ever::tokenizer::{
+        BufferQueue, StartTag, Token, TokenSink, TokenSinkResult, Tokenizer,
+    };
+    struct Layout(std::cell::Cell<bool>);
+    impl TokenSink for Layout {
+        type Handle = ();
+        fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+            if let Token::TagToken(tag) = token
+                && tag.kind == StartTag
+                && (!matches!(
+                    tag.name.as_ref(),
+                    "html"
+                        | "head"
+                        | "meta"
+                        | "title"
+                        | "body"
+                        | "div"
+                        | "span"
+                        | "p"
+                        | "br"
+                        | "wbr"
+                        | "blockquote"
+                ) || tag.attrs.iter().any(|a| {
+                    a.name.local == html5ever::local_name!("bgcolor")
+                        || (a.name.local == html5ever::local_name!("style")
+                            && a.value.to_ascii_lowercase().contains("background"))
+                }))
+            {
+                self.0.set(true);
+            }
+            TokenSinkResult::Continue
+        }
+    }
+    let input = BufferQueue::default();
+    input.push_back(html.into());
+    let tokenizer = Tokenizer::new(Layout(std::cell::Cell::new(false)), Default::default());
+    let _ = tokenizer.feed(&input);
+    tokenizer.end();
+    tokenizer.sink.0.get()
+}
 pub fn document(html: &str, images: HashMap<String, String>) -> String {
     let mut cleaner = ammonia::Builder::default();
     cleaner
@@ -200,6 +243,18 @@ pub fn links(text: &str) -> Vec<(usize, usize, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn simple_phone_text_uses_native_body_but_layout_and_links_keep_html() {
+        assert!(!needs_layout(
+            "<html><head><meta charset='utf-8'></head><body><div dir='auto'>Hi<br>From my phone</div></body></html>"
+        ));
+        assert!(needs_layout("<table><tr><td>Newsletter</td></tr></table>"));
+        assert!(needs_layout(
+            "<div><a href='https://example.com'>Project notes</a></div>"
+        ));
+        assert!(needs_layout("<p><img src='cid:photo'></p>"));
+        assert!(needs_layout("<div style='background:#9147ff'>News</div>"));
+    }
     #[test]
     fn newsletter_background_shorthand_keeps_cards_and_buttons_without_urls() {
         let html = r##"<table style="background:#E5E3E8"><tr><td style="background: #fff; padding:24px"><a href="https://example.com" style="background:#9147ff !important;color:#fff;display:inline-block;padding:12px 32px">Watch now</a><div style="background:rgb(239, 238, 241)">Footer</div><div style="background:url(https://tracker.invalid/x)">No remote background</div></td></tr></table>"##;

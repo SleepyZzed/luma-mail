@@ -118,6 +118,6 @@ tests. Permanent message deletion is not exposed.
 
 This delivery is developed on Windows with a portable MSYS2 Rust/GTK toolchain
 under the task's `work/` directory, separate from the source deliverable. Native
-Linux Secret Service, Noctalia, Wayland, notifications and real Google accounts
-must be verified on Linux. Windows builds deliberately reject account login;
-they do not provide a plaintext substitute keyring.
+Linux Secret Service, Noctalia, Wayland and desktop notifications must be verified
+on Linux. Windows developer builds use Windows Credential Manager and have passed
+authorized real-account tests; they do not provide a plaintext substitute keyring.

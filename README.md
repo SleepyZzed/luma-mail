@@ -54,7 +54,9 @@ clearly labelled **system test notification** action for verification.
 
 The refresh toolbar button and **Ctrl+R** fetch the visible mailbox and request
 an immediate new-mail polling check. Overlapping polling requests are prevented.
-Periodic polling defaults to 120 seconds and is configurable. Gmail push is not
+Periodic polling defaults to 60 seconds and is configurable. Quiet history checks
+insert new conversations and update unread replies in place, without a loading
+bar, replacing loaded pages or reopening the reader. Gmail push is not
 claimed. No always-running daemon or autostart entry is installed.
 
 ## Daily-use controls
@@ -72,6 +74,12 @@ Compose opens inside the main window; replies open inline below their message.
 Expand or pop out the same draft as needed. Bold, italic, underline, strike,
 bullets and Insert link are available, with real upload-byte progress and a
 separate Gmail confirmation stage. **Ctrl+Enter** sends.
+New messages start in To. Tab and Shift+Tab traverse visible text fields; links
+are blue and Ctrl+click opens them. Recent-recipient completion learns only from
+successful sends in Luma (100 entries, 90 days, 64 KiB maximum). Drafts autosave to
+Gmail. New local draft copies are disabled; any older unsent recovery copies stay
+available until saved to Gmail or discarded. Restore returns to an inline reply
+or a compact composer window. Large Drive attachments insert one filename link.
 
 Attachments sit in a separate strip below message headers and above the body.
 Image thumbnails are bounded; image, DOCX/text, audio and video previews load on
@@ -83,7 +91,9 @@ Linux HTML mail uses a sandboxed WebKit renderer with sanitized layout, tables,
 colours and clickable links. External images remain blocked until **Load images**;
 that explicit request contacts the sender's image servers. Embedded images are
 decoded and resized first. Sender scripts and local-file/network access are blocked.
-Windows development builds use selectable text and an image gallery fallback.
+Simple phone messages use the normal themed text body. Windows development
+builds use an InPrivate WebView2 child for formatted HTML; its runtime metadata
+is separate from the body-cache budget (see docs/storage.md).
 
 **Block sender…** creates a Gmail filter for the receiving account, sending future
 mail from that address to Gmail Trash while Luma is closed. Existing mail is kept.

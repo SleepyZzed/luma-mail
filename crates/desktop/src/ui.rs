@@ -147,6 +147,8 @@ impl State {
         crate::google::client_config()
     }
     pub fn rebuild_clients(&self) -> Result<()> {
+        self.local_compose
+            .set_accounts(self.settings.borrow().accounts.iter().map(|a| a.id.clone()));
         self.clients.borrow_mut().clear();
         if self.settings.borrow().accounts.is_empty() {
             return Ok(());
@@ -280,9 +282,9 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .hscrollbar_policy(gtk::PolicyType::Never)
         .child(&sidebar)
         .build();
-    ss.set_size_request(190, -1);
+    ss.set_size_request(100, -1);
     let center = vbox(0);
-    center.set_size_request(300, -1);
+    center.set_size_request(200, -1);
     let heading = vbox(8);
     margins(&heading, 16);
     let title = label("Unified Inbox", "title-2");
@@ -335,7 +337,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .end_child(&rs)
         .position(settings.list_width)
         .resize_start_child(false)
-        .shrink_start_child(false)
+        .shrink_start_child(true)
         .build();
     let outer = gtk::Paned::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -343,7 +345,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .end_child(&inner)
         .position(settings.sidebar_width)
         .resize_start_child(false)
-        .shrink_start_child(false)
+        .shrink_start_child(true)
         .vexpand(true)
         .build();
     root.append(&outer);
@@ -495,7 +497,9 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
             let key = rows::key(&s, r);
             if let Some(k) = key {
                 let current = s.selected.borrow().clone();
-                if current.as_ref() != Some(&k) {
+                if current.as_ref() != Some(&k)
+                    || s.rows.borrow().iter().any(|r| r.key == k && r.unread)
+                {
                     open_thread(&s, k);
                 }
             }
@@ -615,7 +619,8 @@ pub fn sidebar(s: &Rc<State>) {
         let s = s.clone();
         compose.connect_clicked(move |_| crate::compose::open(&s, None, None));
     }
-    let local = gtk::Button::with_label("Local drafts");
+    let local = gtk::Button::with_label("Recover old local drafts");
+    local.set_visible(s.local_compose.has_drafts());
     local.add_css_class("flat");
     local.set_tooltip_text(Some("Recover unsent work saved on this device"));
     s.sidebar.append(&local);
@@ -763,6 +768,93 @@ pub fn refresh_background(s: &Rc<State>) {
         return;
     }
     reload_view(s, true);
+}
+pub fn mark_updates(s: &State) {
+    s.refresh_button.add_css_class("suggested-action");
+    s.refresh_button
+        .set_tooltip_text(Some("Mailbox updates available · Refresh now (Ctrl+R)"));
+}
+/// Fetch only changed conversation metadata. Existing rows, pagination, reader
+/// bodies, selection and a scrolled viewport survive incoming mail.
+pub fn receive_messages(s: &Rc<State>, messages: Vec<(String, Message)>) {
+    use futures_util::{StreamExt, stream};
+    if !s.search.text().trim().is_empty() {
+        mark_updates(s);
+        return;
+    }
+    let generation = s.generation.get();
+    let revision = s.mutation_serial.get();
+    let mut seen = HashSet::new();
+    let jobs: Vec<_> = messages
+        .into_iter()
+        .filter_map(|(account, message)| {
+            if s.filter.borrow().as_ref().is_some_and(|id| id != &account)
+                || (s.filter.borrow().is_none()
+                    && s.account_subset
+                        .borrow()
+                        .as_ref()
+                        .is_some_and(|ids| !ids.contains(&account)))
+                || !seen.insert((account.clone(), message.thread_id.clone()))
+            {
+                return None;
+            }
+            s.clients
+                .borrow()
+                .get(&account)
+                .cloned()
+                .map(|client| (account, message.thread_id, client))
+        })
+        .collect();
+    if jobs.is_empty() {
+        return;
+    }
+    async_work(
+        s,
+        async move {
+            Ok(stream::iter(jobs)
+                .map(|(account, id, client)| async move {
+                    client
+                        .thread_metadata(&id)
+                        .await
+                        .map(|thread| (account, thread))
+                })
+                .buffer_unordered(4)
+                .collect::<Vec<_>>()
+                .await)
+        },
+        move |s, results| {
+            if s.generation.get() != generation {
+                return;
+            }
+            let updates = results
+                .into_iter()
+                .filter_map(|result| match result {
+                    Ok((account, thread)) => {
+                        let row = Conversation::from_thread(&account, &thread)?;
+                        if s.row_revisions
+                            .borrow()
+                            .get(&row.key)
+                            .is_some_and(|v| *v > revision)
+                        {
+                            return None;
+                        }
+                        let visible = s.folder.borrow().matches(&thread);
+                        Some(rows::Update {
+                            key: row.key.clone(),
+                            row: Some(row),
+                            visible: Some(visible),
+                            selected_labels: None,
+                        })
+                    }
+                    Err(_) => {
+                        mark_updates(&s);
+                        None
+                    }
+                })
+                .collect();
+            rows::incoming(&s, updates);
+        },
+    );
 }
 fn reload_view(s: &Rc<State>, preserve_reader: bool) {
     if preserve_reader && s.operation_busy.get() {
@@ -1143,6 +1235,13 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                 recipients.set_max_width_chars(36);
                 who.append(&recipients);
                 heading.append(&who);
+                if message.has("UNREAD") {
+                    let unread = label("●", "unread-dot");
+                    unread.set_widget_name(&format!("unread-{}", message.id));
+                    unread.set_tooltip_text(Some("Unread reply"));
+                    unread.update_property(&[gtk::accessible::Property::Label("Unread message")]);
+                    heading.append(&unread);
+                }
                 let date = chrono::DateTime::from_timestamp_millis(message.date())
                     .map(|t| {
                         t.with_timezone(&chrono::Local)
@@ -1416,6 +1515,39 @@ fn mark_opened_read(s: &Rc<State>, account: &str, message: &Message) {
         },
     );
 }
+pub(super) fn hide_unread_marker(s: &State, id: &str) {
+    fn visit(widget: &gtk::Widget, name: &str) {
+        if widget.widget_name() == name {
+            widget.set_visible(false);
+            return;
+        }
+        let mut child = widget.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            visit(&widget, name);
+        }
+    }
+    visit(s.reader.upcast_ref(), &format!("unread-{id}"));
+}
+pub(super) fn new_reply(s: &Rc<State>, key: &ThreadKey) {
+    let mut child = s.reader.first_child();
+    while let Some(widget) = child {
+        if widget.widget_name() == "new-reply" {
+            return;
+        }
+        child = widget.next_sibling();
+    }
+    let button = gtk::Button::builder()
+        .label("New reply · Open")
+        .halign(gtk::Align::Start)
+        .build();
+    button.set_widget_name("new-reply");
+    button.add_css_class("suggested-action");
+    let state = s.clone();
+    let key = key.clone();
+    button.connect_clicked(move |_| open_thread(&state, key.clone()));
+    s.reader.prepend(&button);
+}
 pub fn act_selected(s: &Rc<State>, action: MailAction) {
     if s.operation_busy.get() {
         s.info("Wait for the current Gmail operation to finish.");
@@ -1540,6 +1672,43 @@ pub fn verify_view_behaviour(s: &Rc<State>) {
         26,
         "Undo restores only the removed row"
     );
+    let mut reply = s.rows.borrow()[3].clone();
+    let original_widget = s.row_widgets.borrow().get(&reply.key).unwrap().row.clone();
+    *s.selected.borrow_mut() = Some(reply.key.clone());
+    let reading = s.reading.get();
+    reply.count += 1;
+    reply.date = 10000;
+    reply.unread = true;
+    rows::incoming(
+        s,
+        vec![rows::Update {
+            key: reply.key.clone(),
+            row: Some(reply.clone()),
+            visible: Some(true),
+            selected_labels: None,
+        }],
+    );
+    assert_eq!(
+        s.rows.borrow().len(),
+        26,
+        "a reply updates one thread without duplicating or replacing pages"
+    );
+    assert!(
+        s.rows.borrow()[0].unread,
+        "new reply restores unread marker on an already selected thread"
+    );
+    assert_eq!(s.rows.borrow()[0].count, reply.count);
+    assert_eq!(
+        s.row_widgets.borrow().get(&reply.key).unwrap().row,
+        original_widget
+    );
+    assert_eq!(
+        s.reading.get(),
+        reading,
+        "incoming reply does not reload the reader"
+    );
+    assert_eq!(s.selected.borrow().as_ref(), Some(&reply.key));
+    assert_eq!(s.reader.first_child().unwrap().widget_name(), "new-reply");
     rows::clear_rows(s);
     s.selected.borrow_mut().take();
     empty_reader(s);

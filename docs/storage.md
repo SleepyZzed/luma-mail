@@ -35,6 +35,10 @@ enforced before and after writes, including the serialized envelope overhead.
 There is no SQLite database, WAL, disk image preview, temporary upload spool or
 attachment cache. Cache writes are disposable and do not duplicate entries into
 temporary files. Invalid/incomplete cache entries are removed on access.
+Each entry uses a small, bounded JSON header followed by opaque body bytes, rather
+than a JSON array of individual bytes. Expiry scans read headers only, at most
+once a minute; a requested entry's own expiry is always checked. At most 1,024
+entries are retained. Older disposable cache formats are dropped, not migrated.
 
 The budget excludes small essential configuration files, desktop-keyring
 storage, app binaries/libraries (including the public OAuth registration), and
@@ -73,7 +77,12 @@ open to their servers; no Google authorization, cookies, referrer or proxy
 credentials are attached. Private-network addresses and redirects are rejected.
 There is no persistent WebKit content database; the AppImage disables GStreamer
 registry persistence. A blocked namespace sandbox falls back to readable text.
-Windows developer builds use text and native image previews. Clicking a safe
+Windows developer builds use InPrivate WebView2, with mail served from memory,
+sender scripting disabled, no-store responses and a disabled content/shader disk
+cache. WebView2 still creates runtime profile metadata under
+`cache/webview2-runtime`, outside the body-cache budget: a synthetic check on the
+Windows QA host produced approximately 1.46 MB of logical runtime files. This is
+not a zero-disk renderer. Linux uses ephemeral WebKit instead. Clicking a safe
 HTTP/HTTPS/mailto link uses the system handler. No email scripts execute.
 There is no analytics, telemetry or third-party mail backend.
 
@@ -88,3 +97,16 @@ checks. Passing mocked tests does not establish production security.
 Sender-block settings hold chosen addresses and filter IDs, bounded by Gmail's
 1,000-filter limit. Server filters survive disconnect/uninstall; unblock them
 first or remove them in Gmail Settings. These settings are outside the cache.
+
+## Drafts and recipient suggestions
+
+Drafts autosave to Gmail. Automatic local draft copies are disabled, including
+when upgrading from a development build that enabled them. Existing unsent
+recovery files are preserved and shown only when present; saving that revision
+to Gmail or explicitly discarding it retires its local copy. They are never
+silently deleted on upgrade. No new local body archive is maintained.
+
+Optional recent recipients retain at most 100 addresses across accounts in a
+64 KiB configuration file, expire after 90 days, and are cleared on disconnect or
+on request. They are learned only after successful sends in Luma, not by scanning
+Sent, contacts or historical mail. Prefix matching happens in memory while typing.

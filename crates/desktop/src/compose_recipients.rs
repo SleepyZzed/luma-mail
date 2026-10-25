@@ -31,7 +31,12 @@ fn choices(e: &Editor, field: &gtk::Entry) -> Vec<String> {
     let text = field.text();
     let (_, prefix) = fragment(&text);
     let prefix = prefix.to_lowercase();
-    if prefix.len() < 2 || luma_core::composer::recipients(&prefix).is_ok_and(|r| !r.is_empty()) {
+    if prefix.len() < 2
+        || e.recipients
+            .borrow()
+            .iter()
+            .any(|r| r.address.eq_ignore_ascii_case(&prefix))
+    {
         return vec![];
     }
     let Some(account) = e.accounts.get(e.from.selected() as usize) else {

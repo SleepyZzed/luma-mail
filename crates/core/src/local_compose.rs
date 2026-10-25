@@ -55,6 +55,7 @@ pub struct Store {
     writes: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, u64>>>,
     drafts_enabled: std::sync::Arc<std::sync::atomic::AtomicBool>,
     recent_enabled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    accounts: std::sync::Arc<std::sync::RwLock<Option<std::collections::HashSet<String>>>>,
 }
 fn now() -> u64 {
     SystemTime::now()
@@ -106,7 +107,19 @@ impl Store {
             writes: Default::default(),
             drafts_enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
             recent_enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
+            accounts: Default::default(),
         }
+    }
+    pub fn set_accounts(&self, accounts: impl IntoIterator<Item = String>) {
+        let _guard = self.writes.lock().expect("composer recovery writes");
+        *self.accounts.write().expect("composer accounts") = Some(accounts.into_iter().collect());
+    }
+    fn account_allowed(&self, account: &str) -> bool {
+        self.accounts
+            .read()
+            .expect("composer accounts")
+            .as_ref()
+            .is_none_or(|ids| ids.contains(account))
     }
     pub fn configure(&self, drafts: bool, recent: bool) {
         self.drafts_enabled
@@ -153,6 +166,13 @@ impl Store {
         let _guard = self.writes.lock().expect("composer recovery writes");
         self.drafts_unlocked()
     }
+    pub fn has_drafts(&self) -> bool {
+        self.files().is_ok_and(|files| {
+            files
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "draft"))
+        })
+    }
     fn drafts_unlocked(&self) -> Result<Vec<LocalDraft>> {
         let mut drafts = Vec::new();
         for path in self.files()? {
@@ -162,6 +182,12 @@ impl Store {
             }
             if path.extension().is_some_and(|e| e == "draft") {
                 let d: LocalDraft = bounded(&path, MAX_DRAFT_BYTES)?;
+                if d.spans.len() > 4096
+                    || d.compose.attachments.len() > 64
+                    || d.compose.drive_files.len() > 32
+                {
+                    return Err(Error::ResponseLimit);
+                }
                 if drafts.len() >= MAX_DRAFTS {
                     return Err(Error::ResponseLimit);
                 }
@@ -182,6 +208,11 @@ impl Store {
         let mut writes = self.writes.lock().expect("composer recovery writes");
         if closed.load(std::sync::atomic::Ordering::SeqCst) {
             return Ok(());
+        }
+        if !self.account_allowed(&draft.account) {
+            return Err(Error::Invalid(
+                "This account was disconnected. Local recovery is disabled for it.".into(),
+            ));
         }
         if !self
             .drafts_enabled
@@ -252,10 +283,24 @@ impl Store {
             .collect()
     }
     pub fn recipients(&self) -> Vec<Recipient> {
-        bounded(&self.root.join("recipients.json"), RECIPIENT_BYTES).unwrap_or_default()
+        let _guard = self.writes.lock().expect("composer recovery writes");
+        let mut rows: Vec<Recipient> =
+            bounded(&self.root.join("recipients.json"), RECIPIENT_BYTES).unwrap_or_default();
+        let before = rows.len();
+        rows.retain(|r| {
+            now().saturating_sub(r.last_sent) < 90 * 86400 && self.account_allowed(&r.account)
+        });
+        rows.truncate(MAX_RECIPIENTS);
+        if rows.len() != before {
+            let _ = atomic(&self.root.join("recipients.json"), &rows, RECIPIENT_BYTES);
+        }
+        rows
     }
     pub fn remember(&self, account: &str, c: &Compose) -> Result<()> {
         let _guard = self.writes.lock().expect("composer recovery writes");
+        if !self.account_allowed(account) {
+            return Ok(());
+        }
         if !self
             .recent_enabled
             .load(std::sync::atomic::Ordering::SeqCst)
@@ -297,8 +342,17 @@ impl Store {
         Ok(())
     }
     pub fn clear_account(&self, account: &str) -> Result<()> {
-        for draft in self.drafts()?.into_iter().filter(|d| d.account == account) {
-            self.remove(&draft.id)?;
+        let mut writes = self.writes.lock().expect("composer recovery writes");
+        if let Some(accounts) = self.accounts.write().expect("composer accounts").as_mut() {
+            accounts.remove(account);
+        }
+        for draft in self
+            .drafts_unlocked()?
+            .into_iter()
+            .filter(|d| d.account == account)
+        {
+            writes.remove(&draft.id);
+            fs::remove_file(self.draft_path(&draft.id))?;
         }
         let mut rows: Vec<Recipient> =
             bounded(&self.root.join("recipients.json"), RECIPIENT_BYTES).unwrap_or_default();
@@ -313,6 +367,63 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fixture() -> LocalDraft {
+        LocalDraft {
+            id: "one".into(),
+            account: "a".into(),
+            compose: Compose::default(),
+            spans: vec![],
+            server: None,
+            retained_on_server: false,
+            uncertain: false,
+            updated: 0,
+            revision: 1,
+            sequence: 1,
+        }
+    }
+    #[test]
+    fn queued_checkpoints_cannot_restore_closed_or_disconnected_work() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::new(root.path());
+        store.set_accounts(["a".into()]);
+        let mut newer = fixture();
+        newer.sequence = 2;
+        newer.compose.text = "Latest edit".into();
+        store.save(newer).unwrap();
+        store.save(fixture()).unwrap();
+        assert_eq!(store.drafts().unwrap()[0].compose.text, "Latest edit");
+        let closed = std::sync::atomic::AtomicBool::new(true);
+        store.remove("one").unwrap();
+        store.save_if_open(fixture(), &closed).unwrap();
+        assert!(store.drafts().unwrap().is_empty());
+        store.save(fixture()).unwrap();
+        store.clear_account("a").unwrap();
+        assert!(store.save(fixture()).is_err());
+        store
+            .remember(
+                "a",
+                &Compose {
+                    to: "me@example.com".into(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert!(store.recipients().is_empty());
+        assert!(store.drafts().unwrap().is_empty());
+    }
+    #[test]
+    fn oversized_recovery_keeps_the_previous_valid_checkpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::new(root.path());
+        store.save(fixture()).unwrap();
+        let mut too_big = fixture();
+        too_big.sequence = 2;
+        too_big.compose.text = "x".repeat(MAX_DRAFT_BYTES);
+        assert!(store.save(too_big).is_err());
+        assert_eq!(store.drafts().unwrap()[0].sequence, 1);
+        store.configure(false, false);
+        assert!(store.save(fixture()).is_err());
+    }
     #[test]
     fn recovery_is_bounded_and_never_serializes_attachment_contents() {
         let root = tempfile::tempdir().unwrap();
