@@ -116,9 +116,9 @@ pub fn card(name: &str, mime: &str, bytes: u64, remove: bool) -> Card {
     root.append(&open);
     let action = ui::button(
         if remove {
-            "window-close-symbolic"
+            "luma-close-symbolic"
         } else {
-            "folder-download-symbolic"
+            "luma-download-symbolic"
         },
         if remove {
             "Remove attachment"
@@ -296,11 +296,13 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
         .default_height(620)
         .destroy_with_parent(true)
         .build();
+    #[cfg(target_os = "linux")]
+    crate::presentation::configure_window(&window, false);
     s.attachment_window.borrow_mut().set(Some(&window));
     let root = vbox(0);
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&adw::WindowTitle::new(name, &preview::size(bytes))));
-    let save_button = ui::button("folder-download-symbolic", "Save attachment…");
+    let save_button = ui::button("luma-download-symbolic", "Save attachment…");
     header.pack_end(&save_button);
     let state = s.clone();
     let title = name.to_owned();
@@ -312,6 +314,10 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
     margins(&body, 20);
     root.append(&body);
     window.set_content(Some(&root));
+    window.connect_close_request(|_| {
+        crate::resources::trim();
+        glib::Propagation::Proceed
+    });
     let spinner = gtk::Spinner::new();
     spinner.start();
     spinner.set_vexpand(true);
@@ -398,7 +404,7 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
                             video.set_vexpand(true);
                             body.append(&video);
                         } else {
-                            let image = gtk::Image::from_icon_name("audio-x-generic-symbolic");
+                            let image = gtk::Image::from_icon_name("luma-audio-symbolic");
                             image.set_pixel_size(96);
                             image.set_vexpand(true);
                             body.append(&image);

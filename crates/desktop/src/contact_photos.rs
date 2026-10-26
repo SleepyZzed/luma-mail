@@ -271,19 +271,37 @@ fn visible(s: &Rc<State>) {
             .or_insert_with(|| luma_core::contact_photos::Photos::new(client))
             .clone();
         let email = key.1.clone();
-        let own = s
+        let owner = s
             .settings
             .borrow()
             .accounts
             .iter()
-            .any(|a| a.id == key.0 && a.drive_enabled && a.email.eq_ignore_ascii_case(&email));
+            .find(|a| {
+                a.enabled
+                    && a.contact_photos
+                    && a.drive_enabled
+                    && a.email.eq_ignore_ascii_case(&email)
+            })
+            .map(|a| a.id.clone());
+        let own_photos = owner.and_then(|id| {
+            let client = s.clients.borrow().get(&id).cloned()?;
+            Some(
+                s.photos
+                    .clients
+                    .borrow_mut()
+                    .entry(id)
+                    .or_insert_with(|| luma_core::contact_photos::Photos::new(client))
+                    .clone(),
+            )
+        });
+        let own = own_photos.is_some();
         let generation = s.photos.generation.get();
         let target = key.clone();
         let task = crate::ui::async_work(
             s,
             async move {
-                Ok(if own {
-                    match photos.own(&email).await {
+                Ok(if let Some(own_photos) = own_photos {
+                    match own_photos.own(&email).await {
                         Ok(Some(photo)) => Ok(Some(photo)),
                         _ => photos.get(&email).await,
                     }

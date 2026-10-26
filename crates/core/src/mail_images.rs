@@ -194,7 +194,7 @@ mod tests {
             mime_type: "text/html".into(),
             ..Default::default()
         };
-        payload.body.data=Some(URL_SAFE_NO_PAD.encode(r#"<img src="cid:photo"><IMG SRC='https://example.com/a?x=1&amp;y=2'><script>alert(1)</script><img src="cid:photo">"#));
+        payload.body.data=Some(URL_SAFE_NO_PAD.encode(r#"<img src="cid:photo"><IMG SRC='https://example.com/a?x=1&amp;y=2'><script>alert(1)</script><img src="cid:photo">"#).into());
         assert_eq!(
             sources(&payload),
             vec!["cid:photo", "https://example.com/a?x=1&y=2"]

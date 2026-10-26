@@ -97,7 +97,7 @@ pub(super) fn all(s: &Rc<State>) {
 }
 pub(super) fn click(
     s: &Rc<State>,
-    row: &gtk::ListBoxRow,
+    row: &crate::virtual_inbox::Row,
     modifiers: gtk::gdk::ModifierType,
 ) -> bool {
     let control = modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK);
@@ -198,14 +198,12 @@ pub(super) fn install(s: &Rc<State>) {
 #[cfg(debug_assertions)]
 pub(super) fn diagnostic(s: &Rc<State>) {
     assert!(s.clients.borrow().is_empty() && s.rows.borrow().len() >= 5);
+    assert!(s.list.bound_count() <= s.rows.borrow().len());
     let row = |n| s.list.row_at_index(n).unwrap();
     let first = rows::key(s, &row(0)).unwrap();
     *s.selected.borrow_mut() = Some(first.clone());
     mode(s, false, false);
-    let marker = button(
-        "mail-reply-sender-symbolic",
-        "Single message action fixture",
-    );
+    let marker = button("luma-reply-symbolic", "Single message action fixture");
     marker.add_css_class("single-message-action");
     s.reader.append(&marker);
     assert!(click(s, &row(2), gtk::gdk::ModifierType::CONTROL_MASK));
@@ -243,7 +241,7 @@ pub(super) fn diagnostic(s: &Rc<State>) {
         }
     }
     let mut text = Vec::new();
-    labels(row(0).upcast_ref(), &mut text);
+    labels(row(0).widget().unwrap().upcast_ref(), &mut text);
     assert!(text.iter().any(|t| t == "Mark as read") && text.iter().any(|t| t == "Mark as unread"));
     assert!(!text.iter().any(|t| t == "Move to Inbox"));
     assert!(text.iter().any(|t| t == "Mark important"));

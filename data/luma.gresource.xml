@@ -1,6 +1,57 @@
 <gresources><gresource prefix="/io/github/lumamail/Luma">
+  <file>luma-wordmark.png</file>
+  <file>io.github.lumamail.Luma.svg</file>
+  <file alias="icons/scalable/apps/io.github.lumamail.Luma.svg">io.github.lumamail.Luma.svg</file>
+  <file>icons/scalable/actions/luma-add-symbolic.svg</file>
   <file>icons/scalable/actions/luma-archive-symbolic.svg</file>
-  <file>icons/scalable/actions/luma-inbox-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-attachment-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-audio-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-back-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-bold-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-check-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-chevron-down-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-chevron-right-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-clear-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-close-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-compose-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-download-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-draft-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-drive-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-expand-symbolic.svg</file>
   <file>icons/scalable/actions/luma-filter-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-folder-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-forward-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-image-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-important-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-inbox-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-info-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-italic-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-link-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-list-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-logout-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-mail-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-menu-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-more-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-notification-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-ordered-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-people-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-popout-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-redo-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-refresh-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-reply-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-restore-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-save-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-select-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-send-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-settings-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-spam-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-star-filled-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-star-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-strikethrough-symbolic.svg</file>
   <file>icons/scalable/actions/luma-tag-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-trash-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-underline-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-undo-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-unread-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-upload-cloud-symbolic.svg</file>
 </gresource></gresources>

@@ -94,7 +94,7 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
     group.append(&e.font_size);
     toolbar.insert(&group, -1);
     let reset = ui::button(
-        "edit-clear-symbolic",
+        "luma-clear-symbolic",
         "Reset font for selection or further typing",
     );
     reset.add_css_class("flat");

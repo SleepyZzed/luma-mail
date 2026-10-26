@@ -1,7 +1,7 @@
 # Road to 1.0
 
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
-0.6 is an early-access milestone, not a completed 1.0 release.
+0.7 is an early-access milestone, not a completed 1.0 release.
 
 ## This milestone
 
@@ -36,14 +36,33 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Read-only conflict comparison and distinct identity for intentionally separate copies.
 - Visible-avatar lookup scheduling and own-account photo using existing Drive access.
 
+## 0.7 editing and visual milestone
+
+- Field-level three-way draft comparison; explicit body/attachment conflicts open
+  a separate merged draft and preserve the original Gmail version.
+- Verified Send-as addresses from Gmail, with account-isolated routing, Reply-To
+  headers, unavailable-alias guards and matching inline/full From controls.
+- Saved inline replies close correctly; repeated Reply keeps the editor inline,
+  preserves its text and reveals it in the reader.
+- Draft-only context deletion, with confirmation and changed-draft checks.
+- App-owned vector icons, quieter disclosures, stable input focus and compact
+  subject fields; resizable borderless Linux windows. See visual-system.md.
+- Available own-account photos can be reused across opted-in connected accounts.
+
+- Recycled GtkListView rows, direct identity lookup, batched page insertion,
+  shared immutable payloads and event-driven HTML measurement.
+- Hidden reader/list reclamation and complete process-tree profiling; real
+  sustained sync/desktop acceptance still required. See performance.md.
+- User-supplied Luma wordmark and a standalone SVG star mascot for the app.
+
 ## Next implementation priorities
 
-1. Deliberate draft merging and authorised send-as aliases. Keep complex HTML intact until
-   its editor can represent it without silently losing content.
-2. Inline image insertion and whole-conversation forwarding;
+1. Inline image insertion and whole-conversation forwarding;
    interrupted Drive upload/sharing recovery and existing-file selection.
-3. Search highlighting, accessible keyboard/focus review, account identity polish
+2. Search highlighting, accessible keyboard/focus review, account identity polish
    and useful offline/partial-failure recovery.
+3. Keep complex external HTML intact until its editor can represent it without
+   silently losing content. Complete alias delivery and target-desktop acceptance.
 
 ## Required acceptance and distribution gates
 

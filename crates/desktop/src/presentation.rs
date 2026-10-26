@@ -4,6 +4,16 @@ use adw::prelude::*;
 use std::rc::Rc;
 
 pub const SCALES: [u16; 8] = [75, 85, 100, 110, 125, 150, 175, 200];
+pub fn window_chrome(preference: bool) -> bool {
+    preference && !cfg!(target_os = "linux")
+}
+pub fn configure_window(window: &impl IsA<gtk::Window>, preference: bool) {
+    window.set_resizable(true);
+    window.set_decorated(window_chrome(preference));
+    if cfg!(target_os = "linux") {
+        window.as_ref().add_css_class("luma-compositor-managed");
+    }
+}
 pub fn scale(s: &State) -> f64 {
     s.settings.borrow().ui_scale_percent.clamp(75, 200) as f64 / 100.
 }
@@ -81,7 +91,7 @@ pub fn apply(s: &Rc<State>) {
     let prefs = s.settings.borrow();
     s.style_provider
         .load_from_string(&stylesheet(prefs.ui_scale_percent, prefs.reduced_motion));
-    s.window.set_decorated(prefs.window_chrome);
+    configure_window(&s.window, prefs.window_chrome);
     drop(prefs);
     s.compose_stack.set_transition_duration(duration(s, 240));
     motion_tree(s, s.window.upcast_ref());

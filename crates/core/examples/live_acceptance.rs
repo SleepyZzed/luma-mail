@@ -114,6 +114,7 @@ async fn main() -> Result<()> {
         | Some("inspect-html")
         | Some("photos")
         | Some("photos-own")
+        | Some("draft-merge-aliases")
         | Some("reply-regression") => {
             let account = settings
                 .accounts
@@ -127,6 +128,10 @@ async fn main() -> Result<()> {
             println!("Checking fresh OAuth refresh and profile…");
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
+            }
+            if args[1] == "draft-merge-aliases" {
+                draft_merge_aliases(&gmail, &account.email).await?;
+                return Ok(());
             }
             if args[1] == "reply-regression" {
                 if !args.iter().any(|a| a == "--allow-self-mail") {
@@ -306,6 +311,73 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn draft_merge_aliases(gmail: &Gmail, email: &str) -> Result<()> {
+    use luma_core::draft_merge::{Fields, Plan};
+    let aliases = gmail.send_as(email).await?;
+    assert!(
+        aliases
+            .iter()
+            .any(|a| a.is_primary && a.send_as_email.eq_ignore_ascii_case(email))
+    );
+    println!(
+        "PASS live verified Send-as lookup: {} available address(es); no new scope",
+        aliases.len()
+    );
+    let mut base = Compose::new(email.into());
+    base.to = email.into();
+    base.subject = format!("Luma-Review-20261026-Merge-{}", uuid::Uuid::new_v4());
+    base.text = "Synthetic base text".into();
+    let original = gmail.save_draft(None, &base.mime()?, None).await?;
+    let mut created = vec![original.id.clone()];
+    let outcome: Result<()> = async {
+        let mut server = base.clone();
+        server.text = "Synthetic remote text".into();
+        let updated = gmail
+            .save_draft(Some(&original), &server.mime()?, None)
+            .await?;
+        let mut mine = base.clone();
+        mine.subject.push_str(" local subject");
+        assert!(matches!(
+            gmail.save_draft(Some(&original), &mine.mime()?, None).await,
+            Err(Error::DraftConflict)
+        ));
+        let plan = Plan::new(&Fields::of(&base), Fields::of(&mine), Fields::of(&server));
+        let mut merged = Compose::new(email.into());
+        plan.resolve([None; 6])?.apply(&mut merged);
+        assert_eq!(merged.subject, mine.subject);
+        assert_eq!(merged.text, server.text);
+        let copy = gmail.save_draft(None, &merged.mime()?, None).await?;
+        created.push(copy.id.clone());
+        assert_ne!(copy.id, updated.id);
+        let preserved = gmail.draft(&updated.id).await?;
+        assert_eq!(preserved.message.id, updated.message.id);
+        assert_eq!(readable(&preserved.message.payload)?.trim(), server.text);
+        let restored = gmail.draft(&copy.id).await?;
+        assert_eq!(restored.message.payload.header("Subject"), mine.subject);
+        assert_eq!(readable(&restored.message.payload)?.trim(), server.text);
+        println!(
+            "PASS live stale-save refusal and merged separate Gmail draft; original preserved"
+        );
+        // The exact newly created conversation contains only our synthetic data.
+        let count = gmail.discard_thread_drafts(&copy.message.thread_id).await?;
+        assert!(count > 0);
+        created.retain(|id| id != &copy.id);
+        println!("PASS live draft-only delete");
+        Ok(())
+    }
+    .await;
+    for id in created {
+        if let Err(error) = gmail.discard_draft(&id).await
+            && !matches!(error, Error::Api { status: 404, .. })
+        {
+            return Err(error);
+        }
+    }
+    outcome?;
+    println!("PASS synthetic drafts cleaned up; no mail sent");
+    Ok(())
+}
+
 async fn reply_regression(gmail: &Gmail, email: &str, resume: bool) -> Result<()> {
     let mut compose = Compose::new(email.into());
     compose.to = email.into();
@@ -347,7 +419,7 @@ async fn reply_regression(gmail: &Gmail, email: &str, resume: bool) -> Result<()
             compose.retained.push(RetainedAttachment {
                 name: format!("synthetic-paste-{index}.txt"),
                 mime_type: "text/plain".into(),
-                data: vec![b'X'; 64],
+                data: vec![b'X'; 64].into(),
                 content_id: None,
             });
             draft = gmail
@@ -419,7 +491,7 @@ async fn exercise(gmail: &Gmail, email: &str, paths: &Paths, resume: bool) -> Re
     compose.retained.push(RetainedAttachment {
         name: "luma-acceptance.txt".into(),
         mime_type: "text/plain".into(),
-        data: b"Luma synthetic attachment round trip\n".to_vec(),
+        data: b"Luma synthetic attachment round trip\n".to_vec().into(),
         content_id: None,
     });
     if !resume && let Some(root) = std::env::var_os("LUMA_FIXTURE_DIR") {
@@ -436,7 +508,7 @@ async fn exercise(gmail: &Gmail, email: &str, paths: &Paths, resume: bool) -> Re
             compose.retained.push(RetainedAttachment {
                 name: name.into(),
                 mime_type: mime.into(),
-                data: std::fs::read(root.join(name))?,
+                data: std::fs::read(root.join(name))?.into(),
                 content_id: cid.map(String::from),
             });
         }

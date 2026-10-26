@@ -415,6 +415,31 @@ impl Gmail {
         )
         .await
     }
+    async fn draft_revision(&self, id: &str) -> Result<String> {
+        #[derive(Deserialize)]
+        struct Revision {
+            message: Id,
+        }
+        #[derive(Deserialize)]
+        struct Id {
+            id: String,
+        }
+        check_id(id)?;
+        let current: Revision = json(
+            self.call(
+                Method::GET,
+                &format!("/drafts/{id}"),
+                &[
+                    ("format", "minimal".into()),
+                    ("fields", "message(id)".into()),
+                ],
+                None,
+            )
+            .await?,
+        )
+        .await?;
+        Ok(current.message.id)
+    }
     /// Explicit edit action only. Preserve attachments in bounded memory; never
     /// spool private draft attachments into an unbudgeted temporary directory.
     pub async fn edit_draft(
@@ -457,7 +482,7 @@ impl Gmail {
                     part.filename.clone()
                 },
                 mime_type: part.mime_type.clone(),
-                data,
+                data: data.into(),
                 content_id: if cid.is_empty() {
                     None
                 } else {
@@ -524,8 +549,8 @@ impl Gmail {
         thread: Option<&str>,
     ) -> Result<Draft> {
         if let Some(draft) = existing {
-            let current = self.draft(&draft.id).await?;
-            if current.message.id != draft.message.id {
+            let current = self.draft_revision(&draft.id).await?;
+            if current != draft.message.id {
                 return Err(Error::DraftConflict);
             }
         }
@@ -550,6 +575,37 @@ impl Gmail {
         self.call(Method::DELETE, &format!("/drafts/{id}"), &[], None)
             .await?;
         Ok(())
+    }
+    /// Delete only verified draft resources in one explicitly selected thread.
+    /// Sent/received messages in the same conversation are never deleted.
+    pub async fn discard_thread_drafts(&self, thread_id: &str) -> Result<usize> {
+        let thread = self.thread_metadata(thread_id).await?;
+        let mut drafts = Vec::new();
+        for message in thread.messages.iter().filter(|m| m.has("DRAFT")) {
+            drafts.push(
+                self.find_draft(&message.id, message.payload.header("Message-ID"))
+                    .await?,
+            );
+        }
+        if drafts.is_empty() {
+            return Err(Error::Invalid(
+                "This conversation no longer contains a draft. Refresh Drafts.".into(),
+            ));
+        }
+        // Preflight the whole selection before the first deletion. Gmail does
+        // not provide compare-and-swap; recheck immediately before each DELETE.
+        for draft in &drafts {
+            if self.draft_revision(&draft.id).await? != draft.message.id {
+                return Err(Error::DraftConflict);
+            }
+        }
+        for draft in &drafts {
+            if self.draft_revision(&draft.id).await? != draft.message.id {
+                return Err(Error::DraftConflict);
+            }
+            self.discard_draft(&draft.id).await?;
+        }
+        Ok(drafts.len())
     }
     pub async fn send_draft(&self, draft: &Draft) -> Result<Message> {
         json(

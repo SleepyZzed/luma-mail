@@ -24,6 +24,8 @@ use std::{
 
 #[path = "ui_actions.rs"]
 mod actions;
+#[path = "ui_drafts.rs"]
+mod drafts;
 #[path = "ui_navigation.rs"]
 mod navigation;
 #[path = "ui_rows.rs"]
@@ -47,7 +49,7 @@ pub struct State {
     pub sidebar_top: gtk::Box,
     navigation: navigation::Navigation,
     sidebar_scroll: gtk::ScrolledWindow,
-    pub list: gtk::ListBox,
+    pub list: crate::virtual_inbox::Inbox,
     row_widgets: RefCell<HashMap<ThreadKey, rows::MailRow>>,
     changing_selection: Cell<bool>,
     selection_anchor: RefCell<Option<ThreadKey>>,
@@ -268,23 +270,24 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("Luma Mail")
-        .decorated(settings.window_chrome)
+        .decorated(crate::presentation::window_chrome(settings.window_chrome))
+        .resizable(true)
         .default_width(settings.window_width)
         .default_height(settings.window_height)
         .build();
     let root = vbox(0);
     let refresh = button(
-        "view-refresh-symbolic",
+        "luma-refresh-symbolic",
         "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
     );
-    let prefs = button("emblem-system-symbolic", "Settings");
+    let prefs = button("luma-settings-symbolic", "Settings");
     let undo_button = button(
-        "edit-undo-symbolic",
+        "luma-undo-symbolic",
         "Undo the last confirmed mail operation",
     );
     undo_button.set_sensitive(false);
     let select = gtk::ToggleButton::builder()
-        .icon_name("object-select-symbolic")
+        .icon_name("luma-select-symbolic")
         .tooltip_text("Select conversations for bulk actions")
         .build();
     let sidebar_top = vbox(8);
@@ -311,7 +314,11 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     nav.append(&ss);
     let footer = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     footer.add_css_class("sidebar-footer");
-    let footer_name = label("Luma", "heading");
+    let footer_name =
+        gtk::Image::from_resource("/io/github/lumamail/Luma/io.github.lumamail.Luma.svg");
+    footer_name.set_pixel_size(28);
+    footer_name.set_tooltip_text(Some("Luma Mail"));
+    footer_name.set_halign(gtk::Align::Start);
     footer_name.set_hexpand(true);
     footer.append(&footer_name);
     prefs.add_css_class("flat");
@@ -328,7 +335,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         menu.append(Some(name), Some(&format!("win.{action}")));
     }
     let app_menu = gtk::MenuButton::builder()
-        .icon_name("open-menu-symbolic")
+        .icon_name("luma-menu-symbolic")
         .tooltip_text("Luma menu · Interface size, close and quit")
         .menu_model(&menu)
         .build();
@@ -390,14 +397,14 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     page_activity.add_css_class("mail-loading");
     page_activity.set_visible(false);
     center.append(&page_activity);
-    let list = gtk::ListBox::new();
+    let list = crate::virtual_inbox::Inbox::new();
     list.set_sort_func(rows::sort);
     list.set_selection_mode(gtk::SelectionMode::Single);
     list.add_css_class("navigation-sidebar");
     let list_scroll = gtk::ScrolledWindow::builder()
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
-        .child(&list)
+        .child(&list.widget)
         .build();
     center.append(&list_scroll);
     let more = gtk::Button::with_label("Load 25 more conversations");
@@ -587,6 +594,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
             }
         });
     }
+    rows::install(&s);
     selection::install(&s);
     {
         let state = s.clone();
@@ -606,21 +614,25 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
             MailAction::Archive,
         ),
         (
-            "user-trash-symbolic",
+            "luma-trash-symbolic",
             "Move selected to Trash",
             MailAction::Trash,
         ),
         (
-            "mail-read-symbolic",
+            "luma-mail-symbolic",
             "Mark selected as read",
             MailAction::Read,
         ),
         (
-            "mail-unread-symbolic",
+            "luma-unread-symbolic",
             "Mark selected as unread",
             MailAction::Unread,
         ),
-        ("starred-symbolic", "Star selected", MailAction::Star),
+        (
+            "luma-star-filled-symbolic",
+            "Star selected",
+            MailAction::Star,
+        ),
     ] {
         let button = button(icon, tip);
         button.add_css_class("flat");
@@ -732,6 +744,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         });
     }
     s.window.present();
+    idle_reclaim(&s);
+    #[cfg(target_os = "linux")]
+    if std::env::args().any(|a| a == "--performance-diagnostics") {
+        crate::resources::diagnostic(&s);
+        return;
+    }
     #[cfg(target_os = "linux")]
     if std::env::args().any(|a| a == "--render-diagnostics") {
         assert!(
@@ -769,7 +787,7 @@ fn empty_reader(s: &State) {
     clear(&s.reader);
     s.reader.append(
         &adw::StatusPage::builder()
-            .icon_name("mail-unread-symbolic")
+            .icon_name("luma-unread-symbolic")
             .title("A little room to focus")
             .description("Choose a conversation. Luma only downloads the message you open.")
             .vexpand(true)
@@ -1137,9 +1155,9 @@ pub(super) fn update_reader_star(s: &State) {
         .is_some_and(|row| row.starred);
     if let Some(button) = s.reader_star.borrow().upgrade() {
         button.set_icon_name(if starred {
-            "starred-symbolic"
+            "luma-star-filled-symbolic"
         } else {
-            "non-starred-symbolic"
+            "luma-star-symbolic"
         });
         button.set_tooltip_text(Some(if starred {
             "Remove star"
@@ -1211,9 +1229,9 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                 ),
                 (
                     if trash {
-                        "edit-undo-symbolic"
+                        "luma-undo-symbolic"
                     } else {
-                        "user-trash-symbolic"
+                        "luma-trash-symbolic"
                     },
                     if trash {
                         "Restore from Trash"
@@ -1226,12 +1244,12 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                         MailAction::Trash
                     },
                 ),
-                ("mail-unread-symbolic", "Mark unread", MailAction::Unread),
+                ("luma-unread-symbolic", "Mark unread", MailAction::Unread),
                 (
                     if starred {
-                        "starred-symbolic"
+                        "luma-star-filled-symbolic"
                     } else {
-                        "non-starred-symbolic"
+                        "luma-star-symbolic"
                     },
                     if starred {
                         "Remove star"
@@ -1280,7 +1298,7 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
             labels.add_css_class("flat");
             labels.add_css_class("selected-label-action");
             tools.append(&labels);
-            let reply = button("mail-reply-sender-symbolic", "Reply inline");
+            let reply = button("luma-reply-symbolic", "Reply inline");
             reply.add_css_class("flat");
             reply.add_css_class("single-message-action");
             tools.append(&reply);
@@ -1370,6 +1388,7 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                                 request.abort();
                             }
                             clear(&body);
+                            crate::resources::trim();
                             if s.selected_message
                                 .borrow()
                                 .as_ref()
@@ -1388,7 +1407,202 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
     );
     *s.reader_request.borrow_mut() = Some(handle);
 }
+fn idle_reclaim(s: &Rc<State>) {
+    let timer: Rc<RefCell<Option<glib::SourceId>>> = Default::default();
+    let suspended = Rc::new(Cell::new(false));
+    let weak = Rc::downgrade(s);
+    s.window.connect_visible_notify(move |window| {
+        if let Some(timer) = timer.borrow_mut().take() {
+            timer.remove();
+        }
+        let Some(s) = weak.upgrade() else { return };
+        if window.is_visible() {
+            s.list.resume();
+            if suspended.replace(false)
+                && s.reader_request.borrow().is_none()
+                && s.body_requests.borrow().is_empty()
+                && s.selected_message.borrow().is_none()
+            {
+                let selected = s.selected.borrow().clone();
+                if let Some(key) = selected {
+                    open_thread(&s, key);
+                }
+            }
+        } else {
+            let weak = Rc::downgrade(&s);
+            let suspended = suspended.clone();
+            let source = timer.clone();
+            *timer.borrow_mut() = Some(glib::timeout_add_local_once(
+                Duration::from_secs(45),
+                move || {
+                    source.borrow_mut().take();
+                    let Some(s) = weak.upgrade() else { return };
+                    if s.window.is_visible()
+                        || crate::compose::has_open_editor(&s)
+                        || s.window.visible_dialog().is_some()
+                        || s.attachment_window
+                            .borrow()
+                            .upgrade()
+                            .is_some_and(|w| w.is_visible())
+                    {
+                        return;
+                    }
+                    suspended.set(s.selected.borrow().is_some());
+                    s.list.suspend();
+                    s.reading.set(s.reading.get().wrapping_add(1));
+                    cancel_body_requests(&s);
+                    if let Some(task) = s.reader_request.borrow_mut().take() {
+                        task.abort();
+                    }
+                    clear(&s.reader);
+                    s.selected_message.borrow_mut().take();
+                    s.reply_slot.borrow_mut().set(None::<&gtk::Box>);
+                    s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
+                    crate::resources::trim();
+                },
+            ));
+        }
+    });
+}
+#[cfg(any(debug_assertions, target_os = "linux"))]
+pub fn resource_rows(s: &Rc<State>, count: usize) {
+    assert!(s.clients.borrow().is_empty() && std::env::var_os("LUMA_TEST_ROOT").is_some());
+    rows::clear_rows(s);
+    let items = (0..count.min(1000))
+        .map(|n| Conversation {
+            key: ThreadKey {
+                account: "synthetic-performance".into(),
+                id: format!("row-{n}"),
+            },
+            sender: format!("Test sender {n} <sender{n}@example.invalid>"),
+            subject: format!("Synthetic conversation {n}"),
+            snippet: "Metadata-only inbox stress fixture".into(),
+            date: 1_800_000_000_000 - n as i64,
+            unread: n % 3 == 0,
+            starred: false,
+            important: false,
+            attachments: n % 4 == 0,
+            count: 1,
+        })
+        .collect();
+    rows::display(s, items, false);
+}
+#[cfg(any(debug_assertions, target_os = "linux"))]
+pub fn resource_scroll(s: &State, bottom: bool) {
+    let a = s.list_scroll.vadjustment();
+    a.set_value(if bottom {
+        (a.upper() - a.page_size()).max(0.)
+    } else {
+        0.
+    });
+}
+#[cfg(debug_assertions)]
+pub fn verify_virtualization(s: &Rc<State>) {
+    resource_rows(s, 1000);
+    let mut overflow = s.rows.borrow()[0].clone();
+    overflow.key.id = "beyond-loaded-limit".into();
+    rows::display(s, vec![overflow], false);
+    assert_eq!(
+        s.rows.borrow().len(),
+        1000,
+        "Partial pages cannot exceed the loaded metadata limit"
+    );
+    s.settings.borrow_mut().reduced_motion = true;
+    let state = s.clone();
+    let mut stage = 0;
+    let start = std::time::Instant::now();
+    glib::timeout_add_local(Duration::from_millis(200), move || {
+        assert!(
+            start.elapsed() < Duration::from_secs(12),
+            "Virtual inbox diagnostic timed out"
+        );
+        let first = state.list.row_at_index(0).unwrap();
+        let last = state.list.row_at_index(999).unwrap();
+        match stage {
+            0 if first.widget().is_some() => {
+                assert!(
+                    state.list.bound_count() < 256,
+                    "1,000 metadata rows must not create 1,000 widget trees"
+                );
+                *state.selected.borrow_mut() = Some(first.key());
+                selection::mode(&state, false, false);
+                selection::click(&state, &last, gtk::gdk::ModifierType::SHIFT_MASK);
+                assert_eq!(
+                    selection::keys(&state).len(),
+                    1000,
+                    "Shift range includes offscreen rows"
+                );
+                selection::click(&state, &last, gtk::gdk::ModifierType::CONTROL_MASK);
+                assert_eq!(selection::keys(&state).len(), 999);
+                resource_scroll(&state, true);
+                stage = 1;
+            }
+            1 => {
+                resource_scroll(&state, true);
+                if last.widget().is_none() {
+                    return glib::ControlFlow::Continue;
+                }
+                assert!(state.list.bound_count() < 256);
+                assert_eq!(
+                    selection::keys(&state).len(),
+                    999,
+                    "Recycling preserves selection"
+                );
+                let row = state.list.row_at_index(500).unwrap();
+                let mut item = row.item();
+                item.important = true;
+                rows::apply(
+                    &state,
+                    rows::Update {
+                        key: row.key(),
+                        row: Some(item),
+                        visible: Some(true),
+                        selected_labels: None,
+                    },
+                );
+                assert!(
+                    row.item().important,
+                    "Offscreen updates belong to the model"
+                );
+                selection::all(&state);
+                assert_eq!(selection::keys(&state).len(), 1000);
+                selection::mode(&state, false, false);
+                resource_scroll(&state, false);
+                stage = 2;
+            }
+            2 if first.widget().is_some() => {
+                assert!(state.list.bound_count() < 256);
+                let keys = selection::keys(&state);
+                state.list.suspend();
+                assert_eq!(
+                    state.list.bound_count(),
+                    0,
+                    "Tray reclamation releases row widgets"
+                );
+                assert_eq!(
+                    selection::keys(&state),
+                    keys,
+                    "Tray reclamation keeps selection metadata"
+                );
+                state.list.resume();
+                stage = 3;
+            }
+            3 if first.widget().is_some() => {
+                assert!(state.list.bound_count() < 256);
+                println!(
+                    "PASS virtual GtkListView: 1,000 metadata rows, {} bound widget trees, offscreen actions/selection, loaded-only Select all and tray release/resume",
+                    state.list.bound_count()
+                );
+                state.app.quit();
+                return glib::ControlFlow::Break;
+            }
+            _ => (),
+        }
+        glib::ControlFlow::Continue
+    });
+}
 fn cancel_body_requests(s: &State) {
+    crate::resources::trim();
     for (_, (_, request)) in s.body_requests.borrow_mut().drain() {
         request.abort();
     }
@@ -1514,9 +1728,9 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
                 b.set_child(Some(
                     &adw::ButtonContent::builder()
                         .icon_name(if mode == 2 {
-                            "mail-forward-symbolic"
+                            "luma-forward-symbolic"
                         } else {
-                            "mail-reply-sender-symbolic"
+                            "luma-reply-symbolic"
                         })
                         .label(name)
                         .build(),

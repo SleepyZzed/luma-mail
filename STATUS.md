@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-0.6.0 is **early access**. It does not complete the original brief. Google sign-in
+0.7.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Branding and data-access verification were submitted on 26 October
 2026 with an English demo and the homepage ownership appeal. Google Auth Platform
@@ -8,6 +8,22 @@ confirms both are under review. Submission is not approval; any assessment
 decision and Google's final response remain gates.
 
 ## Implemented and exercised
+
+- Recycled GtkListView metadata/selection and direct row identity, with batched
+  page insertion. The 1,000-row native test covers scrolling, offscreen actions,
+  selection and releasing/rebuilding widget bindings.
+- Shared immutable body/attachment buffers, projected draft revision checks,
+  resize-driven HTML measurement and background reader/list reclamation.
+  Process-tree/long-soak tooling is documented in docs/performance.md.
+- Supplied wordmark and standalone star SVG icon, with a small sidebar resource.
+
+- Rebuilt icon/control visual layer, compact Subject and borderless disclosures;
+  compositor-managed resizable Linux windows. Existing layouts and functions kept.
+- Verified Send-as aliases with account routing, Reply-To and unavailable-alias guard.
+- Field-level three-way conflict merging opens a separate copy with explicit
+  body/attachment choices; the original Gmail version is preserved.
+- Inline X/repeated Reply/scroll fixes, confirmed draft-only context deletion,
+  and connected-account photo reuse within existing opt-in permissions.
 
 - Genuine compact inline reply controls; previous mail is separate, read-only and
   optionally included in the outgoing reply. Rich mail includes a plain-text alternative.
@@ -96,10 +112,11 @@ The own-account picture appeared in the actual sidebar/list/reader.
   partial-sharing recovery still need formal acceptance.
   Existing authorized file IDs work; Google Picker remains absent.
 - Arbitrary sender photos beyond Google's supported APIs remain unavailable.
-  Send-as aliases, inline-image insertion and general HTML editing remain open.
+  Inline-image insertion and general HTML editing remain open; alias delivery
+  across two real accounts still needs acceptance.
   Luma 0.3-generated rich drafts reopen visually; complex/older/third-party HTML
   remains in source mode. General visual HTML re-editing is incomplete.
-- Deliberate conflict merging, editing attachments over 16 MiB combined,
+- Editing attachments over 16 MiB combined,
   whole-conversation forwarding and persistent sender remote-image preferences.
 - View preferences/search highlighting, accents, optional autostart/sound,
   keyboard/accessibility/HiDPI audit, native Arch acceptance and sustained profiling.

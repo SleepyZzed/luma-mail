@@ -42,7 +42,7 @@ fn render(e: &Rc<Editor>, entry: &gtk::Entry) {
         name.set_ellipsize(gtk::pango::EllipsizeMode::End);
         name.set_max_width_chars(28);
         name.set_tooltip_text(Some(address));
-        let remove = ui::button("window-close-symbolic", &format!("Remove {address}"));
+        let remove = ui::button("luma-close-symbolic", &format!("Remove {address}"));
         remove.add_css_class("flat");
         chip.append(&name);
         chip.append(&remove);
@@ -247,7 +247,7 @@ fn choices(e: &Editor, field: &gtk::Entry) -> Vec<String> {
     {
         return vec![];
     }
-    let Some(account) = e.accounts.get(e.from.selected() as usize) else {
+    let Some(account) = e.account() else {
         return vec![];
     };
     let now = chrono::Utc::now().timestamp().max(0) as u64;

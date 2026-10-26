@@ -217,3 +217,39 @@ body/metadata on demand, with no attachment download or new disk checkpoint.
 The connected account's own photo uses Drive's projected user profile only when
 Drive and profile photos are enabled. It shares the existing thumbnail RAM and
 lookup-rate limits; it creates no file and adds no permission.
+
+## 0.7 visual and editing additions
+
+- Inbox metadata stays capped at 1,000 rows; GtkListView recycles its rendered
+  widget trees. Selection uses model identity and does not require offscreen
+  widgets. No extra disk data is created by recycling.
+- Immutable MIME body data and retained draft/clipboard attachment bytes are
+  shared across message-action callbacks and composer snapshots. Cloning a
+  message or draft does not duplicate these large buffers. JSON/MIME formats,
+  cache limits and attachment-preview safety limits remain unchanged.
+- WebKit views share weakly held ephemeral contexts/sessions, use DocumentViewer
+  caching and disable back/forward page caching. Resize allocation events replace
+  per-frame width polling. WebKit's 30-second memory-pressure checks can release
+  non-critical memory at 128 MiB and stricter caches at 192 MiB per process;
+  this is not an application-wide cap and never kills a message renderer.
+- A main window hidden for 45 seconds releases its current reader if no composer
+  or visible attachment preview needs it. Reopening reloads the selected thread,
+  keeping paged list metadata. Already-free allocator arenas can return to Linux.
+- Its inbox also drops widget bindings while retaining selection and metadata.
+  Restore rebinds the viewport and restores the scroll position without fetching
+  mailbox pages. No state is spooled to disk for this reclamation.
+- The wordmark has editable SVG source in the repository and one small raster
+  resource in the app. It never downloads, caches or creates a user-data file.
+- The 52 app-owned SVG icons are compiled resources, without network requests
+  or per-user storage. Existing finite animation/RAM limits remain in force.
+- Verified alias lists are projected, bounded reads for the selected account
+  and live only in the open editor. Signatures and SMTP credentials are omitted.
+- A conflict comparison fetches one selected draft. Parsing runs off the UI
+  thread, previews are shortened, and full selected fields stay in RAM until
+  the dialog/editor closes. Attachments are fetched only after the user chooses
+  the Gmail set, within the existing combined editing cap. No local copy is made.
+- The merged copy has a new Message-ID and saves to Gmail. Draft deletion
+  looks up exact draft Message-IDs; it never scans the draft mailbox or trashes
+  the other messages in a thread.
+- Cross-account avatar reuse stays inside the existing 128-thumbnail RAM cap,
+  two concurrent jobs and 12 scheduled lookups per minute.

@@ -30,6 +30,7 @@ fn delete_prefix(buffer: &gtk::TextBuffer, mut start: gtk::TextIter, count: i32)
     end.forward_chars(count);
     buffer.delete(&mut start, &mut end);
 }
+#[cfg(any(debug_assertions, test))]
 pub fn toggle(buffer: &gtk::TextBuffer) {
     toggle_kind(buffer, Kind::Bullet);
 }

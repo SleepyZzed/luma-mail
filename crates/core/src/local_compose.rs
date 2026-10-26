@@ -431,7 +431,7 @@ mod tests {
         let mut c = Compose::new("me@example.com".into());
         c.text = "unsent".into();
         c.retained.push(crate::composer::RetainedAttachment {
-            data: b"PRIVATE_ATTACHMENT_BYTES".to_vec(),
+            data: b"PRIVATE_ATTACHMENT_BYTES".to_vec().into(),
             ..Default::default()
         });
         for n in 0..8 {

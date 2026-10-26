@@ -17,6 +17,49 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
 };
+#[tokio::test]
+async fn deleting_drafts_preserves_other_mail_and_refuses_changed_drafts() {
+    for changed in [false, true] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/threads/thread1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"thread1","messages":[
+                {"id":"received1","labelIds":["INBOX"]},
+                {"id":"draftmessage1","labelIds":["DRAFT"],"payload":{"headers":[{"name":"Message-ID","value":"<exact@example.invalid>"}]}}
+            ]}))).expect(1).mount(&server).await;
+        Mock::given(method("GET"))
+            .and(path("/drafts"))
+            .and(query_param("q", "rfc822msgid:<exact@example.invalid>"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                json!({"drafts":[{"id":"draft1","message":{"id":"draftmessage1"}}]}),
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET")).and(path("/drafts/draft1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"draft1","message":{"id":if changed {"remote-revision"} else {"draftmessage1"}}})))
+            .expect(if changed {1} else {2}).mount(&server).await;
+        Mock::given(method("DELETE"))
+            .and(path("/drafts/draft1"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(if changed { 0 } else { 1 })
+            .mount(&server)
+            .await;
+        let result = gmail(&server).discard_thread_drafts("thread1").await;
+        if changed {
+            assert!(matches!(result, Err(Error::DraftConflict)));
+        } else {
+            assert_eq!(result.unwrap(), 1);
+        }
+        assert!(
+            server
+                .received_requests()
+                .await
+                .unwrap()
+                .iter()
+                .all(|r| r.method != "DELETE" || r.url.path() == "/drafts/draft1")
+        );
+    }
+}
 #[test]
 fn rich_replies_include_plain_and_html_alternatives_and_keep_quoted_history() {
     let mut compose = Compose::new("sender@example.invalid".into());
@@ -29,7 +72,7 @@ fn rich_replies_include_plain_and_html_alternatives_and_keep_quoted_history() {
     compose.retained.push(RetainedAttachment {
         name: "image.png".into(),
         mime_type: "image/png".into(),
-        data: vec![1, 2, 3],
+        data: vec![1, 2, 3].into(),
         ..Default::default()
     });
     let bytes = compose.mime().unwrap();
@@ -93,7 +136,7 @@ async fn repeated_attachment_saves_update_one_draft_and_send_that_same_draft_onc
     compose.retained.push(RetainedAttachment {
         name: "pasted.png".into(),
         mime_type: "image/png".into(),
-        data: vec![1, 2],
+        data: vec![1, 2].into(),
         ..Default::default()
     });
     for body in [
@@ -494,7 +537,7 @@ fn charset_decoding() {
             value: "text/plain; charset=iso-8859-1".into(),
         }],
         body: PartBody {
-            data: Some(URL_SAFE_NO_PAD.encode([0x63, 0x61, 0x66, 0xe9])),
+            data: Some(URL_SAFE_NO_PAD.encode([0x63, 0x61, 0x66, 0xe9]).into()),
             ..Default::default()
         },
         ..Default::default()
@@ -507,7 +550,7 @@ fn attachment_is_not_body() {
         mime_type: "text/plain".into(),
         filename: "secret.txt".into(),
         body: PartBody {
-            data: Some(URL_SAFE_NO_PAD.encode("secret")),
+            data: Some(URL_SAFE_NO_PAD.encode("secret").into()),
             ..Default::default()
         },
         ..Default::default()
@@ -594,7 +637,7 @@ fn reopened_draft_preserves_inline_and_regular_parts() {
     c.retained.push(RetainedAttachment {
         name: "photo.png".into(),
         mime_type: "image/png".into(),
-        data: vec![1, 2, 3],
+        data: vec![1, 2, 3].into(),
         content_id: Some("<photo>".into()),
     });
     let raw = String::from_utf8(c.mime().unwrap()).unwrap();
@@ -617,7 +660,7 @@ async fn draft_attachments_download_only_when_editing() {
         .await;
     let (_, parts) = gmail(&server).edit_draft("d").await.unwrap();
     assert_eq!(parts.len(), 1);
-    assert_eq!(parts[0].data, vec![1, 2, 3]);
+    assert_eq!(parts[0].data.as_slice(), [1, 2, 3]);
 }
 #[test]
 fn oversize_attachment_rejected_before_read() {
@@ -1585,4 +1628,92 @@ async fn public_contact_photo_transport_does_not_forward_authorization_or_cookie
     assert!(!requests[0].headers.contains_key("authorization"));
     assert!(!requests[0].headers.contains_key("cookie"));
     assert!(!requests[0].headers.contains_key("referer"));
+}
+
+#[test]
+fn send_as_reply_address_is_separate_from_thread_headers_and_account_metadata() {
+    use mailparse::MailHeaderMap;
+    let compose = Compose {
+        account: Some("private-account-key".into()),
+        from: "Alias <alias@example.invalid>".into(),
+        to: "self@example.invalid".into(),
+        sender_reply_to: "reply@example.invalid".into(),
+        reply_to: "<original@example.invalid>".into(),
+        references: "<original@example.invalid>".into(),
+        text: "Test".into(),
+        ..Compose::new("alias@example.invalid".into())
+    };
+    let raw = compose.mime().unwrap();
+    let mail = mailparse::parse_mail(&raw).unwrap();
+    assert_eq!(
+        mail.headers.get_first_value("Reply-To").as_deref(),
+        Some("reply@example.invalid")
+    );
+    assert_eq!(
+        mail.headers.get_first_value("In-Reply-To").as_deref(),
+        Some("<original@example.invalid>")
+    );
+    assert!(!String::from_utf8_lossy(&raw).contains("private-account-key"));
+}
+
+#[test]
+fn message_actions_and_composer_snapshots_share_large_payloads_in_ram() {
+    let body: Arc<str> = "x".repeat(2 * 1024 * 1024).into();
+    let message = Message {
+        payload: Part {
+            body: PartBody {
+                data: Some(body.clone()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let actions: Vec<_> = (0..32).map(|_| message.clone()).collect();
+    assert!(
+        actions
+            .iter()
+            .all(|m| Arc::ptr_eq(m.payload.body.data.as_ref().unwrap(), &body))
+    );
+    let wire = serde_json::to_vec(&message).unwrap();
+    let restored: Message = serde_json::from_slice(&wire).unwrap();
+    assert_eq!(restored.payload.body.data.as_deref(), Some(body.as_ref()));
+    let bytes = Arc::new(vec![0u8; 8 * 1024 * 1024]);
+    let mut compose = Compose::new("sender@example.invalid".into());
+    compose.retained.push(RetainedAttachment {
+        data: bytes.clone(),
+        ..Default::default()
+    });
+    let snapshots: Vec<_> = (0..32).map(|_| compose.clone()).collect();
+    assert!(
+        snapshots
+            .iter()
+            .all(|c| Arc::ptr_eq(&c.retained[0].data, &bytes))
+    );
+}
+
+#[tokio::test]
+async fn autosave_revision_check_omits_headers_and_body_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/drafts/draft1"))
+        .and(query_param("format", "minimal"))
+        .and(query_param("fields", "message(id)"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"message":{"id":"current"}})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let old = crate::gmail::Draft {
+        id: "draft1".into(),
+        message: Message {
+            id: "stale".into(),
+            ..Default::default()
+        },
+    };
+    assert!(matches!(
+        gmail(&server)
+            .save_draft(Some(&old), b"synthetic", None)
+            .await,
+        Err(Error::DraftConflict)
+    ));
 }
