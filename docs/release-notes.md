@@ -54,7 +54,10 @@ A session D-Bus, unlocked Secret Service keyring, notification daemon and option
 StatusNotifier tray host are required. WebKit and media codecs make the application
 bundle larger; mailbox storage remains bounded. GitHub provides source archives.
 
-One authorized real account passed browser consent, Windows vault/token refresh,
-synthetic self-mail operations and Gmail filter creation/removal. Two-account Linux/
-Noctalia, Drive recipient access and sustained mailbox checks remain. Saved-contact photos are optional; arbitrary sender photos and general HTML draft visual re-editing remain incomplete. See STATUS and the
+One authorized real account passed browser consent (including optional Contacts),
+Windows vault/token refresh, synthetic self-mail drafts/send, a 17 MiB Drive upload
+and self-delivered filename link, saved-contact photo display, and Gmail filter
+creation/removal with cleanup. Two-account Linux/Noctalia, other-recipient Drive
+access and sustained mailbox checks remain. Arbitrary sender photos and general
+HTML draft visual re-editing remain incomplete. See STATUS and the
 release checklist. Notifications use configurable polling, not Gmail push.

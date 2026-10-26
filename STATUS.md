@@ -11,7 +11,8 @@ and the final review video are still gates.
 - Explicit per-account folders, stable sidebar geometry and right-click Gmail label deletion.
 - Image clipboard attachments without a disk spool; separate Gmail draft conflict recovery.
 - Optional on-demand saved-contact photos with read-only permission and bounded RAM.
-  Live Contacts/consent and the final 0.4 Linux package checks are still being recorded.
+  Real incremental Contacts consent, exact self-contact lookup, public photo fetch/
+  decode and list/reader avatars passed with a disposable contact, removed afterward.
 
 - Frameless tiling layout, 75–200% app scaling, optional decorations, reduced
   motion, installed-font composition and visual restoration of new Luma rich drafts.
@@ -40,6 +41,9 @@ Real authorized Windows tests completed browser consent, PKCE/loopback, OS-vault
 storage/reload, token refresh and synthetic self-mail draft create/edit/reload/send,
 inline photo/DOCX/audio attachments, read/star/label/archive/Trash/restore/search.
 Gmail filter create/list/delete and cleanup passed. Unrelated mail was not changed.
+The 0.4 review session also saved/reopened/sent a Gmail draft (removed after send)
+and uploaded a 17 MiB synthetic file to Drive, then delivered its filename link to
+the same account. Other-recipient access/cancellation remain acceptance gates.
 A 25-row test measured Inbox 0.93s, Load more 0.70s, Archive 1.12s and All Mail 0.88s.
 These are observations, not latency guarantees.
 
