@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Private display tools
-        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11
+        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 libegl1 libgl1-mesa-dri libgtk-4-1 libadwaita-1-0
       - name: Permit the bundled namespace sandbox on this disposable runner
         run: |
           sudo tee /etc/apparmor.d/luma-ci-bwrap >/dev/null <<'PROFILE'
