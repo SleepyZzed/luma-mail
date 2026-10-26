@@ -228,7 +228,7 @@ fn menu(e: &Rc<Editor>, x: f64, y: f64) {
     pop.connect_closed(|p| p.unparent());
     pop.popup();
 }
-pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::Box) {
+pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
     e.text.buffer().set_enable_undo(false);
     *e.history.current.borrow_mut() = take(e, e.html.is_active());
     let group = gtk::gio::SimpleActionGroup::new();
@@ -276,8 +276,8 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::Box) {
         button.add_css_class("flat");
         button.set_focus_on_click(false);
     }
-    toolbar.prepend(&forward);
-    toolbar.prepend(&back);
+    toolbar.insert(&back, 1);
+    toolbar.insert(&forward, 2);
     *e.history.actions.borrow_mut() = Some((undo, redo));
     *e.history.buttons.borrow_mut() = Some((back, forward));
     sync(e);

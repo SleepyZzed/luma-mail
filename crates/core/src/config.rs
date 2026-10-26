@@ -2,6 +2,46 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DraftMode {
+    #[default]
+    Ask,
+    OnClose,
+    Manual,
+}
+impl DraftMode {
+    pub fn saves_on_close(self, recipient: bool, body: bool) -> bool {
+        self == Self::OnClose && recipient && body
+    }
+}
+
+#[cfg(test)]
+mod draft_mode_tests {
+    use super::*;
+    #[test]
+    fn old_settings_ask_and_only_on_close_with_both_fields_can_save_automatically() {
+        let settings: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(settings.draft_mode, DraftMode::Ask);
+        for mode in [DraftMode::Ask, DraftMode::OnClose, DraftMode::Manual] {
+            for recipient in [false, true] {
+                for body in [false, true] {
+                    assert_eq!(
+                        mode.saves_on_close(recipient, body),
+                        mode == DraftMode::OnClose && recipient && body
+                    );
+                }
+            }
+            let mut settings = settings.clone();
+            settings.draft_mode = mode;
+            let reopened: Settings =
+                serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(reopened.draft_mode, mode);
+            assert!(!reopened.local_drafts);
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Account {
     pub id: String,
@@ -44,6 +84,7 @@ pub struct Settings {
     pub poll_version: u8,
     pub notification_privacy: bool,
     pub close_to_tray: bool,
+    pub draft_mode: DraftMode,
     // Old development builds wrote recovery copies. Retain their reader, but
     // never resume local autosaving from an old preference file.
     #[serde(skip)]
@@ -72,6 +113,7 @@ impl Default for Settings {
             poll_version: 1,
             notification_privacy: false,
             close_to_tray: true,
+            draft_mode: DraftMode::Ask,
             local_drafts: false,
             recent_recipients: true,
             window_width: 1320,

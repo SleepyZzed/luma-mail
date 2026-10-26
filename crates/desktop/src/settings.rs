@@ -405,7 +405,38 @@ pub fn open(s: &Rc<State>) {
         );
     }
     storage.add(&g);
-    let local=adw::PreferencesGroup::builder().title("Recent recipients").description("Gmail stores and autosaves your drafts. Luma retains at most 100 recently sent recipients (64 KiB), expiring after 90 days. No mailbox or Sent-folder indexing.").build();
+    let drafts = adw::PreferencesGroup::builder()
+        .title("Drafts")
+        .description("Typing and attaching files stay in memory. Saved drafts live in Gmail, never in a local draft archive.")
+        .build();
+    let draft_mode = adw::ComboRow::builder()
+        .title("When closing the composer")
+        .subtitle("Ask first by default. Save on close needs a recipient and body; Manual closes without saving changes.")
+        .model(&gtk::StringList::new(&[
+            "Ask whether to save · Default",
+            "Save to Gmail on close",
+            "Manual Save only",
+        ]))
+        .selected(match s.settings.borrow().draft_mode {
+            luma_core::config::DraftMode::Ask => 0,
+            luma_core::config::DraftMode::OnClose => 1,
+            luma_core::config::DraftMode::Manual => 2,
+        })
+        .build();
+    drafts.add(&draft_mode);
+    {
+        let s = s.clone();
+        draft_mode.connect_selected_notify(move |row| {
+            s.settings.borrow_mut().draft_mode = match row.selected() {
+                1 => luma_core::config::DraftMode::OnClose,
+                2 => luma_core::config::DraftMode::Manual,
+                _ => luma_core::config::DraftMode::Ask,
+            };
+            s.save();
+        });
+    }
+    storage.add(&drafts);
+    let local=adw::PreferencesGroup::builder().title("Recent recipients").description("Luma retains at most 100 recently sent recipients (64 KiB), expiring after 90 days. No mailbox or Sent-folder indexing.").build();
     let recent = adw::SwitchRow::builder()
         .title("Suggest recently sent recipients")
         .subtitle("Learns only after confirmed sends in Luma; expires after 90 days")

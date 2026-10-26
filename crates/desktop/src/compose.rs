@@ -15,6 +15,8 @@ use std::{
 };
 #[path = "compose_clipboard.rs"]
 mod clipboard;
+#[path = "compose_close.rs"]
+mod close_policy;
 #[path = "compose_conflict.rs"]
 mod draft_conflict;
 #[path = "compose_fonts.rs"]
@@ -49,6 +51,8 @@ pub(crate) struct Editor {
     popout: gtk::Button,
     inline_origin: glib::WeakRef<gtk::Box>,
     close_after_save: Cell<bool>,
+    close_pending: Cell<bool>,
+    close_dialog: Cell<bool>,
     from: gtk::DropDown,
     inline_from: gtk::DropDown,
     identities: identity::Choices,
@@ -365,6 +369,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                     !e.automatic_links.borrow().is_empty(),
                     "typed links are highlighted"
                 );
+                verify_toolbar(&e);
                 fonts::verify(&e);
                 e.expand.emit_clicked();
                 stage = 2;
@@ -462,7 +467,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                 assert!(state.local_compose.drafts().unwrap().is_empty());
                 println!("PASS normal composition creates no local draft files; Gmail owns drafts");
                 verify_inline_reply(&state);
-                state.app.quit();
+                close_policy::verify(&state);
                 return glib::ControlFlow::Break;
             }
             _ => (),
@@ -676,9 +681,9 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
         return glib::Propagation::Proceed;
     }
     if e.clipboard_busy.get() {
-        e.close_after_save.set(true);
+        e.close_pending.set(true);
         e.status
-            .set_text("Finishing the pasted image before saving and closing…");
+            .set_text("Finishing the pasted image before closing…");
         return glib::Propagation::Stop;
     }
     #[cfg(debug_assertions)]
@@ -687,10 +692,14 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
     }
     if e.busy.get() {
         e.status.set_text("Finishing the current Gmail request…");
-        e.close_after_save.set(true);
+        e.close_pending.set(true);
+        return glib::Propagation::Stop;
+    }
+    if e.close_dialog.get() {
         return glib::Propagation::Stop;
     }
     if e.conflict.get() {
+        e.close_dialog.set(true);
         let dialog = adw::AlertDialog::builder().heading("Keep both draft versions?").body("Gmail has a newer version. Your unsaved edits are still here. Save them as a separate Gmail draft, or close this editor and keep Gmail's version.").build();
         dialog.add_responses(&[
             ("cancel", "Keep editing"),
@@ -701,7 +710,9 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
         dialog.set_default_response(Some("cancel"));
         let editor = e.clone();
         glib::MainContext::default().spawn_local(async move {
-            match dialog.choose_future(Some(&editor.parent())).await.as_str() {
+            let response = dialog.choose_future(Some(&editor.parent())).await;
+            editor.close_dialog.set(false);
+            match response.as_str() {
                 "copy" => {
                     save_conflict_copy(&editor);
                     editor.close_after_save.set(true);
@@ -713,11 +724,14 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
         return glib::Propagation::Stop;
     }
     if e.uncertain.get() {
+        e.close_dialog.set(true);
         let dialog=adw::AlertDialog::builder().heading("Close after an uncertain request?").body("Check Gmail Sent and Drafts before sending again. Copy any unsaved text you need before closing.").build();
         dialog.add_responses(&[("cancel", "Keep editing"), ("close", "Close")]);
         let editor = e.clone();
         glib::MainContext::default().spawn_local(async move {
-            if dialog.choose_future(Some(&editor.parent())).await == "close" {
+            let response = dialog.choose_future(Some(&editor.parent())).await;
+            editor.close_dialog.set(false);
+            if response == "close" {
                 if editor.state.settings.borrow().local_drafts {
                     save_local(&editor, true);
                 } else {
@@ -727,14 +741,8 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
         });
         return glib::Propagation::Stop;
     }
-    if e.revision.get() > 0 && e.state.settings.borrow().local_drafts {
-        save_local(e, true);
-        return glib::Propagation::Stop;
-    }
     if e.revision.get() != e.saved.get() {
-        e.close_after_save.set(true);
-        persist(e, false);
-        return glib::Propagation::Stop;
+        return close_policy::request(e);
     }
     glib::Propagation::Proceed
 }
@@ -971,6 +979,81 @@ pub(crate) fn verify_formatting() {
     assert!(has_formatting(&buffer));
     crate::compose_lists::verify();
 }
+#[cfg(debug_assertions)]
+fn verify_toolbar(e: &Editor) {
+    fn visit(widget: &gtk::Widget, buttons: &mut Vec<gtk::Button>) {
+        if let Some(tip) = widget.tooltip_text()
+            && matches!(
+                tip.as_str(),
+                "Bold"
+                    | "Italic"
+                    | "Underline"
+                    | "Toggle bullet list"
+                    | "Toggle numbered list"
+                    | "Insert link"
+            )
+        {
+            assert!(
+                widget.is_mapped() && widget.width() > 0 && widget.height() > 0,
+                "Formatting action must be visible: {tip}"
+            );
+            let flow = widget.parent().unwrap().parent().unwrap();
+            let bounds = widget.compute_bounds(&flow).unwrap();
+            assert!(
+                bounds.x() >= 0.
+                    && bounds.y() >= 0.
+                    && bounds.x() + bounds.width() <= flow.width() as f32 + 1.
+                    && bounds.y() + bounds.height() <= flow.height() as f32 + 1.,
+                "Formatting action must not be clipped: {tip}; bounds={bounds:?}, flow={}x{}",
+                flow.width(),
+                flow.height()
+            );
+            buttons.push(widget.clone().downcast::<gtk::Button>().unwrap());
+        }
+        let mut child = widget.first_child();
+        while let Some(widget) = child {
+            visit(&widget, buttons);
+            child = widget.next_sibling();
+        }
+    }
+    let mut buttons = Vec::new();
+    visit(e.root.upcast_ref(), &mut buttons);
+    assert_eq!(
+        buttons.len(),
+        6,
+        "All core formatting controls must be exposed"
+    );
+    let b = e.text.buffer();
+    b.set_text("Toolbar check");
+    b.select_range(&b.start_iter(), &b.end_iter());
+    buttons
+        .iter()
+        .find(|b| b.tooltip_text().as_deref() == Some("Bold"))
+        .unwrap()
+        .emit_clicked();
+    assert!(formatted_html(&b).contains("<strong>"));
+    buttons
+        .iter()
+        .find(|b| b.tooltip_text().as_deref() == Some("Toggle bullet list"))
+        .unwrap()
+        .emit_clicked();
+    assert!(
+        b.text(&b.start_iter(), &b.end_iter(), false)
+            .starts_with("• ")
+    );
+    buttons
+        .iter()
+        .find(|b| b.tooltip_text().as_deref() == Some("Toggle numbered list"))
+        .unwrap()
+        .emit_clicked();
+    assert!(
+        b.text(&b.start_iter(), &b.end_iter(), false)
+            .starts_with("1. ")
+    );
+    println!(
+        "PASS visible, unclipped rich-text controls and actual Bold/Bullet/Numbered button actions"
+    );
+}
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
     let reduced = s.settings.borrow().reduced_motion;
@@ -1203,11 +1286,12 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let format = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .min_children_per_line(1)
-        .max_children_per_line(2)
+        .max_children_per_line(32)
         .column_spacing(4)
         .row_spacing(4)
         .build();
-    format.set_halign(gtk::Align::Start);
+    format.set_halign(gtk::Align::Fill);
+    format.set_hexpand(true);
     let format_bar = vbox(0);
     format_bar.add_css_class("compose-toolbar");
     format_bar.append(&format);
@@ -1363,6 +1447,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         popout: popout.clone(),
         inline_origin: slot.as_ref().map(|s| s.downgrade()).unwrap_or_default(),
         close_after_save: Cell::new(false),
+        close_pending: Cell::new(false),
+        close_dialog: Cell::new(false),
         from,
         inline_from,
         identities,
@@ -1509,8 +1595,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         }
     }
     fonts::install(&e, &format);
-    let styling = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-    format.insert(&styling, -1);
+    // Each action is a populated FlowBox item. A single nested, initially empty
+    // action group can be clipped by GTK's cached flow layout on Linux.
+    let styling = format.clone();
     for (icon, title, tag) in [
         ("luma-bold-symbolic", "Bold", "strong"),
         ("luma-italic-symbolic", "Italic", "em"),
@@ -1519,7 +1606,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     ] {
         let b = ui::button(icon, title);
         b.add_css_class("flat");
-        styling.append(&b);
+        styling.insert(&b, -1);
         let weak = Rc::downgrade(&e);
         b.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
@@ -1541,7 +1628,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     ] {
         let list = ui::button(icon, title);
         list.add_css_class("flat");
-        styling.append(&list);
+        styling.insert(&list, -1);
         let weak = Rc::downgrade(&e);
         list.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
@@ -1559,7 +1646,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
     let link = ui::button("luma-link-symbolic", "Insert link");
     link.add_css_class("flat");
-    styling.append(&link);
+    styling.insert(&link, -1);
     let weak = Rc::downgrade(&e);
     link.connect_clicked(move |_| {
         if let Some(e) = weak.upgrade() {
@@ -1842,9 +1929,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
     focus_message(&e);
     if is_new
-        && (!e.template.text.is_empty()
-            || !e.template.to.is_empty()
-            || !e.template.subject.is_empty())
+        && (close_policy::has_body(&e)
+            || !e.attachments.borrow().is_empty()
+            || !e.retained.borrow().is_empty())
     {
         changed(&e);
     }
@@ -1884,20 +1971,8 @@ fn changed(e: &Rc<Editor>) {
     if let Some(id) = e.debounce.borrow_mut().take() {
         id.remove();
     }
-    let weak = Rc::downgrade(e);
-    let id = glib::timeout_add_local_once(Duration::from_secs(2), move || {
-        if let Some(e) = weak.upgrade() {
-            e.debounce.borrow_mut().take();
-            if !e.busy.get()
-                && !e.sent.get()
-                && !e.closing.get()
-                && e.revision.get() != e.saved.get()
-            {
-                persist(&e, false);
-            }
-        }
-    });
-    *e.debounce.borrow_mut() = Some(id);
+    // Changes remain in RAM. Only explicit Save/Send or the chosen close policy
+    // may write a Gmail draft; attachments and late callbacks use this path too.
 }
 fn save_local(e: &Rc<Editor>, close: bool) {
     if !e.state.settings.borrow().local_drafts || e.closing.get() {
@@ -2874,11 +2949,14 @@ fn persist(e: &Rc<Editor>, send: bool) {
                         if editor.revision.get() != revision {
                             changed(&editor);
                         }
+                        close_policy::resume(&editor);
                     }
                 }
                 Err(err) => {
                     identity::refresh(&editor);
                     editor.pending_send.set(false);
+                    editor.close_pending.set(false);
+                    editor.close_after_save.set(false);
                     editor.status.set_text(&err.to_string());
                     if matches!(err, Error::DraftConflict) {
                         editor.conflict.set(true);
