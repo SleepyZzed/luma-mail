@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-0.3.0 is **early access**. It does not complete the original brief. Google sign-in
+0.3.1 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Formal verification is not submitted: homepage ownership propagation
 and the final review video are still gates.

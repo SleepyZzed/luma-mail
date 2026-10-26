@@ -1,5 +1,5 @@
 //! Application preferences only: no desktop DPI changes or mail downloads.
-use crate::ui::{self, State};
+use crate::ui::State;
 use adw::prelude::*;
 use std::rc::Rc;
 
@@ -81,7 +81,6 @@ pub fn apply(s: &Rc<State>) {
     drop(prefs);
     s.compose_stack.set_transition_duration(duration(s, 240));
     motion_tree(s, s.window.upcast_ref());
-    ui::refresh_density(s);
     crate::compose::rescale(s);
     crate::rendering::refresh_appearance(s);
 }

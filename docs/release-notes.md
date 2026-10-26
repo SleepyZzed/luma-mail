@@ -1,4 +1,4 @@
-Luma Mail 0.3 early access — a cleaner interface and font-aware composer
+Luma Mail 0.3.1 early access — a cleaner interface and font-aware composer
 
 - Frameless main window for Hyprland/tiling desktops. Refresh, Undo and Select
   move beside the mailbox title; Settings and the app menu stay in the sidebar.
@@ -11,6 +11,8 @@ Luma Mail 0.3 early access — a cleaner interface and font-aware composer
   sizes, selection/further-typing support and Reset font. No font downloads/copies.
 - New Luma rich drafts reopen visually with supported fonts, lists and links.
   Complex, third-party and older HTML retains source mode to prevent silent loss.
+- HTML height measurements reject results from an older zoom/layout.
+- Appearance changes avoid rebuilding existing message rows.
 - Density/scale changes update the visible UI without mailbox reloads. Existing
   cache budgets, Gmail-only drafts and on-demand attachment rules remain.
 

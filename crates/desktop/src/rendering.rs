@@ -463,21 +463,28 @@ mod linux {
             request.deny();
             true
         });
-        view.connect_load_changed(|view, event| {
+        let revision = Rc::new(Cell::new(0u64));
+        let loaded = revision.clone();
+        view.connect_load_changed(move |view, event| {
             if event == webkit6::LoadEvent::Finished {
-                measure(view);
+                measure(view, &loaded);
             }
         });
         let width = Cell::new(0);
         view.add_tick_callback(move |view, _| {
             if width.replace(view.width()) != view.width() {
-                measure(view);
+                measure(view, &revision);
             }
             glib::ControlFlow::Continue
         });
         view
     }
-    fn measure(view: &webkit6::WebView) {
+    fn measure(view: &webkit6::WebView, revision: &Rc<Cell<u64>>) {
+        let epoch = revision.get().wrapping_add(1);
+        revision.set(epoch);
+        let revision = revision.clone();
+        let zoom = view.zoom_level();
+        let width = view.width();
         let weak = view.downgrade();
         view.evaluate_javascript(
             "Math.min(60000, Math.max(48, document.body ? Math.ceil(document.body.getBoundingClientRect().height) : 160))",
@@ -486,8 +493,9 @@ mod linux {
             None::<&gio::Cancellable>,
             move |result| {
                 if let (Some(view), Ok(value)) = (weak.upgrade(), result) {
-                    let height = value.to_double() * view.zoom_level();
-                    if height.is_finite() {
+                    let height = value.to_double() * zoom;
+                    if height.is_finite() && revision.get() == epoch && view.width() == width
+                        && (view.zoom_level() - zoom).abs() < 0.001 {
                         view.set_height_request(height.clamp(48., 60000.) as i32);
                     }
                 }
@@ -572,6 +580,10 @@ mod linux {
                     assert_eq!(value["pageBackground"], format!("rgb({r}, {g}, {b})"));
                 }
                 let Some(view) = weak.upgrade() else { return };
+                if step >= 5 {
+                    let height = (value["height"].as_f64().unwrap() * view.zoom_level()).clamp(48.,60000.) as i32;
+                    assert!((view.height_request()-height).abs()<=1, "HTML height must match the final zoom/layout");
+                }
                 let next_view = view.clone();
                 let advance = move || {
                     busy.set(false);
@@ -636,6 +648,7 @@ mod linux {
         }
         let app = s.app.clone();
         let mut ticks = 0;
+        let mut settled = None::<(i32, std::time::Instant)>;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
             ticks += 1;
             assert!(ticks < 300, "HTML/media diagnostics timed out");
@@ -652,6 +665,17 @@ mod linux {
             if view.widget_name() == "html-diagnostic-passed"
                 && streams.iter().all(|m| m.timestamp() > 0 || m.is_ended())
             {
+                let height = view.height_request();
+                if settled
+                    .as_ref()
+                    .is_none_or(|(previous, _)| *previous != height)
+                {
+                    settled = Some((height, std::time::Instant::now()));
+                    return glib::ControlFlow::Continue;
+                }
+                if settled.as_ref().unwrap().1.elapsed() < std::time::Duration::from_millis(200) {
+                    return glib::ControlFlow::Continue;
+                }
                 for media in &streams {
                     media.pause();
                     media.clear();
