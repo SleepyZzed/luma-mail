@@ -43,10 +43,12 @@ remaining STATUS.md gaps are not claimed complete.
 ## Mandatory implementation and hardening work
 
 - [ ] WYSIWYG rich-text editing with reliable undo/redo, lists, links and inline images.
-- [ ] Recipient chips/autocomplete and authorised sending aliases.
+- [x] Recipient chips/autocomplete and verified Send-as address choices;
+  real alias delivery and two-account acceptance remain pending.
 - [ ] Whole-conversation forwarding and safe attachment conveniences.
 - [x] Draft conflict recovery preserving unsaved text in a separate Gmail draft;
-  the newer server version is kept. Visual comparison/merging remains follow-up.
+  the newer server version is kept. Explicit field/body/attachment merging now
+  opens a separate copy; live preservation and cleanup passed.
 - [x] Account-subset filters and advanced search builder (live acceptance pending).
 - [ ] Matching-term highlighting and remaining view preferences.
 - [ ] Opt-in autostart/background behaviour, optional sound and account shortcuts.

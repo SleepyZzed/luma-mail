@@ -457,7 +457,7 @@ impl Gmail {
                     part.filename.clone()
                 },
                 mime_type: part.mime_type.clone(),
-                data,
+                data: data.into(),
                 content_id: if cid.is_empty() {
                     None
                 } else {

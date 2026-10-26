@@ -21,7 +21,7 @@ pub fn attachment(data: Vec<u8>, number: usize) -> Result<RetainedAttachment> {
     Ok(RetainedAttachment {
         name: format!("pasted-image-{number}.{extension}"),
         mime_type: mime.into(),
-        data,
+        data: data.into(),
         content_id: None,
     })
 }
@@ -37,7 +37,7 @@ mod tests {
             .unwrap();
         let bytes = png.into_inner();
         let pasted = attachment(bytes.clone(), 2).unwrap();
-        assert_eq!(pasted.data, bytes);
+        assert_eq!(pasted.data.as_slice(), bytes.as_slice());
         assert_eq!(pasted.name, "pasted-image-2.png");
         assert!(pasted.content_id.is_none());
         assert!(attachment(b"<svg onload='alert(1)'/>".to_vec(), 1).is_err());

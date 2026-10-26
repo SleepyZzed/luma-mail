@@ -72,7 +72,7 @@ fn rich_replies_include_plain_and_html_alternatives_and_keep_quoted_history() {
     compose.retained.push(RetainedAttachment {
         name: "image.png".into(),
         mime_type: "image/png".into(),
-        data: vec![1, 2, 3],
+        data: vec![1, 2, 3].into(),
         ..Default::default()
     });
     let bytes = compose.mime().unwrap();
@@ -136,7 +136,7 @@ async fn repeated_attachment_saves_update_one_draft_and_send_that_same_draft_onc
     compose.retained.push(RetainedAttachment {
         name: "pasted.png".into(),
         mime_type: "image/png".into(),
-        data: vec![1, 2],
+        data: vec![1, 2].into(),
         ..Default::default()
     });
     for body in [
@@ -537,7 +537,7 @@ fn charset_decoding() {
             value: "text/plain; charset=iso-8859-1".into(),
         }],
         body: PartBody {
-            data: Some(URL_SAFE_NO_PAD.encode([0x63, 0x61, 0x66, 0xe9])),
+            data: Some(URL_SAFE_NO_PAD.encode([0x63, 0x61, 0x66, 0xe9]).into()),
             ..Default::default()
         },
         ..Default::default()
@@ -550,7 +550,7 @@ fn attachment_is_not_body() {
         mime_type: "text/plain".into(),
         filename: "secret.txt".into(),
         body: PartBody {
-            data: Some(URL_SAFE_NO_PAD.encode("secret")),
+            data: Some(URL_SAFE_NO_PAD.encode("secret").into()),
             ..Default::default()
         },
         ..Default::default()
@@ -637,7 +637,7 @@ fn reopened_draft_preserves_inline_and_regular_parts() {
     c.retained.push(RetainedAttachment {
         name: "photo.png".into(),
         mime_type: "image/png".into(),
-        data: vec![1, 2, 3],
+        data: vec![1, 2, 3].into(),
         content_id: Some("<photo>".into()),
     });
     let raw = String::from_utf8(c.mime().unwrap()).unwrap();
@@ -660,7 +660,7 @@ async fn draft_attachments_download_only_when_editing() {
         .await;
     let (_, parts) = gmail(&server).edit_draft("d").await.unwrap();
     assert_eq!(parts.len(), 1);
-    assert_eq!(parts[0].data, vec![1, 2, 3]);
+    assert_eq!(parts[0].data.as_slice(), [1, 2, 3]);
 }
 #[test]
 fn oversize_attachment_rejected_before_read() {
@@ -1654,4 +1654,40 @@ fn send_as_reply_address_is_separate_from_thread_headers_and_account_metadata() 
         Some("<original@example.invalid>")
     );
     assert!(!String::from_utf8_lossy(&raw).contains("private-account-key"));
+}
+
+#[test]
+fn message_actions_and_composer_snapshots_share_large_payloads_in_ram() {
+    let body: Arc<str> = "x".repeat(2 * 1024 * 1024).into();
+    let message = Message {
+        payload: Part {
+            body: PartBody {
+                data: Some(body.clone()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let actions: Vec<_> = (0..32).map(|_| message.clone()).collect();
+    assert!(
+        actions
+            .iter()
+            .all(|m| Arc::ptr_eq(m.payload.body.data.as_ref().unwrap(), &body))
+    );
+    let wire = serde_json::to_vec(&message).unwrap();
+    let restored: Message = serde_json::from_slice(&wire).unwrap();
+    assert_eq!(restored.payload.body.data.as_deref(), Some(body.as_ref()));
+    let bytes = Arc::new(vec![0u8; 8 * 1024 * 1024]);
+    let mut compose = Compose::new("sender@example.invalid".into());
+    compose.retained.push(RetainedAttachment {
+        data: bytes.clone(),
+        ..Default::default()
+    });
+    let snapshots: Vec<_> = (0..32).map(|_| compose.clone()).collect();
+    assert!(
+        snapshots
+            .iter()
+            .all(|c| Arc::ptr_eq(&c.retained[0].data, &bytes))
+    );
 }

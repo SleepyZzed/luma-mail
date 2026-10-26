@@ -29,7 +29,7 @@ pub fn decode_part(part: &Part) -> Result<Vec<u8>> {
 pub struct RetainedAttachment {
     pub name: String,
     pub mime_type: String,
-    pub data: Vec<u8>,
+    pub data: std::sync::Arc<Vec<u8>>,
     pub content_id: Option<String>,
 }
 #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]

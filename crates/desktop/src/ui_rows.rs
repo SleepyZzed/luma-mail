@@ -232,17 +232,12 @@ fn bind(s: &Rc<State>, row: &crate::virtual_inbox::Row, widget: &gtk::Box, revea
         }
     });
     widget.add_controller(keyboard);
-    let weak = reveal.downgrade();
-    let state = Rc::downgrade(s);
+    let weak = row.downgrade();
     widget.connect_map(move |_| {
         let weak = weak.clone();
-        let state = state.clone();
         glib::idle_add_local_once(move || {
-            if let Some(reveal) = weak.upgrade() {
-                reveal.set_reveal_child(true);
-                if let Some(state) = state.upgrade() {
-                    crate::presentation::enter(&state, &reveal);
-                }
+            if let Some(row) = weak.upgrade() {
+                row.reveal().set_reveal_child(true);
             }
         });
     });

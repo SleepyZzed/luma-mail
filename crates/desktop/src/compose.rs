@@ -3088,7 +3088,7 @@ fn render_files(e: &Rc<Editor>) {
                     &file.name,
                     &file.mime_type,
                     file.data.len() as u64,
-                    Source::Bytes(std::sync::Arc::new(file.data.clone())),
+                    Source::Bytes(file.data.clone()),
                 );
             }
         });
@@ -3108,11 +3108,7 @@ fn render_files(e: &Rc<Editor>) {
         {
             auto_count += 1;
             auto_bytes += file.data.len();
-            attachments::thumbnail(
-                &e.state,
-                &card,
-                Source::Bytes(std::sync::Arc::new(file.data.clone())),
-            );
+            attachments::thumbnail(&e.state, &card, Source::Bytes(file.data.clone()));
         }
     }
     for (index, path) in e.attachments.borrow().iter().enumerate() {

@@ -41,6 +41,7 @@ impl PartialEq for Row {
     }
 }
 impl Eq for Row {}
+#[derive(Clone)]
 pub struct WeakRow(Weak<Data>);
 impl WeakRow {
     pub fn upgrade(&self) -> Option<Row> {

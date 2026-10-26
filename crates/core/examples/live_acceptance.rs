@@ -419,7 +419,7 @@ async fn reply_regression(gmail: &Gmail, email: &str, resume: bool) -> Result<()
             compose.retained.push(RetainedAttachment {
                 name: format!("synthetic-paste-{index}.txt"),
                 mime_type: "text/plain".into(),
-                data: vec![b'X'; 64],
+                data: vec![b'X'; 64].into(),
                 content_id: None,
             });
             draft = gmail
@@ -491,7 +491,7 @@ async fn exercise(gmail: &Gmail, email: &str, paths: &Paths, resume: bool) -> Re
     compose.retained.push(RetainedAttachment {
         name: "luma-acceptance.txt".into(),
         mime_type: "text/plain".into(),
-        data: b"Luma synthetic attachment round trip\n".to_vec(),
+        data: b"Luma synthetic attachment round trip\n".to_vec().into(),
         content_id: None,
     });
     if !resume && let Some(root) = std::env::var_os("LUMA_FIXTURE_DIR") {
@@ -508,7 +508,7 @@ async fn exercise(gmail: &Gmail, email: &str, paths: &Paths, resume: bool) -> Re
             compose.retained.push(RetainedAttachment {
                 name: name.into(),
                 mime_type: mime.into(),
-                data: std::fs::read(root.join(name))?,
+                data: std::fs::read(root.join(name))?.into(),
                 content_id: cid.map(String::from),
             });
         }

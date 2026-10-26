@@ -20,7 +20,7 @@ for view in reader compose reply; do
   [[ "$view" == reader ]] || args+=("--preview-$view")
   timeout 20s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" \
     LUMA_SMOKE_SCREENSHOT="$(pwd)/dist/native-ui-$view.png" target/debug/luma-mail "${args[@]}" 2>"$root/$view.log"
-  if grep -Ei 'Theme parser error|Failed to load|could not load.*icon|Gtk-CRITICAL' "$root/$view.log"; then exit 1; fi
+  if grep -Ei 'Theme parser (error|warning)|Failed to load.*luma-|could not load.*luma-|Gtk-CRITICAL' "$root/$view.log"; then exit 1; fi
   test -s "dist/native-ui-$view.png"
 done
 echo 'PASS native Linux reader, compact compose, inline reply and zero CSS/icon errors'

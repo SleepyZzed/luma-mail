@@ -18,7 +18,7 @@ pub struct Header {
 pub struct PartBody {
     #[serde(default)]
     pub size: u64,
-    pub data: Option<String>,
+    pub data: Option<std::sync::Arc<str>>,
     pub attachment_id: Option<String>,
 }
 

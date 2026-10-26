@@ -223,6 +223,10 @@ lookup-rate limits; it creates no file and adds no permission.
 - Inbox metadata stays capped at 1,000 rows; GtkListView recycles its rendered
   widget trees. Selection uses model identity and does not require offscreen
   widgets. No extra disk data is created by recycling.
+- Immutable MIME body data and retained draft/clipboard attachment bytes are
+  shared across message-action callbacks and composer snapshots. Cloning a
+  message or draft does not duplicate these large buffers. JSON/MIME formats,
+  cache limits and attachment-preview safety limits remain unchanged.
 - WebKit views share weakly held ephemeral contexts/sessions, use DocumentViewer
   caching and disable back/forward page caching. Resize allocation events replace
   per-frame width polling. WebKit's 30-second memory-pressure checks can release
