@@ -21,10 +21,16 @@ chmod 700 "$root/runtime"
 # Start the bus after the display/environment exist, so activated portals inherit
 # them too. A headless runner has no pre-existing graphical session environment.
 export LUMA_TEST_ROOT="$root/app" LUMA_RENDER_MEDIA="$root"
-export XDG_CACHE_HOME="$root/xdg-cache" XDG_RUNTIME_DIR="$root/runtime"
+export XDG_CACHE_HOME="$root/xdg-cache"
 export APPIMAGE_EXTRACT_AND_RUN=1
 export GTK_A11Y=none LIBGL_ALWAYS_SOFTWARE=1
-if ! timeout 45s xvfb-run -a dbus-run-session -- "$1" --render-diagnostics; then
+if [[ ${LUMA_TEST_DISPLAY:-x11} == wayland ]]; then
+  display=(bash packaging/with-wayland.sh)
+else
+  export XDG_RUNTIME_DIR="$root/runtime" GDK_BACKEND=x11
+  display=(xvfb-run -a)
+fi
+if ! timeout 45s "${display[@]}" dbus-run-session -- "$1" --render-diagnostics; then
   echo 'Renderer launch failed; recent kernel sandbox diagnostics follow'
   sudo journalctl -k --no-pager -n 60 || true
   exit 1
