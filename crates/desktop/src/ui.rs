@@ -1813,6 +1813,22 @@ pub fn verify_view_behaviour(s: &Rc<State>) {
     s.labels_cache
         .borrow_mut()
         .insert("fixture".into(), vec![label]);
+    let accounts = s.settings.borrow().accounts.clone();
+    s.settings
+        .borrow_mut()
+        .accounts
+        .push(luma_core::config::Account {
+            id: "fixture".into(),
+            email: "fixture@example.invalid".into(),
+            name: "Fixture account".into(),
+            enabled: true,
+            notifications: false,
+            signature: String::new(),
+            drive_enabled: false,
+            sender_controls: false,
+            contact_photos: false,
+            blocked_senders: vec![],
+        });
     *s.filter.borrow_mut() = Some("fixture".into());
     for _ in 0..2 {
         sidebar(s);
@@ -1821,12 +1837,13 @@ pub fn verify_view_behaviour(s: &Rc<State>) {
         while let Some(widget) = child {
             found |= widget
                 .downcast_ref::<gtk::Button>()
-                .is_some_and(|button| button.label().as_deref() == Some("Fixture label"));
+                .is_some_and(|button| button.tooltip_text().as_deref() == Some("Fixture label"));
             child = widget.next_sibling();
         }
         assert!(found, "unread/sidebar updates must retain label navigation");
     }
     s.filter.borrow_mut().take();
+    s.settings.borrow_mut().accounts = accounts;
     s.labels_cache.borrow_mut().clear();
     sidebar(s);
     s.list.set_selection_mode(gtk::SelectionMode::Single);

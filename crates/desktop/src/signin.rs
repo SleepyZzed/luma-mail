@@ -103,6 +103,11 @@ fn open_with_config(
     ready: Option<Ready>,
     config: Result<ClientConfig>,
 ) {
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|a| a == "--design-preview") {
+        s.info("Use the normal Luma window to connect an account. This preview contains synthetic test data.");
+        return;
+    }
     if let Some(window) = s.signin_window.borrow().as_ref() {
         window.present();
         return;
