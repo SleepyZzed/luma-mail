@@ -28,8 +28,27 @@ created, listed and removed with ownership checks. Other-recipient Drive access,
 cancellation and sustained/two-account Linux acceptance remain open.
 
 Google People API is enabled, with the optional Contacts scope and usage
-justification declared for review. Formal Google verification is still pending
-the review video/URL and homepage ownership review; this is not approval.
+justification declared for review. On 26 October 2026 the maintainer-authorized
+English narrated demo was uploaded unlisted after a full decode/privacy check.
+It includes the real native-browser address bar/client ID and complete four-scope
+view, original incremental consent, synthetic Gmail/Drive/photo actions, and a
+real Unblock of a disposable rule created through Luma's provider. Captures are
+explicitly labelled as an edited still-screen walkthrough; only the account
+avatar is redacted and blank vertical space is omitted in two browser views.
+Its private review link is held in the submission rather than published here.
+
+The final questionnaire was submitted with an ownership appeal: Search Console
+reports the exact homepage URL-prefix as verified, while the automated branding
+check rejected ownership. Google Auth Platform now reports: "Your branding and
+data access are currently under review." Client-only data flow was documented,
+and Google was asked to confirm security-assessment applicability before an
+assessment is arranged. No assessment was purchased. Submission does not remove
+the unverified warning or user cap; Google's decision remains outstanding.
+
+All four synthetic review conversations were moved to recoverable Gmail Trash;
+the 17 MiB upload and disposable contact were moved to their services' Bin. The
+synthetic filter was removed by the app's real Unblock action. Unrelated mail,
+contacts and filters were not modified.
 
 Development date: 2026-10-25.
 

@@ -2,8 +2,10 @@
 
 0.4.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
-cap remain. Formal verification is not submitted: homepage ownership propagation
-and the final review video are still gates.
+cap remain. Branding and data-access verification were submitted on 26 October
+2026 with an English demo and the homepage ownership appeal. Google Auth Platform
+confirms both are under review. Submission is not approval; any assessment
+decision and Google's final response remain gates.
 
 ## Implemented and exercised
 
@@ -67,6 +69,6 @@ executed results rather than assuming runtime success from compilation.
   whole-conversation forwarding and persistent sender remote-image preferences.
 - View preferences/search highlighting, accents, optional autostart/sound,
   keyboard/accessibility/HiDPI audit, native Arch acceptance and sustained profiling.
-- Google verification, final demo, any required assessment and external security review.
+- Google's verification decision, any required assessment and external security review.
 
 The 20 acceptance criteria remain tracked in RELEASE-CHECKLIST.md.

@@ -15,6 +15,12 @@ state token and S256 PKCE. No application server is involved.
 
 ## One-time setup for the app maintainer
 
+Luma's current registration and English demonstration were submitted for branding
+and data-access review on 26 October 2026. Google Auth Platform reports both are
+under review. The homepage ownership appeal and client-only data-flow explanation
+are included. This is not approval, an assessment waiver or a promise of cost;
+Google's unverified warning and lifetime user cap remain until Google approves.
+
 The maintainer must create Luma's app registration before distributing a working
 build. This is not a task for each user. The repository does not invent or borrow
 another application's client ID, and an unconfigured developer build reports

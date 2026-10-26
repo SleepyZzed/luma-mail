@@ -69,6 +69,8 @@ palette are tracked separately from the 20 mandatory behaviours.
   applicable assessment requirements before presenting an official public client.
 - [x] Publish the External Google registration without a per-user test list for
   early access (25 October 2026). Console confirms In production, 1 / 100 users.
+- [x] Submit the English demo and branding/data-access review package (26 October
+  2026). Console confirms both under review; Google's approval is outstanding.
 - [ ] Verify live consent with two accounts not dependent on a test-list entry;
   complete Google verification for warning-free, uncapped sign-in. Record
   Google's assessment decision and verification/hosting/API costs before

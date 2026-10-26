@@ -39,8 +39,10 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Sustained giant-mailbox traffic/memory/storage profiling. Cache growth must stay
   within the configured allocation budget, independent of mailbox size. Preserve
   zero-cache mode, remote search, bounded pages and on-demand attachment retrieval.
-- Complete Google verification and any required assessment, final demo and external
+- Complete Google verification and any required assessment, and external
   security/privacy review before claiming warning-free, uncapped public sign-in.
+  The English demo and formal request were submitted on 26 October 2026; Google
+  reports branding and data access under review.
 - Record these results with exact build IDs before tagging 1.0.
 
 ## After 1.0
