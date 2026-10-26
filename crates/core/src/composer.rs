@@ -273,11 +273,17 @@ impl Compose {
                 "Content-Type: multipart/mixed; boundary=\"{boundary}\"\r\n\r\n--{boundary}\r\n"
             ));
         }
-        out.push_str(&format!(
-            "Content-Type: text/{}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n",
-            if self.html { "html" } else { "plain" }
-        ));
-        wrapped_base64(self.text.as_bytes(), &mut out);
+        if self.html {
+            let alternative = format!("luma_alt_{}", uuid::Uuid::new_v4());
+            out.push_str(&format!("Content-Type: multipart/alternative; boundary=\"{alternative}\"\r\n\r\n--{alternative}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"));
+            wrapped_base64(html_text(&self.text)?.as_bytes(), &mut out);
+            out.push_str(&format!("--{alternative}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"));
+            wrapped_base64(self.text.as_bytes(), &mut out);
+            out.push_str(&format!("--{alternative}--\r\n"));
+        } else {
+            out.push_str("Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n");
+            wrapped_base64(self.text.as_bytes(), &mut out);
+        }
         for a in &self.retained {
             clean_header(&a.name)?;
             clean_header(&a.mime_type)?;

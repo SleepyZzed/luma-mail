@@ -10,6 +10,7 @@ use std::cell::RefCell;
 pub struct RichDraft {
     pub text: String,
     pub spans: Vec<Span>,
+    pub quote: String,
 }
 pub struct Span {
     pub start: i32,
@@ -25,13 +26,18 @@ struct Parser {
     draft: RichDraft,
     stack: Vec<Frame>,
     depth: usize,
+    numbers: Vec<Option<u32>>,
     chars: i32,
     valid: bool,
 }
 impl Parser {
     fn push(&mut self, text: &str) {
-        if self.draft.text.len() + text.len() > 512 * 1024 {
+        if self.draft.text.len() + self.draft.quote.len() + text.len() > 512 * 1024 {
             self.valid = false;
+            return;
+        }
+        if self.stack.iter().any(|f| f.name == "blockquote") {
+            self.draft.quote.push_str(text);
             return;
         }
         self.draft.text.push_str(text);
@@ -67,18 +73,42 @@ impl TokenSink for Sink {
                         return TokenSinkResult::Continue;
                     }
                     "div" => vec![],
+                    "blockquote" if attr("data-luma-quote").as_deref() == Some("1") => vec![],
                     "p" => {
                         p.newline();
                         vec![]
                     }
-                    "ul" => {
+                    "ul" | "ol" => {
                         p.depth += 1;
+                        p.numbers.push(if name == "ol" {
+                            Some(
+                                attr("start")
+                                    .and_then(|v| v.parse::<u32>().ok())
+                                    .filter(|n| (1..=999999).contains(n))
+                                    .unwrap_or(1),
+                            )
+                        } else {
+                            None
+                        });
                         vec![]
                     }
                     "li" => {
                         p.newline();
                         let indent = "  ".repeat(p.depth.saturating_sub(1).min(8));
-                        p.push(&format!("{indent}• "));
+                        let number = if let Some(Some(next)) = p.numbers.last_mut() {
+                            let number = attr("value")
+                                .and_then(|v| v.parse::<u32>().ok())
+                                .filter(|n| (1..=999999).contains(n))
+                                .unwrap_or(*next);
+                            *next = number.saturating_add(1).min(999999);
+                            Some(number)
+                        } else {
+                            None
+                        };
+                        p.push(&format!(
+                            "{indent}{}",
+                            number.map_or_else(|| "• ".into(), |n| format!("{n}. "))
+                        ));
                         vec![]
                     }
                     "strong" | "em" | "u" | "s" => vec![name.clone()],
@@ -138,8 +168,9 @@ impl TokenSink for Sink {
                     if matches!(frame.name.as_str(), "li" | "p") {
                         p.newline();
                     }
-                    if frame.name == "ul" {
+                    if matches!(frame.name.as_str(), "ul" | "ol") {
                         p.depth = p.depth.saturating_sub(1);
+                        p.numbers.pop();
                     }
                     if p.draft.spans.len() > 4096 {
                         p.valid = false;
@@ -161,6 +192,7 @@ pub fn parse(html: &str) -> Option<RichDraft> {
         draft: RichDraft::default(),
         stack: vec![],
         depth: 0,
+        numbers: vec![],
         chars: 0,
         valid: true,
     });
@@ -172,9 +204,47 @@ pub fn parse(html: &str) -> Option<RichDraft> {
     let p = tokenizer.sink.0.into_inner();
     (p.valid && p.stack.is_empty()).then_some(p.draft)
 }
+/// Keep quoted history outside the editable reply, without a local sidecar.
+pub fn with_quote(body: &str, quote: &str) -> String {
+    if quote.is_empty() {
+        return body.into();
+    }
+    let escaped = quote
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    let quoted = format!(
+        "<blockquote data-luma-quote=\"1\" style=\"border-left:2px solid #888;padding-left:12px;white-space:pre-wrap\">{escaped}</blockquote>"
+    );
+    if body.starts_with("<div data-luma-editor=\"1\"")
+        && let Some(prefix) = body.strip_suffix("</div>")
+    {
+        format!("{prefix}{quoted}</div>")
+    } else {
+        format!("{body}{quoted}")
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn numbered_lists_keep_start_values_and_nested_bullets() {
+        let html = r#"<div data-luma-editor="1"><ol><li value="4">Four<ul><li>Child</li></ul></li><li value="5">Five</li></ol></div>"#;
+        assert_eq!(parse(html).unwrap().text, "4. Four\n  • Child\n5. Five\n");
+    }
+    #[test]
+    fn quoted_history_round_trips_outside_editable_text_with_safe_markup() {
+        let body = r#"<div data-luma-editor="1"><strong>My reply</strong></div>"#;
+        let history = "On yesterday, Person wrote:\n<script>not executable</script> & original";
+        let html = with_quote(body, history);
+        assert!(!html.contains("<script>"));
+        let parsed = parse(&html).unwrap();
+        assert_eq!(parsed.text, "My reply");
+        assert_eq!(parsed.quote, history);
+        assert_eq!(parsed.spans[0].tag, "strong");
+        let reopened = with_quote(body, &parsed.quote);
+        assert_eq!(reopened.matches("data-luma-quote").count(), 1);
+    }
     #[test]
     fn fonts_links_unicode_and_lists_restore_without_a_browser_or_disk() {
         let html = r#"<div data-luma-editor="1"><strong>Hi &amp; 你好</strong><br><span style="font-family:Serif" data-luma-family="Serif"><span data-luma-size="16">Next</span></span><ul><li>One</li><li>Two</li></ul><a href="https://example.com">Notes</a></div>"#;

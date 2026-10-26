@@ -3,11 +3,9 @@
 use gtk::gdk;
 use gtk::prelude::*;
 
+use luma_core::lists::{Kind, marker};
 pub fn prefix(line: &str) -> Option<(usize, i32)> {
-    let spaces = line.chars().take_while(|c| *c == ' ').count();
-    let rest = &line[spaces..];
-    rest.starts_with("• ")
-        .then_some((spaces / 2, (spaces + 2) as i32))
+    marker(line).map(|m| (m.depth, m.chars))
 }
 fn line(buffer: &gtk::TextBuffer, n: i32) -> (gtk::TextIter, String) {
     let start = buffer.iter_at_line(n).unwrap_or_else(|| buffer.end_iter());
@@ -33,18 +31,64 @@ fn delete_prefix(buffer: &gtk::TextBuffer, mut start: gtk::TextIter, count: i32)
     buffer.delete(&mut start, &mut end);
 }
 pub fn toggle(buffer: &gtk::TextBuffer) {
+    toggle_kind(buffer, Kind::Bullet);
+}
+pub fn toggle_kind(buffer: &gtk::TextBuffer, kind: Kind) {
     let (a, z) = selected_lines(buffer);
-    let remove = (a..=z).all(|n| prefix(&line(buffer, n).1).is_some());
+    let remove = (a..=z).all(|n| marker(&line(buffer, n).1).is_some_and(|m| m.kind == kind));
     buffer.begin_user_action();
     for n in (a..=z).rev() {
         let (mut start, text) = line(buffer, n);
-        if remove {
-            delete_prefix(buffer, start, prefix(&text).unwrap().1);
-        } else if prefix(&text).is_none() {
-            buffer.insert(&mut start, "• ");
+        let old = marker(&text);
+        if let Some(m) = old {
+            delete_prefix(buffer, start, m.chars);
+        }
+        if !remove {
+            start = buffer.iter_at_line(n).unwrap();
+            let depth = old.map(|m| m.depth).unwrap_or(0);
+            let prefix = if kind == Kind::Bullet {
+                format!("{}• ", "  ".repeat(depth))
+            } else {
+                format!("{}{}. ", "  ".repeat(depth), n - a + 1)
+            };
+            buffer.insert(&mut start, &prefix);
         }
     }
+    renumber(buffer, a);
     buffer.end_user_action();
+}
+fn renumber(buffer: &gtk::TextBuffer, at: i32) {
+    let mut first = at;
+    while first > 0 && marker(&line(buffer, first - 1).1).is_some() {
+        first -= 1;
+    }
+    let mut counters = [0u32; 7];
+    let mut n = first;
+    while n < buffer.line_count() {
+        let (start, text) = line(buffer, n);
+        let Some(m) = marker(&text) else {
+            break;
+        };
+        for count in &mut counters[m.depth + 1..] {
+            *count = 0;
+        }
+        if m.kind == Kind::Numbered {
+            let number = if counters[m.depth] == 0 {
+                if n == first { m.number } else { 1 }
+            } else {
+                counters[m.depth].saturating_add(1).min(999999)
+            };
+            counters[m.depth] = number;
+            if number != m.number {
+                delete_prefix(buffer, start, m.chars);
+                let mut start = buffer.iter_at_line(n).unwrap();
+                buffer.insert(&mut start, &format!("{}{}. ", "  ".repeat(m.depth), number));
+            }
+        } else {
+            counters[m.depth] = 0;
+        }
+        n += 1;
+    }
 }
 fn indent(buffer: &gtk::TextBuffer, backwards: bool) -> bool {
     let (a, z) = selected_lines(buffer);
@@ -62,6 +106,7 @@ fn indent(buffer: &gtk::TextBuffer, backwards: bool) -> bool {
             }
         }
     }
+    renumber(buffer, a);
     buffer.end_user_action();
     true
 }
@@ -97,8 +142,19 @@ pub fn key(buffer: &gtk::TextBuffer, key: gdk::Key, modifiers: gdk::ModifierType
                     .unwrap_or_else(|| buffer.end_iter()),
             );
         } else {
-            let marker: String = text.chars().take(count as usize).collect();
-            buffer.insert_at_cursor(&format!("\n{marker}"));
+            let m = marker(&text).unwrap();
+            let next = if m.kind == Kind::Numbered {
+                format!(
+                    "{}{}. ",
+                    "  ".repeat(level),
+                    m.number.saturating_add(1).min(999999)
+                )
+            } else {
+                text.chars().take(count as usize).collect()
+            };
+            let n = caret.line();
+            buffer.insert_at_cursor(&format!("\n{next}"));
+            renumber(buffer, n);
         }
         buffer.end_user_action();
         return true;
@@ -159,6 +215,39 @@ pub fn verify() {
         gdk::ModifierType::SHIFT_MASK
     ));
     assert_eq!(b.text(&b.start_iter(), &b.end_iter(), false), "• Item");
+    b.set_text("One\nTwo");
+    b.select_range(&b.start_iter(), &b.end_iter());
+    toggle_kind(&b, Kind::Numbered);
+    assert_eq!(
+        b.text(&b.start_iter(), &b.end_iter(), false),
+        "1. One\n2. Two"
+    );
+    b.place_cursor(&b.end_iter());
+    assert!(key(&b, gdk::Key::Tab, gdk::ModifierType::empty()));
+    assert_eq!(
+        b.text(&b.start_iter(), &b.end_iter(), false),
+        "1. One\n  1. Two"
+    );
+    assert!(key(
+        &b,
+        gdk::Key::ISO_Left_Tab,
+        gdk::ModifierType::SHIFT_MASK
+    ));
+    assert_eq!(
+        b.text(&b.start_iter(), &b.end_iter(), false),
+        "1. One\n2. Two"
+    );
+    b.place_cursor(&b.end_iter());
+    assert!(key(&b, gdk::Key::Return, gdk::ModifierType::empty()));
+    assert!(
+        b.text(&b.start_iter(), &b.end_iter(), false)
+            .ends_with("\n3. ")
+    );
+    assert!(key(&b, gdk::Key::Return, gdk::ModifierType::empty()));
+    assert!(
+        b.text(&b.start_iter(), &b.end_iter(), false)
+            .ends_with("Two\n")
+    );
 }
 #[test]
 fn recognizes_paragraph_bullets_and_depth() {

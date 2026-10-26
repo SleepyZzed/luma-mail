@@ -25,6 +25,17 @@ pub(super) fn controls(e: &Editor) {
     }));
 }
 pub(super) fn reset_layout(e: &Editor) {
+    e.header.set_visible(true);
+    e.inline_header.set_visible(false);
+    e.from_row.set_visible(true);
+    e.subject.set_visible(true);
+    e.field_separator.set_visible(true);
+    e.form.set_vexpand(true);
+    e.send_reveal.set_vexpand(true);
+    e.body_scroll.set_max_content_height(-1);
+    e.body_scroll.set_propagate_natural_height(false);
+    e.body_scroll.set_min_content_height(240);
+    e.body_scroll.set_vexpand(true);
     e.root.remove_css_class("inline-composer");
     e.root.remove_css_class("compact-composer");
     e.root.set_size_request(-1, -1);
@@ -33,7 +44,25 @@ pub(super) fn reset_layout(e: &Editor) {
     e.root.set_valign(gtk::Align::Fill);
     e.root.set_hexpand(true);
     e.root.set_vexpand(true);
+    e.surface.set_vexpand(true);
     ui::margins(&e.root, 0);
+}
+pub(super) fn inline(e: &Editor) {
+    reset_layout(e);
+    e.root.add_css_class("inline-composer");
+    e.root.set_vexpand(false);
+    e.surface.set_vexpand(false);
+    e.header.set_visible(false);
+    e.inline_header.set_visible(true);
+    e.from_row.set_visible(false);
+    e.subject.set_visible(false);
+    e.field_separator.set_visible(false);
+    e.form.set_vexpand(false);
+    e.send_reveal.set_vexpand(false);
+    e.body_scroll.set_vexpand(false);
+    e.body_scroll.set_min_content_height(120);
+    e.body_scroll.set_max_content_height(320);
+    e.body_scroll.set_propagate_natural_height(true);
 }
 pub(super) fn resize(e: &Editor, width: i32, height: i32) {
     if e.placement.get() != 3 {
@@ -63,82 +92,115 @@ pub(super) fn compact(e: &Rc<Editor>) {
     e.state.compose_overlay.add_overlay(&e.root);
     *e.state.editor.borrow_mut() = Some(e.clone());
 }
+
 struct Frame {
-    picture: gtk::Picture,
+    image: gtk::gdk::Paintable,
     rect: gtk::graphene::Rect,
 }
+fn rect(e: &Editor) -> Option<gtk::graphene::Rect> {
+    e.root
+        .compute_bounds(&e.state.motion_layer)
+        .filter(|r| r.width() > 1. && r.height() > 1.)
+}
 fn capture(e: &Editor) -> Option<Frame> {
-    if e.placement.get() == 2
-        || !e.root.is_mapped()
-        || crate::presentation::duration(&e.state, 280) == 0
-    {
+    if !e.root.is_mapped() {
         return None;
     }
-    let rect = e.root.compute_bounds(&e.state.motion_layer)?;
-    if rect.width() < 1. || rect.height() < 1. {
-        return None;
-    }
-    let image = gtk::WidgetPaintable::new(Some(&e.root)).current_image();
-    let picture = gtk::Picture::for_paintable(&image);
-    picture.set_can_target(false);
-    picture.set_can_focus(false);
-    picture.set_can_shrink(true);
-    picture.set_content_fit(gtk::ContentFit::Fill);
-    picture.set_size_request(rect.width().round() as i32, rect.height().round() as i32);
-    e.state.motion_layer.put(&picture, 0., 0.);
-    position(&e.state.motion_layer, &picture, &rect, &rect);
-    Some(Frame { picture, rect })
+    let rect = rect(e)?;
+    // Snapshot the final allocation at its native size. Never stretch a compact
+    // screenshot into a full-page editor: only the clip rectangle interpolates.
+    let snapshot = gtk::Snapshot::new();
+    let inner = e.surface.compute_bounds(&e.root)?;
+    snapshot.translate(&gtk::graphene::Point::new(inner.x(), inner.y()));
+    gtk::WidgetPaintable::new(Some(&e.surface)).snapshot(
+        &snapshot,
+        inner.width() as f64,
+        inner.height() as f64,
+    );
+    // Reject an unpainted frame instead of animating an empty paintable.
+    let node = snapshot.to_node()?;
+    let snapshot = gtk::Snapshot::new();
+    snapshot.append_node(&node);
+    let image = snapshot.to_paintable(Some(&gtk::graphene::Size::new(rect.width(), rect.height())));
+    image.map(|image| Frame { image, rect })
 }
-fn position(
-    layer: &gtk::Fixed,
-    picture: &gtk::Picture,
-    source: &gtk::graphene::Rect,
-    dest: &gtk::graphene::Rect,
-) {
-    let transform = gtk::gsk::Transform::new()
-        .translate(&gtk::graphene::Point::new(dest.x(), dest.y()))
-        .scale(
-            dest.width() / source.width(),
-            dest.height() / source.height(),
-        );
-    layer.set_child_transform(picture, Some(&transform));
+fn interpolate(a: gtk::graphene::Rect, b: gtk::graphene::Rect, v: f32) -> gtk::graphene::Rect {
+    gtk::graphene::Rect::new(
+        a.x() + (b.x() - a.x()) * v,
+        a.y() + (b.y() - a.y()) * v,
+        a.width() + (b.width() - a.width()) * v,
+        a.height() + (b.height() - a.height()) * v,
+    )
 }
+#[allow(deprecated)]
 fn animate(
     e: &Rc<Editor>,
     frame: Frame,
-    dest: gtk::graphene::Rect,
-    fade: bool,
+    from: gtk::graphene::Rect,
+    to: gtk::graphene::Rect,
     done: impl FnOnce() + 'static,
 ) {
-    let layer = e.state.motion_layer.clone();
-    let picture = frame.picture.clone();
-    let source = frame.rect;
-    let target = adw::CallbackAnimationTarget::new(move |value| {
-        let v = value as f32;
-        let rect = gtk::graphene::Rect::new(
-            source.x() + (dest.x() - source.x()) * v,
-            source.y() + (dest.y() - source.y()) * v,
-            source.width() + (dest.width() - source.width()) * v,
-            source.height() + (dest.height() - source.height()) * v,
+    let layer = &e.state.motion_layer;
+    let canvas =
+        gtk::graphene::Size::new(layer.width().max(1) as f32, layer.height().max(1) as f32);
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|a| a == "--motion-preview") {
+        eprintln!(
+            "motion canvas {}x{} frame {:?} surface {}x{}",
+            canvas.width(),
+            canvas.height(),
+            frame.rect,
+            e.surface.width(),
+            e.surface.height()
         );
-        position(&layer, &picture, &source, &rect);
-        if fade {
-            picture.set_opacity(1. - value);
-        }
-    });
+    }
+    let picture = gtk::Picture::new();
+    picture.set_can_target(false);
+    picture.set_can_focus(false);
+    picture.set_size_request(canvas.width() as i32, canvas.height() as i32);
+    picture.set_content_fit(gtk::ContentFit::Fill);
+    layer.put(&picture, 0., 0.);
+    // Keep motion above an overlay composer regardless of child insertion order.
+    if let Some(last) = e.state.compose_overlay.last_child().filter(|w| w != layer) {
+        layer.insert_after(&e.state.compose_overlay, Some(&last));
+    }
+    let background = e
+        .root
+        .style_context()
+        .lookup_color("window_bg_color")
+        .unwrap_or_else(|| gtk::gdk::RGBA::new(0.12, 0.12, 0.12, 1.));
+    let output = picture.clone();
+    let radius = (16. * crate::presentation::scale(&e.state)) as f32;
+    let draw = move |value: f64| {
+        let clip = interpolate(from, to, value as f32);
+        let local = gtk::graphene::Rect::new(0., 0., clip.width(), clip.height());
+        let snapshot = gtk::Snapshot::new();
+        snapshot.translate(&gtk::graphene::Point::new(clip.x(), clip.y()));
+        snapshot.push_rounded_clip(&gtk::gsk::RoundedRect::from_rect(local, radius));
+        snapshot.append_color(&background, &local);
+        // Constant image dimensions preserve glyphs, icons and border thickness.
+        frame.image.snapshot(
+            &snapshot,
+            frame.rect.width() as f64,
+            frame.rect.height() as f64,
+        );
+        snapshot.pop();
+        output.set_paintable(snapshot.to_paintable(Some(&canvas)).as_ref());
+    };
+    draw(0.);
     let animation = adw::TimedAnimation::new(
         &e.state.window,
         0.,
         1.,
         crate::presentation::duration(&e.state, 280),
-        target,
+        adw::CallbackAnimationTarget::new(draw),
     );
     animation.set_easing(adw::Easing::EaseOutCubic);
     let done = RefCell::new(Some(done));
     let editor = e.clone();
     animation.connect_done(move |_| {
-        if frame.picture.parent().is_some() {
-            editor.state.motion_layer.remove(&frame.picture);
+        if picture.parent().is_some() {
+            editor.state.motion_layer.remove(&picture);
         }
         editor.root.set_opacity(1.);
         editor.root.set_can_target(true);
@@ -149,86 +211,156 @@ fn animate(
     });
     animation.play();
 }
+fn ready(e: &Rc<Editor>, done: impl FnOnce(&Rc<Editor>, Option<Frame>) + 'static) {
+    let editor = e.clone();
+    let last = Cell::new(None::<gtk::graphene::Rect>);
+    let stable = Cell::new(0);
+    let ticks = Cell::new(0);
+    let done = Rc::new(RefCell::new(Some(done)));
+    let fallback = done.clone();
+    let callback = Rc::new(RefCell::new(None::<gtk::TickCallbackId>));
+    let completed = callback.clone();
+    *callback.borrow_mut() = Some(e.state.window.add_tick_callback(move |_, _| {
+        ticks.set(ticks.get() + 1);
+        let current = rect(&editor);
+        if let (Some(a), Some(b)) = (last.get(), current) {
+            stable.set(
+                if (a.x() - b.x()).abs() < 0.5
+                    && (a.y() - b.y()).abs() < 0.5
+                    && (a.width() - b.width()).abs() < 0.5
+                    && (a.height() - b.height()).abs() < 0.5
+                {
+                    stable.get() + 1
+                } else {
+                    0
+                },
+            );
+        }
+        last.set(current);
+        if (stable.get() >= 2 && editor.root.is_mapped()) || ticks.get() >= 20 {
+            let frame = capture(&editor);
+            completed.borrow_mut().take();
+            done.borrow_mut().take().unwrap()(&editor, frame);
+            return glib::ControlFlow::Break;
+        }
+        glib::ControlFlow::Continue
+    }));
+    let weak = Rc::downgrade(e);
+    glib::timeout_add_local_once(Duration::from_millis(350), move || {
+        if let Some(done) = fallback.borrow_mut().take() {
+            if let Some(id) = callback.borrow_mut().take() {
+                id.remove();
+            }
+            if let Some(editor) = weak.upgrade() {
+                done(&editor, None);
+            }
+        }
+    });
+}
+fn show_without_motion(e: &Editor) {
+    e.root.set_opacity(1.);
+    e.root.set_can_target(true);
+    e.motion_busy.set(false);
+    focus_message(e);
+}
+pub(super) fn enter(e: &Rc<Editor>) {
+    if e.placement.get() == 2 || crate::presentation::duration(&e.state, 280) == 0 {
+        show_without_motion(e);
+        return;
+    }
+    e.motion_busy.set(true);
+    // One alpha step keeps GTK painting the opaque inner surface for capture.
+    e.root.set_opacity(1. / 255.);
+    e.root.set_can_target(false);
+    ready(e, |e, frame| {
+        if let Some(frame) = frame {
+            let dest = frame.rect;
+            let source = gtk::graphene::Rect::new(
+                dest.x(),
+                e.state.motion_layer.height() as f32 + 24.,
+                dest.width(),
+                dest.height(),
+            );
+            let finished = e.clone();
+            animate(e, frame, source, dest, move || focus_message(&finished));
+        } else {
+            show_without_motion(e);
+        }
+    });
+}
 pub(super) fn relocate(e: &Rc<Editor>, change: impl FnOnce()) {
-    let frame = capture(e);
-    if frame.is_some() {
+    let from = rect(e);
+    let enabled = e.placement.get() != 2
+        && crate::presentation::duration(&e.state, 280) > 0
+        && from.is_some();
+    let cover = if enabled {
+        capture(e).map(|frame| {
+            let picture = gtk::Picture::for_paintable(&frame.image);
+            picture.set_can_target(false);
+            picture.set_size_request(frame.rect.width() as i32, frame.rect.height() as i32);
+            e.state
+                .motion_layer
+                .put(&picture, frame.rect.x() as f64, frame.rect.y() as f64);
+            picture
+        })
+    } else {
+        None
+    };
+    if enabled {
         e.motion_busy.set(true);
-        e.root.set_opacity(0.);
+        e.root.set_opacity(1. / 255.);
         e.root.set_can_target(false);
     }
     change();
-    let Some(frame) = frame else {
-        focus_message(e);
+    if !enabled {
+        show_without_motion(e);
         return;
-    };
-    let editor = e.clone();
-    let frame = RefCell::new(Some(frame));
-    let ticks = Cell::new(0);
-    e.state.window.add_tick_callback(move |_, _| {
-        ticks.set(ticks.get() + 1);
-        if ticks.get() < 3 {
-            return glib::ControlFlow::Continue;
+    }
+    ready(e, move |e, frame| {
+        if let Some(cover) = cover {
+            e.state.motion_layer.remove(&cover);
         }
-        let frame = frame.borrow_mut().take().unwrap();
-        let dest = editor
-            .root
-            .compute_bounds(&editor.state.motion_layer)
-            .unwrap_or(frame.rect);
-        let finished = editor.clone();
-        animate(&editor, frame, dest, false, move || {
-            if !finished.closing.get() {
-                focus_message(&finished);
-            }
-        });
-        glib::ControlFlow::Break
+        if let Some(frame) = frame {
+            let dest = frame.rect;
+            let finished = e.clone();
+            animate(e, frame, from.unwrap(), dest, move || {
+                if !finished.closing.get() {
+                    focus_message(&finished);
+                }
+            });
+        } else {
+            show_without_motion(e);
+        }
     });
 }
 pub(super) fn dismiss(e: &Rc<Editor>) {
     if e.motion_busy.get() {
         let editor = e.clone();
-        glib::timeout_add_local_once(Duration::from_millis(320), move || dismiss(&editor));
+        glib::timeout_add_local_once(Duration::from_millis(80), move || dismiss(&editor));
         return;
     }
     e.root.set_can_target(false);
-    if e.placement.get() == 0
-        && e.state.compose_stack.visible_child_name().as_deref() == Some("compose")
-    {
-        // Keep the outgoing child alive until GTK has painted its return transition.
-        e.motion_busy.set(true);
-        e.state
-            .compose_stack
-            .set_visible_child_full("mail", gtk::StackTransitionType::SlideRight);
-        if e.state.compose_stack.is_transition_running() {
-            let editor = e.clone();
-            let signal = Rc::new(RefCell::new(None));
-            let disconnect = signal.clone();
-            *signal.borrow_mut() = Some(e.state.compose_stack.connect_transition_running_notify(
-                move |stack| {
-                    if !stack.is_transition_running() {
-                        if let Some(id) = disconnect.borrow_mut().take() {
-                            stack.disconnect(id);
-                        }
-                        editor.motion_busy.set(false);
-                        release_editor(&editor);
-                    }
-                },
-            ));
-            return;
-        }
-        e.motion_busy.set(false);
-    } else if let Some(frame) = capture(e) {
+    let frame = (e.placement.get() != 2 && crate::presentation::duration(&e.state, 260) > 0)
+        .then(|| capture(e))
+        .flatten();
+    if let Some(frame) = frame {
+        let source = frame.rect;
         e.motion_busy.set(true);
         e.root.set_opacity(0.);
-        let source = frame.rect;
+        if e.placement.get() == 0 {
+            e.state
+                .compose_stack
+                .set_visible_child_full("mail", gtk::StackTransitionType::None);
+        }
         let dest = gtk::graphene::Rect::new(
-            source.x() + source.width() * 0.015,
-            source.y() + 30.,
-            source.width() * 0.97,
-            source.height() * 0.97,
+            source.x(),
+            e.state.motion_layer.height() as f32 + 24.,
+            source.width(),
+            source.height(),
         );
         let editor = e.clone();
-        animate(e, frame, dest, true, move || release_editor(&editor));
-        return;
+        animate(e, frame, source, dest, move || release_editor(&editor));
+    } else {
+        release_editor(e);
     }
-    release_editor(e);
 }

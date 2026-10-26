@@ -108,8 +108,13 @@ async fn main() -> Result<()> {
                 "PASS real Google consent, OS vault storage, fresh refresh-token exchange and Gmail profile"
             );
         }
-        Some("check") | Some("exercise") | Some("filters") | Some("inspect-html")
-        | Some("photos") => {
+        Some("check")
+        | Some("exercise")
+        | Some("filters")
+        | Some("inspect-html")
+        | Some("photos")
+        | Some("photos-own")
+        | Some("reply-regression") => {
             let account = settings
                 .accounts
                 .last()
@@ -123,20 +128,35 @@ async fn main() -> Result<()> {
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
             }
-            if args[1] == "photos" {
+            if args[1] == "reply-regression" {
+                if !args.iter().any(|a| a == "--allow-self-mail") {
+                    return Err(Error::Invalid(
+                        "Explicit --allow-self-mail is required".into(),
+                    ));
+                }
+                reply_regression(&gmail, &account.email, args.iter().any(|a| a == "--resume"))
+                    .await?;
+                return Ok(());
+            }
+            if args[1] == "photos" || args[1] == "photos-own" {
                 if !account.contact_photos {
                     return Err(Error::Invalid(
                         "Grant the optional Contacts permission first".into(),
                     ));
                 }
-                let photo = luma_core::contact_photos::Photos::new(Arc::new(gmail))
-                    .get(&format!("Luma Review <{}>", account.email))
-                    .await?;
+                let photos = luma_core::contact_photos::Photos::new(Arc::new(gmail));
+                let photo = if args[1] == "photos-own" {
+                    photos.own(&account.email).await?
+                } else {
+                    photos
+                        .get(&format!("Luma Review <{}>", account.email))
+                        .await?
+                };
                 let photo = photo.ok_or_else(|| {
                     Error::Invalid("Google has no available photo for this test identity".into())
                 })?;
                 println!(
-                    "PASS real saved-contact lookup and public photo fetch/decode: {}x{}, no contact/photo disk mirror",
+                    "PASS real Google photo lookup and public fetch/decode: {}x{}, no contact/photo disk mirror",
                     photo.width, photo.height
                 );
                 return Ok(());
@@ -283,6 +303,108 @@ async fn main() -> Result<()> {
             ));
         }
     }
+    Ok(())
+}
+
+async fn reply_regression(gmail: &Gmail, email: &str, resume: bool) -> Result<()> {
+    let mut compose = Compose::new(email.into());
+    compose.to = email.into();
+    compose.subject = format!("Luma-Reply-Regression-{}", uuid::Uuid::new_v4());
+    compose.html = true;
+    compose.text = luma_core::rich_draft::with_quote(
+        "<div data-luma-editor=\"1\"><b>Synthetic new reply</b></div>",
+        "Synthetic previous message. Read-only in the Luma editor.",
+    );
+    let sent = if resume {
+        let page = gmail
+            .list(
+                &Folder::Sent,
+                "subject:Luma-Reply-Regression from:me to:me",
+                None,
+            )
+            .await?;
+        let row = page
+            .items
+            .iter()
+            .find(|r| {
+                r.subject
+                    .strip_prefix("Luma-Reply-Regression-")
+                    .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+            })
+            .ok_or_else(|| Error::Invalid("No exact synthetic regression mail to resume".into()))?;
+        let thread = gmail.thread_metadata(&row.key.id).await?;
+        let message = thread
+            .messages
+            .iter()
+            .find(|m| m.payload.header("Subject") == row.subject)
+            .ok_or_else(|| Error::Invalid("Synthetic message missing".into()))?;
+        compose.subject = row.subject.clone();
+        gmail.message(&message.id).await?
+    } else {
+        let mut draft = gmail.save_draft(None, &compose.mime()?, None).await?;
+        let id = draft.id.clone();
+        for index in 0..3 {
+            compose.retained.push(RetainedAttachment {
+                name: format!("synthetic-paste-{index}.txt"),
+                mime_type: "text/plain".into(),
+                data: vec![b'X'; 64],
+                content_id: None,
+            });
+            draft = gmail
+                .save_draft(Some(&draft), &compose.mime()?, None)
+                .await?;
+            assert_eq!(
+                draft.id, id,
+                "Every autosave must update the same server draft"
+            );
+        }
+        let sent = gmail.send_draft(&draft).await?;
+        let drafts = gmail.list_drafts(None).await?;
+        assert!(!drafts.items.iter().any(|d| d.id == id));
+        sent
+    };
+    let remote = gmail.message(&sent.id).await?;
+    if !readable(&remote.payload)?.contains("Synthetic new reply") {
+        return Err(Error::Invalid(
+            "Refusing to modify mail without synthetic marker".into(),
+        ));
+    }
+    assert_eq!(gmail.message_attachments(&remote).await?.len(), 3);
+    // Search indexing can lag direct message retrieval. Never resend during this wait.
+    let mut delivered = 0;
+    for _ in 0..5 {
+        let response: serde_json::Value = luma_core::http::json(
+            gmail
+                .call(
+                    reqwest::Method::GET,
+                    "/messages",
+                    &[
+                        ("q", format!("subject:\"{}\"", compose.subject)),
+                        ("labelIds", "SENT".into()),
+                        ("maxResults", "3".into()),
+                    ],
+                    None,
+                )
+                .await?,
+        )
+        .await?;
+        delivered = response
+            .get("messages")
+            .and_then(|v| v.as_array())
+            .map_or(0, Vec::len);
+        if delivered != 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+    assert_eq!(
+        delivered, 1,
+        "Exactly one synthetic message delivered (not thread count)"
+    );
+    gmail.act(&sent.id, true, &MailAction::Trash).await?;
+    println!(
+        "PASS real Gmail: three attachment autosaves reuse one draft; one rich message delivered; sent draft absent; synthetic self-mail moved to Trash"
+    );
     Ok(())
 }
 

@@ -18,6 +18,7 @@ struct Cached {
     expires: Instant,
     image: Option<gdk::Texture>,
     retry: bool,
+    note: String,
 }
 #[derive(Default)]
 pub(crate) struct Photos {
@@ -28,7 +29,8 @@ pub(crate) struct Photos {
     recent: RefCell<VecDeque<Instant>>,
     scheduled: RefCell<Option<(Instant, glib::SourceId)>>,
     generation: Cell<u64>,
-    failures: RefCell<HashMap<String, String>>,
+    failures: RefCell<HashMap<Key, String>>,
+    statuses: RefCell<Vec<(String, glib::WeakRef<adw::ActionRow>)>>,
 }
 impl Photos {
     pub fn clear(&self) {
@@ -50,7 +52,65 @@ impl Photos {
         self.failures.borrow_mut().clear();
     }
     pub fn status(&self, account: &str) -> Option<String> {
-        self.failures.borrow().get(account).cloned()
+        self.failures
+            .borrow()
+            .iter()
+            .find(|(key, _)| key.0 == account)
+            .map(|(_, value)| value.clone())
+    }
+}
+pub(crate) fn watch(s: &Rc<State>, account: &str, row: &adw::ActionRow) {
+    s.photos
+        .statuses
+        .borrow_mut()
+        .retain(|(_, row)| row.upgrade().is_some());
+    s.photos
+        .statuses
+        .borrow_mut()
+        .push((account.into(), row.downgrade()));
+    publish(s);
+}
+fn publish(s: &State) {
+    for (account, row) in s.photos.statuses.borrow().iter() {
+        let Some(row) = row.upgrade() else {
+            continue;
+        };
+        let available = s
+            .photos
+            .cache
+            .borrow()
+            .iter()
+            .filter(|c| c.key.0 == *account && c.image.is_some())
+            .count();
+        let missing = s
+            .photos
+            .cache
+            .borrow()
+            .iter()
+            .filter(|c| c.key.0 == *account && c.image.is_none())
+            .count();
+        let text = if !enabled(s, account) {
+            "Contact photos are off for this account".into()
+        } else if let Some(error) = s.photos.status(account) {
+            format!("Photo lookup failed: {error}. Retry or reconnect this account.")
+        } else if s
+            .photos
+            .pending
+            .borrow()
+            .keys()
+            .any(|key| key.0 == *account)
+        {
+            format!("Loading pictures… {available} available")
+        } else if available > 0 {
+            format!("{available} pictures available • Unmatched senders keep initials")
+        } else if missing > 0 {
+            format!(
+                "Google returned no available picture for {missing} visible senders. Gmail-only pictures are not exposed by its public API."
+            )
+        } else {
+            "Photos load when senders are visible".into()
+        };
+        row.set_subtitle(&text);
     }
 }
 fn enabled(s: &State, account: &str) -> bool {
@@ -85,6 +145,17 @@ pub(crate) fn register(s: &Rc<State>, account: &str, sender: &str, widget: &adw:
         widget: widget.downgrade(),
     });
     drop(widgets);
+    let weak = Rc::downgrade(s);
+    widget.connect_map(move |_| {
+        if let Some(s) = weak.upgrade() {
+            queue(&s);
+        }
+    });
+    widget.set_tooltip_text(Some(if enabled(s, account) {
+        "Looking for an available Google contact picture"
+    } else {
+        "Contact photos are off for this account"
+    }));
     queue(s);
 }
 pub(crate) fn queue(s: &Rc<State>) {
@@ -158,6 +229,7 @@ fn visible(s: &Rc<State>) {
             let entry = cache.remove(index).unwrap();
             if entry.expires > Instant::now() {
                 widget.set_custom_image(entry.image.as_ref());
+                widget.set_tooltip_text(Some(&entry.note));
                 if entry.retry {
                     queue_after(
                         s,
@@ -199,11 +271,26 @@ fn visible(s: &Rc<State>) {
             .or_insert_with(|| luma_core::contact_photos::Photos::new(client))
             .clone();
         let email = key.1.clone();
+        let own = s
+            .settings
+            .borrow()
+            .accounts
+            .iter()
+            .any(|a| a.id == key.0 && a.drive_enabled && a.email.eq_ignore_ascii_case(&email));
         let generation = s.photos.generation.get();
         let target = key.clone();
         let task = crate::ui::async_work(
             s,
-            async move { Ok(photos.get(&email).await) },
+            async move {
+                Ok(if own {
+                    match photos.own(&email).await {
+                        Ok(Some(photo)) => Ok(Some(photo)),
+                        _ => photos.get(&email).await,
+                    }
+                } else {
+                    photos.get(&email).await
+                })
+            },
             move |s, result| {
                 if s.photos.generation.get() != generation {
                     return;
@@ -226,14 +313,14 @@ fn visible(s: &Rc<State>) {
                 });
                 let ttl = match &result {
                     Ok(_) => {
-                        s.photos.failures.borrow_mut().remove(&target.0);
+                        s.photos.failures.borrow_mut().remove(&target);
                         Duration::from_secs(600)
                     }
                     Err(error) => {
                         s.photos
                             .failures
                             .borrow_mut()
-                            .insert(target.0.clone(), error.to_string());
+                            .insert(target.clone(), error.to_string());
                         if matches!(
                             error,
                             luma_core::Error::Reauthenticate
@@ -248,6 +335,19 @@ fn visible(s: &Rc<State>) {
                             Duration::from_secs(59)
                         }
                     }
+                };
+                let note = match &result {
+                    Ok(Some(_)) => {
+                        if own {
+                            "Connected Google account picture".into()
+                        } else {
+                            "Google contact picture".into()
+                        }
+                    }
+                    Ok(None) => {
+                        "Google has no available contact/profile picture for this sender".into()
+                    }
+                    Err(error) => format!("Could not load picture: {error}"),
                 };
                 let image = result.ok().flatten().map(|image| {
                     gdk::MemoryTexture::new(
@@ -268,6 +368,7 @@ fn visible(s: &Rc<State>) {
                 {
                     if let Some(widget) = entry.widget.upgrade() {
                         widget.set_custom_image(image.as_ref());
+                        widget.set_tooltip_text(Some(&note));
                     }
                 }
                 let mut cache = s.photos.cache.borrow_mut();
@@ -277,6 +378,7 @@ fn visible(s: &Rc<State>) {
                     expires: Instant::now() + ttl,
                     image,
                     retry,
+                    note,
                 });
                 let mut evicted = Vec::new();
                 while cache.len() > 128 {
@@ -287,8 +389,10 @@ fn visible(s: &Rc<State>) {
                     clear_key(&s, &key);
                 }
                 queue(&s);
+                publish(&s);
             },
         );
         s.photos.pending.borrow_mut().insert(key, task);
     }
+    publish(s);
 }

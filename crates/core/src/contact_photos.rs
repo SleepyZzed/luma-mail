@@ -17,6 +17,7 @@ pub struct Photos {
     client: Arc<Gmail>,
     warm: Arc<Mutex<Option<Instant>>>,
     endpoint: String,
+    own_endpoint: String,
 }
 #[derive(Deserialize, Default)]
 struct Search {
@@ -70,19 +71,20 @@ fn person_photo(person: Person) -> Option<url::Url> {
         .photos
         .into_iter()
         .filter(|p| !p.fallback)
-        .find_map(|p| {
-            if p.url.len() > 8192 {
-                return None;
-            }
-            let url = url::Url::parse(&p.url).ok()?;
-            let host = url.host_str()?;
-            (url.scheme() == "https"
-                && url.username().is_empty()
-                && url.password().is_none()
-                && url.port_or_known_default() == Some(443)
-                && host.ends_with(".googleusercontent.com"))
-            .then_some(url)
-        })
+        .find_map(|p| validated_photo_url(&p.url))
+}
+fn validated_photo_url(value: &str) -> Option<url::Url> {
+    if value.len() > 8192 {
+        return None;
+    }
+    let url = url::Url::parse(value).ok()?;
+    let host = url.host_str()?;
+    (url.scheme() == "https"
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.port_or_known_default() == Some(443)
+        && host.ends_with(".googleusercontent.com"))
+    .then_some(url)
 }
 impl Photos {
     pub fn new(client: Arc<Gmail>) -> Self {
@@ -90,6 +92,7 @@ impl Photos {
             client,
             warm: Arc::new(Mutex::new(None)),
             endpoint: "https://people.googleapis.com/v1/people:searchContacts".into(),
+            own_endpoint: "https://www.googleapis.com/drive/v3/about".into(),
         }
     }
     #[cfg(test)]
@@ -106,7 +109,7 @@ impl Photos {
                     &self.client.tokens.access_token().await?,
                     &[
                         ("query", query.into()),
-                        ("pageSize", "10".into()),
+                        ("pageSize", "30".into()),
                         ("readMask", "emailAddresses,photos".into()),
                         ("sources", "READ_SOURCE_TYPE_CONTACT".into()),
                         ("sources", "READ_SOURCE_TYPE_PROFILE".into()),
@@ -128,7 +131,7 @@ impl Photos {
             if warm.is_none_or(|at| at.elapsed() > Duration::from_secs(300)) {
                 self.search("").await?;
                 // Google's search cache requires a warmup. This never blocks GTK.
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
                 *warm = Some(Instant::now());
             }
         }
@@ -144,6 +147,49 @@ impl Photos {
         tokio::task::spawn_blocking(move || crate::preview::thumbnail(&bytes, 96, 96))
             .await
             .map_err(|_| Error::Invalid("Contact photo decode failed".into()))?
+    }
+    /// Already-enabled Drive access can provide the connected user's own photo.
+    /// This endpoint cannot look up arbitrary email senders.
+    pub async fn own(&self, expected_email: &str) -> Result<Option<Thumbnail>> {
+        #[derive(Deserialize)]
+        struct About {
+            user: User,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct User {
+            email_address: String,
+            photo_link: Option<String>,
+        }
+        let about: About = json(
+            self.client
+                .http
+                .request(
+                    reqwest::Method::GET,
+                    &self.own_endpoint,
+                    &self.client.tokens.access_token().await?,
+                    &[("fields", "user(emailAddress,photoLink)".into())],
+                    None,
+                )
+                .await?,
+        )
+        .await?;
+        if !about
+            .user
+            .email_address
+            .eq_ignore_ascii_case(expected_email)
+        {
+            return Err(Error::Invalid("Google profile account mismatch".into()));
+        }
+        let Some(url) = about
+            .user
+            .photo_link
+            .as_deref()
+            .and_then(validated_photo_url)
+        else {
+            return Ok(None);
+        };
+        self.download(url).await.map(Some)
     }
 }
 #[cfg(test)]

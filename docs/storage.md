@@ -200,3 +200,20 @@ the compressed image through FUSE. Extract-and-run needs temporary extraction
 space and cleans it when the app exits; keeping a manual extraction consumes its
 own installation space. See the [AppImage runtime architecture](https://docs.appimage.org/reference/architecture.html)
 and [extract-and-run behavior](https://docs.appimage.org/user-guide/troubleshooting/fuse.html).
+
+## 0.6 editing bounds
+
+Rich undo/redo retains no files. It keeps at most 100 prior/redo states and
+4 MiB of charged document/font data in RAM, including the current state.
+A state over 1 MiB clears rich history instead of growing an unlimited history.
+Recipient chips are capped at 100 per To/Cc/Bcc field and remain in memory;
+invalid pasted text stays available for correction. These controls do not fetch
+contacts or build an address book. The existing optional recent-recipient store
+keeps its 100-entry/64 KiB/90-day limit.
+
+Quoted reply history is read-only in the editor and bounded to 32,768 characters
+for newly created replies. Draft comparison fetches only the selected draft's
+body/metadata on demand, with no attachment download or new disk checkpoint.
+The connected account's own photo uses Drive's projected user profile only when
+Drive and profile photos are enabled. It shares the existing thumbnail RAM and
+lookup-rate limits; it creates no file and adds no permission.

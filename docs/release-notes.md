@@ -1,35 +1,31 @@
-Luma Mail 0.5.0 early access — quieter navigation, compact compose and photo fixes
+Luma Mail 0.6.0 early access — inline replies and safer draft editing
 
-- Unified Mail starts collapsed. Its button animates folders open and closed.
-  Account folders animate in place when switching accounts; the header stays fixed.
-- New messages start in the existing compact composer. Expand/Restore, Back,
-  inline replies and pop-out keep their previous layouts and behavior.
-- Fixed profile-photo matching for `Display Name <email>` senders. Google Contacts
-  can supply available profile photos for matching saved contacts. Failed lookups
-  retry after transient errors; Settings offers Retry profile photos. Unmatched
-  senders keep initials: Gmail does not expose every profile picture it displays.
-- Save all attachments to a chosen folder with sequential bounded downloads,
-  completed-file progress and cancellation. Existing files are never overwritten;
-  duplicate names get numbered suffixes. Completed files remain after cancellation.
-- Persistent navigation avoids rebuilding/reparenting every folder on unread or
-  selection changes. Contact lookup scheduling resumes after its rate budget resets.
-- Mesa shader caches use private temporary runtime storage with a 16 MiB driver
-  limit instead of its large default persistent cache. Other apps are unaffected.
-- Linux checks now publish separate package/runtime storage reports, including
-  the extracted installation and files outside the configurable body cache.
+- Replies use a small inline editor with recipients and reply controls, without
+  the full compose-window header. Previous mail sits in a collapsed read-only
+  section; choose whether to include it when sending.
+- Compose slides up to open and down to close. Expansion reveals final-size
+  content without scaling text. Reduced motion is still respected.
+- Send waits for an active save or pasted-image import, then sends the same Gmail
+  draft. A confirmed send cancels autosave and ignores late file/clipboard callbacks.
+- Removable recipient chips, recent-recipient completion, numbered/nested lists,
+  and Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y with formatting, font and link restoration.
+- Compare a conflicting draft with Gmail in a read-only view before saving a
+  separate copy. New Luma rich drafts keep quoted history outside editable text.
+- Photo lookups resume when avatars become visible; Settings shows lookup status
+  and retry. Available contact pictures and the connected account's own Google
+  photo use supported APIs. Google does not expose every Gmail sender picture.
+- Rich mail now includes both text/plain and text/html alternatives.
 
 Quit the old version from its tray menu before launching this replacement.
-Sign-in remains the built-in Sign in with Google flow. No JSON import is needed.
-Google branding and data-access review is submitted and pending; the unverified
-warning and Google's lifetime user cap remain until approval.
+Sign in with Google remains built in; no JSON import or new OAuth scope.
+Google verification is still under review; its warning and user cap remain.
 
-All earlier mail, themes, scaling, clipboard, system notification, tray and Gmail
-server-draft behavior remains. The online-first model is unchanged: remote
-search, 25-row pages, bounded optional body cache, no local mailbox/index,
-no new local drafts or attachment archive. Explicitly saved files are user files.
-The AppImage and bundled rendering libraries are application installation size,
-not mail storage; zero body-cache mode does not remove installed binaries.
+Online-first storage is unchanged: server drafts, remote search, paged metadata,
+bounded optional body cache and no mailbox/attachment mirror. Rich editing
+history is RAM-only, capped at 4 MiB and 100 states (1 MiB per state). Recipient
+chips are also memory-only. Contact pictures remain bounded RAM thumbnails.
+Installation libraries and temporary graphics/runtime metadata are reported
+separately from the configurable mail-body budget.
 
-This is early access. Two-account target Linux/Hyprland/Noctalia, sustained large
-mailbox profiling, remaining editor/recovery features and Google's decision are
-still gates before 1.0. See STATUS.md, RELEASE-CHECKLIST.md and docs/roadmap.md.
+This is early access. Target Linux/two-account acceptance, sustained mailbox
+profiling, remaining roadmap features and Google's decision still block 1.0.

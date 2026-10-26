@@ -1,5 +1,29 @@
 # Verification log
 
+## 0.6 local and live checks, 26 October 2026
+
+Strict Clippy and 106 executed workspace tests pass on Windows (one opt-in vault
+test remains ignored). Native GTK checks exercise compact/full/Back lifecycle,
+To focus, field traversal, rich undo/redo, recipient chips, numbered lists,
+read-only reply history, sent-state guards, bulk selection and fixed navigation.
+
+Using the existing authorized account and the same four permissions, fresh
+consent/refresh and a real 64×64 own-account Google photo fetch passed. A live
+self-mail regression created one draft, updated it three times with attachments,
+sent once, verified three attachments and one delivered message, and confirmed
+the consumed draft was absent. The synthetic message was moved to Trash. Gmail
+search indexing lagged direct retrieval, so verification resumed without sending
+again. No unrelated mail was modified.
+
+The Windows review tree remains 2,768,509 logical bytes: 1,621 config plus
+2,766,888 renderer/runtime bytes. The synthetic compose test has 310 config bytes
+only, no body cache or local drafts. Windows allocation is an estimate; Linux
+package/runtime allocation must be measured by the final build. The rich history
+cap is covered by a 120-state over-budget regression; history stays in RAM.
+
+Linux/AppImage publication evidence follows after the final source gates pass.
+Google branding and data access remain under review, not approved.
+
 ## Final 0.5 release
 
 [Release run 40363651714](https://github.com/SleepyZzed/luma-mail/actions/runs/40363651714)

@@ -106,3 +106,22 @@ post-run number is not a live-memory measurement. The whole-app installation is
 fixed-size and mail storage remains bounded independently of mailbox size. This
 supports the online-first design while leaving the real two-account/Linux soak
 and hardware-specific behavior as explicit 1.0 acceptance work.
+
+## 0.6 audit additions
+
+No background mailbox fetch was added. Recipient chips use typed/recent addresses;
+photo lookup runs only for visible senders and keeps the existing rolling budget.
+The own-account fallback requests only Drive user email/photo fields with the
+existing permission. It does not list or download Drive files.
+
+Rich history is bounded in memory (4 MiB, 100 states, 1 MiB per state), coalesces
+typing for 350 ms and is released with the editor. Formatting serialization now
+walks GTK tag boundaries instead of inspecting every character. Composer motion
+uses finite snapshots and has no recurring frame work at rest.
+
+Autosave/send is serialized around the current Gmail draft ID. Send queues while
+a save or clipboard import is active, and confirmed send cancels pending saves.
+Late chooser/import callbacks cannot resurrect a closed/sent editor. Draft
+comparison explicitly fetches one remote draft without attachments or disk copy.
+A successful self-mail test verified three attachment saves still consume one
+Gmail draft and deliver one message.

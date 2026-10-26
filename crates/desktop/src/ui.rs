@@ -446,6 +446,10 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     let compose_overlay = gtk::Overlay::new();
     compose_overlay.set_child(Some(&compose_stack));
     let motion_layer = gtk::Fixed::new();
+    motion_layer.set_hexpand(true);
+    motion_layer.set_vexpand(true);
+    motion_layer.set_halign(gtk::Align::Fill);
+    motion_layer.set_valign(gtk::Align::Fill);
     motion_layer.set_can_target(false);
     motion_layer.set_can_focus(false);
     motion_layer.set_overflow(gtk::Overflow::Hidden);

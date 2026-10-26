@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-0.5.0 is **early access**. It does not complete the original brief. Google sign-in
+0.6.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Branding and data-access verification were submitted on 26 October
 2026 with an English demo and the homepage ownership appeal. Google Auth Platform
@@ -8,6 +8,19 @@ confirms both are under review. Submission is not approval; any assessment
 decision and Google's final response remain gates.
 
 ## Implemented and exercised
+
+- Genuine compact inline reply controls; previous mail is separate, read-only and
+  optionally included in the outgoing reply. Rich mail includes a plain-text alternative.
+- Slide-up opening and slide-down closing; expand/restore clips final-size content
+  without stretching a compact screenshot. Reduced motion remains available.
+- Send waits for an active autosave/clipboard import. Autosaves reuse the same
+  Gmail draft; successful sending is terminal and cancels late autosave timers.
+- Removable recipient chips, recent completion, numbered/nested lists, and rich
+  undo/redo preserving formatting, fonts and links in capped RAM only.
+- Read-only draft conflict comparison, with an explicit separate-copy option.
+- Profile lookups restart when an avatar becomes visible; live lookup status is
+  available in Settings. Existing optional Drive permission can supply the
+  connected account's own photo. No new scopes or arbitrary Gmail-photo lookup.
 
 - Unified mail folders start collapsed, with animated expansion/collapse. Account
   groups remain mounted for opening/closing transitions and stable geometry.
@@ -75,8 +88,8 @@ executed results rather than assuming runtime success from compilation.
 - User-tested automatic Drive upload works; recipient access, cancellation and
   partial-sharing recovery still need formal acceptance.
   Existing authorized file IDs work; Google Picker remains absent.
-- Recipient chips, arbitrary sender photos beyond saved Google contacts,
-  send-as aliases, richer lists and inline-image insertion in compose.
+- Arbitrary sender photos beyond Google's supported APIs remain unavailable.
+  Send-as aliases, inline-image insertion and general HTML editing remain open.
   Luma 0.3-generated rich drafts reopen visually; complex/older/third-party HTML
   remains in source mode. General visual HTML re-editing is incomplete.
 - General conflict comparison/merging, editing attachments over 16 MiB combined,
