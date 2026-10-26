@@ -4,6 +4,8 @@
 pub fn configure() -> luma_core::Result<()> {
     let runtime = gtk::glib::user_runtime_dir().join("luma-mail");
     luma_core::config::private_dir(&runtime)?;
+    let graphics = runtime.join("graphics");
+    luma_core::config::private_dir(&graphics)?;
     let registry = runtime.join("gstreamer");
     luma_core::config::private_dir(&registry)?;
     // Remove only our disposable codec index from an earlier development build.
@@ -20,6 +22,12 @@ pub fn configure() -> luma_core::Result<()> {
     // every launch. GST_REGISTRY_UPDATE=no still writes an initial inventory.
     // SAFETY: called at the very start of main, before GTK/GIO/Tokio threads.
     unsafe {
+        // Mesa otherwise permits a 1 GiB shader cache in ~/.cache. Keep this
+        // process and its renderer children in private session storage instead.
+        // The single-file Fossilize mode ignores Mesa's size limit.
+        std::env::set_var("MESA_SHADER_CACHE_DIR", &graphics);
+        std::env::set_var("MESA_SHADER_CACHE_MAX_SIZE", "16M");
+        std::env::set_var("MESA_DISK_CACHE_SINGLE_FILE", "0");
         std::env::set_var("GST_REGISTRY", &index);
         std::env::set_var("GST_REGISTRY_1_0", &index);
         std::env::remove_var("GST_REGISTRY_UPDATE");

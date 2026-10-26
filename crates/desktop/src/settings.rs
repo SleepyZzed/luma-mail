@@ -132,6 +132,27 @@ pub fn open(s: &Rc<State>) {
         }
         let photos = adw::SwitchRow::builder().title("Saved-contact profile photos").subtitle("Optional read-only Google Contacts permission. Visible senders only; small photos stay in memory. Unmatched senders keep initials.").active(account.contact_photos).build();
         g.add(&photos);
+        if account.contact_photos {
+            let retry = adw::ActionRow::builder()
+                .title("Retry profile photos")
+                .subtitle(
+                    s.photos
+                        .status(&account.id)
+                        .as_deref()
+                        .unwrap_or("Refresh available Google profile and saved-contact pictures"),
+                )
+                .activatable(true)
+                .build();
+            g.add(&retry);
+            let state = Rc::downgrade(s);
+            retry.connect_activated(move |_| {
+                if let Some(s) = state.upgrade() {
+                    s.photos.clear();
+                    crate::contact_photos::queue(&s);
+                    s.toast("Retrying available profile photos");
+                }
+            });
+        }
         {
             let state = s.clone();
             let account = account.clone();

@@ -56,3 +56,15 @@ if [[ -f "$codec_index" ]]; then
   echo "PASS private runtime codec inventory: $(stat -c %s "$codec_index") bytes, no mail data"
 fi
 echo 'PASS zero-budget HTML/media creates no body cache, attachment spool or local draft store'
+if find "$root/xdg-cache" -maxdepth 1 -name 'mesa_shader_cache*' -print -quit | grep -q .; then
+  echo 'FAIL Mesa shader cache escaped private runtime storage' >&2
+  exit 1
+fi
+echo 'PASS Mesa shader cache stays in private runtime storage with a 16 MiB driver limit'
+report=()
+if [[ -n ${LUMA_RENDER_SCREENSHOT:-} ]]; then
+  report=(--output "${LUMA_RENDER_SCREENSHOT%.png}-runtime-storage.json")
+fi
+python3 packaging/audit-storage.py --tree configuration "$root/app/config" \
+  --tree app_cache "$root/app/cache" --tree runtime "$root/runtime" \
+  --tree other_cache "$root/xdg-cache" "${report[@]}"

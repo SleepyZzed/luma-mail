@@ -198,14 +198,44 @@ pub fn remote_strip(s: &Rc<State>, message: &Message, account: &str) -> Option<g
     let client = s.clients.borrow().get(account).cloned()?;
     let strip = vbox(6);
     strip.add_css_class("attachment-strip");
-    strip.append(&label(
+    let heading = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let count = label(
         &format!(
             "{} attachment{}",
             parts.len(),
             if parts.len() == 1 { "" } else { "s" }
         ),
         "caption",
-    ));
+    );
+    count.set_hexpand(true);
+    heading.append(&count);
+    if parts.len() > 1 {
+        let all = gtk::Button::with_label("Save all…");
+        all.add_css_class("flat");
+        let sources: Vec<_> = parts
+            .iter()
+            .take(100)
+            .map(|part| {
+                (
+                    part.filename.clone(),
+                    Source::Gmail {
+                        client: client.clone(),
+                        message: message.id.clone(),
+                        part: (*part).clone(),
+                    },
+                )
+            })
+            .collect();
+        let state = Rc::downgrade(s);
+        all.set_tooltip_text(Some("Save up to 100 attachments to a chosen folder"));
+        all.connect_clicked(move |_| {
+            if let Some(s) = state.upgrade() {
+                save_all(&s, sources.clone());
+            }
+        });
+        heading.append(&all);
+    }
+    strip.append(&heading);
     let flow = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .column_spacing(8)
@@ -434,5 +464,71 @@ pub fn save(s: &Rc<State>, name: &str, source: Source) {
             },
             |s, ()| s.info("Attachment saved to your chosen location"),
         );
+    });
+}
+
+fn save_all(s: &Rc<State>, sources: Vec<(String, Source)>) {
+    use std::{
+        cell::Cell,
+        sync::atomic::{AtomicBool, Ordering},
+        time::Duration,
+    };
+    let state = s.clone();
+    glib::MainContext::default().spawn_local(async move {
+        let dialog = gtk::FileDialog::builder().title("Save all attachments to folder").build();
+        let Ok(folder) = dialog.select_folder_future(Some(&state.window)).await else { return; };
+        let Some(folder) = folder.path() else { return; };
+        let cancel = Arc::new(AtomicBool::new(false));
+        let window = adw::Window::builder().title("Save attachments").transient_for(&state.window)
+            .default_width(420).resizable(false).modal(true).build();
+        let content = vbox(16);
+        margins(&content, 24);
+        let status = label("Preparing downloads…", "heading");
+        status.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+        let bar = gtk::ProgressBar::new();
+        let stop = gtk::Button::with_label("Cancel");
+        content.append(&status); content.append(&bar); content.append(&stop);
+        window.set_content(Some(&content));
+        let cancelling = cancel.clone();
+        stop.connect_clicked(move |button| { cancelling.store(true, Ordering::Relaxed); button.set_sensitive(false); });
+        let cancelling = cancel.clone();
+        window.connect_close_request(move |_| { cancelling.store(true, Ordering::Relaxed); glib::Propagation::Proceed });
+        let total = sources.len();
+        let (progress, rx) = tokio::sync::watch::channel((0usize, String::new()));
+        let running = Rc::new(Cell::new(true));
+        let active = running.clone();
+        let weak = window.downgrade();
+        glib::timeout_add_local(Duration::from_millis(100), move || {
+            if !active.get() || weak.upgrade().is_none() { return glib::ControlFlow::Break; }
+            let (done, name) = rx.borrow().clone();
+            status.set_text(&format!("{} / {total} · {name}", done));
+            bar.set_fraction(done as f64 / total.max(1) as f64);
+            glib::ControlFlow::Continue
+        });
+        let weak = window.downgrade();
+        ui::async_work(&state, async move {
+            let mut done = 0;
+            for (name, source) in sources {
+                if cancel.load(Ordering::Relaxed) { return Ok((done, Some("Cancelled".to_owned()))); }
+                progress.send_replace((done, name.clone()));
+                let result = async {
+                    let bytes = source.read(26 * 1024 * 1024).await?;
+                    luma_core::attachment_save::save_unique(&folder, &name, &bytes, &cancel).await?;
+                    Ok::<_, Error>(())
+                }.await;
+                if let Err(error) = result { return Ok((done, Some(error.to_string()))); }
+                done += 1;
+                progress.send_replace((done, name));
+            }
+            Ok((done, None))
+        }, move |s, (done, error)| {
+            running.set(false);
+            if let Some(window) = weak.upgrade() { window.close(); }
+            s.info(&match error {
+                Some(error) => format!("Saved {done} of {total} attachments · {error}. Completed files are in your chosen folder."),
+                None => format!("Saved {done} attachments to your chosen folder"),
+            });
+        });
+        window.present();
     });
 }

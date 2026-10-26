@@ -130,10 +130,10 @@ async fn main() -> Result<()> {
                     ));
                 }
                 let photo = luma_core::contact_photos::Photos::new(Arc::new(gmail))
-                    .get(&account.email)
+                    .get(&format!("Luma Review <{}>", account.email))
                     .await?;
                 let photo = photo.ok_or_else(|| {
-                    Error::Invalid("The disposable self-contact photo is not available yet".into())
+                    Error::Invalid("Google has no available photo for this test identity".into())
                 })?;
                 println!(
                     "PASS real saved-contact lookup and public photo fetch/decode: {}x{}, no contact/photo disk mirror",

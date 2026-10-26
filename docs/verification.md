@@ -1,5 +1,20 @@
 # Verification log
 
+## 0.5 work in progress, 26 October 2026
+
+Windows strict Clippy and 95 core/5 desktop tests passed (one opt-in OS-vault
+test excluded). Native GTK diagnostics pass compact-first compose, To focus,
+Tab/Shift+Tab, font/link preservation, full/compact/Back transitions, no local
+draft creation, bulk selection, pinned navigation at 100/150%, and persistent
+account/unified expansion/collapse with long names. Linux package/runtime results
+will be recorded after the final build.
+
+A real read-only named-address Contacts query completed without an API error;
+the deleted disposable self-contact no longer has a matching photo. A separate
+people/me experiment returned 403 with the granted Contacts scope and was removed
+from production code. No extra scopes or third-party sender lookups were added.
+
+
 ## 0.4 acceptance, 26 October 2026
 
 The final gated [release run 40347048702](https://github.com/SleepyZzed/luma-mail/actions/runs/40347048702)

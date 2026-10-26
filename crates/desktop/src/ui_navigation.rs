@@ -47,10 +47,210 @@ fn nav_button(icon: &str, title: &str) -> gtk::Button {
     button.add_css_class("flat");
     button
 }
+#[derive(Default)]
+pub(super) struct Navigation {
+    widgets: RefCell<Option<NavigationWidgets>>,
+    accounts: RefCell<HashMap<String, AccountWidgets>>,
+    unified_open: Cell<bool>,
+    expanded_account: RefCell<Option<String>>,
+    last_filter: RefCell<Option<String>>,
+}
+struct Disclosure {
+    button: gtk::Button,
+    arrow: gtk::Image,
+    reveal: gtk::Revealer,
+    content: gtk::Box,
+}
+impl Disclosure {
+    fn new(button: gtk::Button, arrow: gtk::Image) -> Self {
+        let content = vbox(2);
+        let reveal = gtk::Revealer::builder()
+            .transition_type(gtk::RevealerTransitionType::SlideDown)
+            .child(&content)
+            .build();
+        Self {
+            button,
+            arrow,
+            reveal,
+            content,
+        }
+    }
+    fn expand(&self, s: &State, open: bool) {
+        self.reveal
+            .set_transition_duration(crate::presentation::duration(s, 260));
+        self.reveal.set_can_target(open);
+        self.reveal.set_reveal_child(open);
+        self.arrow.set_icon_name(Some(if open {
+            "pan-down-symbolic"
+        } else {
+            "pan-end-symbolic"
+        }));
+        self.button
+            .update_state(&[gtk::accessible::State::Expanded(Some(open))]);
+    }
+}
+struct NavigationWidgets {
+    recovery: gtk::Button,
+    unified: Disclosure,
+    folders: Vec<(Folder, gtk::Button)>,
+    accounts: gtk::Box,
+}
+struct AccountWidgets {
+    root: gtk::Box,
+    disclosure: Disclosure,
+    name: gtk::Label,
+    email: gtk::Label,
+    unread: gtk::Label,
+    folders: Vec<(Folder, gtk::Button)>,
+    labels: gtk::Box,
+    label_signature: Vec<(String, String)>,
+    label_buttons: Vec<(String, gtk::Button)>,
+}
+fn active(button: &gtk::Button, class: &str, selected: bool) {
+    if selected {
+        button.add_css_class(class);
+    } else {
+        button.remove_css_class(class);
+    }
+}
+fn folder_buttons(
+    s: &Rc<State>,
+    parent: &gtk::Box,
+    account: Option<String>,
+) -> Vec<(Folder, gtk::Button)> {
+    FOLDERS
+        .into_iter()
+        .map(|(icon, folder)| {
+            let title = if folder == Folder::Inbox && account.is_none() {
+                "Unified Inbox"
+            } else {
+                folder_name(&folder)
+            };
+            let button = nav_button(icon, title);
+            parent.append(&button);
+            let state = Rc::downgrade(s);
+            let target = folder.clone();
+            let account = account.clone();
+            button.connect_clicked(move |_| {
+                if let Some(s) = state.upgrade() {
+                    select_folder(&s, account.clone(), target.clone());
+                }
+            });
+            (folder, button)
+        })
+        .collect()
+}
+fn create_navigation(s: &Rc<State>) -> NavigationWidgets {
+    let recovery = nav_button("document-open-symbolic", "Recover old local drafts");
+    s.sidebar.append(&recovery);
+    let state = Rc::downgrade(s);
+    recovery.connect_clicked(move |_| {
+        if let Some(s) = state.upgrade() {
+            crate::compose::local_drafts(&s);
+        }
+    });
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let arrow = gtk::Image::from_icon_name("pan-end-symbolic");
+    row.append(&section("UNIFIED MAIL"));
+    row.first_child().unwrap().set_hexpand(true);
+    row.append(&arrow);
+    let button = gtk::Button::builder()
+        .child(&row)
+        .tooltip_text("Expand or collapse unified mail folders")
+        .build();
+    button.add_css_class("flat");
+    button.add_css_class("navigation-disclosure");
+    let unified = Disclosure::new(button, arrow);
+    let folders = folder_buttons(s, &unified.content, None);
+    s.sidebar.append(&unified.button);
+    s.sidebar.append(&unified.reveal);
+    let state = Rc::downgrade(s);
+    unified.button.connect_clicked(move |_| {
+        if let Some(s) = state.upgrade() {
+            s.navigation
+                .unified_open
+                .set(!s.navigation.unified_open.get());
+            sidebar(&s);
+        }
+    });
+    let heading = section("ACCOUNTS · CHOOSE A MAILBOX");
+    heading.set_margin_top(20);
+    s.sidebar.append(&heading);
+    let accounts = vbox(4);
+    s.sidebar.append(&accounts);
+    let add = nav_button("list-add-symbolic", "Sign in with Google");
+    s.sidebar.append(&add);
+    let state = Rc::downgrade(s);
+    add.connect_clicked(move |_| {
+        if let Some(s) = state.upgrade() {
+            add_account(&s, false, None);
+        }
+    });
+    NavigationWidgets {
+        recovery,
+        unified,
+        folders,
+        accounts,
+    }
+}
+fn create_account(s: &Rc<State>, account: &luma_core::config::Account) -> AccountWidgets {
+    let root = vbox(2);
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let avatar = rows::avatar(&account.email, 30);
+    crate::contact_photos::register(s, &account.id, &account.email, &avatar);
+    row.append(&avatar);
+    let text = vbox(3);
+    text.set_hexpand(true);
+    let name = label(&account.name, "account-name");
+    let email = label(&account.email, "account-caption");
+    for name in [&name, &email] {
+        name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        name.set_max_width_chars(20);
+        text.append(name);
+    }
+    row.append(&text);
+    let unread = label("", "thread-count");
+    row.append(&unread);
+    let arrow = gtk::Image::from_icon_name("pan-end-symbolic");
+    row.append(&arrow);
+    let button = gtk::Button::builder().child(&row).build();
+    button.add_css_class("flat");
+    let disclosure = Disclosure::new(button, arrow);
+    disclosure.content.add_css_class("account-folders");
+    root.append(&disclosure.button);
+    root.append(&disclosure.reveal);
+    let folders = folder_buttons(s, &disclosure.content, Some(account.id.clone()));
+    let labels = vbox(2);
+    disclosure.content.append(&labels);
+    let state = Rc::downgrade(s);
+    let id = account.id.clone();
+    disclosure.button.connect_clicked(move |_| {
+        if let Some(s) = state.upgrade() {
+            if s.filter.borrow().as_ref() == Some(&id) {
+                let open = s.navigation.expanded_account.borrow().as_ref() != Some(&id);
+                *s.navigation.expanded_account.borrow_mut() = open.then(|| id.clone());
+                sidebar(&s);
+            } else {
+                select_folder(&s, Some(id.clone()), Folder::Inbox);
+                load_labels(&s, &id);
+            }
+        }
+    });
+    AccountWidgets {
+        root,
+        disclosure,
+        name,
+        email,
+        unread,
+        folders,
+        labels,
+        label_signature: vec![],
+        label_buttons: vec![],
+    }
+}
 pub(super) fn sidebar(s: &Rc<State>) {
-    let scroll = s.sidebar_scroll.vadjustment().value();
-    clear(&s.sidebar);
-    // Preserve the pinned header widgets and their focus when account/labels change.
+    // Never destroy/reparent the active disclosure during selection or unread
+    // updates: GTK needs the outgoing child to animate its closing height.
     if s.sidebar_top.first_child().is_none() {
         let brand = vbox(2);
         brand.add_css_class("sidebar-brand");
@@ -67,137 +267,127 @@ pub(super) fn sidebar(s: &Rc<State>) {
         compose.add_css_class("suggested-action");
         compose.add_css_class("pill");
         s.sidebar_top.append(&compose);
-        let state = s.clone();
-        compose.connect_clicked(move |_| crate::compose::open(&state, None, None));
+        let state = Rc::downgrade(s);
+        compose.connect_clicked(move |_| {
+            if let Some(s) = state.upgrade() {
+                crate::compose::open(&s, None, None);
+            }
+        });
     }
-    if s.local_compose.has_drafts() {
-        let local = nav_button("document-open-symbolic", "Recover old local drafts");
-        s.sidebar.append(&local);
-        let state = s.clone();
-        local.connect_clicked(move |_| crate::compose::local_drafts(&state));
+    if s.navigation.widgets.borrow().is_none() {
+        *s.navigation.widgets.borrow_mut() = Some(create_navigation(s));
     }
-    let group = section("UNIFIED VIEWS");
-    s.sidebar.append(&group);
-    for (icon, folder) in FOLDERS {
-        let title = if folder == Folder::Inbox {
-            "Unified Inbox"
-        } else {
-            folder_name(&folder)
-        };
-        let button = nav_button(icon, title);
-        if *s.folder.borrow() == folder && s.filter.borrow().is_none() {
-            button.add_css_class("active-folder");
-        }
-        s.sidebar.append(&button);
-        let state = s.clone();
-        button.connect_clicked(move |_| select_folder(&state, None, folder.clone()));
+    let filter = s.filter.borrow().clone();
+    if *s.navigation.last_filter.borrow() != filter {
+        *s.navigation.last_filter.borrow_mut() = filter.clone();
+        *s.navigation.expanded_account.borrow_mut() = filter.clone();
     }
-    let heading = section("ACCOUNTS · CHOOSE A MAILBOX");
-    heading.set_margin_top(20);
-    s.sidebar.append(&heading);
+    let widgets = s.navigation.widgets.borrow();
+    let widgets = widgets.as_ref().unwrap();
+    widgets.recovery.set_visible(s.local_compose.has_drafts());
+    widgets.unified.expand(s, s.navigation.unified_open.get());
+    active(&widgets.unified.button, "active-account", filter.is_none());
+    for (folder, button) in &widgets.folders {
+        active(
+            button,
+            "active-folder",
+            filter.is_none() && *s.folder.borrow() == *folder,
+        );
+    }
     let accounts = s.settings.borrow().accounts.clone();
+    let mut rows = s.navigation.accounts.borrow_mut();
+    rows.retain(|id, row| {
+        let keep = accounts.iter().any(|a| &a.id == id);
+        if !keep {
+            widgets.accounts.remove(&row.root);
+        }
+        keep
+    });
+    let mut previous = None::<gtk::Widget>;
     for account in accounts {
-        let button = gtk::Button::new();
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        row.append(&rows::avatar(&account.email, 30));
-        let text = vbox(3);
-        text.set_hexpand(true);
-        for (value, class) in [
-            (&account.name, "account-name"),
-            (&account.email, "account-caption"),
-        ] {
-            let name = label(value, class);
-            name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            name.set_max_width_chars(20);
-            text.append(&name);
-        }
-        row.append(&text);
-        let unread = s.unread.borrow().get(&account.id).copied().unwrap_or(0);
-        if unread > 0 {
-            let count = label(
-                &if unread > 999 {
-                    "999+".into()
-                } else {
-                    unread.to_string()
-                },
-                "thread-count",
-            );
-            count.set_tooltip_text(Some(&format!("{unread} unread messages")));
-            row.append(&count);
-        }
-        button.set_child(Some(&row));
-        button.add_css_class("flat");
-        button.set_sensitive(account.enabled);
-        button.set_tooltip_text(Some(&format!(
-            "{} · Open this account's Inbox and folders",
+        let row = rows.entry(account.id.clone()).or_insert_with(|| {
+            let row = create_account(s, &account);
+            widgets.accounts.append(&row.root);
+            row
+        });
+        widgets
+            .accounts
+            .reorder_child_after(&row.root, previous.as_ref());
+        previous = Some(row.root.clone().upcast());
+        row.name.set_text(&account.name);
+        row.email.set_text(&account.email);
+        row.disclosure.button.set_sensitive(account.enabled);
+        row.disclosure.button.set_tooltip_text(Some(&format!(
+            "{} · Inbox and account folders",
             account.email
         )));
-        let active = s.filter.borrow().as_ref() == Some(&account.id);
-        if active {
-            button.add_css_class("active-account");
-        }
-        s.sidebar.append(&button);
-        let state = s.clone();
-        let id = account.id.clone();
-        button.connect_clicked(move |_| {
-            select_folder(&state, Some(id.clone()), Folder::Inbox);
-            load_labels(&state, &id);
+        let count = s.unread.borrow().get(&account.id).copied().unwrap_or(0);
+        row.unread.set_visible(count > 0);
+        row.unread.set_text(&if count > 999 {
+            "999+".into()
+        } else {
+            count.to_string()
         });
-        if active {
-            let folders = vbox(2);
-            folders.add_css_class("account-folders");
-            for (icon, folder) in FOLDERS {
-                let button = nav_button(icon, folder_name(&folder));
-                if *s.folder.borrow() == folder {
-                    button.add_css_class("active-folder");
-                }
-                folders.append(&button);
-                let state = s.clone();
-                let id = account.id.clone();
+        row.unread
+            .set_tooltip_text(Some(&format!("{count} unread messages")));
+        let selected = filter.as_ref() == Some(&account.id);
+        active(&row.disclosure.button, "active-account", selected);
+        row.disclosure.expand(
+            s,
+            s.navigation.expanded_account.borrow().as_ref() == Some(&account.id),
+        );
+        for (folder, button) in &row.folders {
+            active(
+                button,
+                "active-folder",
+                selected && *s.folder.borrow() == *folder,
+            );
+        }
+        let labels: Vec<_> = s
+            .labels_cache
+            .borrow()
+            .get(&account.id)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|l| l.kind == "user")
+            .collect();
+        let signature = labels
+            .iter()
+            .map(|l| (l.id.clone(), l.name.clone()))
+            .collect::<Vec<_>>();
+        if row.label_signature != signature {
+            clear(&row.labels);
+            row.label_buttons.clear();
+            if !labels.is_empty() {
+                row.labels
+                    .append(&section("LABELS · RIGHT-CLICK TO MANAGE"));
+            }
+            for item in labels {
+                let button = nav_button("luma-tag-symbolic", &item.name);
+                row.labels.append(&button);
+                let state = Rc::downgrade(s);
+                let account_id = account.id.clone();
+                let id = item.id.clone();
                 button.connect_clicked(move |_| {
-                    select_folder(&state, Some(id.clone()), folder.clone())
-                });
-            }
-            s.sidebar.append(&folders);
-            if let Some(labels) = s.labels_cache.borrow().get(&account.id).cloned() {
-                let heading = section("LABELS · RIGHT-CLICK TO MANAGE");
-                s.sidebar.append(&heading);
-                for item in labels.into_iter().filter(|l| l.kind == "user") {
-                    let button = nav_button("luma-tag-symbolic", &item.name);
-                    if *s.folder.borrow() == Folder::Label(item.id.clone()) {
-                        button.add_css_class("active-folder");
+                    if let Some(s) = state.upgrade() {
+                        select_folder(&s, Some(account_id.clone()), Folder::Label(id.clone()));
                     }
-                    s.sidebar.append(&button);
-                    let state = s.clone();
-                    let id = account.id.clone();
-                    let label_id = item.id.clone();
-                    button.connect_clicked(move |_| {
-                        select_folder(&state, Some(id.clone()), Folder::Label(label_id.clone()))
-                    });
-                    label_menu(s, &button, &account.id, &item);
-                }
+                });
+                label_menu(s, &button, &account.id, &item);
+                row.label_buttons.push((item.id, button));
             }
+            row.label_signature = signature;
+        }
+        for (id, button) in &row.label_buttons {
+            active(
+                button,
+                "active-folder",
+                selected && *s.folder.borrow() == Folder::Label(id.clone()),
+            );
         }
     }
-    let add = nav_button("list-add-symbolic", "Sign in with Google");
-    s.sidebar.append(&add);
-    let state = s.clone();
-    add.connect_clicked(move |_| add_account(&state, false, None));
     s.sidebar_scroll.hadjustment().set_value(0.);
-    let weak = Rc::downgrade(s);
-    let frames = Cell::new(0);
-    s.sidebar.add_tick_callback(move |_, _| {
-        frames.set(frames.get() + 1);
-        if frames.get() < 2 {
-            return glib::ControlFlow::Continue;
-        }
-        if let Some(s) = weak.upgrade() {
-            let adjustment = s.sidebar_scroll.vadjustment();
-            adjustment.set_value(scroll.min((adjustment.upper() - adjustment.page_size()).max(0.)));
-            s.sidebar_scroll.hadjustment().set_value(0.);
-        }
-        glib::ControlFlow::Break
-    });
 }
 pub(super) fn select_folder(s: &Rc<State>, account: Option<String>, folder: Folder) {
     let title = match &folder {
@@ -223,6 +413,7 @@ pub(super) fn select_folder(s: &Rc<State>, account: Option<String>, folder: Fold
     });
     s.title
         .set_text(&source.map_or(title.clone(), |email| format!("{title} · {email}")));
+    *s.navigation.expanded_account.borrow_mut() = account.clone();
     *s.filter.borrow_mut() = account;
     *s.folder.borrow_mut() = folder;
     sidebar(s);
@@ -231,11 +422,14 @@ pub(super) fn select_folder(s: &Rc<State>, account: Option<String>, folder: Fold
 fn label_menu(s: &Rc<State>, button: &gtk::Button, account: &str, item: &Label) {
     let gesture = gtk::GestureClick::new();
     gesture.set_button(3);
-    let state = s.clone();
+    let state = Rc::downgrade(s);
     let account = account.to_owned();
     let item = item.clone();
     let weak = button.downgrade();
     gesture.connect_pressed(move |gesture, _, x, y| {
+        let Some(state) = state.upgrade() else {
+            return;
+        };
         let Some(button) = weak.upgrade() else {
             return;
         };
@@ -305,6 +499,11 @@ fn delete_label(s: &Rc<State>, account: &str, item: &Label) {
 }
 
 #[cfg(debug_assertions)]
+pub(super) fn fixture_unified(s: &Rc<State>, open: bool) {
+    s.navigation.unified_open.set(open);
+    sidebar(s);
+}
+#[cfg(debug_assertions)]
 pub(super) fn diagnostic(s: &Rc<State>) {
     assert!(s.clients.borrow().is_empty());
     let first = s.settings.borrow().accounts[0].clone();
@@ -324,10 +523,37 @@ pub(super) fn diagnostic(s: &Rc<State>) {
         .insert(second.id.clone(), vec![long]);
     s.settings.borrow_mut().ui_scale_percent = 100;
     crate::presentation::apply(s);
+    assert!(
+        !s.navigation.unified_open.get(),
+        "unified mail starts collapsed"
+    );
+    let unified = s
+        .navigation
+        .widgets
+        .borrow()
+        .as_ref()
+        .unwrap()
+        .unified
+        .reveal
+        .clone();
+    let toggle = s
+        .navigation
+        .widgets
+        .borrow()
+        .as_ref()
+        .unwrap()
+        .unified
+        .button
+        .clone();
+    assert!(!unified.reveals_child());
+    toggle.emit_clicked();
+    assert!(unified.reveals_child());
+    let first_root = s.navigation.accounts.borrow()[&first.id].root.clone();
+    let second_root = s.navigation.accounts.borrow()[&second.id].root.clone();
     let state = s.clone();
     let mut stage = 0;
     let mut baseline = None;
-    glib::timeout_add_local(Duration::from_millis(160), move || {
+    glib::timeout_add_local(Duration::from_millis(340), move || {
         let nav = state.sidebar_top.parent().unwrap();
         let bounds = nav.compute_bounds(&state.window).unwrap();
         if stage > 0 {
@@ -341,9 +567,41 @@ pub(super) fn diagnostic(s: &Rc<State>) {
             baseline = Some(bounds);
         }
         match stage {
-            0 => select_folder(&state, Some(first.id.clone()), Folder::Inbox),
-            1 => select_folder(&state, Some(second.id.clone()), Folder::Archive),
+            0 => {
+                assert!(
+                    unified.is_child_revealed(),
+                    "unified folders finish opening"
+                );
+                toggle.emit_clicked();
+                select_folder(&state, Some(first.id.clone()), Folder::Inbox);
+            }
+            1 => {
+                assert!(
+                    !unified.is_child_revealed(),
+                    "unified folders finish closing"
+                );
+                assert!(
+                    state.navigation.accounts.borrow()[&first.id]
+                        .disclosure
+                        .reveal
+                        .is_child_revealed()
+                );
+                select_folder(&state, Some(second.id.clone()), Folder::Archive);
+                let rows = state.navigation.accounts.borrow();
+                assert_eq!(
+                    rows[&first.id].root, first_root,
+                    "outgoing widgets stay alive for collapse"
+                );
+                assert_eq!(rows[&second.id].root, second_root);
+                assert!(!rows[&first.id].disclosure.reveal.reveals_child());
+                assert!(rows[&second.id].disclosure.reveal.reveals_child());
+            }
             2 => {
+                {
+                    let rows = state.navigation.accounts.borrow();
+                    assert!(!rows[&first.id].disclosure.reveal.is_child_revealed());
+                    assert!(rows[&second.id].disclosure.reveal.is_child_revealed());
+                }
                 assert!(
                     state.title.text().contains("second@example.invalid")
                         && *state.folder.borrow() == Folder::Archive
@@ -354,7 +612,7 @@ pub(super) fn diagnostic(s: &Rc<State>) {
                 assert_eq!(state.filter.borrow().as_deref(), Some(first.id.as_str()));
                 assert_eq!(*state.folder.borrow(), Folder::Spam);
                 println!(
-                    "PASS account folder scoping and stable sidebar geometry with long account/label names"
+                    "PASS collapsed unified mail, animated folder expansion/collapse, persistent account widgets and stable sidebar geometry"
                 );
                 state.app.quit();
                 return glib::ControlFlow::Break;

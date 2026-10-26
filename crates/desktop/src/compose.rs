@@ -290,7 +290,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                     &e.text.buffer().start_iter(),
                     &e.text.buffer().iter_at_offset(6),
                 );
-                e.expand.emit_clicked();
+                assert_eq!(e.placement.get(), 3, "new messages start compact");
                 println!(
                     "PASS new compose To focus, recipient completion, Tab/Shift+Tab and filename hyperlink"
                 );
@@ -819,6 +819,12 @@ pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
     s.settings.borrow_mut().accounts.push(account);
     make(s, Compose::new("fixture@example.invalid".into()), None);
     let e = s.editor.borrow().as_ref().unwrap().clone();
+    assert_eq!(e.placement.get(), 3, "new composers start compact");
+    assert_eq!(
+        s.compose_stack.visible_child_name().as_deref(),
+        Some("mail")
+    );
+    expand_editor(&e);
     assert_eq!(
         s.compose_stack.visible_child_name().as_deref(),
         Some("compose")
@@ -1488,7 +1494,11 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         focus_message(&e);
         motion::controls(&e);
     } else {
-        show_full(&e);
+        motion::compact(&e);
+        motion::controls(&e);
+        s.window.present();
+        focus_message(&e);
+        crate::presentation::enter(s, &e.root);
     }
     render_files(&e);
     highlight_links(&e);

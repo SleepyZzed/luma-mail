@@ -154,3 +154,42 @@ retained/pasted files). They autosave with the Gmail draft. No temp-image spool 
 created; local file attachments can use Drive for larger transfers. Composer
 movement retains one short-lived render snapshot in memory, released after its
 280 ms transition. It adds no persistent store or idle animation loop.
+
+## Whole-application audit and explicit Save all
+
+The configurable limit is a **mail-body cache budget**, not a limit on installed
+application binaries. The AppImage bundles GTK, WebKit and media libraries to
+avoid dependence on the build host's installation. Its compressed download and
+extracted installation are reported separately from growing user data.
+`packaging/audit-storage.py --tree LABEL PATH` reads filesystem metadata without
+reading file contents or following symbolic links; hard links are counted once.
+Unix reports use allocated blocks, including directory/link allocation. Windows
+reports are explicitly estimates. Shared OS keyring/font caches, filesystem
+journals/snapshots and compositor resources cannot be reliably attributed here.
+Development compiler/dependency/build directories are not installed client data.
+
+Each Linux renderer test records configuration, app cache, private runtime and
+other XDG cache usage. The read-only AppImage test also records compressed and
+extracted package sizes. Reports are included in CI/release artifacts. These
+synthetic runs are evidence about tested paths, not sustained real-mailbox proof.
+
+Save all keeps at most one selected attachment download in flight and decodes at
+most 26 MiB for a file. It writes only to a user-chosen folder, with safe basenames
+and create-new semantics; existing files and symlinks are not overwritten.
+Duplicate names get numbered suffixes. Cancellation stops after an in-flight
+request returns or at a 256 KiB write boundary, removes an incomplete new file,
+and keeps completed saves. It never stages an archive or adds body-cache entries.
+
+Photo failures have a short transient retry deadline rather than a ten-minute
+negative match. The rolling lookup budget schedules a wakeup for pending visible
+senders. Clearing/disabling invalidates old completions. All these states and
+navigation/composer animation snapshots remain in RAM only.
+
+Mesa graphics shader caches are now directed to the app's private Linux runtime
+folder with a nominal 16 MiB driver limit, separate from the body budget. Luma
+disables Mesa's uncapped single-file mode for its own process only. It does not
+change desktop settings or other applications. Normal XDG runtime storage is
+temporary; its fallback can persist. See [Mesa's cache settings](https://docs.mesa3d.org/envvars.html).
+The limit concerns supported Mesa drivers, not a universal quota on every GPU
+vendor's implementation. Runtime reports include top-level metadata breakdowns
+so non-mail library files are visible rather than hidden in a zero-cache claim.

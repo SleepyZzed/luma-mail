@@ -60,3 +60,40 @@ Earlier authorized 25-row live checks measured Inbox 0.93 s, Load more 0.70 s,
 Archive 1.12 s and All Mail 0.88 s; these are observations, not guarantees. A
 sustained two-account Linux/Noctalia run, memory/CPU profiling on the target
 desktop, and Drive recipient-sharing acceptance remain required for 1.0.
+
+## 0.5 audit additions
+
+Named sender headers are now reduced to the exact email used by Contacts search.
+The lookup projection includes available profile data merged with a saved
+contact, without adding scopes or a local contacts index. A people/me experiment
+returned 403 with the existing grant and was removed. Arbitrary Gmail sender
+photos remain unavailable through this integration.
+
+Sidebar groups now retain their widgets across unread/selection changes. Both
+outgoing and incoming account disclosures can animate without reparenting the
+whole sidebar. Unified disclosure performs no provider fetch. New compact
+composition uses the same layout, editor buffer and transitions as Restore.
+
+A Windows debug stress run opened 2,000 synthetic 64 KiB bodies through a 1 MiB
+cache. Peak charged storage was **1,040,384 bytes**; usage after 1,000 and 2,000
+writes was identical, retaining 14 entries. Switching to zero removed the body
+directory and reported zero. The writes plus allocation checks took 6,932 ms on
+this host (about 3.47 ms/iteration); this is synthetic cache I/O, not Gmail latency
+or a 100,000-message real-account soak. The temporary test tree was removed.
+The existing 100,000-message fake-provider check fetches just the first 25-row
+page on initial access. A target-Linux sustained mailbox profile remains open.
+
+The authorized Windows review root contains 1,621 logical bytes of configuration
+and 2,766,888 logical bytes of cache/runtime profile metadata with body caching
+disabled. That is a Windows development-renderer footprint, not Linux mail
+retention. Linux package and runtime allocations are recorded separately in
+CI-generated JSON reports. See storage.md for scope and reproducibility.
+
+The first 0.5 Linux audit measured a 157,563,384-byte AppImage and a 496,793,202-byte
+logical extracted installation (510,812,160 allocated). It also exposed about
+2.1 MiB allocated in other XDG cache files. Mesa's documented default permits up
+to 1 GiB, independently of mail caching. The follow-up directs Mesa shader data
+to private runtime storage and sets its driver limit to 16 MiB, retaining shader
+reuse during the session. CI rejects shader-cache escape into XDG_CACHE_HOME and
+records a top-level cache/runtime breakdown. Final rebuilt figures follow in the
+verification record. No unrelated/shared user caches are deleted.

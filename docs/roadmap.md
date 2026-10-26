@@ -1,7 +1,7 @@
 # Road to 1.0
 
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
-0.4 is an early-access milestone, not a completed 1.0 release.
+0.5 is an early-access milestone, not a completed 1.0 release.
 
 ## This milestone
 
@@ -19,12 +19,20 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Clipboard-image attachments in memory and separate Gmail drafts for conflicts.
 - Optional saved-contact photos with bounded lookup/RAM, no contacts/photo mirror.
 
+## 0.5 hardening milestone
+
+- Collapsed unified folders and persistent animated account disclosures.
+- Compact-first composition, preserving existing expand/restore behavior.
+- Correct display-name matching and retry handling for available contact photos.
+- Sequential attachment Save all with progress, cancellation and safe filenames.
+- Separate whole-package/runtime allocation reports alongside zero-cache gates.
+
 ## Next implementation priorities
 
 1. Richer draft conflict comparison/merging, full rich-text undo/redo,
    recipient chips and authorised send-as aliases. Keep complex HTML intact until
    its editor can represent it without silently losing content.
-2. Attachment save-all, inline image insertion and whole-conversation forwarding;
+2. Inline image insertion and whole-conversation forwarding;
    interrupted Drive upload/sharing recovery and existing-file selection.
 3. Search highlighting, accessible keyboard/focus review, account identity polish
    and useful offline/partial-failure recovery.

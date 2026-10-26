@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.4.0-dev.1
+        default: v0.5.0-dev.1
       reproduce_legacy:
         description: Reproduce the reported 0.2.0 missing-system-WebKit crash
         type: boolean
@@ -51,13 +51,13 @@ jobs:
       - run: cargo test --locked --workspace
       - name: Tray and system notification D-Bus acceptance
         run: dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
-      - name: Composer focus, links and compact restore
+      - name: Compact composer, focus, links and animated restore
         run: |
           cargo build --locked -p luma-mail
           root="$(mktemp -d)"
           trap 'rm -rf -- "$root"' EXIT
           timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --compose-diagnostics --clipboard-diagnostics
-      - name: Fixed sidebar and UI scaling
+      - name: Animated navigation, fixed sidebar and UI scaling
         run: |
           root="$(mktemp -d)"
           trap 'rm -rf -- "$root"' EXIT

@@ -3,7 +3,7 @@ use crate::ui::State;
 use adw::prelude::*;
 use gtk::{gdk, glib};
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{HashMap, VecDeque},
     rc::Rc,
     time::{Duration, Instant},
@@ -15,8 +15,9 @@ struct Avatar {
 }
 struct Cached {
     key: Key,
-    at: Instant,
+    expires: Instant,
     image: Option<gdk::Texture>,
+    retry: bool,
 }
 #[derive(Default)]
 pub(crate) struct Photos {
@@ -25,11 +26,14 @@ pub(crate) struct Photos {
     clients: RefCell<HashMap<String, luma_core::contact_photos::Photos>>,
     pending: RefCell<HashMap<Key, tokio::task::AbortHandle>>,
     recent: RefCell<VecDeque<Instant>>,
-    scheduled: RefCell<Option<glib::SourceId>>,
+    scheduled: RefCell<Option<(Instant, glib::SourceId)>>,
+    generation: Cell<u64>,
+    failures: RefCell<HashMap<String, String>>,
 }
 impl Photos {
     pub fn clear(&self) {
-        if let Some(timer) = self.scheduled.borrow_mut().take() {
+        self.generation.set(self.generation.get().wrapping_add(1));
+        if let Some((_, timer)) = self.scheduled.borrow_mut().take() {
             timer.remove();
         }
         for (_, task) in self.pending.borrow_mut().drain() {
@@ -43,6 +47,10 @@ impl Photos {
         self.cache.borrow_mut().clear();
         self.clients.borrow_mut().clear();
         self.recent.borrow_mut().clear();
+        self.failures.borrow_mut().clear();
+    }
+    pub fn status(&self, account: &str) -> Option<String> {
+        self.failures.borrow().get(account).cloned()
     }
 }
 fn enabled(s: &State, account: &str) -> bool {
@@ -66,13 +74,10 @@ fn clear_key(s: &State, key: &Key) {
     }
 }
 pub(crate) fn register(s: &Rc<State>, account: &str, sender: &str, widget: &adw::Avatar) {
-    let Ok(addresses) = luma_core::composer::recipients(sender) else {
+    let Ok(email) = luma_core::contact_photos::sender_email(sender) else {
         return;
     };
-    let Some(email) = addresses.first().filter(|_| addresses.len() == 1) else {
-        return;
-    };
-    let key = (account.to_owned(), email.to_ascii_lowercase());
+    let key = (account.to_owned(), email);
     let mut widgets = s.photos.widgets.borrow_mut();
     widgets.retain(|entry| entry.widget.upgrade().is_some());
     widgets.push(Avatar {
@@ -83,18 +88,27 @@ pub(crate) fn register(s: &Rc<State>, account: &str, sender: &str, widget: &adw:
     queue(s);
 }
 pub(crate) fn queue(s: &Rc<State>) {
-    if s.photos.scheduled.borrow().is_some() {
+    queue_after(s, Duration::from_millis(120));
+}
+fn queue_after(s: &Rc<State>, delay: Duration) {
+    let deadline = Instant::now() + delay;
+    if let Some((at, _)) = s.photos.scheduled.borrow().as_ref()
+        && *at <= deadline
+    {
         return;
     }
+    if let Some((_, timer)) = s.photos.scheduled.borrow_mut().take() {
+        timer.remove();
+    }
     let weak = Rc::downgrade(s);
-    *s.photos.scheduled.borrow_mut() = Some(glib::timeout_add_local_once(
-        Duration::from_millis(120),
-        move || {
+    *s.photos.scheduled.borrow_mut() = Some((
+        deadline,
+        glib::timeout_add_local_once(delay, move || {
             if let Some(s) = weak.upgrade() {
                 s.photos.scheduled.borrow_mut().take();
                 visible(&s);
             }
-        },
+        }),
     ));
 }
 fn intersects(a: &gtk::graphene::Rect, b: &gtk::graphene::Rect) -> bool {
@@ -142,30 +156,41 @@ fn visible(s: &Rc<State>) {
         let mut cache = s.photos.cache.borrow_mut();
         if let Some(index) = cache.iter().position(|entry| entry.key == key) {
             let entry = cache.remove(index).unwrap();
-            if entry.at.elapsed() < Duration::from_secs(600) {
+            if entry.expires > Instant::now() {
                 widget.set_custom_image(entry.image.as_ref());
+                if entry.retry {
+                    queue_after(
+                        s,
+                        entry.expires.saturating_duration_since(Instant::now())
+                            + Duration::from_millis(150),
+                    );
+                }
                 cache.push_back(entry);
                 continue;
             }
             clear_key(s, &key);
         }
         drop(cache);
-        if s.photos.pending.borrow().len() >= 2 {
-            break;
-        }
         if s.photos.pending.borrow().contains_key(&key) {
             continue;
         }
+        if s.photos.pending.borrow().len() >= 2 {
+            continue;
+        }
+        let Some(client) = s.clients.borrow().get(&key.0).cloned() else {
+            continue;
+        };
         let mut recent = s.photos.recent.borrow_mut();
         recent.retain(|at| at.elapsed() < Duration::from_secs(60));
         if recent.len() >= 12 {
+            let delay = Duration::from_secs(60).saturating_sub(recent.front().unwrap().elapsed())
+                + Duration::from_millis(150);
+            drop(recent);
+            queue_after(s, delay);
             continue;
         }
         recent.push_back(Instant::now());
         drop(recent);
-        let Some(client) = s.clients.borrow().get(&key.0).cloned() else {
-            continue;
-        };
         let photos = s
             .photos
             .clients
@@ -174,15 +199,56 @@ fn visible(s: &Rc<State>) {
             .or_insert_with(|| luma_core::contact_photos::Photos::new(client))
             .clone();
         let email = key.1.clone();
+        let generation = s.photos.generation.get();
         let target = key.clone();
         let task = crate::ui::async_work(
             s,
             async move { Ok(photos.get(&email).await) },
             move |s, result| {
+                if s.photos.generation.get() != generation {
+                    return;
+                }
                 s.photos.pending.borrow_mut().remove(&target);
                 if !enabled(&s, &target.0) {
                     return;
                 }
+                // A transient failure must not become a ten-minute "no photo".
+                // Permission failures wait for explicit Retry/Reconnect.
+                let retry = result.as_ref().err().is_some_and(|error| {
+                    !matches!(
+                        error,
+                        luma_core::Error::Reauthenticate
+                            | luma_core::Error::Api {
+                                status: 401 | 403,
+                                ..
+                            }
+                    )
+                });
+                let ttl = match &result {
+                    Ok(_) => {
+                        s.photos.failures.borrow_mut().remove(&target.0);
+                        Duration::from_secs(600)
+                    }
+                    Err(error) => {
+                        s.photos
+                            .failures
+                            .borrow_mut()
+                            .insert(target.0.clone(), error.to_string());
+                        if matches!(
+                            error,
+                            luma_core::Error::Reauthenticate
+                                | luma_core::Error::Api {
+                                    status: 401 | 403,
+                                    ..
+                                }
+                        ) {
+                            Duration::from_secs(600)
+                        } else {
+                            queue_after(&s, Duration::from_secs(60));
+                            Duration::from_secs(59)
+                        }
+                    }
+                };
                 let image = result.ok().flatten().map(|image| {
                     gdk::MemoryTexture::new(
                         image.width as i32,
@@ -208,8 +274,9 @@ fn visible(s: &Rc<State>) {
                 cache.retain(|entry| entry.key != target);
                 cache.push_back(Cached {
                     key: target,
-                    at: Instant::now(),
+                    expires: Instant::now() + ttl,
                     image,
+                    retry,
                 });
                 let mut evicted = Vec::new();
                 while cache.len() > 128 {
