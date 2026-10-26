@@ -1004,7 +1004,9 @@ fn verify_toolbar(e: &Editor) {
                     && bounds.y() >= 0.
                     && bounds.x() + bounds.width() <= flow.width() as f32 + 1.
                     && bounds.y() + bounds.height() <= flow.height() as f32 + 1.,
-                "Formatting action must not be clipped: {tip}"
+                "Formatting action must not be clipped: {tip}; bounds={bounds:?}, flow={}x{}",
+                flow.width(),
+                flow.height()
             );
             buttons.push(widget.clone().downcast::<gtk::Button>().unwrap());
         }
@@ -1288,7 +1290,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         .column_spacing(4)
         .row_spacing(4)
         .build();
-    format.set_halign(gtk::Align::Start);
+    format.set_halign(gtk::Align::Fill);
+    format.set_hexpand(true);
     let format_bar = vbox(0);
     format_bar.add_css_class("compose-toolbar");
     format_bar.append(&format);
