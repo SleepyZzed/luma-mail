@@ -40,6 +40,10 @@ uncapped or Google-approved distribution.
 Unconfigured developer builds cannot authenticate and are blocked from release
 publication. See [sign-in limits and protocol options](docs/oauth.md).
 
+The 0.7 visual and editing milestone adds app-owned icons, refined controls,
+verified Send-as aliases and explicit draft conflict merging. See the
+[visual system](docs/visual-system.md) and [roadmap](docs/roadmap.md).
+
 ## Tray, notifications and Refresh now
 
 On Linux, closing the main window hides Luma in the system tray when a live

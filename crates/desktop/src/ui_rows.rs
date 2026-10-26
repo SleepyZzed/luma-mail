@@ -107,7 +107,7 @@ fn content(s: &Rc<State>, item: &Conversation) -> gtk::Box {
     source.set_hexpand(true);
     bottom.append(&source);
     if item.attachments {
-        let icon = gtk::Image::from_icon_name("mail-attachment-symbolic");
+        let icon = gtk::Image::from_icon_name("luma-attachment-symbolic");
         icon.set_tooltip_text(Some("Contains attachments"));
         bottom.append(&icon);
     }
@@ -121,9 +121,9 @@ fn content(s: &Rc<State>, item: &Conversation) -> gtk::Box {
     row.append(&text);
     let star = button(
         if item.starred {
-            "starred-symbolic"
+            "luma-star-filled-symbolic"
         } else {
-            "non-starred-symbolic"
+            "luma-star-symbolic"
         },
         if item.starred {
             "Remove star"
@@ -197,6 +197,11 @@ fn make(s: &Rc<State>, item: &Conversation) -> MailRow {
     let target = item.key.clone();
     let weak = row.downgrade();
     gesture.connect_pressed(move |g, _, x, y| {
+        if g.current_event_state()
+            .intersects(gtk::gdk::ModifierType::SUPER_MASK | gtk::gdk::ModifierType::META_MASK)
+        {
+            return;
+        }
         if let Some(row) = weak.upgrade() {
             g.set_state(gtk::EventSequenceState::Claimed);
             menu(&state, &row, &target, x, y);
@@ -556,11 +561,36 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
     if targets.len() > 1 {
         box_.append(&label(&format!("{} selected", targets.len()), "caption"));
     }
+    let is_drafts = *s.folder.borrow() == Folder::Drafts;
+    if is_drafts {
+        let delete = gtk::Button::new();
+        delete.add_css_class("flat");
+        delete.set_child(Some(
+            &adw::ButtonContent::builder()
+                .icon_name("luma-trash-symbolic")
+                .label(if targets.len() == 1 {
+                    "Delete draft…"
+                } else {
+                    "Delete drafts…"
+                })
+                .build(),
+        ));
+        let state = s.clone();
+        let keys = targets.clone();
+        let weak = pop.downgrade();
+        delete.connect_clicked(move |_| {
+            if let Some(pop) = weak.upgrade() {
+                pop.popdown();
+            }
+            super::drafts::delete(&state, keys.clone());
+        });
+        box_.append(&delete);
+    }
     for (icon, title, action) in [
-        ("mail-read-symbolic", "Mark as read", MailAction::Read),
-        ("mail-unread-symbolic", "Mark as unread", MailAction::Unread),
+        ("luma-mail-symbolic", "Mark as read", MailAction::Read),
+        ("luma-unread-symbolic", "Mark as unread", MailAction::Unread),
         (
-            "starred-symbolic",
+            "luma-star-filled-symbolic",
             if item.starred {
                 "Remove star"
             } else {
@@ -575,7 +605,7 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         ("luma-archive-symbolic", "Archive", MailAction::Archive),
         ("luma-inbox-symbolic", "Move to Inbox", MailAction::Inbox),
         (
-            "mail-mark-junk-symbolic",
+            "luma-spam-symbolic",
             if matches!(*s.folder.borrow(), Folder::Spam) {
                 "Not spam"
             } else {
@@ -588,7 +618,7 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
             },
         ),
         (
-            "emblem-important-symbolic",
+            "luma-important-symbolic",
             if all_important {
                 "Mark unimportant"
             } else {
@@ -601,7 +631,7 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
             },
         ),
         (
-            "user-trash-symbolic",
+            "luma-trash-symbolic",
             if matches!(*s.folder.borrow(), Folder::Trash) {
                 "Restore from Trash"
             } else {
@@ -614,6 +644,9 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
             },
         ),
     ] {
+        if is_drafts {
+            continue;
+        }
         if action == MailAction::Inbox && *s.folder.borrow() == Folder::Inbox {
             continue;
         }
@@ -638,7 +671,7 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         box_.append(&b);
     }
     box_.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-    if targets.len() == 1 {
+    if targets.len() == 1 && !is_drafts {
         let block = gtk::Button::with_label("Block sender…");
         block.add_css_class("flat");
         let state = s.clone();

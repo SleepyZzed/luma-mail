@@ -116,9 +116,9 @@ pub fn card(name: &str, mime: &str, bytes: u64, remove: bool) -> Card {
     root.append(&open);
     let action = ui::button(
         if remove {
-            "window-close-symbolic"
+            "luma-close-symbolic"
         } else {
-            "folder-download-symbolic"
+            "luma-download-symbolic"
         },
         if remove {
             "Remove attachment"
@@ -300,7 +300,7 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
     let root = vbox(0);
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&adw::WindowTitle::new(name, &preview::size(bytes))));
-    let save_button = ui::button("folder-download-symbolic", "Save attachment…");
+    let save_button = ui::button("luma-download-symbolic", "Save attachment…");
     header.pack_end(&save_button);
     let state = s.clone();
     let title = name.to_owned();
@@ -398,7 +398,7 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
                             video.set_vexpand(true);
                             body.append(&video);
                         } else {
-                            let image = gtk::Image::from_icon_name("audio-x-generic-symbolic");
+                            let image = gtk::Image::from_icon_name("luma-audio-symbolic");
                             image.set_pixel_size(96);
                             image.set_vexpand(true);
                             body.append(&image);

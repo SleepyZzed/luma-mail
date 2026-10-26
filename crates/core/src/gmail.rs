@@ -551,6 +551,37 @@ impl Gmail {
             .await?;
         Ok(())
     }
+    /// Delete only verified draft resources in one explicitly selected thread.
+    /// Sent/received messages in the same conversation are never deleted.
+    pub async fn discard_thread_drafts(&self, thread_id: &str) -> Result<usize> {
+        let thread = self.thread_metadata(thread_id).await?;
+        let mut drafts = Vec::new();
+        for message in thread.messages.iter().filter(|m| m.has("DRAFT")) {
+            drafts.push(
+                self.find_draft(&message.id, message.payload.header("Message-ID"))
+                    .await?,
+            );
+        }
+        if drafts.is_empty() {
+            return Err(Error::Invalid(
+                "This conversation no longer contains a draft. Refresh Drafts.".into(),
+            ));
+        }
+        // Preflight the whole selection before the first deletion. Gmail does
+        // not provide compare-and-swap; recheck immediately before each DELETE.
+        for draft in &drafts {
+            if self.draft(&draft.id).await?.message.id != draft.message.id {
+                return Err(Error::DraftConflict);
+            }
+        }
+        for draft in &drafts {
+            if self.draft(&draft.id).await?.message.id != draft.message.id {
+                return Err(Error::DraftConflict);
+            }
+            self.discard_draft(&draft.id).await?;
+        }
+        Ok(drafts.len())
+    }
     pub async fn send_draft(&self, draft: &Draft) -> Result<Message> {
         json(
             self.call(

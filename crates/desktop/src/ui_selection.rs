@@ -202,10 +202,7 @@ pub(super) fn diagnostic(s: &Rc<State>) {
     let first = rows::key(s, &row(0)).unwrap();
     *s.selected.borrow_mut() = Some(first.clone());
     mode(s, false, false);
-    let marker = button(
-        "mail-reply-sender-symbolic",
-        "Single message action fixture",
-    );
+    let marker = button("luma-reply-symbolic", "Single message action fixture");
     marker.add_css_class("single-message-action");
     s.reader.append(&marker);
     assert!(click(s, &row(2), gtk::gdk::ModifierType::CONTROL_MASK));

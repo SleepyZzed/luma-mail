@@ -16,14 +16,14 @@ fn folder_name(folder: &Folder) -> &'static str {
 }
 const FOLDERS: [(&str, Folder); 9] = [
     ("luma-inbox-symbolic", Folder::Inbox),
-    ("mail-unread-symbolic", Folder::AllMail),
-    ("mail-mark-important-symbolic", Folder::Unread),
-    ("starred-symbolic", Folder::Starred),
-    ("mail-send-symbolic", Folder::Sent),
-    ("document-edit-symbolic", Folder::Drafts),
+    ("luma-unread-symbolic", Folder::AllMail),
+    ("luma-important-symbolic", Folder::Unread),
+    ("luma-star-filled-symbolic", Folder::Starred),
+    ("luma-send-symbolic", Folder::Sent),
+    ("luma-draft-symbolic", Folder::Drafts),
     ("luma-archive-symbolic", Folder::Archive),
-    ("mail-mark-junk-symbolic", Folder::Spam),
-    ("user-trash-symbolic", Folder::Trash),
+    ("luma-spam-symbolic", Folder::Spam),
+    ("luma-trash-symbolic", Folder::Trash),
 ];
 fn section(title: &str) -> gtk::Label {
     let label = label(title, "navigation-section");
@@ -81,9 +81,9 @@ impl Disclosure {
         self.reveal.set_can_target(open);
         self.reveal.set_reveal_child(open);
         self.arrow.set_icon_name(Some(if open {
-            "pan-down-symbolic"
+            "luma-chevron-down-symbolic"
         } else {
-            "pan-end-symbolic"
+            "luma-chevron-right-symbolic"
         }));
         self.button
             .update_state(&[gtk::accessible::State::Expanded(Some(open))]);
@@ -141,7 +141,7 @@ fn folder_buttons(
         .collect()
 }
 fn create_navigation(s: &Rc<State>) -> NavigationWidgets {
-    let recovery = nav_button("document-open-symbolic", "Recover old local drafts");
+    let recovery = nav_button("luma-folder-symbolic", "Recover old local drafts");
     s.sidebar.append(&recovery);
     let state = Rc::downgrade(s);
     recovery.connect_clicked(move |_| {
@@ -150,7 +150,7 @@ fn create_navigation(s: &Rc<State>) -> NavigationWidgets {
         }
     });
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let arrow = gtk::Image::from_icon_name("pan-end-symbolic");
+    let arrow = gtk::Image::from_icon_name("luma-chevron-right-symbolic");
     row.append(&section("UNIFIED MAIL"));
     row.first_child().unwrap().set_hexpand(true);
     row.append(&arrow);
@@ -178,7 +178,7 @@ fn create_navigation(s: &Rc<State>) -> NavigationWidgets {
     s.sidebar.append(&heading);
     let accounts = vbox(4);
     s.sidebar.append(&accounts);
-    let add = nav_button("list-add-symbolic", "Sign in with Google");
+    let add = nav_button("luma-add-symbolic", "Sign in with Google");
     s.sidebar.append(&add);
     let state = Rc::downgrade(s);
     add.connect_clicked(move |_| {
@@ -211,7 +211,7 @@ fn create_account(s: &Rc<State>, account: &luma_core::config::Account) -> Accoun
     row.append(&text);
     let unread = label("", "thread-count");
     row.append(&unread);
-    let arrow = gtk::Image::from_icon_name("pan-end-symbolic");
+    let arrow = gtk::Image::from_icon_name("luma-chevron-right-symbolic");
     row.append(&arrow);
     let button = gtk::Button::builder().child(&row).build();
     button.add_css_class("flat");
@@ -260,7 +260,7 @@ pub(super) fn sidebar(s: &Rc<State>) {
         let compose = gtk::Button::new();
         compose.set_child(Some(
             &adw::ButtonContent::builder()
-                .icon_name("mail-message-new-symbolic")
+                .icon_name("luma-compose-symbolic")
                 .label("Compose")
                 .build(),
         ));

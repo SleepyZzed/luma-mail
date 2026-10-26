@@ -106,9 +106,9 @@ pub fn show(s: &Rc<State>) {
     bar.add_css_class("reader-toolbar");
     for (icon, title) in [
         ("luma-archive-symbolic", "Archive"),
-        ("user-trash-symbolic", "Trash"),
-        ("mail-unread-symbolic", "Unread"),
-        ("non-starred-symbolic", "Star"),
+        ("luma-trash-symbolic", "Trash"),
+        ("luma-unread-symbolic", "Unread"),
+        ("luma-star-symbolic", "Star"),
         ("luma-tag-symbolic", "Labels"),
     ] {
         let b = ui::button(icon, title);
@@ -126,7 +126,20 @@ pub fn show(s: &Rc<State>) {
     name.append(&label("to Alex Morgan", "caption"));
     heading.append(&name);
     heading.append(&label("Today · 10:42", "caption"));
-    card.append(&heading);
+    let disclosure = gtk::Expander::builder()
+        .label_widget(&heading)
+        .child(&label(
+            "From: Jamie Chen <jamie@example.invalid>\nTo: Alex Morgan <alex@example.com>",
+            "caption",
+        ))
+        .build();
+    card.append(&disclosure);
+    let details = gtk::Expander::builder()
+        .label("Message details")
+        .child(&label("Synthetic message · No remote mailbox", "caption"))
+        .build();
+    details.add_css_class("message-details");
+    card.append(&details);
     let strip = vbox(6);
     strip.add_css_class("attachment-strip");
     strip.append(&label("Attachments", "caption"));
@@ -208,5 +221,7 @@ pub fn show(s: &Rc<State>) {
     }
     if std::env::args().any(|a| a == "--preview-compose") {
         crate::compose::design_preview(s, paths);
+    } else if std::env::args().any(|a| a == "--preview-reply") {
+        crate::compose::design_reply(s, paths, card);
     }
 }

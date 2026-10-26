@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.6.0-dev.1
+        default: v0.7.0-dev.1
       reproduce_legacy:
         description: Reproduce the reported 0.2.0 missing-system-WebKit crash
         type: boolean
@@ -64,6 +64,8 @@ jobs:
           timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --presentation-diagnostics
       - name: Media fixture tools
         run: sudo apt-get install -y gstreamer1.0-tools weston
+      - name: Native Linux UI evidence
+        run: bash packaging/test-ui.sh
       - name: WebKit sandbox path launcher tests
         run: |
           rustfmt --check --edition 2024 packaging/bwrap-relocate.rs
@@ -122,11 +124,15 @@ jobs:
       - name: Read-only AppImage without system WebKit on Wayland
         run: LUMA_TEST_DISPLAY=wayland bash packaging/test-readonly-appimage.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-readonly-newsletter.png
       - name: Preserve native rendering evidence
+        run: echo 'Rendering checks complete'
+      - name: Release process-tree RAM and idle CPU audit
+        run: bash packaging/test-performance.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage
+      - name: Preserve native rendering evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: luma-rendering-evidence
-          path: dist/*newsletter.png
+          path: dist/*.png
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:

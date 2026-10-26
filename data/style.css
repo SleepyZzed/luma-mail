@@ -1,87 +1,150 @@
-.luma-sidebar { background: alpha(@window_fg_color, 0.025); }
-.luma-sidebar button { padding: 9px 12px; border-radius: 10px; font-weight: 500; }
-.luma-sidebar .suggested-action { padding: 13px 18px; font-weight: 700; margin-bottom: 10px; }
+/* Luma's own visual system. Colours follow the active desktop/Noctalia palette. */
+window { background: @window_bg_color; color: @window_fg_color; }
+button {
+  border: 1px solid transparent; border-radius: 9px; padding: 7px 11px;
+  min-width: 20px; min-height: 20px; background-image: none;
+  box-shadow: none; text-shadow: none; font-weight: 500;
+  transition: background-color 160ms ease-out, box-shadow 160ms ease-out, color 160ms ease-out;
+}
+button.flat { background: transparent; }
+button:hover { background: alpha(@window_fg_color, 0.065); }
+button:active { background: alpha(@window_fg_color, 0.11); transition-duration: 65ms; }
+button:disabled { opacity: 0.42; }
+button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px alpha(@accent_bg_color, 0.7); }
+button.suggested-action { background: @accent_bg_color; color: @accent_fg_color; font-weight: 650; }
+button.suggested-action:hover { background: shade(@accent_bg_color, 1.08); }
+button.destructive-action { color: @error_color; background: alpha(@error_bg_color, 0.12); }
+button.destructive-action:hover { background: alpha(@error_bg_color, 0.22); }
+button image { -gtk-icon-size: 18px; }
+entry, spinbutton {
+  min-height: 28px; padding: 5px 10px; border-radius: 9px;
+  background: alpha(@window_fg_color, 0.045); border: 1px solid alpha(@window_fg_color, 0.07);
+  background-image: none; box-shadow: none; outline: none;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+entry:focus-within, spinbutton:focus-within {
+  border-color: alpha(@accent_bg_color, 0.5);
+  box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.3);
+  background: alpha(@window_fg_color, 0.025); outline: none;
+}
+entry text { background: transparent; }
+dropdown > button, fontdialogbutton > button {
+  background: alpha(@window_fg_color, 0.04); border: 1px solid alpha(@window_fg_color, 0.06);
+  padding: 5px 9px; min-height: 28px; font-weight: 400;
+}
+dropdown > button:hover, fontdialogbutton > button:hover { background: alpha(@window_fg_color, 0.075); }
+popover > contents {
+  background: @window_bg_color; border: 1px solid alpha(@window_fg_color, 0.10);
+  border-radius: 12px; box-shadow: 0 8px 24px alpha(black, 0.16); padding: 5px;
+}
+popover modelbutton { border-radius: 7px; padding: 7px 9px; }
+separator { min-height: 1px; min-width: 1px; background: alpha(@window_fg_color, 0.075); }
+scrollbar { background: transparent; border: none; }
+scrollbar slider { min-width: 5px; min-height: 5px; border-radius: 8px; background: alpha(@window_fg_color, 0.17); margin: 3px; }
+scrollbar slider:hover { background: alpha(@window_fg_color, 0.3); }
+/* GtkExpander's root is expander-widget. 'expander' alone is the arrow node. */
+expander-widget { background: transparent; border: none; padding: 0; }
+expander-widget > box > title { min-height: 28px; padding: 4px 0; border: none; }
+expander-widget > box > title:hover { color: @accent_color; }
+expander-widget > box > title > expander {
+  -gtk-icon-source: -gtk-icontheme("luma-chevron-right-symbolic");
+  -gtk-icon-size: 14px; min-width: 14px; min-height: 14px;
+  -gtk-icon-transform: none;
+  margin: 0 9px 0 0; padding: 0; border: none; border-radius: 0;
+  background: transparent; box-shadow: none; color: alpha(@window_fg_color, 0.6);
+}
+expander-widget > box > title > expander:checked {
+  -gtk-icon-source: -gtk-icontheme("luma-chevron-down-symbolic");
+}
+.sidebar-shell { background: alpha(@window_fg_color, 0.018); }
+.sidebar-brand { padding: 4px 10px 18px; }
+.sidebar-brand .title-1 { font-weight: 750; letter-spacing: -0.6px; }
+.luma-sidebar { background: transparent; }
+.luma-sidebar button { padding: 9px 12px; border-radius: 9px; font-weight: 500; }
+.luma-sidebar button image { -gtk-icon-size: 18px; }
+.luma-sidebar .suggested-action { padding: 12px 16px; margin-bottom: 10px; border-radius: 12px; font-weight: 650; }
+.luma-sidebar .active-folder { background: alpha(@accent_bg_color, 0.13); color: @accent_color; }
+.luma-sidebar .active-folder:hover { background: alpha(@accent_bg_color, 0.19); }
+.luma-sidebar .active-account { background: alpha(@accent_bg_color, 0.07); }
+.sidebar-footer { padding: 10px 16px; border-top: 1px solid alpha(@window_fg_color, 0.065); }
+.navigation-section { font-size: 0.72em; font-weight: 650; color: alpha(@window_fg_color, 0.5); margin: 12px 6px 4px; }
+.account-folders { margin-left: 12px; border-left: 1px solid alpha(@accent_bg_color, 0.16); padding-left: 5px; }
 .navigation-sidebar { background: transparent; padding: 4px; }
-.navigation-sidebar row.mail-row { border-radius: 14px; margin: 3px 5px; border: 1px solid transparent; transition: background-color 150ms ease, border-color 150ms ease, opacity 150ms ease; }
-.navigation-sidebar row.mail-row:selected { background: alpha(@accent_bg_color, 0.14); border-color: alpha(@accent_bg_color, 0.25); color: @window_fg_color; }
-.navigation-sidebar row.mail-row:hover { background: alpha(@window_fg_color, 0.045); }
-.navigation-sidebar row.mail-row:selected:hover { background: alpha(@accent_bg_color, 0.19); }
+.navigation-sidebar row.mail-row {
+  border-radius: 12px; margin: 3px 5px; border: 1px solid transparent;
+  transition: background-color 180ms ease-out, border-color 180ms ease-out, opacity 180ms ease-out;
+}
+.navigation-sidebar row.mail-row:selected { background: alpha(@accent_bg_color, 0.12); border-color: alpha(@accent_bg_color, 0.22); color: @window_fg_color; }
+.navigation-sidebar row.mail-row:hover { background: alpha(@window_fg_color, 0.04); }
+.navigation-sidebar row.mail-row:selected:hover { background: alpha(@accent_bg_color, 0.17); }
 .mail-row.pending { opacity: 0.65; }
 .mail-sender { font-size: 0.96em; font-weight: 500; }
-.mail-sender.unread-sender { font-weight: 750; }
+.mail-sender.unread-sender { font-weight: 700; }
 .mail-subject { font-size: 0.94em; }
 .mail-snippet { font-size: 0.9em; color: alpha(@window_fg_color, 0.55); }
-.mail-date, .account-caption { font-size: 0.77em; color: alpha(@window_fg_color, 0.55); }
+.mail-date, .account-caption { font-size: 0.77em; color: alpha(@window_fg_color, 0.53); }
 .unread-dot { color: @accent_color; font-size: 0.65em; }
-.thread-count { font-size: 0.75em; font-weight: 700; color: alpha(@window_fg_color, 0.6); background: alpha(@window_fg_color, 0.06); border-radius: 5px; padding: 1px 5px; }
+.thread-count { font-size: 0.75em; font-weight: 600; color: alpha(@window_fg_color, 0.6); background: alpha(@window_fg_color, 0.055); border-radius: 5px; padding: 1px 5px; }
 .row-star { padding: 5px; min-width: 24px; min-height: 24px; opacity: 0; transition: opacity 140ms ease, background-color 140ms ease; }
 row:hover .row-star, row:focus-within .row-star, .row-star.is-starred { opacity: 1; }
 .row-star.is-starred { color: @warning_color; }
-.context-menu button { padding: 8px 12px; border-radius: 8px; min-height: 24px; }
-.mail-card { background: @view_bg_color; border: 1px solid alpha(@window_fg_color, 0.08); border-radius: 18px; padding: 20px; }
-expander { background: alpha(@window_fg_color, 0.02); border: 1px solid alpha(@window_fg_color, 0.07); border-radius: 16px; padding: 16px; }
+.context-menu button { padding: 7px 10px; border-radius: 7px; min-height: 24px; }
+.mail-card { background: @view_bg_color; border: 1px solid alpha(@window_fg_color, 0.075); border-radius: 16px; padding: 20px; }
 .caption { font-size: 0.8em; opacity: 0.65; }
-.reader-subject { font-size: 1.65em; font-weight: 750; }
-.reader-toolbar button { border-radius: 10px; padding: 8px; }
+.reader-subject { font-size: 1.6em; font-weight: 700; letter-spacing: -0.45px; }
+.reader-toolbar { padding: 2px 0 8px; }
+.reader-toolbar button { border-radius: 8px; padding: 7px; background: transparent; }
+.reader-toolbar button:hover { background: alpha(@accent_bg_color, 0.09); }
 .reader-body { font-size: 1.04em; }
-.compose-window { background: @view_bg_color; }
-.compose-fields { padding: 8px 22px; }
-.compose-fields entry { border: none; background: transparent; box-shadow: none; padding: 6px 0; }
-.compose-fields .subject-entry { font-size: 1.28em; font-weight: 650; padding: 12px 0; }
-.compose-field-label { min-width: 42px; font-size: 0.9em; color: alpha(@window_fg_color, 0.55); }
-.compose-toolbar { padding: 8px 18px; border-top: 1px solid alpha(@window_fg_color, 0.07); }
-.compose-toolbar button { border-radius: 9px; }
-.compose-footer { padding: 12px 20px; border-top: 1px solid alpha(@window_fg_color, 0.07); }
-.attachment-strip { padding: 10px 0; }
-.attachment-card { border: 1px solid alpha(@window_fg_color, 0.1); background: alpha(@window_fg_color, 0.025); border-radius: 12px; padding: 10px; transition: background-color 140ms ease; }
-.attachment-card:hover { background: alpha(@accent_bg_color, 0.07); }
+.message-details { padding: 2px 0; border: none; background: transparent; }
+.message-details > box > title { min-height: 22px; }
+.message-details label { font-size: 0.87em; }
+.message-replies { margin-top: 14px; }
+.compose-window, .compose-scene { background: @window_bg_color; }
+.compose-window headerbar { background: transparent; box-shadow: none; border-bottom: 1px solid alpha(@window_fg_color, 0.06); }
+.compose-fields { padding: 8px 20px; }
+.compose-fields entry {
+  min-height: 26px; padding: 5px 8px; border: 1px solid transparent;
+  background: transparent; border-radius: 7px; box-shadow: none; outline: none;
+}
+.compose-fields entry:hover { background: alpha(@window_fg_color, 0.025); }
+.compose-fields entry:focus-within { border-color: transparent; box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.5); background: alpha(@accent_bg_color, 0.035); }
+.compose-fields .subject-entry { font-size: 1.08em; font-weight: 600; min-height: 26px; padding: 5px 8px; }
+.compose-field-label { min-width: 36px; font-size: 0.85em; color: alpha(@window_fg_color, 0.5); }
+.compose-fields dropdown > button { background: transparent; border-color: transparent; }
+.compose-fields dropdown > button:hover { background: alpha(@window_fg_color, 0.04); }
+.compose-toolbar { padding: 7px 18px; border-top: 1px solid alpha(@window_fg_color, 0.065); }
+.compose-toolbar flowboxchild { padding: 0; border-radius: 7px; }
+.compose-toolbar button { border-radius: 7px; min-height: 24px; padding: 5px 7px; }
+.compose-toolbar fontdialogbutton button { min-width: 110px; }
+.compose-toolbar dropdown { min-height: 24px; }
+.compose-footer { padding: 10px 20px; border-top: 1px solid alpha(@window_fg_color, 0.065); }
+.compose-footer .suggested-action { padding: 8px 22px; border-radius: 9px; }
 textview { padding: 18px; }
-.compose-window textview { padding: 20px 24px; }
-.inline-composer { margin-top: 20px; border: 1px solid alpha(@accent_bg_color, 0.3); border-radius: 16px; background: @view_bg_color; }
-.inline-reply-header { padding: 8px 12px; }
-.inline-composer .compose-fields { padding: 0 14px; }
-.inline-composer .compose-toolbar { padding: 6px 10px; }
+.compose-window textview { padding: 18px 24px; }
+.compact-composer { background: @window_bg_color; border: 1px solid alpha(@window_fg_color, 0.13); border-radius: 14px; box-shadow: 0 14px 36px alpha(black, 0.2); }
+.inline-composer { margin-top: 20px; border: 1px solid alpha(@window_fg_color, 0.12); border-radius: 12px; background: @view_bg_color; }
+.inline-reply-header { padding: 7px 12px; }
+.inline-composer .compose-fields { padding: 0 12px; }
+.inline-composer .compose-toolbar { padding: 5px 10px; }
 .inline-composer textview { padding: 12px 16px; }
 .inline-composer .compose-footer { padding: 8px 12px; }
 .reply-quote { padding: 6px 16px; }
-.recipient-chip { background: alpha(@accent_bg_color, 0.12); border: 1px solid alpha(@accent_bg_color, 0.2); border-radius: 14px; padding: 0 4px 0 10px; }
-.recipient-chip button { min-width: 18px; min-height: 18px; padding: 2px; border-radius: 12px; }
+.recipient-chip { background: alpha(@accent_bg_color, 0.09); border: 1px solid alpha(@accent_bg_color, 0.13); border-radius: 7px; padding: 0 3px 0 9px; }
+.recipient-chip button { min-width: 18px; min-height: 18px; padding: 2px; border-radius: 5px; }
+.attachment-strip { padding: 8px 0; }
+.attachment-card { border: 1px solid alpha(@window_fg_color, 0.09); background: alpha(@window_fg_color, 0.025); border-radius: 10px; padding: 10px; transition: background-color 140ms ease; }
+.attachment-card:hover { background: alpha(@accent_bg_color, 0.065); }
 .loading-placeholder { padding: 20px 8px; }
-.skeleton-line { background: alpha(@window_fg_color, 0.07); border-radius: 6px; }
+.skeleton-line { background: alpha(@window_fg_color, 0.065); border-radius: 5px; }
 .mail-loading trough { min-height: 2px; background: transparent; }
 .mail-loading progress { min-height: 2px; border-radius: 2px; }
-.message-details { padding: 4px 8px; border: none; background: transparent; }
-.message-replies { margin-top: 14px; }
+.app-status { font-size: 0.78em; opacity: 0.55; margin: 5px 14px; }
+.bulk-actions { padding: 7px; border-radius: 10px; background: alpha(@accent_bg_color, 0.05); }
+.bulk-actions button { padding: 6px 8px; border-radius: 7px; }
+.selection-mode row.mail-row:selected { background: alpha(@accent_bg_color, 0.20); border-color: alpha(@accent_bg_color, 0.3); }
+.draft-conflict { background: alpha(@warning_bg_color, 0.10); border-radius: 9px; padding: 10px; }
+/* No client resize grips/shadow on borderless Linux windows; WM owns them. */
+window.luma-compositor-managed { border-radius: 0; box-shadow: none; }
+window.luma-compositor-managed > decoration { margin: 0; padding: 0; border: none; box-shadow: none; }
 
-.sidebar-shell { background: alpha(@window_fg_color, 0.018); }
-.sidebar-brand { padding: 4px 10px 18px; }
-.sidebar-brand .title-1 { font-weight: 800; letter-spacing: -0.6px; }
-.sidebar-footer { padding: 12px 16px; border-top: 1px solid alpha(@window_fg_color, 0.065); }
-.sidebar-footer button { border-radius: 10px; }
-.luma-sidebar { background: transparent; }
-.luma-sidebar .active-folder { background: alpha(@accent_bg_color, 0.14); color: @accent_color; }
-.luma-sidebar .active-folder:hover { background: alpha(@accent_bg_color, 0.2); }
-.luma-sidebar .suggested-action { border-radius: 14px; padding: 13px 16px; }
-.navigation-sidebar row.mail-row { transition: background-color 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 220ms ease, opacity 220ms ease; }
-.navigation-sidebar row.mail-row:selected { box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.08); }
-.reader-toolbar { padding: 2px 0 8px; }
-.reader-toolbar button:hover { background: alpha(@accent_bg_color, 0.1); }
-.reader-subject { letter-spacing: -0.5px; }
-.app-status { font-size: 0.78em; opacity: 0.58; margin: 5px 14px; }
-.compose-toolbar { padding: 8px 18px; }
-.compose-toolbar flowboxchild { padding: 0; border-radius: 9px; }
-.compose-toolbar fontdialogbutton button { min-width: 110px; }
-.compose-toolbar button, .compose-toolbar dropdown { min-height: 30px; }
-.compose-footer .suggested-action { padding: 9px 22px; border-radius: 12px; }
-button { transition: background-color 180ms ease-out, box-shadow 180ms ease-out; }
-button:active { transition-duration: 70ms; }
-
-.bulk-actions { padding: 8px; border-radius: 12px; background: alpha(@accent_bg_color, 0.05); }
-.compact-composer { background: @window_bg_color; border: 1px solid alpha(@accent_bg_color, 0.25); border-radius: 16px; box-shadow: 0 12px 36px alpha(black, 0.22); }
-.compose-scene { background: @window_bg_color; }
-.draft-conflict { background: alpha(@warning_bg_color, 0.12); border-radius: 10px; padding: 10px; }
-.navigation-section { font-size: 0.72em; font-weight: 700; color: alpha(@window_fg_color, 0.52); margin: 12px 6px 4px; }
-.account-folders { margin-left: 12px; border-left: 1px solid alpha(@accent_bg_color, 0.2); padding-left: 5px; }
-.luma-sidebar .active-account { background: alpha(@accent_bg_color, 0.1); }
-.bulk-actions button { padding: 6px 8px; border-radius: 8px; }
-.selection-mode row.mail-row:selected { background: alpha(@accent_bg_color, 0.22); border-color: alpha(@accent_bg_color, 0.36); }

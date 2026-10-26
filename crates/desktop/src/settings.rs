@@ -19,7 +19,7 @@ pub fn open(s: &Rc<State>) {
     let dialog = adw::PreferencesDialog::builder().title("Settings").build();
     let accounts = adw::PreferencesPage::builder()
         .title("Accounts")
-        .icon_name("system-users-symbolic")
+        .icon_name("luma-people-symbolic")
         .build();
     let group = adw::PreferencesGroup::builder()
         .title("Google accounts")
@@ -226,7 +226,7 @@ pub fn open(s: &Rc<State>) {
     dialog.add(&accounts);
     let appearance = adw::PreferencesPage::builder()
         .title("Appearance")
-        .icon_name("applications-graphics-symbolic")
+        .icon_name("luma-image-symbolic")
         .build();
     let g=adw::PreferencesGroup::builder().title("Appearance and Noctalia").description("Noctalia reads a generated palette, with live file-monitor updates. See docs/noctalia.md.").build();
     let modes = ["system", "dark", "light", "noctalia"];
@@ -289,8 +289,11 @@ pub fn open(s: &Rc<State>) {
     });
     let chrome = adw::SwitchRow::builder()
         .title("Window decorations")
-        .subtitle("Optional compositor window frame · Off by default for Hyprland")
+        .subtitle(
+            "Optional Windows frame; Linux resizing and borders are managed by the compositor",
+        )
         .active(s.settings.borrow().window_chrome)
+        .sensitive(!cfg!(target_os = "linux"))
         .build();
     g.add(&chrome);
     let state = s.clone();
@@ -316,7 +319,7 @@ pub fn open(s: &Rc<State>) {
     dialog.add(&appearance);
     let storage = adw::PreferencesPage::builder()
         .title("Storage & Cache")
-        .icon_name("drive-harddisk-symbolic")
+        .icon_name("luma-drive-symbolic")
         .build();
     let g=adw::PreferencesGroup::builder().title("Enforced disposable cache").description("Message bodies only. Cache allocation includes files and conservative directory overhead. Credentials, settings, and explicitly saved files are outside this budget.").build();
     let sizes = [0, 50, 100, 250, 500];
@@ -450,7 +453,7 @@ pub fn open(s: &Rc<State>) {
     dialog.add(&storage);
     let general = adw::PreferencesPage::builder()
         .title("Notifications & Privacy")
-        .icon_name("preferences-system-notifications-symbolic")
+        .icon_name("luma-notification-symbolic")
         .build();
     let g=adw::PreferencesGroup::builder().title("While Luma is running").description("Bounded Gmail history polling continues in the tray. Tray → Quit exits completely; no daemon or autostart is installed.").build();
     let poll = adw::SpinRow::with_range(30., 3600., 30.);
@@ -522,7 +525,7 @@ pub fn open(s: &Rc<State>) {
     dialog.add(&general);
     let about = adw::PreferencesPage::builder()
         .title("About & Diagnostics")
-        .icon_name("help-about-symbolic")
+        .icon_name("luma-info-symbolic")
         .build();
     let g = adw::PreferencesGroup::builder()
         .title(format!(

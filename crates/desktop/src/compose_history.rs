@@ -260,9 +260,9 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::Box) {
         group.add_action(&action);
     }
     e.text.insert_action_group("compose-edit", Some(&group));
-    let back = ui::button("edit-undo-symbolic", "Undo text or formatting (Ctrl+Z)");
+    let back = ui::button("luma-undo-symbolic", "Undo text or formatting (Ctrl+Z)");
     let forward = ui::button(
-        "edit-redo-symbolic",
+        "luma-redo-symbolic",
         "Redo text or formatting (Ctrl+Shift+Z)",
     );
     // Buttons are outside the text view, so bind their callbacks directly.

@@ -226,7 +226,7 @@ pub fn manage(s: &Rc<State>, account: &str) {
 }
 pub fn menu(s: &Rc<State>, message: &Message, account: &str) -> gtk::MenuButton {
     let button = gtk::MenuButton::builder()
-        .icon_name("view-more-symbolic")
+        .icon_name("luma-more-symbolic")
         .tooltip_text("Message actions")
         .build();
     button.add_css_class("flat");

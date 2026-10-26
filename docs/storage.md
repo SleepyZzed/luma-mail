@@ -217,3 +217,19 @@ body/metadata on demand, with no attachment download or new disk checkpoint.
 The connected account's own photo uses Drive's projected user profile only when
 Drive and profile photos are enabled. It shares the existing thumbnail RAM and
 lookup-rate limits; it creates no file and adds no permission.
+
+## 0.7 visual and editing additions
+
+- The 52 app-owned SVG icons are compiled resources, without network requests
+  or per-user storage. Existing finite animation/RAM limits remain in force.
+- Verified alias lists are projected, bounded reads for the selected account
+  and live only in the open editor. Signatures and SMTP credentials are omitted.
+- A conflict comparison fetches one selected draft. Parsing runs off the UI
+  thread, previews are shortened, and full selected fields stay in RAM until
+  the dialog/editor closes. Attachments are fetched only after the user chooses
+  the Gmail set, within the existing combined editing cap. No local copy is made.
+- The merged copy has a new Message-ID and saves to Gmail. Draft deletion
+  looks up exact draft Message-IDs; it never scans the draft mailbox or trashes
+  the other messages in a thread.
+- Cross-account avatar reuse stays inside the existing 128-thumbnail RAM cap,
+  two concurrent jobs and 12 scheduled lookups per minute.

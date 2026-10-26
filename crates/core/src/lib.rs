@@ -7,6 +7,7 @@ pub mod compose_drive;
 pub mod composer;
 pub mod config;
 pub mod contact_photos;
+pub mod draft_merge;
 pub mod drive;
 pub mod gmail;
 pub mod html_mail;
@@ -22,6 +23,7 @@ pub mod provider;
 mod rate;
 pub mod rich_draft;
 pub mod search;
+pub mod send_as;
 pub mod sender_rules;
 pub mod theme;
 

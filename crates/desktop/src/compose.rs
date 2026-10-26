@@ -21,6 +21,8 @@ mod draft_conflict;
 mod fonts;
 #[path = "compose_history.rs"]
 mod history;
+#[path = "compose_identity.rs"]
+mod identity;
 #[path = "compose_motion.rs"]
 mod motion;
 #[path = "compose_recipients.rs"]
@@ -33,6 +35,7 @@ pub(crate) struct Editor {
     surface: gtk::Box,
     header: adw::HeaderBar,
     inline_header: gtk::Box,
+    inline_close: gtk::Button,
     from_row: gtk::Box,
     field_separator: gtk::Separator,
     body_scroll: gtk::ScrolledWindow,
@@ -47,6 +50,8 @@ pub(crate) struct Editor {
     inline_origin: glib::WeakRef<gtk::Box>,
     close_after_save: Cell<bool>,
     from: gtk::DropDown,
+    inline_from: gtk::DropDown,
+    identities: identity::Choices,
     chips: recipients::Chips,
     field_sync: Cell<bool>,
     accounts: Vec<luma_core::config::Account>,
@@ -57,6 +62,7 @@ pub(crate) struct Editor {
     text: gtk::TextView,
     html: gtk::CheckButton,
     files: gtk::Box,
+    files_scroll: gtk::ScrolledWindow,
     form: gtk::Box,
     attachments: RefCell<Vec<PathBuf>>,
     retained: RefCell<Vec<RetainedAttachment>>,
@@ -65,6 +71,8 @@ pub(crate) struct Editor {
     upload_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     cancel_upload: gtk::Button,
     template: Compose,
+    merge_base: RefCell<luma_core::draft_merge::Fields>,
+    comparison_busy: Cell<bool>,
     message_id: RefCell<String>,
     draft: RefCell<Option<Draft>>,
     revision: Cell<u64>,
@@ -99,6 +107,9 @@ pub(crate) struct Editor {
     font_inserting: Cell<bool>,
 }
 impl Editor {
+    fn account(&self) -> Option<&luma_core::config::Account> {
+        self.accounts.get(self.identities.account_index())
+    }
     fn parent(&self) -> gtk::Window {
         if self.placement.get() == 2 {
             self.window.clone().upcast()
@@ -143,6 +154,8 @@ fn focus_tab(e: &Rc<Editor>, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -
                 field.grab_focus();
             } else if e.from.is_mapped() {
                 e.from.grab_focus();
+            } else if e.inline_from.is_mapped() && e.inline_from.is_sensitive() {
+                e.inline_from.grab_focus();
             } else {
                 return false;
             }
@@ -166,7 +179,12 @@ fn focus_tab(e: &Rc<Editor>, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -
         }
         return true;
     }
-    if !backwards && (focus == e.from || focus.is_ancestor(&e.from)) {
+    if !backwards
+        && (focus == e.from
+            || focus.is_ancestor(&e.from)
+            || focus == e.inline_from
+            || focus.is_ancestor(&e.inline_from))
+    {
         e.to.grab_focus();
         return true;
     }
@@ -475,6 +493,22 @@ fn verify_inline_reply(s: &Rc<State>) {
         "history is not editable reply text"
     );
     editor.text.buffer().set_text("My new reply");
+    make_at(
+        s,
+        Compose::new("alex@example.com".into()),
+        None,
+        Some(slot.clone()),
+    );
+    assert!(Rc::ptr_eq(&editor, s.editor.borrow().as_ref().unwrap()));
+    assert_eq!(editor.placement.get(), 1, "Repeated Reply stays inline");
+    assert_eq!(
+        editor.text.buffer().text(
+            &editor.text.buffer().start_iter(),
+            &editor.text.buffer().end_iter(),
+            false
+        ),
+        "My new reply"
+    );
     let outbound = snapshot(&editor).unwrap();
     let parsed = luma_core::rich_draft::parse(&outbound.text).unwrap();
     assert_eq!(parsed.text.trim(), "My new reply");
@@ -483,6 +517,12 @@ fn verify_inline_reply(s: &Rc<State>) {
     assert!(!snapshot(&editor).unwrap().text.contains("Previous mail"));
     recipients::verify(&editor);
     history::verify(&editor);
+    identity::verify(&editor);
+    draft_conflict::verify(&editor);
+    assert!(
+        !editor.files_scroll.is_visible(),
+        "No empty attachment strip in inline reply"
+    );
     editor.sent.set(true);
     editor.closing.set(true);
     let revision = editor.revision.get();
@@ -496,6 +536,22 @@ fn verify_inline_reply(s: &Rc<State>) {
     );
     finish(&editor);
     s.reader.remove(&slot);
+    let previous_motion = s.settings.borrow().reduced_motion;
+    s.settings.borrow_mut().reduced_motion = true;
+    s.reader.append(&slot);
+    make_at(
+        s,
+        Compose::new("alex@example.com".into()),
+        None,
+        Some(slot.clone()),
+    );
+    let closed = s.editor.borrow().clone().unwrap();
+    closed.saved.set(closed.revision.get());
+    closed.inline_close.emit_clicked();
+    assert!(s.editor.borrow().is_none(), "Inline X closes a saved reply");
+    assert!(closed.closing.get());
+    s.reader.remove(&slot);
+    s.settings.borrow_mut().reduced_motion = previous_motion;
     println!(
         "PASS native compact inline reply, separate read-only quote, quote exclusion and no post-send autosave"
     );
@@ -795,6 +851,7 @@ fn open_internal(
         return;
     };
     let mut c = Compose::new(a.email.clone());
+    c.account = Some(a.id.clone());
     if let Some(d) = &draft {
         let p = &d.message.payload;
         c.drive_files = match luma_core::compose_drive::draft_references(
@@ -806,6 +863,8 @@ fn open_internal(
                 return;
             }
         };
+        c.from = p.header("From").into();
+        c.sender_reply_to = p.header("Reply-To").into();
         c.to = p.header("To").into();
         c.cc = p.header("Cc").into();
         c.bcc = p.header("Bcc").into();
@@ -871,6 +930,7 @@ fn open_internal(
     } else {
         c.text = a.signature;
     }
+    c.account = Some(a.id);
     c.retained = retained;
     make_at(s, c, draft, slot);
 }
@@ -975,6 +1035,15 @@ fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
 fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Box>) {
     let existing = s.editor.borrow().clone();
     if let Some(editor) = existing {
+        if slot.is_some() && editor.placement.get() == 1 {
+            s.window.present();
+            focus_message(&editor);
+            motion::reveal_inline(&editor);
+            editor
+                .status
+                .set_text("Your reply is already open below this conversation.");
+            return;
+        }
         show_full(&editor);
         editor
             .status
@@ -1001,24 +1070,28 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         .transient_for(&s.window)
         .application(&s.app)
         .title("Compose · Luma Mail")
-        .decorated(s.settings.borrow().window_chrome)
+        .decorated(crate::presentation::window_chrome(
+            s.settings.borrow().window_chrome,
+        ))
+        .resizable(true)
         .default_width(760)
         .default_height(720)
         .build();
     window.add_css_class("compose-window");
+    crate::presentation::configure_window(&window, s.settings.borrow().window_chrome);
     let root = vbox(0);
     root.add_css_class("compose-scene");
     let header = adw::HeaderBar::new();
     header.set_show_end_title_buttons(false);
     header.set_show_start_title_buttons(false);
-    let back = ui::button("go-previous-symbolic", "Save draft and return to mail");
+    let back = ui::button("luma-back-symbolic", "Save draft and return to mail");
     header.pack_start(&back);
-    let popout = ui::button("window-new-symbolic", "Pop out into a separate window");
-    let expand = ui::button("view-fullscreen-symbolic", "Expand composer");
+    let popout = ui::button("luma-popout-symbolic", "Pop out into a separate window");
+    let expand = ui::button("luma-expand-symbolic", "Expand composer");
     header.pack_end(&popout);
     header.pack_end(&expand);
     header.set_title_widget(Some(&adw::WindowTitle::new("New message", "Luma Mail")));
-    let save = ui::button("document-save-symbolic", "Save draft to Gmail");
+    let save = ui::button("luma-save-symbolic", "Save draft to Gmail");
     save.add_css_class("flat");
     header.pack_end(&save);
     root.append(&header);
@@ -1026,14 +1099,17 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     inline_header.add_css_class("inline-reply-header");
     let reply_title = label("Reply", "heading");
     inline_header.append(&reply_title);
-    let identity = label(&format!("from {}", c.from), "caption");
-    identity.set_hexpand(true);
-    identity.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
-    inline_header.append(&identity);
-    let inline_save = ui::button("document-save-symbolic", "Save reply to Gmail");
-    let inline_expand = ui::button("view-fullscreen-symbolic", "Expand reply");
-    let inline_popout = ui::button("window-new-symbolic", "Pop out reply");
-    let inline_close = ui::button("window-close-symbolic", "Save reply and close");
+    let initial_names: Vec<_> = accounts.iter().map(|a| a.email.as_str()).collect();
+    let inline_from = gtk::DropDown::from_strings(&initial_names);
+    inline_from.set_hexpand(true);
+    inline_from.add_css_class("flat");
+    inline_from.set_tooltip_text(Some("Send reply from a verified address"));
+    inline_from.set_enable_search(true);
+    inline_header.append(&inline_from);
+    let inline_save = ui::button("luma-save-symbolic", "Save reply to Gmail");
+    let inline_expand = ui::button("luma-expand-symbolic", "Expand reply");
+    let inline_popout = ui::button("luma-popout-symbolic", "Pop out reply");
+    let inline_close = ui::button("luma-close-symbolic", "Save reply and close");
     for button in [&inline_save, &inline_expand, &inline_popout, &inline_close] {
         button.add_css_class("flat");
         inline_header.append(button);
@@ -1050,7 +1126,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     notice.set_wrap(true);
     conflict_bar.append(&notice);
     let save_copy = gtk::Button::with_label("Save my version as a separate Gmail draft");
-    let compare = gtk::Button::with_label("Compare my version with Gmail");
+    let compare = gtk::Button::with_label("Compare and merge with Gmail");
     conflict_bar.append(&compare);
     conflict_bar.append(&save_copy);
     conflict_bar.set_visible(false);
@@ -1066,6 +1142,13 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let from_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     from_row.append(&label("From", "compose-field-label"));
     from_row.append(&from);
+    from.set_enable_search(true);
+    from.set_tooltip_text(Some(
+        "Verified sender address; aliases show their owning Gmail account",
+    ));
+    let retry_senders = ui::button("luma-refresh-symbolic", "Retry sender addresses");
+    retry_senders.add_css_class("flat");
+    from_row.append(&retry_senders);
     fields.append(&from_row);
     let entry = |title: &str, hint: &str, value: &str| {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -1101,14 +1184,13 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     fields.append(&subject);
     let files = vbox(4);
     files.add_css_class("attachment-strip");
-    fields.append(
-        &gtk::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk::PolicyType::Never)
-            .max_content_height(180)
-            .propagate_natural_height(true)
-            .child(&files)
-            .build(),
-    );
+    let files_scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .max_content_height(180)
+        .propagate_natural_height(true)
+        .child(&files)
+        .build();
+    fields.append(&files_scroll);
     form.append(&fields);
     let format = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
@@ -1195,15 +1277,15 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let send = gtk::Button::new();
     send.set_child(Some(
         &adw::ButtonContent::builder()
-            .icon_name("mail-send-symbolic")
+            .icon_name("luma-send-symbolic")
             .label("Send")
             .build(),
     ));
     send.add_css_class("suggested-action");
     send.set_tooltip_text(Some("Send message (Ctrl+Enter)"));
-    let attach = ui::button("mail-attachment-symbolic", "Attach files");
-    let drive = ui::button("folder-remote-symbolic", "Insert a Google Drive link");
-    let discard = ui::button("user-trash-symbolic", "Discard draft");
+    let attach = ui::button("luma-attachment-symbolic", "Attach files");
+    let drive = ui::button("luma-upload-cloud-symbolic", "Insert a Google Drive link");
+    let discard = ui::button("luma-trash-symbolic", "Discard draft");
     for b in [&attach, &drive, &discard] {
         b.add_css_class("flat");
     }
@@ -1251,6 +1333,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         surface.append(&child);
     }
     root.append(&surface);
+    let identities = identity::Choices::new(&accounts, &c, draft.is_some());
     let e = Rc::new(Editor {
         state: s.clone(),
         window,
@@ -1258,6 +1341,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         surface,
         header,
         inline_header,
+        inline_close: inline_close.clone(),
         from_row,
         field_separator,
         body_scroll,
@@ -1272,6 +1356,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         inline_origin: slot.as_ref().map(|s| s.downgrade()).unwrap_or_default(),
         close_after_save: Cell::new(false),
         from,
+        inline_from,
+        identities,
         chips: Default::default(),
         field_sync: Cell::new(false),
         accounts,
@@ -1282,6 +1368,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         text,
         html,
         files,
+        files_scroll,
         form,
         attachments: RefCell::new(c.attachments.clone()),
         retained: RefCell::new(c.retained.clone()),
@@ -1290,6 +1377,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         upload_cancel: Default::default(),
         cancel_upload,
         template,
+        merge_base: RefCell::new(luma_core::draft_merge::Fields::of(&c)),
+        comparison_busy: Cell::new(false),
         message_id: RefCell::new(c.message_id.clone()),
         draft: RefCell::new(draft),
         revision: Cell::new(0),
@@ -1327,7 +1416,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         (inline_save, 0),
         (inline_expand, 1),
         (inline_popout, 2),
-        (inline_close, 3),
+        (e.inline_close.clone(), 3),
     ] {
         let weak = Rc::downgrade(&e);
         button.connect_clicked(move |_| {
@@ -1337,7 +1426,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
                     1 => expand_editor(&e),
                     2 => pop_out(&e),
                     _ => {
-                        request_close(&e);
+                        if request_close(&e) == glib::Propagation::Proceed {
+                            finish(&e);
+                        }
                     }
                 }
             }
@@ -1413,10 +1504,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let styling = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     format.insert(&styling, -1);
     for (icon, title, tag) in [
-        ("format-text-bold-symbolic", "Bold", "strong"),
-        ("format-text-italic-symbolic", "Italic", "em"),
-        ("format-text-underline-symbolic", "Underline", "u"),
-        ("format-text-strikethrough-symbolic", "Strikethrough", "s"),
+        ("luma-bold-symbolic", "Bold", "strong"),
+        ("luma-italic-symbolic", "Italic", "em"),
+        ("luma-underline-symbolic", "Underline", "u"),
+        ("luma-strikethrough-symbolic", "Strikethrough", "s"),
     ] {
         let b = ui::button(icon, title);
         b.add_css_class("flat");
@@ -1430,12 +1521,12 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
     for (icon, title, kind) in [
         (
-            "view-list-symbolic",
+            "luma-list-symbolic",
             "Toggle bullet list",
             luma_core::lists::Kind::Bullet,
         ),
         (
-            "view-list-ordered-symbolic",
+            "luma-ordered-symbolic",
             "Toggle numbered list",
             luma_core::lists::Kind::Numbered,
         ),
@@ -1458,7 +1549,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             }
         });
     }
-    let link = ui::button("insert-link-symbolic", "Insert link");
+    let link = ui::button("luma-link-symbolic", "Insert link");
     link.add_css_class("flat");
     styling.append(&link);
     let weak = Rc::downgrade(&e);
@@ -1595,14 +1686,6 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
     {
         let weak = Rc::downgrade(&e);
-        e.from.connect_selected_notify(move |_| {
-            if let Some(e) = weak.upgrade() {
-                changed(&e);
-            }
-        });
-    }
-    {
-        let weak = Rc::downgrade(&e);
         e.save.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
                 if e.conflict.get() {
@@ -1645,7 +1728,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let weak = Rc::downgrade(&e);
         drive.connect_clicked(move |_| {
             let Some(e) = weak.upgrade() else { return };
-            if let Some(a) = e.accounts.get(e.from.selected() as usize) {
+            if let Some(a) = e.account() {
                 crate::settings::drive_dialog(&e.state, &e.text, &a.id, e.html.is_active());
             }
         });
@@ -1744,6 +1827,11 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     recipients::install(&e);
     clipboard::install(&e);
     history::install(&e, &styling);
+    identity::install(&e, &retry_senders);
+    motion::reveal_inline(&e);
+    if let Ok(compose) = snapshot(&e) {
+        *e.merge_base.borrow_mut() = luma_core::draft_merge::Fields::of(&compose);
+    }
     focus_message(&e);
     if is_new
         && (!e.template.text.is_empty()
@@ -1842,7 +1930,9 @@ fn save_local(e: &Rc<Editor>, close: bool) {
             return;
         }
     }
-    let account = e.accounts[e.from.selected() as usize].id.clone();
+    let Some(account) = e.account().map(|a| a.id.clone()) else {
+        return;
+    };
     let server = e
         .draft
         .borrow()
@@ -1968,7 +2058,7 @@ pub fn local_drafts(s: &Rc<State>) {
                         gtk::Button::with_label(&format!("{}\n{}", title, draft.compose.to));
                     button.set_hexpand(true);
                     row.append(&button);
-                    let remove = ui::button("user-trash-symbolic", "Delete local recovery copy");
+                    let remove = ui::button("luma-trash-symbolic", "Delete local recovery copy");
                     row.append(&remove);
                     list.append(&row);
                     let state = s.clone();
@@ -2429,12 +2519,14 @@ fn snapshot(e: &Editor) -> Result<Compose> {
 }
 fn snapshot_impl(e: &Editor, mime: bool) -> Result<Compose> {
     let a = e
-        .accounts
-        .get(e.from.selected() as usize)
+        .account()
         .ok_or_else(|| Error::Invalid("Choose a sending account".into()))?;
     let mut c = e.template.clone();
     c.message_id = e.message_id.borrow().clone();
-    c.from = a.email.clone();
+    c.account = Some(a.id.clone());
+    let sender = identity::sender(e)?;
+    c.from = sender.header();
+    c.sender_reply_to = sender.reply_to_address;
     c.to = recipients::value(e, &e.to);
     c.cc = recipients::value(e, &e.cc);
     c.bcc = recipients::value(e, &e.bcc);
@@ -2502,7 +2594,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
         e.status.set_text(&err.to_string());
         return;
     }
-    let Some(a) = e.accounts.get(e.from.selected() as usize) else {
+    let Some(a) = e.account() else {
         return;
     };
     let Some(client) = e.state.clients.borrow().get(&a.id).cloned() else {
@@ -2540,6 +2632,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
     e.send.set_sensitive(!send);
     e.save.set_sensitive(false);
     e.from.set_sensitive(false);
+    e.inline_from.set_sensitive(false);
     e.status.set_text(if send {
         "Saving, then sending through Gmail…"
     } else {
@@ -2620,8 +2713,9 @@ fn persist(e: &Rc<Editor>, send: bool) {
             .await
             {
                 Ok(c) => c,
-                Err(error) => return Ok((Err(error), None, false)),
+                Err(error) => return Ok((Err(error), None, false, None)),
             };
+            let saved_fields = luma_core::draft_merge::Fields::of(&c);
             let raw = match tokio::task::spawn_blocking(move || {
                 let raw = c.mime()?;
                 let mut sharing = c;
@@ -2636,7 +2730,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
             };
             let (raw, thread, sharing) = match raw {
                 Ok(value) => value,
-                Err(e) => return Ok((Err(e), None, false)),
+                Err(e) => return Ok((Err(e), None, false, None)),
             };
             let draft = match uploading
                 .save_draft(existing.as_ref(), &raw, thread.as_deref())
@@ -2645,7 +2739,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                 Ok(d) => d,
                 Err(e) => {
                     let uncertain = e.write_may_have_succeeded();
-                    return Ok((Err(e), None, uncertain));
+                    return Ok((Err(e), None, uncertain, None));
                 }
             };
             if send
@@ -2653,16 +2747,19 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     luma_core::compose_drive::share_for_send(&client, &sharing, &drive_progress)
                         .await
             {
-                return Ok((Err(error), Some(draft), false));
+                return Ok((Err(error), Some(draft), false, Some(saved_fields)));
             }
             phase.store(true, std::sync::atomic::Ordering::Relaxed);
             if send && let Err(e) = client.send_draft(&draft).await {
                 let uncertain = e.write_may_have_succeeded();
-                return Ok((Err(e), Some(draft), uncertain));
+                return Ok((Err(e), Some(draft), uncertain, Some(saved_fields)));
             }
-            Ok((Ok(draft), None, false))
+            Ok((Ok(draft), None, false, Some(saved_fields)))
         },
-        move |_, (result, persisted, uncertain)| {
+        move |_, (result, persisted, uncertain, saved_fields)| {
+            if let Some(fields) = saved_fields {
+                *editor.merge_base.borrow_mut() = fields;
+            }
             let succeeded_send = send && result.is_ok();
             if succeeded_send {
                 editor.sent.set(true);
@@ -2692,6 +2789,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                 Ok(d) => {
                     *editor.draft.borrow_mut() = Some(d);
                     editor.saved.set(revision);
+                    identity::refresh(&editor);
                     editor.status.set_text(if send {
                         "Sent · confirmed by Gmail"
                     } else {
@@ -2771,6 +2869,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     }
                 }
                 Err(err) => {
+                    identity::refresh(&editor);
                     editor.pending_send.set(false);
                     editor.status.set_text(&err.to_string());
                     if matches!(err, Error::DraftConflict) {
@@ -2790,6 +2889,9 @@ fn persist(e: &Rc<Editor>, send: bool) {
                         // Google does not provide an idempotency key. An interrupted send may
                         // already have succeeded. Require reconciliation before another attempt.
                         editor.uncertain.set(true);
+                        editor.send.set_sensitive(false);
+                        editor.from.set_sensitive(false);
+                        editor.inline_from.set_sensitive(false);
                         editor.save.set_sensitive(false);
                         editor.status.set_text(&format!("{err}. Saving and sending are locked for this window. Check Gmail Sent and Drafts before opening another composer."));
                     } else {
@@ -2841,7 +2943,7 @@ fn attach_files(e: &Rc<Editor>) {
     });
 }
 fn reconcile_drive_uploads(e: &Rc<Editor>) {
-    let Some(account) = e.accounts.get(e.from.selected() as usize) else {
+    let Some(account) = e.account() else {
         return;
     };
     let paths = e.attachments.borrow().clone();
@@ -2927,6 +3029,7 @@ fn render_files(e: &Rc<Editor>) {
     let count =
         e.retained.borrow().len() + e.attachments.borrow().len() + e.drive_files.borrow().len();
     e.files.set_visible(count > 0);
+    e.files_scroll.set_visible(count > 0);
     if count == 0 {
         return;
     }
@@ -2943,7 +3046,7 @@ fn render_files(e: &Rc<Editor>) {
     for file in e.drive_files.borrow().clone() {
         let card = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         card.add_css_class("attachment-card");
-        let icon = gtk::Image::from_icon_name("folder-remote-symbolic");
+        let icon = gtk::Image::from_icon_name("luma-upload-cloud-symbolic");
         card.append(&icon);
         let labels = vbox(3);
         let name = label(&file.name, "heading");
@@ -2952,7 +3055,7 @@ fn render_files(e: &Rc<Editor>) {
         labels.append(&name);
         labels.append(&label("Google Drive · shared on Send", "caption"));
         card.append(&labels);
-        let open = ui::button("external-link-symbolic", "Open Drive attachment");
+        let open = ui::button("luma-popout-symbolic", "Open Drive attachment");
         let state = e.state.clone();
         let link = luma_core::drive::verified_link(&file).ok();
         open.connect_clicked(move |_| {
@@ -2961,7 +3064,7 @@ fn render_files(e: &Rc<Editor>) {
             }
         });
         card.append(&open);
-        let remove = ui::button("window-close-symbolic", "Remove Drive link from draft");
+        let remove = ui::button("luma-close-symbolic", "Remove Drive link from draft");
         let weak = Rc::downgrade(e);
         remove.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
@@ -3079,7 +3182,7 @@ fn discard_editor(e: &Rc<Editor>) {
         }
         let draft = e.draft.borrow().clone();
         if let Some(draft) = draft {
-            let Some(a) = e.accounts.get(e.from.selected() as usize) else {
+            let Some(a) = e.account() else {
                 return;
             };
             let Some(c) = e.state.clients.borrow().get(&a.id).cloned() else {

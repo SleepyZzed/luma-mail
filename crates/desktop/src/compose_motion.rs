@@ -4,9 +4,9 @@ use super::*;
 pub(super) fn controls(e: &Editor) {
     let expanded = e.placement.get() == 0 || (e.placement.get() == 2 && e.detached_expanded.get());
     e.expand.set_icon_name(if expanded {
-        "view-restore-symbolic"
+        "luma-restore-symbolic"
     } else {
-        "view-fullscreen-symbolic"
+        "luma-expand-symbolic"
     });
     e.expand.set_tooltip_text(Some(if expanded {
         "Restore compact composer"
@@ -14,9 +14,9 @@ pub(super) fn controls(e: &Editor) {
         "Expand composer"
     }));
     e.popout.set_icon_name(if e.placement.get() == 2 {
-        "view-restore-symbolic"
+        "luma-restore-symbolic"
     } else {
-        "window-new-symbolic"
+        "luma-popout-symbolic"
     });
     e.popout.set_tooltip_text(Some(if e.placement.get() == 2 {
         "Move composer to main window"
@@ -75,6 +75,44 @@ pub(super) fn resize(e: &Editor, width: i32, height: i32) {
         (width - margin * 2).max(1).min((760. * scale) as i32),
         (height - margin * 2).max(1).min((600. * scale) as i32),
     );
+}
+pub(super) fn reveal_inline(e: &Rc<Editor>) {
+    if e.placement.get() != 1 {
+        return;
+    }
+    let weak = Rc::downgrade(e);
+    let ticks = Cell::new(0);
+    e.root.add_tick_callback(move |_, _| {
+        ticks.set(ticks.get() + 1);
+        if ticks.get() < 3 {
+            return glib::ControlFlow::Continue;
+        }
+        let Some(e) = weak
+            .upgrade()
+            .filter(|e| !e.closing.get() && e.placement.get() == 1)
+        else {
+            return glib::ControlFlow::Break;
+        };
+        if let Some(bounds) = e.root.compute_bounds(&e.state.reader) {
+            let mut parent = e.state.reader.parent();
+            while let Some(widget) = parent {
+                if let Some(scroll) = widget.downcast_ref::<gtk::ScrolledWindow>() {
+                    let adjustment = scroll.vadjustment();
+                    let bottom = bounds.y() as f64
+                        + bounds.height() as f64
+                        + e.state.reader.margin_top() as f64
+                        + 16.;
+                    let target = (bottom - adjustment.page_size())
+                        .max(0.)
+                        .min((adjustment.upper() - adjustment.page_size()).max(0.));
+                    adjustment.set_value(target);
+                    break;
+                }
+                parent = widget.parent();
+            }
+        }
+        glib::ControlFlow::Break
+    });
 }
 pub(super) fn compact(e: &Rc<Editor>) {
     detach(e);
@@ -326,6 +364,7 @@ pub(super) fn relocate(e: &Rc<Editor>, change: impl FnOnce()) {
             animate(e, frame, from.unwrap(), dest, move || {
                 if !finished.closing.get() {
                     focus_message(&finished);
+                    reveal_inline(&finished);
                 }
             });
         } else {

@@ -17,6 +17,49 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
 };
+#[tokio::test]
+async fn deleting_drafts_preserves_other_mail_and_refuses_changed_drafts() {
+    for changed in [false, true] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/threads/thread1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"thread1","messages":[
+                {"id":"received1","labelIds":["INBOX"]},
+                {"id":"draftmessage1","labelIds":["DRAFT"],"payload":{"headers":[{"name":"Message-ID","value":"<exact@example.invalid>"}]}}
+            ]}))).expect(1).mount(&server).await;
+        Mock::given(method("GET"))
+            .and(path("/drafts"))
+            .and(query_param("q", "rfc822msgid:<exact@example.invalid>"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                json!({"drafts":[{"id":"draft1","message":{"id":"draftmessage1"}}]}),
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET")).and(path("/drafts/draft1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"draft1","message":{"id":if changed {"remote-revision"} else {"draftmessage1"}}})))
+            .expect(if changed {1} else {2}).mount(&server).await;
+        Mock::given(method("DELETE"))
+            .and(path("/drafts/draft1"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(if changed { 0 } else { 1 })
+            .mount(&server)
+            .await;
+        let result = gmail(&server).discard_thread_drafts("thread1").await;
+        if changed {
+            assert!(matches!(result, Err(Error::DraftConflict)));
+        } else {
+            assert_eq!(result.unwrap(), 1);
+        }
+        assert!(
+            server
+                .received_requests()
+                .await
+                .unwrap()
+                .iter()
+                .all(|r| r.method != "DELETE" || r.url.path() == "/drafts/draft1")
+        );
+    }
+}
 #[test]
 fn rich_replies_include_plain_and_html_alternatives_and_keep_quoted_history() {
     let mut compose = Compose::new("sender@example.invalid".into());
@@ -1585,4 +1628,30 @@ async fn public_contact_photo_transport_does_not_forward_authorization_or_cookie
     assert!(!requests[0].headers.contains_key("authorization"));
     assert!(!requests[0].headers.contains_key("cookie"));
     assert!(!requests[0].headers.contains_key("referer"));
+}
+
+#[test]
+fn send_as_reply_address_is_separate_from_thread_headers_and_account_metadata() {
+    use mailparse::MailHeaderMap;
+    let compose = Compose {
+        account: Some("private-account-key".into()),
+        from: "Alias <alias@example.invalid>".into(),
+        to: "self@example.invalid".into(),
+        sender_reply_to: "reply@example.invalid".into(),
+        reply_to: "<original@example.invalid>".into(),
+        references: "<original@example.invalid>".into(),
+        text: "Test".into(),
+        ..Compose::new("alias@example.invalid".into())
+    };
+    let raw = compose.mime().unwrap();
+    let mail = mailparse::parse_mail(&raw).unwrap();
+    assert_eq!(
+        mail.headers.get_first_value("Reply-To").as_deref(),
+        Some("reply@example.invalid")
+    );
+    assert_eq!(
+        mail.headers.get_first_value("In-Reply-To").as_deref(),
+        Some("<original@example.invalid>")
+    );
+    assert!(!String::from_utf8_lossy(&raw).contains("private-account-key"));
 }

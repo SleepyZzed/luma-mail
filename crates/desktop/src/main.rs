@@ -13,6 +13,7 @@ mod message_images;
 mod notifications;
 mod presentation;
 mod rendering;
+mod resources;
 mod search;
 mod sender_controls;
 mod settings;

@@ -24,6 +24,8 @@ use std::{
 
 #[path = "ui_actions.rs"]
 mod actions;
+#[path = "ui_drafts.rs"]
+mod drafts;
 #[path = "ui_navigation.rs"]
 mod navigation;
 #[path = "ui_rows.rs"]
@@ -268,23 +270,24 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("Luma Mail")
-        .decorated(settings.window_chrome)
+        .decorated(crate::presentation::window_chrome(settings.window_chrome))
+        .resizable(true)
         .default_width(settings.window_width)
         .default_height(settings.window_height)
         .build();
     let root = vbox(0);
     let refresh = button(
-        "view-refresh-symbolic",
+        "luma-refresh-symbolic",
         "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
     );
-    let prefs = button("emblem-system-symbolic", "Settings");
+    let prefs = button("luma-settings-symbolic", "Settings");
     let undo_button = button(
-        "edit-undo-symbolic",
+        "luma-undo-symbolic",
         "Undo the last confirmed mail operation",
     );
     undo_button.set_sensitive(false);
     let select = gtk::ToggleButton::builder()
-        .icon_name("object-select-symbolic")
+        .icon_name("luma-select-symbolic")
         .tooltip_text("Select conversations for bulk actions")
         .build();
     let sidebar_top = vbox(8);
@@ -328,7 +331,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         menu.append(Some(name), Some(&format!("win.{action}")));
     }
     let app_menu = gtk::MenuButton::builder()
-        .icon_name("open-menu-symbolic")
+        .icon_name("luma-menu-symbolic")
         .tooltip_text("Luma menu · Interface size, close and quit")
         .menu_model(&menu)
         .build();
@@ -606,21 +609,25 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
             MailAction::Archive,
         ),
         (
-            "user-trash-symbolic",
+            "luma-trash-symbolic",
             "Move selected to Trash",
             MailAction::Trash,
         ),
         (
-            "mail-read-symbolic",
+            "luma-mail-symbolic",
             "Mark selected as read",
             MailAction::Read,
         ),
         (
-            "mail-unread-symbolic",
+            "luma-unread-symbolic",
             "Mark selected as unread",
             MailAction::Unread,
         ),
-        ("starred-symbolic", "Star selected", MailAction::Star),
+        (
+            "luma-star-filled-symbolic",
+            "Star selected",
+            MailAction::Star,
+        ),
     ] {
         let button = button(icon, tip);
         button.add_css_class("flat");
@@ -732,6 +739,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         });
     }
     s.window.present();
+    idle_reclaim(&s);
+    #[cfg(target_os = "linux")]
+    if std::env::args().any(|a| a == "--performance-diagnostics") {
+        crate::resources::diagnostic(&s);
+        return;
+    }
     #[cfg(target_os = "linux")]
     if std::env::args().any(|a| a == "--render-diagnostics") {
         assert!(
@@ -769,7 +782,7 @@ fn empty_reader(s: &State) {
     clear(&s.reader);
     s.reader.append(
         &adw::StatusPage::builder()
-            .icon_name("mail-unread-symbolic")
+            .icon_name("luma-unread-symbolic")
             .title("A little room to focus")
             .description("Choose a conversation. Luma only downloads the message you open.")
             .vexpand(true)
@@ -1137,9 +1150,9 @@ pub(super) fn update_reader_star(s: &State) {
         .is_some_and(|row| row.starred);
     if let Some(button) = s.reader_star.borrow().upgrade() {
         button.set_icon_name(if starred {
-            "starred-symbolic"
+            "luma-star-filled-symbolic"
         } else {
-            "non-starred-symbolic"
+            "luma-star-symbolic"
         });
         button.set_tooltip_text(Some(if starred {
             "Remove star"
@@ -1211,9 +1224,9 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                 ),
                 (
                     if trash {
-                        "edit-undo-symbolic"
+                        "luma-undo-symbolic"
                     } else {
-                        "user-trash-symbolic"
+                        "luma-trash-symbolic"
                     },
                     if trash {
                         "Restore from Trash"
@@ -1226,12 +1239,12 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                         MailAction::Trash
                     },
                 ),
-                ("mail-unread-symbolic", "Mark unread", MailAction::Unread),
+                ("luma-unread-symbolic", "Mark unread", MailAction::Unread),
                 (
                     if starred {
-                        "starred-symbolic"
+                        "luma-star-filled-symbolic"
                     } else {
-                        "non-starred-symbolic"
+                        "luma-star-symbolic"
                     },
                     if starred {
                         "Remove star"
@@ -1280,7 +1293,7 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
             labels.add_css_class("flat");
             labels.add_css_class("selected-label-action");
             tools.append(&labels);
-            let reply = button("mail-reply-sender-symbolic", "Reply inline");
+            let reply = button("luma-reply-symbolic", "Reply inline");
             reply.add_css_class("flat");
             reply.add_css_class("single-message-action");
             tools.append(&reply);
@@ -1387,6 +1400,56 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
         },
     );
     *s.reader_request.borrow_mut() = Some(handle);
+}
+fn idle_reclaim(s: &Rc<State>) {
+    let timer: Rc<RefCell<Option<glib::SourceId>>> = Default::default();
+    let suspended = Rc::new(Cell::new(false));
+    let weak = Rc::downgrade(s);
+    s.window.connect_visible_notify(move |window| {
+        if let Some(timer) = timer.borrow_mut().take() {
+            timer.remove();
+        }
+        let Some(s) = weak.upgrade() else { return };
+        if window.is_visible() {
+            if suspended.replace(false) {
+                let selected = s.selected.borrow().clone();
+                if let Some(key) = selected {
+                    open_thread(&s, key);
+                }
+            }
+        } else {
+            let weak = Rc::downgrade(&s);
+            let suspended = suspended.clone();
+            let source = timer.clone();
+            *timer.borrow_mut() = Some(glib::timeout_add_local_once(
+                Duration::from_secs(45),
+                move || {
+                    source.borrow_mut().take();
+                    let Some(s) = weak.upgrade() else { return };
+                    if s.window.is_visible()
+                        || s.editor.borrow().is_some()
+                        || s.attachment_window
+                            .borrow()
+                            .upgrade()
+                            .is_some_and(|w| w.is_visible())
+                    {
+                        return;
+                    }
+                    suspended.set(s.selected.borrow().is_some());
+                    s.reading.set(s.reading.get().wrapping_add(1));
+                    cancel_body_requests(&s);
+                    if let Some(task) = s.reader_request.borrow_mut().take() {
+                        task.abort();
+                    }
+                    clear(&s.reader);
+                    s.selected_message.borrow_mut().take();
+                    s.reply_slot.borrow_mut().set(None::<&gtk::Box>);
+                    s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
+                    crate::resources::trim();
+                },
+            ));
+        }
+    });
 }
 fn cancel_body_requests(s: &State) {
     for (_, (_, request)) in s.body_requests.borrow_mut().drain() {
@@ -1514,9 +1577,9 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
                 b.set_child(Some(
                     &adw::ButtonContent::builder()
                         .icon_name(if mode == 2 {
-                            "mail-forward-symbolic"
+                            "luma-forward-symbolic"
                         } else {
-                            "mail-reply-sender-symbolic"
+                            "luma-reply-symbolic"
                         })
                         .label(name)
                         .build(),

@@ -34,7 +34,11 @@ pub struct RetainedAttachment {
 }
 #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct Compose {
+    #[serde(default)]
+    pub account: Option<String>,
     pub from: String,
+    #[serde(default)]
+    pub sender_reply_to: String,
     pub to: String,
     pub cc: String,
     pub bcc: String,
@@ -247,6 +251,10 @@ impl Compose {
                 "In-Reply-To: {}\r\nReferences: {}\r\n",
                 self.reply_to, self.references
             ));
+        }
+        if !self.sender_reply_to.is_empty() {
+            recipients(&self.sender_reply_to)?;
+            out.push_str(&format!("Reply-To: {}\r\n", self.sender_reply_to));
         }
         if !self.drive_files.is_empty() {
             if self.drive_files.len() > 32 {

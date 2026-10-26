@@ -310,6 +310,19 @@ mod windows;
 pub fn diagnostic(s: &Rc<State>) {
     linux::diagnostic(s);
 }
+#[cfg(target_os = "linux")]
+pub fn performance_fixture(s: &Rc<State>, count: usize) {
+    ui::clear(&s.reader);
+    for _ in 0..count.min(3) {
+        linux::append(
+            s,
+            &s.reader,
+            &Message::default(),
+            "performance-fixture",
+            include_str!("../tests/fixtures/layout-mail.html").into(),
+        );
+    }
+}
 
 async fn image_map(
     message: Message,
@@ -377,6 +390,44 @@ mod linux {
     use std::cell::Cell;
     use webkit6::prelude::*;
 
+    thread_local! {
+        // Weak owners: share engines while views coexist, release the session
+        // and processes when the last message view is destroyed.
+        static ENGINE: RefCell<(glib::WeakRef<webkit6::WebContext>, glib::WeakRef<webkit6::NetworkSession>)> = Default::default();
+    }
+    fn engine() -> (webkit6::WebContext, webkit6::NetworkSession) {
+        ENGINE.with(|saved| {
+            let mut saved = saved.borrow_mut();
+            if let (Some(context), Some(session)) = (saved.0.upgrade(), saved.1.upgrade()) {
+                return (context, session);
+            }
+            let session = webkit6::NetworkSession::new_ephemeral();
+            session.connect_download_started(|_, download| download.cancel());
+            let mut pressure = webkit6::MemoryPressureSettings::new();
+            pressure.set_memory_limit(256);
+            pressure.set_conservative_threshold(0.5);
+            pressure.set_strict_threshold(0.75);
+            pressure.set_kill_threshold(0.);
+            pressure.set_poll_interval(30.);
+            let context = webkit6::WebContext::builder()
+                .memory_pressure_settings(&pressure)
+                .build();
+            let graphics = gtk::glib::user_runtime_dir().join("luma-mail/graphics");
+            if graphics.is_dir() {
+                context.add_path_to_sandbox(graphics, false);
+            }
+            if let Some(root) = std::env::var_os("APPDIR") {
+                let runtime = std::path::PathBuf::from(root).join("usr");
+                if let Ok(runtime) = runtime.canonicalize() {
+                    context.add_path_to_sandbox(runtime, true);
+                }
+            }
+            context.set_cache_model(webkit6::CacheModel::DocumentViewer);
+            *saved = (context.downgrade(), session.downgrade());
+            (context, session)
+        })
+    }
+
     pub(super) fn sandbox_available() -> bool {
         static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *AVAILABLE.get_or_init(|| {
@@ -416,20 +467,8 @@ mod linux {
         settings.set_enable_webgl(false);
         settings.set_javascript_can_access_clipboard(false);
         settings.set_enable_smooth_scrolling(true);
-        let session = webkit6::NetworkSession::new_ephemeral();
-        session.connect_download_started(|_, download| download.cancel());
-        let context = webkit6::WebContext::new();
-        let graphics = gtk::glib::user_runtime_dir().join("luma-mail/graphics");
-        if graphics.is_dir() {
-            context.add_path_to_sandbox(graphics, false);
-        }
-        if let Some(root) = std::env::var_os("APPDIR") {
-            let runtime = std::path::PathBuf::from(root).join("usr");
-            if let Ok(runtime) = runtime.canonicalize() {
-                context.add_path_to_sandbox(runtime, true);
-            }
-        }
-        context.set_cache_model(webkit6::CacheModel::DocumentViewer);
+        settings.set_enable_page_cache(false);
+        let (context, session) = engine();
         let view = webkit6::WebView::builder()
             .settings(&settings)
             .network_session(&session)
@@ -474,14 +513,30 @@ mod linux {
                 measure(view, &loaded);
             }
         });
-        let width = Cell::new(0);
-        view.add_tick_callback(move |view, _| {
-            if width.replace(view.width()) != view.width() {
-                measure(view, &revision);
-            }
-            glib::ControlFlow::Continue
-        });
         view
+    }
+    fn host(view: &webkit6::WebView) -> gtk::Overlay {
+        let host = gtk::Overlay::new();
+        host.set_child(Some(view));
+        // Allocation events replace a permanent per-frame callback. This also
+        // catches pane resizing, scaling and content-height changes.
+        let probe = gtk::DrawingArea::new();
+        probe.set_can_target(false);
+        probe.set_hexpand(true);
+        probe.set_vexpand(true);
+        host.add_overlay(&probe);
+        host.set_measure_overlay(&probe, false);
+        let weak = view.downgrade();
+        let width = Cell::new(0);
+        let revision = Rc::new(Cell::new(0));
+        probe.connect_resize(move |_, w, _| {
+            if width.replace(w) != w
+                && let Some(view) = weak.upgrade()
+            {
+                measure(&view, &revision);
+            }
+        });
+        host
     }
     fn measure(view: &webkit6::WebView, revision: &Rc<Cell<u64>>) {
         let epoch = revision.get().wrapping_add(1);
@@ -552,7 +607,7 @@ mod linux {
             .unwrap()
             .downcast::<gtk::ToggleButton>()
             .unwrap();
-        s.reader.append(&view);
+        s.reader.append(&host(&view));
         let stage = Rc::new(Cell::new(0));
         let busy = Rc::new(Cell::new(false));
         let state = Rc::downgrade(s);
@@ -732,6 +787,6 @@ mod linux {
                 }
             },
         );
-        body.append(&view);
+        body.append(&host(&view));
     }
 }
