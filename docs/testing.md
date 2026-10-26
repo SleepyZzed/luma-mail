@@ -121,3 +121,22 @@ under the task's `work/` directory, separate from the source deliverable. Native
 Linux Secret Service, Noctalia, Wayland and desktop notifications must be verified
 on Linux. Windows developer builds use Windows Credential Manager and have passed
 authorized real-account tests; they do not provide a plaintext substitute keyring.
+
+## 0.6 reply and draft checks
+
+Use disposable self-mail on the selected account. Open Reply and confirm the
+subject/full-window header are absent, new text is blank, and previous mail is
+in a collapsed read-only section. Compose new text, optionally exclude the
+previous message, and check both the sent text and Gmail draft removal.
+
+Attach a synthetic large file, then add another file or paste a synthetic image
+while autosave/upload runs. Send should wait, reuse one draft and close only
+after Gmail confirms. After idle/restart, search the exact synthetic subject in
+Gmail Sent and Drafts; check message counts rather than counting threads. Never
+retry an uncertain send without checking Gmail first. Test cancellation and
+another recipient's actual Drive access separately. Do not use private files.
+
+Inspect release JSON package/runtime reports alongside the body-cache budget.
+Verify zero-cache mode creates no body files, and that no normal local draft
+files or attachment spool are introduced. Installed binaries and temporary
+renderer/driver metadata remain separate categories.

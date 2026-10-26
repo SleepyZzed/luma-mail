@@ -159,5 +159,5 @@ The remaining priorities and distribution gates are ordered in docs/roadmap.md.
 - [x] Read-only conflict comparison and separate-copy identity.
 - [x] Real own-account photo retrieval with existing permission.
 - [x] Real self-mail: repeated attachment saves reuse one draft; one delivered mail.
-- [ ] Record final 0.6 Linux/AppImage/runtime evidence after publication gates pass.
+- [x] Record final 0.6 Linux/AppImage/runtime evidence (run 40379375832).
 - [ ] Target Linux/two-account acceptance and Google approval remain required.

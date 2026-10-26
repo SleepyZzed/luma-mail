@@ -1,5 +1,59 @@
 # Verification log
 
+## Final 0.6 release
+
+[PR check 40379155798](https://github.com/SleepyZzed/luma-mail/actions/runs/40379155798)
+and [release run 40379375832](https://github.com/SleepyZzed/luma-mail/actions/runs/40379375832)
+passed on `bf7ebe0a0bf86cddef451f41406a4bf6c3ffd15e`. The release includes
+source through `642ddfe8c9dad4ed885048e2961526ac0b3af77a`, pinned with its actual
+archive checksum in PKGBUILD. [PR #7](https://github.com/SleepyZzed/luma-mail/pull/7)
+merged as `1293a122445229eae2e2dcc8dd106abf9f2adacb`.
+
+[v0.6.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.6.0-dev.1)
+contains the 157,620,728-byte x86_64 AppImage. The actual download matches both
+SHA256SUMS and GitHub's asset digest:
+`dd480c90ccc2174966508d71fe792245228258fa9005c4dbc4ac34a156450783`.
+
+The gates include strict Clippy/tests, real GTK/D-Bus tray and notification
+transport, native composer/clipboard/navigation checks, release compilation,
+native and bundled HTML/media on X11 and Wayland, bundled cursor preferences,
+isolated-host-WebKit execution and a read-only AppImage. An earlier build was
+blocked by a diagnostic call accidentally included in normal sending; it was
+removed before the final passing release. No failed build was published.
+
+| Measured category | Logical bytes | Allocated bytes on CI |
+| --- | ---: | ---: |
+| Compressed AppImage | 157,620,728 | 157,622,272 |
+| Extracted installation | 496,950,245 | 510,967,808 |
+| X11 rendering fixture's temporary runtime | 2,701,192 | 3,395,584 |
+| X11/Wayland fixture app-body cache files | 0 | 0 |
+| Other persistent XDG cache files | 0 | 0 file bytes |
+
+The extracted tree is an alternative installation representation, not extra
+mail retention during normal FUSE execution. Empty runtime/cache directories
+still occupy filesystem blocks. The Wayland/read-only fixture created zero
+runtime files; configuration held a 36-byte synthetic settings file. These are
+isolated fixture measurements, not a universal runtime-memory/storage ceiling.
+The released JSON reports preserve the breakdown, and the existing body-cache
+allocation/zero-mode tests pass. See storage.md for the cache/retention limits.
+
+A second authorized Windows test used the real app's Compose and inline Reply
+buttons, real Gmail autosave and Send. Each returned Gmail confirmation and
+closed its editor. After idle, an exact synthetic-subject API check found two
+sent messages (one original plus one reply) and zero matching drafts. Both were
+moved to Trash. The actual account photo appeared in the sidebar, list and
+reader. The native file chooser could not be operated reliably by the automation;
+attachment sequencing is covered separately by the live three-save test below
+and isolated Linux clipboard diagnostics, not claimed as a native Windows picker
+acceptance result. No user clipboard was overwritten.
+
+The final Windows review tree still contains 2,768,509 logical bytes with zero
+body-cache/local-draft files. The UI run did not grow it. This Windows renderer
+metadata is separate from Linux mail retention and the installed bundle.
+Google's console still reports branding and data access under review. No new
+scope was added; target Linux/two-account and other roadmap gates remain open.
+
+
 ## 0.6 local and live checks, 26 October 2026
 
 Strict Clippy and 106 executed workspace tests pass on Windows (one opt-in vault

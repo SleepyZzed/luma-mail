@@ -121,6 +121,9 @@ enabled, alongside existing Gmail/Drive/filter permissions. Search projects only
 email addresses and photo URLs, matches exact sender addresses, and runs for visible
 avatars. It does not sync or store an address book. Google-hosted photo downloads
 carry no Gmail/People bearer token, cookie or referrer. Other senders use initials.
+When profile photos and Drive are both enabled, the existing Drive grant can
+also read the connected account's own projected email/photo fields. It does not
+look up other senders or add another scope.
 The maintainer must enable People API and include the implemented optional scope
 and demonstration in verification. See storage.md for memory/rate limits.
 

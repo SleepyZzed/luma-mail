@@ -81,6 +81,13 @@ notification transport, AppImage launch and cursor-settings transport. HTML/medi
 diagnostics additionally launch the real engines; see docs/verification.md for
 executed results rather than assuming runtime success from compilation.
 
+0.6 passed Linux release, native GTK/clipboard and native/bundled X11/Wayland
+HTML/media checks, including isolated-system-WebKit and read-only AppImage runs.
+The actual AppImage checksum and full installation/runtime storage breakdown
+are recorded in docs/verification.md. A real native Windows compose + inline
+reply test confirmed two delivered messages and no remaining matching drafts.
+The own-account picture appeared in the actual sidebar/list/reader.
+
 ## Remaining release work
 
 - Two real Gmail accounts and restart in Linux Secret Service; account-isolated
@@ -92,7 +99,7 @@ executed results rather than assuming runtime success from compilation.
   Send-as aliases, inline-image insertion and general HTML editing remain open.
   Luma 0.3-generated rich drafts reopen visually; complex/older/third-party HTML
   remains in source mode. General visual HTML re-editing is incomplete.
-- General conflict comparison/merging, editing attachments over 16 MiB combined,
+- Deliberate conflict merging, editing attachments over 16 MiB combined,
   whole-conversation forwarding and persistent sender remote-image preferences.
 - View preferences/search highlighting, accents, optional autostart/sound,
   keyboard/accessibility/HiDPI audit, native Arch acceptance and sustained profiling.
