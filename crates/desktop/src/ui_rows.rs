@@ -27,6 +27,7 @@ pub(super) fn clear_rows(s: &State) {
         s.list.remove(&child);
     }
     s.changing_selection.set(false);
+    selection::update(s);
 }
 pub(super) fn name(sender: &str) -> String {
     let value = sender
@@ -156,7 +157,7 @@ fn content(s: &Rc<State>, item: &Conversation) -> gtk::Box {
 fn make(s: &Rc<State>, item: &Conversation) -> MailRow {
     let reveal = gtk::Revealer::builder()
         .transition_type(gtk::RevealerTransitionType::SlideDown)
-        .transition_duration(220)
+        .transition_duration(crate::presentation::duration(s, 260))
         .reveal_child(false)
         .child(&content(s, item))
         .build();
@@ -164,6 +165,31 @@ fn make(s: &Rc<State>, item: &Conversation) -> MailRow {
     row.set_widget_name(&rank(item));
     row.set_child(Some(&reveal));
     row.add_css_class("mail-row");
+    let click = gtk::GestureClick::new();
+    click.set_button(1);
+    click.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let state = Rc::downgrade(s);
+    let target_row = row.downgrade();
+    click.connect_pressed(move |gesture, _, x, y| {
+        let (Some(s), Some(row)) = (state.upgrade(), target_row.upgrade()) else {
+            return;
+        };
+        // Star/menu buttons retain their own individual-message behaviour.
+        let mut picked = row.pick(x, y, gtk::PickFlags::DEFAULT);
+        while let Some(widget) = picked {
+            if widget.is::<gtk::Button>() || widget.is::<gtk::MenuButton>() {
+                return;
+            }
+            if widget == row {
+                break;
+            }
+            picked = widget.parent();
+        }
+        if selection::click(&s, &row, gesture.current_event_state()) {
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+        }
+    });
+    row.add_controller(click);
     let gesture = gtk::GestureClick::new();
     gesture.set_button(3);
     let state = s.clone();
@@ -194,11 +220,16 @@ fn make(s: &Rc<State>, item: &Conversation) -> MailRow {
     });
     row.add_controller(keyboard);
     let weak = reveal.downgrade();
+    let state = Rc::downgrade(s);
     row.connect_map(move |_| {
         let weak = weak.clone();
+        let state = state.clone();
         glib::idle_add_local_once(move || {
             if let Some(reveal) = weak.upgrade() {
                 reveal.set_reveal_child(true);
+                if let Some(state) = state.upgrade() {
+                    crate::presentation::enter(&state, &reveal);
+                }
             }
         });
     });
@@ -242,6 +273,7 @@ pub(super) fn display(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
         "{} conversations · Up to date",
         s.rows.borrow().len()
     ));
+    selection::update(s);
 }
 pub(super) fn reconcile(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
     s.changing_selection.set(true);
@@ -258,15 +290,18 @@ pub(super) fn reconcile(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
             widget.row.set_selectable(false);
             widget.reveal.set_reveal_child(false);
             let weak = Rc::downgrade(s);
-            glib::timeout_add_local_once(Duration::from_millis(230), move || {
-                if let Some(s) = weak.upgrade()
-                    && widget.row.parent().is_some()
-                {
-                    s.changing_selection.set(true);
-                    s.list.remove(&widget.row);
-                    s.changing_selection.set(false);
-                }
-            });
+            glib::timeout_add_local_once(
+                Duration::from_millis(crate::presentation::duration(s, 280) as u64),
+                move || {
+                    if let Some(s) = weak.upgrade()
+                        && widget.row.parent().is_some()
+                    {
+                        s.changing_selection.set(true);
+                        s.list.remove(&widget.row);
+                        s.changing_selection.set(false);
+                    }
+                },
+            );
         }
     }
     for item in &items {
@@ -318,15 +353,18 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
             widget.row.set_sensitive(false);
             widget.reveal.set_reveal_child(false);
             let weak = Rc::downgrade(s);
-            glib::timeout_add_local_once(Duration::from_millis(230), move || {
-                if let Some(s) = weak.upgrade()
-                    && widget.row.parent().is_some()
-                {
-                    s.changing_selection.set(true);
-                    s.list.remove(&widget.row);
-                    s.changing_selection.set(false);
-                }
-            });
+            glib::timeout_add_local_once(
+                Duration::from_millis(crate::presentation::duration(s, 280) as u64),
+                move || {
+                    if let Some(s) = weak.upgrade()
+                        && widget.row.parent().is_some()
+                    {
+                        s.changing_selection.set(true);
+                        s.list.remove(&widget.row);
+                        s.changing_selection.set(false);
+                    }
+                },
+            );
         }
         if s.selected.borrow().as_ref() == Some(&update.key) {
             crate::compose::park_inline(s);
@@ -369,6 +407,7 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
         s.refresh_button.add_css_class("suggested-action");
     }
     update_reader_star(s);
+    selection::update(s);
 }
 pub(super) fn incoming(s: &Rc<State>, updates: Vec<Update>) {
     let adjustment = s.list_scroll.vadjustment();
@@ -500,12 +539,8 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         s.list.select_row(Some(row));
         s.changing_selection.set(false);
     }
-    let targets: Vec<_> = s
-        .list
-        .selected_rows()
-        .iter()
-        .filter_map(|r| key(s, r))
-        .collect();
+    selection::update(s);
+    let targets = selection::keys(s);
     let pop = gtk::Popover::new();
     pop.set_has_arrow(false);
     pop.set_parent(row);
@@ -513,20 +548,12 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
     let box_ = vbox(2);
     box_.add_css_class("context-menu");
     margins(&box_, 6);
+    if targets.len() > 1 {
+        box_.append(&label(&format!("{} selected", targets.len()), "caption"));
+    }
     for (icon, title, action) in [
-        (
-            "mail-read-symbolic",
-            if item.unread {
-                "Mark as read"
-            } else {
-                "Mark as unread"
-            },
-            if item.unread {
-                MailAction::Read
-            } else {
-                MailAction::Unread
-            },
-        ),
+        ("mail-read-symbolic", "Mark as read", MailAction::Read),
+        ("mail-unread-symbolic", "Mark as unread", MailAction::Unread),
         (
             "starred-symbolic",
             if item.starred {
@@ -590,7 +617,7 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
             if let Some(p) = weak.upgrade() {
                 p.popdown();
             }
-            perform_actions(&state, keys.clone(), action.clone());
+            dispatch_selection(&state, keys.clone(), action.clone());
         });
         box_.append(&b);
     }
@@ -602,7 +629,11 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         let account = target.account.clone();
         let sender = item.sender.clone();
         let weak = pop.downgrade();
+        let exact_target = target.clone();
         block.connect_clicked(move |_| {
+            if !single_target(&state, &exact_target) {
+                return;
+            }
             if let Some(p) = weak.upgrade() {
                 p.popdown();
             }
@@ -610,12 +641,21 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         });
         box_.append(&block);
     }
+    if targets.len() > 1 {
+        pop.set_child(Some(&box_));
+        pop.connect_closed(|p| p.unparent());
+        pop.popup();
+        return;
+    }
     let open = gtk::Button::with_label("Open conversation");
     open.add_css_class("flat");
     let state = s.clone();
     let target = target.clone();
     let weak = pop.downgrade();
     open.connect_clicked(move |_| {
+        if !single_target(&state, &target) {
+            return;
+        }
         if let Some(p) = weak.upgrade() {
             p.popdown();
         }
@@ -625,4 +665,12 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
     pop.set_child(Some(&box_));
     pop.connect_closed(|p| p.unparent());
     pop.popup();
+}
+
+pub(super) fn restyle(s: &Rc<State>) {
+    for item in s.rows.borrow().iter() {
+        if let Some(widget) = s.row_widgets.borrow().get(&item.key) {
+            widget.reveal.set_child(Some(&content(s, item)));
+        }
+    }
 }

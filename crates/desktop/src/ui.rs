@@ -26,6 +26,8 @@ use std::{
 mod actions;
 #[path = "ui_rows.rs"]
 mod rows;
+#[path = "ui_selection.rs"]
+mod selection;
 
 pub struct State {
     pub app: adw::Application,
@@ -39,9 +41,15 @@ pub struct State {
     pub clients: RefCell<HashMap<String, Arc<Gmail>>>,
     pub status: gtk::Label,
     pub sidebar: gtk::Box,
+    pub sidebar_top: gtk::Box,
     pub list: gtk::ListBox,
     row_widgets: RefCell<HashMap<ThreadKey, rows::MailRow>>,
     changing_selection: Cell<bool>,
+    selection_anchor: RefCell<Option<ThreadKey>>,
+    selection_explicit: Cell<bool>,
+    select_button: gtk::ToggleButton,
+    selection_tools: gtk::Box,
+    selection_count: gtk::Label,
     pub attachment_window: RefCell<glib::WeakRef<adw::Window>>,
     mutation_serial: Cell<u64>,
     row_revisions: RefCell<HashMap<ThreadKey, u64>>,
@@ -54,6 +62,7 @@ pub struct State {
     pub reader: gtk::Box,
     pub compose_stack: gtk::Stack,
     pub(crate) editor: RefCell<Option<Rc<crate::compose::Editor>>>,
+    pub(crate) compose_editors: RefCell<Vec<std::rc::Weak<crate::compose::Editor>>>,
     pub reply_slot: RefCell<glib::WeakRef<gtk::Box>>,
     pub title: gtk::Label,
     pub more: gtk::Button,
@@ -78,6 +87,7 @@ pub struct State {
     body_requests: RefCell<HashMap<ThreadKey, (u64, tokio::task::AbortHandle)>>,
     body_serial: Cell<u64>,
     pub theme_provider: gtk::CssProvider,
+    pub style_provider: gtk::CssProvider,
     pub(crate) html_refresh: RefCell<Vec<std::rc::Weak<dyn Fn()>>>,
     pub(crate) html_refresh_pending: Cell<bool>,
     theme_monitor: RefCell<Option<gio::FileMonitor>>,
@@ -250,47 +260,85 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("Luma Mail")
+        .decorated(settings.window_chrome)
         .default_width(settings.window_width)
         .default_height(settings.window_height)
         .build();
     let root = vbox(0);
-    let header = adw::HeaderBar::new();
-    header.set_title_widget(Some(&adw::WindowTitle::new("Luma", "Online-first mail")));
     let refresh = button(
         "view-refresh-symbolic",
         "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
     );
     let prefs = button("emblem-system-symbolic", "Settings");
-    header.pack_start(&refresh);
     let undo_button = button(
         "edit-undo-symbolic",
         "Undo the last confirmed mail operation",
     );
     undo_button.set_sensitive(false);
-    header.pack_start(&undo_button);
     let select = gtk::ToggleButton::builder()
         .icon_name("object-select-symbolic")
         .tooltip_text("Select conversations for bulk actions")
         .build();
-    header.pack_start(&select);
-    header.pack_end(&prefs);
-    let quit_button = button("application-exit-symbolic", "Quit Luma completely");
-    header.pack_end(&quit_button);
-    root.append(&header);
+    let sidebar_top = vbox(8);
+    sidebar_top.add_css_class("luma-sidebar");
+    margins(&sidebar_top, 16);
+    sidebar_top.set_margin_bottom(4);
     let sidebar = vbox(8);
     sidebar.add_css_class("luma-sidebar");
     margins(&sidebar, 16);
+    sidebar.set_margin_top(4);
     let ss = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
         .child(&sidebar)
         .build();
     ss.set_size_request(100, -1);
+    let nav = vbox(0);
+    nav.add_css_class("sidebar-shell");
+    ss.set_vexpand(true);
+    nav.append(&sidebar_top);
+    nav.append(&ss);
+    let footer = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    footer.add_css_class("sidebar-footer");
+    let footer_name = label("Luma", "heading");
+    footer_name.set_hexpand(true);
+    footer.append(&footer_name);
+    prefs.add_css_class("flat");
+    footer.append(&prefs);
+    let menu = gio::Menu::new();
+    for (name, action) in [
+        ("Settings", "settings"),
+        ("Larger interface", "scale-up"),
+        ("Smaller interface", "scale-down"),
+        ("Reset interface size", "scale-reset"),
+        ("Close window", "close"),
+        ("Quit Luma", "quit"),
+    ] {
+        menu.append(Some(name), Some(&format!("win.{action}")));
+    }
+    let app_menu = gtk::MenuButton::builder()
+        .icon_name("open-menu-symbolic")
+        .tooltip_text("Luma menu · Interface size, close and quit")
+        .menu_model(&menu)
+        .build();
+    app_menu.add_css_class("flat");
+    footer.append(&app_menu);
+    nav.append(&footer);
     let center = vbox(0);
     center.set_size_request(200, -1);
     let heading = vbox(8);
     margins(&heading, 16);
     let title = label("Unified Inbox", "title-2");
-    heading.append(&title);
+    let title_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    title.set_hexpand(true);
+    title.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    title_row.append(&title);
+    for control in [&refresh, &undo_button] {
+        control.add_css_class("flat");
+        title_row.append(control);
+    }
+    select.add_css_class("flat");
+    title_row.append(&select);
+    heading.append(&title_row);
     let search = gtk::SearchEntry::builder()
         .placeholder_text("Search Gmail · from: has:attachment …")
         .hexpand(true)
@@ -305,7 +353,24 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     search_bar.append(&search);
     search_bar.append(&search_options);
     heading.prepend(&search_bar);
-    heading.reorder_child_after(&search_bar, Some(&title));
+    heading.reorder_child_after(&search_bar, Some(&title_row));
+    let selection_tools = vbox(6);
+    selection_tools.add_css_class("bulk-actions");
+    selection_tools.set_visible(false);
+    let selection_count = label("0 selected", "caption");
+    selection_tools.append(&selection_count);
+    let choices = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let select_all = gtk::Button::with_label("Select all loaded");
+    select_all.set_tooltip_text(Some(
+        "Select only the conversations already loaded here · Ctrl+A while the list is focused",
+    ));
+    let clear_selection = gtk::Button::with_label("Clear");
+    choices.append(&select_all);
+    choices.append(&clear_selection);
+    selection_tools.append(&choices);
+    let bulk_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    selection_tools.append(&bulk_buttons);
+    heading.append(&selection_tools);
     center.append(&heading);
     let page_activity = gtk::ProgressBar::new();
     page_activity.add_css_class("mail-loading");
@@ -343,7 +408,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .build();
     let outer = gtk::Paned::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .start_child(&ss)
+        .start_child(&nav)
         .end_child(&inner)
         .position(settings.sidebar_width)
         .resize_start_child(false)
@@ -356,11 +421,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         "dim-label",
     );
     margins(&status, 10);
-    status.set_wrap(true);
+    status.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    status.add_css_class("app-status");
     root.append(&status);
     let toasts = adw::ToastOverlay::new();
     let compose_stack = gtk::Stack::new();
-    compose_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
+    compose_stack.set_transition_type(gtk::StackTransitionType::SlideLeftRight);
     compose_stack.set_transition_duration(160);
     compose_stack.add_named(&root, Some("mail"));
     toasts.set_child(Some(&compose_stack));
@@ -377,11 +443,18 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         clients: RefCell::new(HashMap::new()),
         status,
         sidebar,
+        sidebar_top,
         list,
         row_widgets: RefCell::new(HashMap::new()),
         changing_selection: Cell::new(false),
+        selection_anchor: RefCell::new(None),
+        selection_explicit: Cell::new(false),
+        select_button: select.clone(),
+        selection_tools,
+        selection_count,
         compose_stack,
         editor: RefCell::new(None),
+        compose_editors: RefCell::new(Vec::new()),
         reply_slot: RefCell::new(glib::WeakRef::new()),
         attachment_window: RefCell::new(glib::WeakRef::new()),
         mutation_serial: Cell::new(0),
@@ -416,6 +489,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         body_requests: RefCell::new(HashMap::new()),
         body_serial: Cell::new(0),
         theme_provider: gtk::CssProvider::new(),
+        style_provider: css,
         html_refresh: RefCell::new(Vec::new()),
         html_refresh_pending: Cell::new(false),
         theme_monitor: RefCell::new(None),
@@ -443,6 +517,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     self::sidebar(&s);
     empty_reader(&s);
     apply_theme(&s);
+    crate::presentation::apply(&s);
     {
         let weak = Rc::downgrade(&s);
         adw::StyleManager::default().connect_dark_notify(move |_| {
@@ -477,27 +552,51 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     {
         let state = s.clone();
         select.connect_toggled(move |button| {
+            if !state.changing_selection.get() {
+                selection::mode(&state, button.is_active(), true);
+            }
+        });
+    }
+    selection::install(&s);
+    {
+        let state = s.clone();
+        select_all.connect_clicked(move |_| selection::all(&state));
+        let state = s.clone();
+        clear_selection.connect_clicked(move |_| {
             state.changing_selection.set(true);
             state.list.unselect_all();
-            state.list.set_selection_mode(if button.is_active() {
-                gtk::SelectionMode::Multiple
-            } else {
-                gtk::SelectionMode::Single
-            });
-            if button.is_active() {
-                state.list.add_css_class("selection-mode");
-                state.info("Selection mode · Choose conversations for bulk actions");
-            } else {
-                state.list.remove_css_class("selection-mode");
-                if let Some(key) = state.selected.borrow().as_ref()
-                    && let Some(row) = state.row_widgets.borrow().get(key)
-                {
-                    state.list.select_row(Some(&row.row));
-                }
-                state.info("Selection mode off");
-            }
             state.changing_selection.set(false);
+            selection::update(&state);
         });
+    }
+    for (icon, tip, action) in [
+        (
+            "luma-archive-symbolic",
+            "Archive selected",
+            MailAction::Archive,
+        ),
+        (
+            "user-trash-symbolic",
+            "Move selected to Trash",
+            MailAction::Trash,
+        ),
+        (
+            "mail-read-symbolic",
+            "Mark selected as read",
+            MailAction::Read,
+        ),
+        (
+            "mail-unread-symbolic",
+            "Mark selected as unread",
+            MailAction::Unread,
+        ),
+        ("starred-symbolic", "Star selected", MailAction::Star),
+    ] {
+        let button = button(icon, tip);
+        button.add_css_class("flat");
+        bulk_buttons.append(&button);
+        let state = s.clone();
+        button.connect_clicked(move |_| act_selected(&state, action.clone()));
     }
     {
         let s = s.clone();
@@ -562,10 +661,6 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     install_shortcuts(&s);
     {
         let s = s.clone();
-        quit_button.connect_clicked(move |_| crate::tray::quit(&s));
-    }
-    {
-        let s = s.clone();
         s.clone()
             .undo_button
             .connect_clicked(move |_| undo_last(&s));
@@ -617,6 +712,12 @@ fn empty_reader(s: &State) {
 }
 pub fn sidebar(s: &Rc<State>) {
     clear(&s.sidebar);
+    clear(&s.sidebar_top);
+    let brand = vbox(2);
+    brand.add_css_class("sidebar-brand");
+    brand.append(&label("Luma", "title-1"));
+    brand.append(&label("Online-first mail", "caption"));
+    s.sidebar_top.append(&brand);
     let compose = gtk::Button::new();
     compose.set_child(Some(
         &adw::ButtonContent::builder()
@@ -626,7 +727,7 @@ pub fn sidebar(s: &Rc<State>) {
     ));
     compose.add_css_class("suggested-action");
     compose.add_css_class("pill");
-    s.sidebar.append(&compose);
+    s.sidebar_top.append(&compose);
     {
         let s = s.clone();
         compose.connect_clicked(move |_| crate::compose::open(&s, None, None));
@@ -654,7 +755,10 @@ pub fn sidebar(s: &Rc<State>) {
         let b = gtk::Button::new();
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         content.append(&gtk::Image::from_icon_name(icon));
-        content.append(&label(name, ""));
+        let name_label = label(name, "");
+        name_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        name_label.set_hexpand(true);
+        content.append(&name_label);
         b.set_child(Some(&content));
         if *s.folder.borrow() == folder && s.filter.borrow().is_none() {
             b.add_css_class("active-folder");
@@ -689,7 +793,16 @@ pub fn sidebar(s: &Rc<State>) {
         account.append(&text);
         let unread = s.unread.borrow().get(&a.id).copied().unwrap_or(0);
         if unread > 0 {
-            account.append(&label(&unread.to_string(), "thread-count"));
+            let count = label(
+                &if unread > 999 {
+                    "999+".into()
+                } else {
+                    unread.to_string()
+                },
+                "thread-count",
+            );
+            count.set_tooltip_text(Some(&format!("{unread} unread messages")));
+            account.append(&count);
         }
         b.set_child(Some(&account));
         b.add_css_class("flat");
@@ -710,13 +823,6 @@ pub fn sidebar(s: &Rc<State>) {
     {
         let s = s.clone();
         add.connect_clicked(move |_| add_account(&s, false, None));
-    }
-    let setup = gtk::Button::with_label("Settings");
-    setup.add_css_class("flat");
-    s.sidebar.append(&setup);
-    {
-        let s = s.clone();
-        setup.connect_clicked(move |_| crate::settings::open(&s));
     }
     if let Some(id) = s.filter.borrow().clone()
         && let Some(labels) = s.labels_cache.borrow().get(&id).cloned()
@@ -748,6 +854,9 @@ pub fn load_labels(s: &Rc<State>, account: &str) {
             sidebar(&s);
         }
     });
+}
+pub fn refresh_density(s: &Rc<State>) {
+    rows::restyle(s);
 }
 pub fn reload(s: &Rc<State>) {
     reload_view(s, false);
@@ -1037,7 +1146,7 @@ fn load_more(s: &Rc<State>) {
     );
     *s.page_request.borrow_mut() = Some(handle);
 }
-fn display_rows(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
+pub(crate) fn display_rows(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
     rows::display(s, items, more);
 }
 fn page_loading(s: &Rc<State>, active: bool) {
@@ -1103,6 +1212,23 @@ pub(super) fn update_reader_star(s: &State) {
     }
 }
 pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
+    if s.list.selection_mode() == gtk::SelectionMode::Multiple {
+        selection::mode(s, false, false);
+    }
+    s.changing_selection.set(true);
+    s.list.unselect_all();
+    if let Some(row) = s.row_widgets.borrow().get(&key) {
+        s.list.select_row(Some(&row.row));
+    }
+    s.changing_selection.set(false);
+    *s.selection_anchor.borrow_mut() = Some(key.clone());
+    #[cfg(debug_assertions)]
+    if s.clients.borrow().is_empty() && std::env::args().any(|a| a == "--design-preview") {
+        *s.selected.borrow_mut() = Some(key);
+        selection::update(s);
+        s.info("Synthetic preview · No remote mailbox connected");
+        return;
+    }
     crate::compose::park_inline(s);
     cancel_body_requests(s);
     if let Some(t) = s.reader_request.borrow_mut().take() {
@@ -1212,9 +1338,11 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
             }
             let labels = button("luma-tag-symbolic", "Manage labels");
             labels.add_css_class("flat");
+            labels.add_css_class("selected-label-action");
             tools.append(&labels);
             let reply = button("mail-reply-sender-symbolic", "Reply inline");
             reply.add_css_class("flat");
+            reply.add_css_class("single-message-action");
             tools.append(&reply);
             {
                 let state = s.clone();
@@ -1432,6 +1560,7 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             crate::rendering::append(&s, &target, &message, &text, &completed_key.account);
             let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
             actions.add_css_class("message-replies");
+            actions.add_css_class("single-message-action");
             for (name, mode) in [("Reply", 0), ("Reply all", 1), ("Forward", 2)] {
                 let b = gtk::Button::new();
                 b.add_css_class("flat");
@@ -1457,11 +1586,18 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             target.append(&actions);
             if message.has("DRAFT") {
                 let b = gtk::Button::with_label("Edit Gmail draft");
+                b.add_css_class("single-message-action");
                 target.append(&b);
                 let s = s.clone();
                 let id = message.id.clone();
-                b.connect_clicked(move |_| crate::compose::find_draft(&s, &id));
+                b.connect_clicked(move |_| {
+                    if single_message_actions(&s) {
+                        crate::compose::find_draft(&s, &id);
+                    }
+                });
             }
+            selection::update(&s);
+            crate::presentation::enter(&s, &target);
             s.info("Message opened");
             if message.has("UNREAD") {
                 mark_opened_read(&s, &completed_key.account, &message);
@@ -1565,18 +1701,18 @@ pub fn act_selected(s: &Rc<State>, action: MailAction) {
         s.info("Wait for the current Gmail operation to finish.");
         return;
     }
-    let mut keys: Vec<_> = s
-        .list
-        .selected_rows()
-        .iter()
-        .filter_map(|r| rows::key(s, r))
-        .collect();
+    let mut keys = selection::keys(s);
     if keys.is_empty()
+        && s.list.selection_mode() != gtk::SelectionMode::Multiple
         && let Some(k) = s.selected.borrow().clone()
     {
         keys.push(k);
     }
+    dispatch_selection(s, keys, action);
+}
+fn dispatch_selection(s: &Rc<State>, keys: Vec<ThreadKey>, action: MailAction) {
     if keys.is_empty() {
+        s.info("Select conversations first.");
         return;
     }
     if action == MailAction::Trash && keys.len() > 1 {
@@ -1757,7 +1893,31 @@ fn perform_actions(s: &Rc<State>, keys: Vec<ThreadKey>, action: MailAction) {
 fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailAction) {
     actions::perform(s, keys, action);
 }
+pub fn single_message_actions(s: &State) -> bool {
+    s.selected
+        .borrow()
+        .as_ref()
+        .is_some_and(|key| selection::single_target(s, key))
+}
+pub fn single_target(s: &State, target: &ThreadKey) -> bool {
+    selection::single_target(s, target)
+}
+pub fn multiple_selected(s: &State) -> bool {
+    selection::keys(s).len() > 1
+}
+#[cfg(debug_assertions)]
+pub fn verify_selection(s: &Rc<State>) {
+    selection::diagnostic(s);
+}
+pub fn valid_single_selection(s: &State) -> bool {
+    let keys = selection::keys(s);
+    keys.len() == 1 || (keys.is_empty() && s.list.selection_mode() != gtk::SelectionMode::Multiple)
+}
 pub fn act_message(s: &Rc<State>, account: &str, id: &str, action: MailAction) {
+    if !single_message_actions(s) {
+        s.info("Select one conversation for message-specific actions.");
+        return;
+    }
     perform_targets(
         s,
         vec![(
@@ -1833,6 +1993,33 @@ fn watch_theme(s: &Rc<State>) {
     }
 }
 fn install_shortcuts(s: &Rc<State>) {
+    for (name, accels) in [
+        ("settings", vec!["<Primary>comma"]),
+        ("quit", vec!["<Primary>q"]),
+        ("close", vec!["<Primary>w"]),
+        ("scale-up", vec!["<Primary>plus", "<Primary>equal"]),
+        ("scale-down", vec!["<Primary>minus"]),
+        ("scale-reset", vec!["<Primary>0"]),
+    ] {
+        let action = gio::SimpleAction::new(name, None);
+        let state = s.clone();
+        action.connect_activate(move |_, _| match name {
+            "settings" => crate::settings::open(&state),
+            "quit" => crate::tray::quit(&state),
+            "close" => {
+                state.window.close();
+            }
+            "scale-up" => crate::presentation::change_scale(&state, 1),
+            "scale-down" => crate::presentation::change_scale(&state, -1),
+            _ => {
+                state.settings.borrow_mut().ui_scale_percent = 100;
+                state.save();
+                crate::presentation::apply(&state);
+            }
+        });
+        s.window.add_action(&action);
+        s.app.set_accels_for_action(&format!("win.{name}"), &accels);
+    }
     for index in 0..9 {
         let action = gio::SimpleAction::new(&format!("account-{}", index + 1), None);
         let state = s.clone();

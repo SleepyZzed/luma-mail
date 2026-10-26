@@ -69,43 +69,30 @@ pub fn show(s: &Rc<State>) {
             false,
         ),
     ];
-    for (i, (sender, subject, snippet, unread, attached)) in items.iter().enumerate() {
-        let row = gtk::ListBoxRow::new();
-        let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        ui::margins(&content, 14);
-        content.append(&adw::Avatar::new(40, Some(sender), true));
-        let text = vbox(5);
-        text.set_hexpand(true);
-        text.append(&label(
-            sender,
-            if *unread { "heading" } else { "mail-sender" },
-        ));
-        text.append(&label(subject, "mail-subject"));
-        let snippet = label(snippet, "mail-snippet");
-        snippet.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        text.append(&snippet);
-        content.append(&text);
-        if *attached {
-            content.append(&gtk::Image::from_icon_name("mail-attachment-symbolic"));
-        }
-        row.add_css_class("mail-row");
-        row.set_child(Some(&content));
-        s.list.append(&row);
-        s.rows.borrow_mut().push(Conversation {
-            key: ThreadKey {
-                account: "design-fixture".into(),
-                id: i.to_string(),
-            },
-            sender: sender.to_string(),
-            subject: subject.to_string(),
-            snippet: String::new(),
-            date: 0,
-            unread: *unread,
-            starred: false,
-            attachments: *attached,
-            count: 1,
-        });
-    }
+    ui::display_rows(
+        s,
+        items
+            .iter()
+            .enumerate()
+            .map(
+                |(i, (sender, subject, snippet, unread, attached))| Conversation {
+                    key: ThreadKey {
+                        account: "design-fixture".into(),
+                        id: i.to_string(),
+                    },
+                    sender: sender.to_string(),
+                    subject: subject.to_string(),
+                    snippet: snippet.to_string(),
+                    date: chrono::Utc::now().timestamp_millis() - i as i64 * 3600000,
+                    unread: *unread,
+                    starred: false,
+                    attachments: *attached,
+                    count: 1,
+                },
+            )
+            .collect(),
+        false,
+    );
     ui::clear(&s.reader);
     s.reader
         .append(&label("Weekend by the coast", "reader-subject"));
@@ -186,6 +173,7 @@ pub fn show(s: &Rc<State>) {
     text.set_selectable(true);
     card.append(&text);
     let reply = gtk::Button::with_label("Reply");
+    reply.add_css_class("single-message-action");
     reply.set_halign(gtk::Align::Start);
     card.append(&reply);
     let state = s.clone();
@@ -197,6 +185,10 @@ pub fn show(s: &Rc<State>) {
     s.reader.append(&card);
     s.info("Synthetic design preview · No remote mailbox connected");
     crate::compose::verify_formatting();
+    if std::env::args().any(|a| a == "--presentation-diagnostics") {
+        crate::presentation::diagnostic(s);
+        return;
+    }
     if std::env::args().any(|a| a == "--compose-diagnostics") {
         crate::compose::diagnostic(s);
         return;

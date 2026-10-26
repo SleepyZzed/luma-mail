@@ -18,7 +18,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.2.2 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.2-dev.1)
+[Download the 0.3 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.3.1-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
@@ -62,6 +62,28 @@ insert new conversations and update unread replies in place, without a loading
 bar, replacing loaded pages or reopening the reader. Gmail push is not
 claimed. No always-running daemon or autostart entry is installed.
 
+## Interface and fonts
+
+The main window is frameless by default for tiling desktops such as Hyprland.
+Luma and Compose stay fixed above the independently scrolling folders/accounts.
+Refresh, Undo and Select sit beside the mailbox title. Settings and the app menu
+stay at the bottom of the sidebar; the menu includes Close window and Quit.
+Optional window decorations are under Settings → Appearance.
+
+Interface size offers 75–200%, independently of compositor/monitor scaling.
+Ctrl++ / Ctrl+- step through sizes; Ctrl+0 resets to 100%. Compact density updates
+visible rows without fetching Gmail. Reduced motion disables mail/composer
+transitions; desktop animation preferences are respected too.
+
+The composer font picker lists installed system families, including Microsoft
+fonts when installed. Select text to change its family/size, or choose a font for
+further typing. Interface scaling changes its on-screen appearance without
+changing the size sent in the email. Fonts are not downloaded, copied, embedded
+or bundled. Recipients need the same family or their mail client uses a fallback.
+Luma 0.3's own rich drafts reopen visually with supported fonts, lists and links;
+complex, third-party and older HTML drafts retain source mode to avoid data loss.
+Drafts stay in Gmail. See [the v1 roadmap](docs/roadmap.md).
+
 ## Daily-use controls
 
 **Unified Inbox** combines Inbox messages from enabled accounts. **All Mail**
@@ -69,8 +91,14 @@ combines their Inbox, sent and archived mail, excluding Spam and Trash. Click an
 account in the sidebar for that account's Inbox.
 
 Mail actions update confirmed rows in place, with Undo and arrival/removal
-transitions. A normal click opens one conversation; **Select** enables bulk
-selection. Right-click a row for its actions. Refresh and Load more fetch only
+transitions. A normal click opens one conversation; **Ctrl+click** toggles selection
+and **Shift+click** selects a range. **Select** exposes Select all loaded, Clear,
+the selection count and bulk actions; Ctrl+A while the list has focus selects
+loaded conversations and Escape leaves selection mode. Select all never fetches
+the rest of the mailbox. Right-click a selected row to act on that selection.
+Reply, forward, draft editing and sender blocking are available only for one
+conversation; incompatible bulk actions are hidden and guarded in their handlers.
+Refresh and Load more fetch only
 bounded metadata pages, with a rolling quota budget and batched reads.
 
 Compose opens inside the main window; replies open inline below their message.

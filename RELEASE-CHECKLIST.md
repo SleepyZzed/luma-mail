@@ -111,3 +111,19 @@ See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 - [x] Publish External audience to In production; the test-user table is no longer applicable.
 - [x] Assess IMAP/SMTP/JMAP without weakening the original online-first/Gmail criteria.
 - [ ] Complete real-account Linux acceptance; configuration evidence is not an end-to-end login test.
+
+
+## 0.3 presentation and rich-draft milestone
+
+- [x] Move main-window title-bar actions into the mailbox/sidebar; default to a
+  frameless window with optional decorations and accessible Quit/Close controls.
+- [x] App scaling independent of compositor scaling and sent email font sizes.
+- [x] Refined finite mail/composer transitions, reduced motion and system preferences.
+- [x] Installed-font chooser, including installed Microsoft families; no font copies.
+- [x] Visual restoration of new Luma rich drafts with supported font/list/link spans.
+- [x] Density/scale changes avoid refetching the mailbox.
+- [x] Pinned sidebar header/footer and Ctrl/Shift selection with loaded-only
+  Select all; incompatible bulk actions hidden and guarded.
+- [ ] Target Hyprland/fractional-scaling and two-account live acceptance.
+
+The remaining priorities and distribution gates are ordered in docs/roadmap.md.

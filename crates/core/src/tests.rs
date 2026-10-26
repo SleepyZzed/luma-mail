@@ -1345,3 +1345,25 @@ async fn pagination_cancellation_does_not_consume_unshown_rows() {
     );
     assert_eq!(p.next_page().await.unwrap().len(), 5);
 }
+
+#[test]
+fn appearance_preferences_upgrade_without_new_retention_or_unsafe_scaling() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = crate::config::Paths {
+        config: dir.path().join("config"),
+        cache: dir.path().join("cache"),
+    };
+    std::fs::create_dir_all(&paths.config).unwrap();
+    std::fs::write(
+        paths.config.join("settings.json"),
+        r#"{"cache_mib":0,"ui_scale_percent":65535}"#,
+    )
+    .unwrap();
+    let settings = paths.load().unwrap();
+    assert_eq!(settings.ui_scale_percent, 200);
+    assert_eq!(settings.cache_mib, 0);
+    assert!(!settings.local_drafts);
+    assert!(!settings.window_chrome);
+    paths.save(&settings).unwrap();
+    assert!(!paths.cache.exists());
+}

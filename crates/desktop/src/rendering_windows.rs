@@ -65,9 +65,10 @@ pub(super) fn append(
         message,
         account,
         html,
-        move |page| {
+        move |page, zoom| {
             *data.lock().expect("HTML document") = page;
             if let Some(view) = handle.borrow().as_ref() {
+                let _ = view.zoom(zoom);
                 let _ = view.load_url("http://luma.mail/document");
             }
         },
@@ -159,7 +160,7 @@ pub(super) fn append(
             .with_download_started_handler(|_,_| false)
             .with_url("luma://mail/document").build_as_child(&parent);
         match result {
-            Ok(webview) => { *handle.borrow_mut()=Some(webview); area.queue_draw(); },
+            Ok(webview) => { let _ = webview.zoom(crate::presentation::scale(&state)); *handle.borrow_mut()=Some(webview); area.queue_draw(); },
             Err(error) => state.info(&format!("HTML preview unavailable: {error}. Install or update Microsoft Edge WebView2 Runtime.")),
         }
     });

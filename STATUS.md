@@ -1,12 +1,17 @@
 # Implementation and verification status
 
-0.2.2 is **early access**. It does not complete the original brief. Google sign-in
+0.3.1 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Formal verification is not submitted: homepage ownership propagation
 and the final review video are still gates.
 
 ## Implemented and exercised
 
+- Frameless tiling layout, 75–200% app scaling, optional decorations, reduced
+  motion, installed-font composition and visual restoration of new Luma rich drafts.
+- Fixed Luma/Compose header and Settings/menu footer around scrolling navigation.
+- Ctrl/Shift selection, loaded-only Select all/Clear and shared bulk actions;
+  single-conversation actions are hidden and handler-guarded for bulk selections.
 - Native GTK4/libadwaita; account Inbox, Unified Inbox and All Mail; remote search,
   25-thread metadata pages, batched reads and a shared rolling account quota budget.
 - Server-confirmed row updates for archive, Trash, read/star/labels, previous-state
@@ -46,7 +51,8 @@ executed results rather than assuming runtime success from compilation.
   Existing authorized file IDs work; Google Picker remains absent.
 - Recipient chips, real contact photos (current avatars use initials),
   send-as aliases, richer lists and inline-image insertion in compose.
-  Existing HTML drafts reopen as source; full visual HTML re-editing is incomplete.
+  Luma 0.3-generated rich drafts reopen visually; complex/older/third-party HTML
+  remains in source mode. General visual HTML re-editing is incomplete.
 - Draft conflict reconciliation, editing attachments over 16 MiB combined, save-all,
   whole-conversation forwarding and persistent sender remote-image preferences.
 - View preferences/search highlighting, accents, optional autostart/sound,

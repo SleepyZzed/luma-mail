@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.2.2-dev.1
+        default: v0.3.1-dev.1
       reproduce_legacy:
         description: Reproduce the reported 0.2.0 missing-system-WebKit crash
         type: boolean
@@ -57,6 +57,11 @@ jobs:
           root="$(mktemp -d)"
           trap 'rm -rf -- "$root"' EXIT
           timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --compose-diagnostics
+      - name: Fixed sidebar and UI scaling
+        run: |
+          root="$(mktemp -d)"
+          trap 'rm -rf -- "$root"' EXIT
+          timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --presentation-diagnostics
       - name: Media fixture tools
         run: sudo apt-get install -y gstreamer1.0-tools weston
       - name: WebKit sandbox path launcher tests
