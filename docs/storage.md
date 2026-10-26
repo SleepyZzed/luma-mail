@@ -131,3 +131,6 @@ Visual draft restoration is bounded to 2 MiB source, 512 KiB text, 4096 spans an
 32 markup levels, and runs in memory without a browser or local draft store.
 Unsupported markup stays intact in source mode. GTK/font libraries can use normal
 system font metadata caches; these contain no mail or attachment content.
+
+Bulk selection stores only keys from the at-most-1000 loaded conversation rows.
+Select all does not fetch pages or persist a selection, mailbox index or bodies.

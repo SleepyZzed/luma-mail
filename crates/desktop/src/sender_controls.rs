@@ -10,6 +10,10 @@ use luma_core::{
 use std::rc::Rc;
 
 pub fn block(s: &Rc<State>, account_id: &str, sender: &str) {
+    if !ui::valid_single_selection(s) {
+        s.info("Select one conversation before blocking a sender.");
+        return;
+    }
     let address = match sender_rules::address(sender) {
         Ok(a) => a,
         Err(e) => {
@@ -57,6 +61,9 @@ pub fn block(s: &Rc<State>, account_id: &str, sender: &str) {
     let state = s.clone();
     glib::MainContext::default().spawn_local(async move {
         if dialog.choose_future(Some(&state.window)).await != "block" {
+            return;
+        }
+        if !ui::valid_single_selection(&state) {
             return;
         }
         if account.sender_controls {
@@ -223,6 +230,7 @@ pub fn menu(s: &Rc<State>, message: &Message, account: &str) -> gtk::MenuButton 
         .tooltip_text("Message actions")
         .build();
     button.add_css_class("flat");
+    button.add_css_class("single-message-action");
     let pop = gtk::Popover::new();
     let items = vbox(4);
     ui::margins(&items, 6);
@@ -259,7 +267,9 @@ pub fn menu(s: &Rc<State>, message: &Message, account: &str) -> gtk::MenuButton 
         if let Some(pop) = weak.upgrade() {
             pop.popdown();
         }
-        block(&state, &source, &sender);
+        if ui::single_message_actions(&state) {
+            block(&state, &source, &sender);
+        }
     });
     pop.set_child(Some(&items));
     button.set_popover(Some(&pop));

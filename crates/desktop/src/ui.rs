@@ -26,6 +26,8 @@ use std::{
 mod actions;
 #[path = "ui_rows.rs"]
 mod rows;
+#[path = "ui_selection.rs"]
+mod selection;
 
 pub struct State {
     pub app: adw::Application,
@@ -39,9 +41,15 @@ pub struct State {
     pub clients: RefCell<HashMap<String, Arc<Gmail>>>,
     pub status: gtk::Label,
     pub sidebar: gtk::Box,
+    pub sidebar_top: gtk::Box,
     pub list: gtk::ListBox,
     row_widgets: RefCell<HashMap<ThreadKey, rows::MailRow>>,
     changing_selection: Cell<bool>,
+    selection_anchor: RefCell<Option<ThreadKey>>,
+    selection_explicit: Cell<bool>,
+    select_button: gtk::ToggleButton,
+    selection_tools: gtk::Box,
+    selection_count: gtk::Label,
     pub attachment_window: RefCell<glib::WeakRef<adw::Window>>,
     mutation_serial: Cell<u64>,
     row_revisions: RefCell<HashMap<ThreadKey, u64>>,
@@ -271,9 +279,14 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .icon_name("object-select-symbolic")
         .tooltip_text("Select conversations for bulk actions")
         .build();
+    let sidebar_top = vbox(8);
+    sidebar_top.add_css_class("luma-sidebar");
+    margins(&sidebar_top, 16);
+    sidebar_top.set_margin_bottom(4);
     let sidebar = vbox(8);
     sidebar.add_css_class("luma-sidebar");
     margins(&sidebar, 16);
+    sidebar.set_margin_top(4);
     let ss = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
         .child(&sidebar)
@@ -282,6 +295,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     let nav = vbox(0);
     nav.add_css_class("sidebar-shell");
     ss.set_vexpand(true);
+    nav.append(&sidebar_top);
     nav.append(&ss);
     let footer = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     footer.add_css_class("sidebar-footer");
@@ -340,6 +354,23 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     search_bar.append(&search_options);
     heading.prepend(&search_bar);
     heading.reorder_child_after(&search_bar, Some(&title_row));
+    let selection_tools = vbox(6);
+    selection_tools.add_css_class("bulk-actions");
+    selection_tools.set_visible(false);
+    let selection_count = label("0 selected", "caption");
+    selection_tools.append(&selection_count);
+    let choices = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let select_all = gtk::Button::with_label("Select all loaded");
+    select_all.set_tooltip_text(Some(
+        "Select only the conversations already loaded here · Ctrl+A while the list is focused",
+    ));
+    let clear_selection = gtk::Button::with_label("Clear");
+    choices.append(&select_all);
+    choices.append(&clear_selection);
+    selection_tools.append(&choices);
+    let bulk_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    selection_tools.append(&bulk_buttons);
+    heading.append(&selection_tools);
     center.append(&heading);
     let page_activity = gtk::ProgressBar::new();
     page_activity.add_css_class("mail-loading");
@@ -412,9 +443,15 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         clients: RefCell::new(HashMap::new()),
         status,
         sidebar,
+        sidebar_top,
         list,
         row_widgets: RefCell::new(HashMap::new()),
         changing_selection: Cell::new(false),
+        selection_anchor: RefCell::new(None),
+        selection_explicit: Cell::new(false),
+        select_button: select.clone(),
+        selection_tools,
+        selection_count,
         compose_stack,
         editor: RefCell::new(None),
         compose_editors: RefCell::new(Vec::new()),
@@ -515,27 +552,51 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     {
         let state = s.clone();
         select.connect_toggled(move |button| {
+            if !state.changing_selection.get() {
+                selection::mode(&state, button.is_active(), true);
+            }
+        });
+    }
+    selection::install(&s);
+    {
+        let state = s.clone();
+        select_all.connect_clicked(move |_| selection::all(&state));
+        let state = s.clone();
+        clear_selection.connect_clicked(move |_| {
             state.changing_selection.set(true);
             state.list.unselect_all();
-            state.list.set_selection_mode(if button.is_active() {
-                gtk::SelectionMode::Multiple
-            } else {
-                gtk::SelectionMode::Single
-            });
-            if button.is_active() {
-                state.list.add_css_class("selection-mode");
-                state.info("Selection mode · Choose conversations for bulk actions");
-            } else {
-                state.list.remove_css_class("selection-mode");
-                if let Some(key) = state.selected.borrow().as_ref()
-                    && let Some(row) = state.row_widgets.borrow().get(key)
-                {
-                    state.list.select_row(Some(&row.row));
-                }
-                state.info("Selection mode off");
-            }
             state.changing_selection.set(false);
+            selection::update(&state);
         });
+    }
+    for (icon, tip, action) in [
+        (
+            "luma-archive-symbolic",
+            "Archive selected",
+            MailAction::Archive,
+        ),
+        (
+            "user-trash-symbolic",
+            "Move selected to Trash",
+            MailAction::Trash,
+        ),
+        (
+            "mail-read-symbolic",
+            "Mark selected as read",
+            MailAction::Read,
+        ),
+        (
+            "mail-unread-symbolic",
+            "Mark selected as unread",
+            MailAction::Unread,
+        ),
+        ("starred-symbolic", "Star selected", MailAction::Star),
+    ] {
+        let button = button(icon, tip);
+        button.add_css_class("flat");
+        bulk_buttons.append(&button);
+        let state = s.clone();
+        button.connect_clicked(move |_| act_selected(&state, action.clone()));
     }
     {
         let s = s.clone();
@@ -651,11 +712,12 @@ fn empty_reader(s: &State) {
 }
 pub fn sidebar(s: &Rc<State>) {
     clear(&s.sidebar);
+    clear(&s.sidebar_top);
     let brand = vbox(2);
     brand.add_css_class("sidebar-brand");
     brand.append(&label("Luma", "title-1"));
     brand.append(&label("Online-first mail", "caption"));
-    s.sidebar.append(&brand);
+    s.sidebar_top.append(&brand);
     let compose = gtk::Button::new();
     compose.set_child(Some(
         &adw::ButtonContent::builder()
@@ -665,7 +727,7 @@ pub fn sidebar(s: &Rc<State>) {
     ));
     compose.add_css_class("suggested-action");
     compose.add_css_class("pill");
-    s.sidebar.append(&compose);
+    s.sidebar_top.append(&compose);
     {
         let s = s.clone();
         compose.connect_clicked(move |_| crate::compose::open(&s, None, None));
@@ -1084,7 +1146,7 @@ fn load_more(s: &Rc<State>) {
     );
     *s.page_request.borrow_mut() = Some(handle);
 }
-fn display_rows(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
+pub(crate) fn display_rows(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
     rows::display(s, items, more);
 }
 fn page_loading(s: &Rc<State>, active: bool) {
@@ -1150,6 +1212,23 @@ pub(super) fn update_reader_star(s: &State) {
     }
 }
 pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
+    if s.list.selection_mode() == gtk::SelectionMode::Multiple {
+        selection::mode(s, false, false);
+    }
+    s.changing_selection.set(true);
+    s.list.unselect_all();
+    if let Some(row) = s.row_widgets.borrow().get(&key) {
+        s.list.select_row(Some(&row.row));
+    }
+    s.changing_selection.set(false);
+    *s.selection_anchor.borrow_mut() = Some(key.clone());
+    #[cfg(debug_assertions)]
+    if s.clients.borrow().is_empty() && std::env::args().any(|a| a == "--design-preview") {
+        *s.selected.borrow_mut() = Some(key);
+        selection::update(s);
+        s.info("Synthetic preview · No remote mailbox connected");
+        return;
+    }
     crate::compose::park_inline(s);
     cancel_body_requests(s);
     if let Some(t) = s.reader_request.borrow_mut().take() {
@@ -1259,9 +1338,11 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
             }
             let labels = button("luma-tag-symbolic", "Manage labels");
             labels.add_css_class("flat");
+            labels.add_css_class("selected-label-action");
             tools.append(&labels);
             let reply = button("mail-reply-sender-symbolic", "Reply inline");
             reply.add_css_class("flat");
+            reply.add_css_class("single-message-action");
             tools.append(&reply);
             {
                 let state = s.clone();
@@ -1479,6 +1560,7 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             crate::rendering::append(&s, &target, &message, &text, &completed_key.account);
             let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
             actions.add_css_class("message-replies");
+            actions.add_css_class("single-message-action");
             for (name, mode) in [("Reply", 0), ("Reply all", 1), ("Forward", 2)] {
                 let b = gtk::Button::new();
                 b.add_css_class("flat");
@@ -1504,11 +1586,17 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
             target.append(&actions);
             if message.has("DRAFT") {
                 let b = gtk::Button::with_label("Edit Gmail draft");
+                b.add_css_class("single-message-action");
                 target.append(&b);
                 let s = s.clone();
                 let id = message.id.clone();
-                b.connect_clicked(move |_| crate::compose::find_draft(&s, &id));
+                b.connect_clicked(move |_| {
+                    if single_message_actions(&s) {
+                        crate::compose::find_draft(&s, &id);
+                    }
+                });
             }
+            selection::update(&s);
             crate::presentation::enter(&s, &target);
             s.info("Message opened");
             if message.has("UNREAD") {
@@ -1613,18 +1701,18 @@ pub fn act_selected(s: &Rc<State>, action: MailAction) {
         s.info("Wait for the current Gmail operation to finish.");
         return;
     }
-    let mut keys: Vec<_> = s
-        .list
-        .selected_rows()
-        .iter()
-        .filter_map(|r| rows::key(s, r))
-        .collect();
+    let mut keys = selection::keys(s);
     if keys.is_empty()
+        && s.list.selection_mode() != gtk::SelectionMode::Multiple
         && let Some(k) = s.selected.borrow().clone()
     {
         keys.push(k);
     }
+    dispatch_selection(s, keys, action);
+}
+fn dispatch_selection(s: &Rc<State>, keys: Vec<ThreadKey>, action: MailAction) {
     if keys.is_empty() {
+        s.info("Select conversations first.");
         return;
     }
     if action == MailAction::Trash && keys.len() > 1 {
@@ -1805,7 +1893,31 @@ fn perform_actions(s: &Rc<State>, keys: Vec<ThreadKey>, action: MailAction) {
 fn perform_targets(s: &Rc<State>, keys: Vec<(ThreadKey, bool)>, action: MailAction) {
     actions::perform(s, keys, action);
 }
+pub fn single_message_actions(s: &State) -> bool {
+    s.selected
+        .borrow()
+        .as_ref()
+        .is_some_and(|key| selection::single_target(s, key))
+}
+pub fn single_target(s: &State, target: &ThreadKey) -> bool {
+    selection::single_target(s, target)
+}
+pub fn multiple_selected(s: &State) -> bool {
+    selection::keys(s).len() > 1
+}
+#[cfg(debug_assertions)]
+pub fn verify_selection(s: &Rc<State>) {
+    selection::diagnostic(s);
+}
+pub fn valid_single_selection(s: &State) -> bool {
+    let keys = selection::keys(s);
+    keys.len() == 1 || (keys.is_empty() && s.list.selection_mode() != gtk::SelectionMode::Multiple)
+}
 pub fn act_message(s: &Rc<State>, account: &str, id: &str, action: MailAction) {
+    if !single_message_actions(s) {
+        s.info("Select one conversation for message-specific actions.");
+        return;
+    }
     perform_targets(
         s,
         vec![(

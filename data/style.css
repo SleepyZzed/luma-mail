@@ -67,3 +67,7 @@ textview { padding: 18px; }
 .compose-footer .suggested-action { padding: 9px 22px; border-radius: 12px; }
 button { transition: background-color 180ms ease-out, box-shadow 180ms ease-out; }
 button:active { transition-duration: 70ms; }
+
+.bulk-actions { padding: 8px; border-radius: 12px; background: alpha(@accent_bg_color, 0.05); }
+.bulk-actions button { padding: 6px 8px; border-radius: 8px; }
+.selection-mode row.mail-row:selected { background: alpha(@accent_bg_color, 0.22); border-color: alpha(@accent_bg_color, 0.36); }

@@ -3,6 +3,12 @@ Luma Mail 0.3.1 early access — a cleaner interface and font-aware composer
 - Frameless main window for Hyprland/tiling desktops. Refresh, Undo and Select
   move beside the mailbox title; Settings and the app menu stay in the sidebar.
   Optional window decorations, Close window and Quit remain available.
+- Luma and Compose stay fixed above the scrolling folder/account list; the
+  Settings/app-menu footer stays fixed below it.
+- Ctrl+click toggles emails, Shift+click selects a range and Select offers Select
+  all loaded/Clear/count and bulk actions. Right-click actions use the selection.
+  Incompatible actions (reply/forward, draft editing, sender blocking and label
+  administration) are hidden and guarded when multiple emails are selected.
 - Interface scaling from 75–200%, with Ctrl++/Ctrl+- and Ctrl+0 reset. Text,
   app controls and HTML previews scale without changing sent email font sizes.
 - Refined easing/fades for mail arrivals, opening messages and composer changes.

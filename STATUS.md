@@ -9,6 +9,9 @@ and the final review video are still gates.
 
 - Frameless tiling layout, 75–200% app scaling, optional decorations, reduced
   motion, installed-font composition and visual restoration of new Luma rich drafts.
+- Fixed Luma/Compose header and Settings/menu footer around scrolling navigation.
+- Ctrl/Shift selection, loaded-only Select all/Clear and shared bulk actions;
+  single-conversation actions are hidden and handler-guarded for bulk selections.
 - Native GTK4/libadwaita; account Inbox, Unified Inbox and All Mail; remote search,
   25-thread metadata pages, batched reads and a shared rolling account quota budget.
 - Server-confirmed row updates for archive, Trash, read/star/labels, previous-state

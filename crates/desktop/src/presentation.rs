@@ -98,6 +98,75 @@ pub fn change_scale(s: &Rc<State>, direction: i32) {
     }
 }
 
+#[cfg(debug_assertions)]
+pub fn diagnostic(s: &Rc<State>) {
+    assert!(s.clients.borrow().is_empty() && std::env::var_os("LUMA_TEST_ROOT").is_some());
+    crate::ui::verify_selection(s);
+    s.window.set_default_size(1000, 620);
+    let mut ancestor = s.sidebar.parent();
+    let scroll = loop {
+        let current = ancestor.expect("navigation has a scroll viewport");
+        if let Ok(scroll) = current.clone().downcast::<gtk::ScrolledWindow>() {
+            break scroll;
+        }
+        ancestor = current.parent();
+    };
+    let footer = s.sidebar_top.parent().unwrap().last_child().unwrap();
+    let state = s.clone();
+    let mut stage = 0;
+    let mut ticks = 0;
+    let mut pinned = None::<(gtk::graphene::Rect, gtk::graphene::Rect)>;
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
+        ticks += 1;
+        assert!(ticks < 60, "pinned navigation diagnostics timed out");
+        let header = state.sidebar_top.compute_bounds(&state.window).unwrap();
+        let bottom = footer.compute_bounds(&state.window).unwrap();
+        let adjustment = scroll.vadjustment();
+        match stage {
+            0 | 3 => {
+                if adjustment.upper() - adjustment.page_size() < 20. {
+                    return gtk::glib::ControlFlow::Continue;
+                }
+                pinned = Some((header, bottom));
+                adjustment.set_value(if stage == 0 {
+                    adjustment.upper() - adjustment.page_size()
+                } else {
+                    0.
+                });
+                stage += 1;
+            }
+            1 | 4 => {
+                let (before, old_footer) = pinned.unwrap();
+                assert!(
+                    (header.y() - before.y()).abs() < 1.
+                        && (header.height() - before.height()).abs() < 1.,
+                    "Luma/Compose must stay fixed while navigation scrolls"
+                );
+                assert!(
+                    (bottom.y() - old_footer.y()).abs() < 1.,
+                    "sidebar footer must stay fixed"
+                );
+                assert!(state.sidebar_top.is_mapped());
+                if stage == 1 {
+                    assert!(adjustment.value() > 1.);
+                    state.settings.borrow_mut().ui_scale_percent = 150;
+                    apply(&state);
+                    stage = 3;
+                } else {
+                    assert!(adjustment.value() < 1.);
+                    println!(
+                        "PASS fixed Luma/Compose and Settings/menu with independently scrolling folders/accounts at 100% and 150%"
+                    );
+                    state.app.quit();
+                    return gtk::glib::ControlFlow::Break;
+                }
+            }
+            _ => (),
+        }
+        gtk::glib::ControlFlow::Continue
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

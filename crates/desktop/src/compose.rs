@@ -486,6 +486,10 @@ pub fn open(
     reply: Option<(Message, u8)>,
     prepared: Option<(String, Draft, Vec<RetainedAttachment>)>,
 ) {
+    if reply.is_some() && !ui::single_message_actions(s) {
+        s.info("Select one conversation before replying or forwarding.");
+        return;
+    }
     if let Some((message, 2)) = &reply
         && !message.payload.attachments().is_empty()
     {

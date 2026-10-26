@@ -65,6 +65,7 @@ claimed. No always-running daemon or autostart entry is installed.
 ## Interface and fonts
 
 The main window is frameless by default for tiling desktops such as Hyprland.
+Luma and Compose stay fixed above the independently scrolling folders/accounts.
 Refresh, Undo and Select sit beside the mailbox title. Settings and the app menu
 stay at the bottom of the sidebar; the menu includes Close window and Quit.
 Optional window decorations are under Settings → Appearance.
@@ -90,8 +91,14 @@ combines their Inbox, sent and archived mail, excluding Spam and Trash. Click an
 account in the sidebar for that account's Inbox.
 
 Mail actions update confirmed rows in place, with Undo and arrival/removal
-transitions. A normal click opens one conversation; **Select** enables bulk
-selection. Right-click a row for its actions. Refresh and Load more fetch only
+transitions. A normal click opens one conversation; **Ctrl+click** toggles selection
+and **Shift+click** selects a range. **Select** exposes Select all loaded, Clear,
+the selection count and bulk actions; Ctrl+A while the list has focus selects
+loaded conversations and Escape leaves selection mode. Select all never fetches
+the rest of the mailbox. Right-click a selected row to act on that selection.
+Reply, forward, draft editing and sender blocking are available only for one
+conversation; incompatible bulk actions are hidden and guarded in their handlers.
+Refresh and Load more fetch only
 bounded metadata pages, with a rolling quota budget and batched reads.
 
 Compose opens inside the main window; replies open inline below their message.

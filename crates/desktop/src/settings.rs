@@ -583,8 +583,12 @@ pub fn label_dialog(s: &Rc<State>) {
             for l in labels.into_iter().filter(|l| l.kind == "user") {
                 let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
                 let name = gtk::Entry::builder().text(&l.name).hexpand(true).build();
+                name.set_editable(!ui::multiple_selected(&s));
                 row.append(&name);
                 for (title, mode) in [("+", 0), ("−", 1), ("Rename", 2), ("Delete", 3)] {
+                    if mode >= 2 && ui::multiple_selected(&s) {
+                        continue;
+                    }
                     let b = gtk::Button::with_label(title);
                     b.set_tooltip_text(Some(match mode {
                         0 => "Add label to selected conversations",
@@ -608,11 +612,16 @@ pub fn label_dialog(s: &Rc<State>) {
                 .placeholder_text("New label name")
                 .build();
             list.append(&name);
+            name.set_visible(!ui::multiple_selected(&s));
             let create = gtk::Button::with_label("Create label on Gmail");
+            create.set_visible(!ui::multiple_selected(&s));
             list.append(&create);
             {
                 let s = s.clone();
                 create.connect_clicked(move |_| {
+                    if ui::multiple_selected(&s) {
+                        return;
+                    }
                     let Some(key) = s.selected.borrow().clone() else {
                         return;
                     };
@@ -643,6 +652,9 @@ pub fn label_dialog(s: &Rc<State>) {
     );
 }
 fn mutate_label(s: &Rc<State>, id: String, name: String, delete: bool) {
+    if ui::multiple_selected(s) {
+        return;
+    }
     let Some(key) = s.selected.borrow().clone() else {
         return;
     };
@@ -661,6 +673,9 @@ fn mutate_label(s: &Rc<State>, id: String, name: String, delete: bool) {
             if d.choose_future(Some(&s.window)).await != "delete" {
                 return;
             }
+        }
+        if ui::multiple_selected(&s) {
+            return;
         }
         ui::async_work(
             &s,

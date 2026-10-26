@@ -6,6 +6,8 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 ## This milestone
 
 - Frameless Hyprland-friendly navigation; optional compositor decorations.
+- Fixed Luma/Compose header and sidebar footer; Ctrl/Shift selection with safe
+  bulk actions and loaded-only Select all.
 - App UI scaling, reduced motion, refined transitions and local density updates.
 - System-font composition and visual reopening of new Luma-generated rich drafts.
 - No mailbox mirror/index, font downloads or new local draft/attachment archive.
