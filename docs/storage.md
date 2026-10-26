@@ -134,3 +134,23 @@ system font metadata caches; these contain no mail or attachment content.
 
 Bulk selection stores only keys from the at-most-1000 loaded conversation rows.
 Select all does not fetch pages or persist a selection, mailbox index or bodies.
+
+
+## Contact photos and clipboard attachments
+
+Optional Contacts access is used only to match visible sender addresses to saved
+contact photos. It does not download or mirror the address book. Requests are
+limited to two jobs and twelve new lookups/minute; Google’s search cache is warmed
+with an empty query. Search responses project email addresses and photos only.
+Photo downloads are HTTPS-only on Google’s image host, at most 2 MiB, without
+OAuth credentials/cookies/referrers. Existing pixel/allocation guards apply.
+At most 128 96×96 RGBA textures (about 4.5 MiB) remain in RAM across accounts,
+with ten-minute expiry and account separation. Eviction also releases avatar
+widget references. No photo files, contacts index or body-cache entries are added.
+
+Pasted raster images are read in bounded chunks, validated on a worker, and kept
+as in-memory MIME attachments (16 MiB combined retained/pasted limit, at most 64
+retained/pasted files). They autosave with the Gmail draft. No temp-image spool is
+created; local file attachments can use Drive for larger transfers. Composer
+movement retains one short-lived render snapshot in memory, released after its
+280 ms transition. It adds no persistent store or idle animation loop.

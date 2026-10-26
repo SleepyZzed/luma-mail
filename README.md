@@ -18,7 +18,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.3 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.3.1-dev.1)
+[Download the 0.3 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.4.0-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
@@ -84,11 +84,19 @@ Luma 0.3's own rich drafts reopen visually with supported fonts, lists and links
 complex, third-party and older HTML drafts retain source mode to avoid data loss.
 Drafts stay in Gmail. See [the v1 roadmap](docs/roadmap.md).
 
+Saved-contact profile photos are optional in Account settings and request read-only
+Google Contacts permission. Luma looks up visible senders only and retains at most
+128 small photos in RAM for ten minutes, with two jobs and twelve new lookups per
+minute. It does not sync the address book or write a photo cache. Google does not
+expose every photo Gmail can display; unmatched senders keep initials.
+
 ## Daily-use controls
 
 **Unified Inbox** combines Inbox messages from enabled accounts. **All Mail**
 combines their Inbox, sent and archived mail, excluding Spam and Trash. Click an
-account in the sidebar for that account's Inbox.
+account in the sidebar for that account's Inbox and its own folder group beneath it.
+Account folders keep that account selected; unified views are a separate group.
+Right-click a user label to delete it in Gmail after confirmation; mail is kept.
 
 Mail actions update confirmed rows in place, with Undo and arrival/removal
 transitions. A normal click opens one conversation; **Ctrl+click** toggles selection
@@ -102,13 +110,18 @@ Refresh and Load more fetch only
 bounded metadata pages, with a rolling quota budget and batched reads.
 
 Compose opens inside the main window; replies open inline below their message.
-Expand or pop out the same draft as needed. Bold, italic, underline, strike,
+Expand or restore a compact composer inside the app; transitions keep the same
+draft without changing the main window’s desktop fullscreen state. Pop out is a
+separate action and can return to the main window. Bold, italic, underline, strike,
 bullets and Insert link are available, with real upload-byte progress and a
 separate Gmail confirmation stage. **Ctrl+Enter** sends.
 New messages start in To. Tab and Shift+Tab traverse visible text fields; links
 are blue and Ctrl+click opens them. Recent-recipient completion learns only from
 successful sends in Luma (100 entries, 90 days, 64 KiB maximum). Drafts autosave to
-Gmail. New local draft copies are disabled; any older unsent recovery copies stay
+Gmail. Conflicts keep your edits and offer a separate Gmail draft, preserving the
+newer server version. Pasting a raster image attaches it in memory with a preview,
+subject to the retained attachment limits; it does not create temporary image files.
+New local draft copies are disabled; any older unsent recovery copies stay
 available until saved to Gmail or discarded. Restore returns to an inline reply
 or a compact composer window. Large Drive attachments insert one filename link.
 

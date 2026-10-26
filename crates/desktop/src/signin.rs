@@ -24,6 +24,7 @@ struct SignIn {
     active: Cell<bool>,
     drive: bool,
     filters: bool,
+    photos: bool,
     ready: RefCell<Option<Ready>>,
     expected: Option<String>,
 }
@@ -45,7 +46,8 @@ pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
     });
     let filters = account.as_ref().is_some_and(|a| a.sender_controls);
     let drive = drive || account.as_ref().is_some_and(|a| a.drive_enabled);
-    open_with_config(s, drive, expected, filters, None, s.client_config());
+    let photos = account.as_ref().is_some_and(|a| a.contact_photos);
+    open_with_config(s, drive, expected, filters, photos, None, s.client_config());
 }
 pub fn sender_controls(
     s: &Rc<State>,
@@ -56,6 +58,23 @@ pub fn sender_controls(
         s,
         account.drive_enabled,
         Some(account.email.clone()),
+        true,
+        account.contact_photos,
+        Some(Box::new(ready)),
+        s.client_config(),
+    );
+}
+
+pub fn contact_photos(
+    s: &Rc<State>,
+    account: &Account,
+    ready: impl FnOnce(Rc<State>, String) + 'static,
+) {
+    open_with_config(
+        s,
+        account.drive_enabled,
+        Some(account.email.clone()),
+        account.sender_controls,
         true,
         Some(Box::new(ready)),
         s.client_config(),
@@ -69,6 +88,7 @@ pub(crate) fn open_unconfigured(s: &Rc<State>) {
         false,
         None,
         false,
+        false,
         None,
         ClientConfig::from_registration("", ""),
     );
@@ -79,9 +99,15 @@ fn open_with_config(
     drive: bool,
     expected: Option<String>,
     filters: bool,
+    photos: bool,
     ready: Option<Ready>,
     config: Result<ClientConfig>,
 ) {
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|a| a == "--design-preview") {
+        s.info("Use the normal Luma window to connect an account. This preview contains synthetic test data.");
+        return;
+    }
     if let Some(window) = s.signin_window.borrow().as_ref() {
         window.present();
         return;
@@ -131,6 +157,7 @@ fn open_with_config(
         active: Cell::new(false),
         drive,
         filters,
+        photos,
         ready: RefCell::new(ready),
         expected,
     });
@@ -195,10 +222,11 @@ fn begin(flow: &Rc<SignIn>, config: ClientConfig) {
     let c = config.clone();
     let drive = flow.drive;
     let filters = flow.filters;
+    let photos = flow.photos;
     let weak = Rc::downgrade(flow);
     let task = ui::async_work(
         &flow.state,
-        async move { Ok(Authorization::begin_with_settings(&c, drive, filters).await) },
+        async move { Ok(Authorization::begin_with_photos(&c, drive, filters, photos).await) },
         move |_, result| {
             let Some(flow) = weak.upgrade() else { return };
             flow.task.borrow_mut().take();
@@ -215,6 +243,10 @@ fn launch_browser(flow: &Rc<SignIn>) {
     let Some(url) = flow.url.borrow().clone() else {
         return;
     };
+    #[cfg(debug_assertions)]
+    if crate::verification::browser_url(&flow.state, &url) {
+        return;
+    }
     let flow = flow.clone();
     glib::MainContext::default().spawn_local(async move {
         if gtk::UriLauncher::new(&url).launch_future(Some(&flow.window)).await.is_err() && flow.active.get() {
@@ -266,6 +298,7 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                         account.enabled = true;
                         account.drive_enabled = flow.drive;
                         account.sender_controls = flow.filters;
+                        account.contact_photos = flow.photos;
                     } else {
                         settings.accounts.push(Account {
                             id: id.clone(),
@@ -276,6 +309,7 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                             signature: String::new(),
                             drive_enabled: flow.drive,
                             sender_controls: flow.filters,
+                            contact_photos: flow.photos,
                             blocked_senders: vec![],
                         });
                     }

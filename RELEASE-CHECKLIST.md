@@ -45,7 +45,8 @@ remaining STATUS.md gaps are not claimed complete.
 - [ ] WYSIWYG rich-text editing with reliable undo/redo, lists, links and inline images.
 - [ ] Recipient chips/autocomplete and authorised sending aliases.
 - [ ] Whole-conversation forwarding and safe attachment conveniences.
-- [ ] Draft conflict reconciliation and recovery that preserves unsaved text.
+- [x] Draft conflict recovery preserving unsaved text in a separate Gmail draft;
+  the newer server version is kept. Visual comparison/merging remains follow-up.
 - [x] Account-subset filters and advanced search builder (live acceptance pending).
 - [ ] Matching-term highlighting and remaining view preferences.
 - [ ] Opt-in autostart/background behaviour, optional sound and account shortcuts.
@@ -127,3 +128,14 @@ See [STATUS.md](STATUS.md), [docs/testing.md](docs/testing.md) and
 - [ ] Target Hyprland/fractional-scaling and two-account live acceptance.
 
 The remaining priorities and distribution gates are ordered in docs/roadmap.md.
+
+
+## 0.4 polish milestone
+
+- [x] Animated composer Back, compact/full-page transitions and explicit pop-out/dock.
+- [x] Explicit account folder scope and stable sidebar geometry for long names/labels.
+- [x] Right-click user-label deletion and context-sensitive Inbox/Important actions.
+- [x] Bounded clipboard-image attachments without a disk spool.
+- [x] Opt-in saved-contact photos without a contacts/photo database.
+- [ ] Record final Linux/AppImage and live Contacts/draft-conflict acceptance.
+- [ ] Complete the Google review video and submit eligible verification material.

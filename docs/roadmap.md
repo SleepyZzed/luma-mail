@@ -1,7 +1,7 @@
 # Road to 1.0
 
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
-0.3 is an early-access milestone, not a completed 1.0 release.
+0.4 is an early-access milestone, not a completed 1.0 release.
 
 ## This milestone
 
@@ -12,9 +12,16 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - System-font composition and visual reopening of new Luma-generated rich drafts.
 - No mailbox mirror/index, font downloads or new local draft/attachment archive.
 
+## 0.4 hardening milestone
+
+- Animated Back and compact/full-page composition without changing desktop fullscreen.
+- Explicit account folders, stable navigation, label deletion and context-aware actions.
+- Clipboard-image attachments in memory and separate Gmail drafts for conflicts.
+- Optional saved-contact photos with bounded lookup/RAM, no contacts/photo mirror.
+
 ## Next implementation priorities
 
-1. Draft conflict reconciliation preserving both versions, full rich-text undo/redo,
+1. Richer draft conflict comparison/merging, full rich-text undo/redo,
    recipient chips and authorised send-as aliases. Keep complex HTML intact until
    its editor can represent it without silently losing content.
 2. Attachment save-all, inline image insertion and whole-conversation forwarding;
@@ -35,3 +42,9 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Complete Google verification and any required assessment, final demo and external
   security/privacy review before claiming warning-free, uncapped public sign-in.
 - Record these results with exact build IDs before tagging 1.0.
+
+## After 1.0
+
+Only after Gmail 1.0 is polished and accepted, add complete providers behind the
+existing provider abstraction. IMAP/SMTP/JMAP/Outlook must keep remote search,
+on-demand message/attachment access and enforced cache budgets; no offline mirror.

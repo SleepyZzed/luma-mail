@@ -11,7 +11,10 @@ pub(super) fn update(s: &State) {
         "{count} selected · {} loaded",
         s.rows.borrow().len()
     ));
-    fn visit(widget: &gtk::Widget, single: bool, labels: bool) {
+    fn visit(widget: &gtk::Widget, single: bool, labels: bool, inbox: bool) {
+        if widget.has_css_class("move-inbox-action") {
+            widget.set_visible(!inbox);
+        }
         if widget.has_css_class("single-message-action") {
             widget.set_visible(single);
         }
@@ -21,7 +24,7 @@ pub(super) fn update(s: &State) {
         let mut child = widget.first_child();
         while let Some(current) = child {
             child = current.next_sibling();
-            visit(&current, single, labels);
+            visit(&current, single, labels, inbox);
         }
     }
     let single = s
@@ -33,6 +36,7 @@ pub(super) fn update(s: &State) {
         s.reader.upcast_ref(),
         single,
         count > 0 && s.selected.borrow().is_some(),
+        *s.folder.borrow() == Folder::Inbox,
     );
 }
 pub(super) fn single_target(s: &State, target: &ThreadKey) -> bool {
@@ -241,6 +245,8 @@ pub(super) fn diagnostic(s: &Rc<State>) {
     let mut text = Vec::new();
     labels(row(0).upcast_ref(), &mut text);
     assert!(text.iter().any(|t| t == "Mark as read") && text.iter().any(|t| t == "Mark as unread"));
+    assert!(!text.iter().any(|t| t == "Move to Inbox"));
+    assert!(text.iter().any(|t| t == "Mark important"));
     assert!(
         !text
             .iter()

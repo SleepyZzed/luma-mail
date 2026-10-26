@@ -16,6 +16,8 @@ pub struct Account {
     #[serde(default)]
     pub sender_controls: bool,
     #[serde(default)]
+    pub contact_photos: bool,
+    #[serde(default)]
     pub blocked_senders: Vec<BlockedSender>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]

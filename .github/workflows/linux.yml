@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.3.1-dev.1
+        default: v0.4.0-dev.1
       reproduce_legacy:
         description: Reproduce the reported 0.2.0 missing-system-WebKit crash
         type: boolean
@@ -56,7 +56,7 @@ jobs:
           cargo build --locked -p luma-mail
           root="$(mktemp -d)"
           trap 'rm -rf -- "$root"' EXIT
-          timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --compose-diagnostics
+          timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --compose-diagnostics --clipboard-diagnostics
       - name: Fixed sidebar and UI scaling
         run: |
           root="$(mktemp -d)"

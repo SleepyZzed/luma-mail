@@ -69,5 +69,11 @@ button { transition: background-color 180ms ease-out, box-shadow 180ms ease-out;
 button:active { transition-duration: 70ms; }
 
 .bulk-actions { padding: 8px; border-radius: 12px; background: alpha(@accent_bg_color, 0.05); }
+.compact-composer { background: @window_bg_color; border: 1px solid alpha(@accent_bg_color, 0.25); border-radius: 16px; box-shadow: 0 12px 36px alpha(black, 0.22); }
+.compose-scene { background: @window_bg_color; }
+.draft-conflict { background: alpha(@warning_bg_color, 0.12); border-radius: 10px; padding: 10px; }
+.navigation-section { font-size: 0.72em; font-weight: 700; color: alpha(@window_fg_color, 0.52); margin: 12px 6px 4px; }
+.account-folders { margin-left: 12px; border-left: 1px solid alpha(@accent_bg_color, 0.2); padding-left: 5px; }
+.luma-sidebar .active-account { background: alpha(@accent_bg_color, 0.1); }
 .bulk-actions button { padding: 6px 8px; border-radius: 8px; }
 .selection-mode row.mail-row:selected { background: alpha(@accent_bg_color, 0.22); border-color: alpha(@accent_bg_color, 0.36); }

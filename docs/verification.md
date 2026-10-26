@@ -1,5 +1,30 @@
 # Verification log
 
+## 0.4 acceptance, 26 October 2026
+
+[Run 40344826916](https://github.com/SleepyZzed/luma-mail/actions/runs/40344826916)
+passed formatting, strict Clippy, 93 core/5 desktop tests, the separate GTK/D-Bus
+tray/notification test, real clipboard-image attachment diagnostics, animated
+composer host transitions/cleanup, and account-switch/sidebar geometry checks.
+Native and bundled X11/Wayland HTML/media, hidden host WebKit and read-only
+AppImage checks passed, including zero-cache operation. This proves those runner
+checks, not acceptance on the user's installed Hyprland/Noctalia system.
+
+An isolated Windows review session used the real production Desktop client,
+PKCE/loopback callback and OS vault. Only a fixed synthetic subject search was
+shown. Incremental read-only Contacts consent completed; a disposable self-contact
+with Luma's icon produced the real 96×96 photo in list/reader, then that contact
+was moved to Google Contacts Bin. No unrelated contacts were edited.
+Gmail draft/save/reopen/send removed the sent draft and delivered the self-mail.
+A 17 MiB synthetic attachment uploaded to Drive and delivered as one filename
+link to the same account. A random example.invalid Gmail Trash filter was
+created, listed and removed with ownership checks. Other-recipient Drive access,
+cancellation and sustained/two-account Linux acceptance remain open.
+
+Google People API is enabled, with the optional Contacts scope and usage
+justification declared for review. Formal Google verification is still pending
+the review video/URL and homepage ownership review; this is not approval.
+
 Development date: 2026-10-25.
 
 Host: Windows; portable MSYS2 UCRT64 toolchain installed inside the task's

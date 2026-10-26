@@ -1,9 +1,11 @@
 //! Online-first mail services. No mailbox database or background history crawler.
 pub mod auth;
 pub mod cache;
+pub mod clipboard_image;
 pub mod compose_drive;
 pub mod composer;
 pub mod config;
+pub mod contact_photos;
 pub mod drive;
 pub mod gmail;
 pub mod html_mail;
