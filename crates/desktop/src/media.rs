@@ -2,16 +2,35 @@
 //! RAM file gives it a seekable URI, with no path in the disk cache or /tmp.
 #[cfg(target_os = "linux")]
 pub fn configure() -> luma_core::Result<()> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
     let runtime = gtk::glib::user_runtime_dir().join("luma-mail");
     luma_core::config::private_dir(&runtime)?;
     let registry = runtime.join("gstreamer");
-    luma_core::config::private_dir(&registry)?;
+    match std::fs::DirBuilder::new().mode(0o500).create(&registry) {
+        Ok(()) => (),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => (),
+        Err(error) => return Err(error.into()),
+    }
+    let meta = registry.symlink_metadata()?;
+    if !meta.is_dir() || meta.uid() != unsafe { libc::geteuid() } {
+        return Err(luma_core::Error::Invalid(
+            "Media runtime must be a private directory owned by this user".into(),
+        ));
+    }
+    // Remove only our disposable codec index from an earlier development build.
+    let index = registry.join("disabled-registry.bin");
+    if index.symlink_metadata().is_ok_and(|m| m.is_file()) {
+        std::fs::remove_file(&index)?;
+    }
+    std::fs::set_permissions(&registry, std::fs::Permissions::from_mode(0o500))?;
     // WebKit exposes GST_REGISTRY's parent directory to its sandbox. /dev/null
     // would cause it to rebind all of /dev, breaking its private device mounts.
-    // Use a private runtime directory and forbid writing the registry instead.
+    // The update flag alone still writes an initial cache when none exists.
+    // A non-writable private directory keeps plugin discovery in memory too.
     // SAFETY: called at the very start of main, before GTK/GIO/Tokio threads.
     unsafe {
-        std::env::set_var("GST_REGISTRY", registry.join("disabled-registry.bin"));
+        std::env::set_var("GST_REGISTRY", &index);
+        std::env::set_var("GST_REGISTRY_1_0", &index);
         std::env::set_var("GST_REGISTRY_UPDATE", "no");
     }
     Ok(())

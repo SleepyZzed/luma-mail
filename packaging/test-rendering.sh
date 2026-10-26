@@ -29,7 +29,11 @@ if ! timeout 45s xvfb-run -a dbus-run-session -- "$1" --render-diagnostics; then
   sudo journalctl -k --no-pager -n 60 || true
   exit 1
 fi
-test ! -d "$root/app/cache/bodies"
-test ! -d "$root/app/config/composer"
-test ! -e "$root/runtime/luma-mail/gstreamer/disabled-registry.bin"
+for unexpected in "$root/app/cache/bodies" "$root/app/config/composer" "$root/runtime/luma-mail/gstreamer/disabled-registry.bin"; do
+  if [[ -e "$unexpected" ]]; then
+    echo "FAIL zero-retention check: $unexpected"
+    stat "$unexpected"
+    exit 1
+  fi
+done
 echo 'PASS zero-budget HTML/media creates no body cache, attachment spool or local draft store'
