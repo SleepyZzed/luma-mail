@@ -16,9 +16,14 @@ drivers can add memory. Accurate HTML, previews and active composition are kept.
 - HTML resize measurements run on allocation events, not a permanent frame
   callback. Live views share weakly held ephemeral engine resources. Closing
   the last view releases their owners. Back/forward caching is disabled.
+  Sanitized local message pages use related views to share a renderer process;
+  stopped previews have an explicit reload control.
 - Inactive readers release their bodies and renderer views after 45 seconds
   hidden. Composers and open attachment previews are protected. Restore reloads
   only the selected conversation, without rebuilding the mailbox list.
+- The same background boundary releases inbox widget bindings. Its bounded
+  metadata, selection and scroll position stay in memory; returning rebuilds
+  only the native list's current bindings, without fetching inbox pages again.
 - Immutable MIME bodies and retained attachments share buffers across callbacks
   and draft snapshots. Autosave conflict checks project only the current message
   ID instead of re-fetching the entire draft body.

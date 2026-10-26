@@ -9,6 +9,14 @@ decision and Google's final response remain gates.
 
 ## Implemented and exercised
 
+- Recycled GtkListView metadata/selection and direct row identity, with batched
+  page insertion. The 1,000-row native test covers scrolling, offscreen actions,
+  selection and releasing/rebuilding widget bindings.
+- Shared immutable body/attachment buffers, projected draft revision checks,
+  resize-driven HTML measurement and background reader/list reclamation.
+  Process-tree/long-soak tooling is documented in docs/performance.md.
+- Supplied wordmark and standalone star SVG icon, with a small sidebar resource.
+
 - Rebuilt icon/control visual layer, compact Subject and borderless disclosures;
   compositor-managed resizable Linux windows. Existing layouts and functions kept.
 - Verified Send-as aliases with account routing, Reply-To and unavailable-alias guard.

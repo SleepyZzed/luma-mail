@@ -16,6 +16,8 @@ struct Inner {
     mode: Cell<gtk::SelectionMode>,
     mutating: Cell<bool>,
     sort: Cell<Option<Compare>>,
+    factory: RefCell<Option<gtk::SignalListItemFactory>>,
+    suspended_scroll: Cell<Option<f64>>,
 }
 struct Data {
     item: RefCell<Conversation>,
@@ -267,6 +269,8 @@ impl Inbox {
                 mode: Cell::new(gtk::SelectionMode::Single),
                 mutating: Cell::new(false),
                 sort: Cell::new(None),
+                factory: RefCell::new(None),
+                suspended_scroll: Cell::new(None),
             }),
         }
     }
@@ -304,6 +308,37 @@ impl Inbox {
             item.set_child(None::<&gtk::Widget>);
         });
         self.widget.set_factory(Some(&factory));
+        *self.inner.factory.borrow_mut() = Some(factory);
+    }
+    pub fn suspend(&self) {
+        if self.inner.suspended_scroll.get().is_some() {
+            return;
+        }
+        self.inner
+            .suspended_scroll
+            .set(Some(self.widget.vadjustment().map_or(0., |a| a.value())));
+        self.widget.set_factory(None::<&gtk::ListItemFactory>);
+    }
+    pub fn resume(&self) {
+        let Some(scroll) = self.inner.suspended_scroll.take() else {
+            return;
+        };
+        self.widget
+            .set_factory(self.inner.factory.borrow().as_ref());
+        let ticks = Cell::new(0);
+        // Four allocation frames only, when returning from the tray. No idle
+        // timer or persistent frame callback is needed for viewport restoration.
+        self.widget.add_tick_callback(move |widget, _| {
+            if let Some(a) = widget.vadjustment() {
+                a.set_value(scroll.min((a.upper() - a.page_size()).max(0.)));
+            }
+            ticks.set(ticks.get() + 1);
+            if ticks.get() >= 4 {
+                glib::ControlFlow::Break
+            } else {
+                glib::ControlFlow::Continue
+            }
+        });
     }
     pub fn set_sort_func(&self, sort: fn(&Row, &Row) -> gtk::Ordering) {
         self.inner.sort.set(Some(sort));
@@ -348,6 +383,25 @@ impl Inbox {
     }
     pub fn append(&self, row: &Row) {
         self.insert(row, self.inner.store.n_items() as i32);
+    }
+    pub fn append_many(&self, rows: &[Row]) {
+        if rows.is_empty() {
+            return;
+        }
+        self.inner.mutating.set(true);
+        let objects: Vec<_> = rows
+            .iter()
+            .cloned()
+            .map(glib::BoxedAnyObject::new)
+            .collect();
+        self.inner
+            .store
+            .splice(self.inner.store.n_items(), 0, &objects);
+        for (n, row) in self.inner.rows().iter().enumerate() {
+            row.0.position.set(n as i32);
+        }
+        self.inner.mutating.set(false);
+        self.inner.resort(None);
     }
     pub fn insert(&self, row: &Row, n: i32) {
         let n = (n as u32).min(self.inner.store.n_items());

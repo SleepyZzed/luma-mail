@@ -262,6 +262,7 @@ pub(super) fn sort(a: &crate::virtual_inbox::Row, b: &crate::virtual_inbox::Row)
         .into()
 }
 pub(super) fn display(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
+    let mut appended = Vec::new();
     for item in items {
         if s.rows.borrow().len() >= 1000 {
             break;
@@ -270,10 +271,11 @@ pub(super) fn display(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
             continue;
         }
         let widget = make(s, &item);
-        s.list.append(&widget.row);
+        appended.push(widget.row.clone());
         s.row_widgets.borrow_mut().insert(item.key.clone(), widget);
         s.rows.borrow_mut().push(item);
     }
+    s.list.append_many(&appended);
     s.rows
         .borrow_mut()
         .sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.key.cmp(&b.key)));

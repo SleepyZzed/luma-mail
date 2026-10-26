@@ -1,12 +1,25 @@
 //! Resource reclamation at lifecycle boundaries, never a busy idle loop.
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+thread_local! {
+    static TRIM: std::cell::RefCell<Option<gtk::glib::SourceId>> = const { std::cell::RefCell::new(None) };
+}
 pub fn trim() {
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
-    gtk::glib::timeout_add_local_once(std::time::Duration::from_secs(2), || {
-        // Return already-free allocator arenas after views/buffers are dropped.
-        // This neither frees live memory nor imposes an allocation/renderer cap.
-        unsafe {
-            libc::malloc_trim(0);
+    TRIM.with(|pending| {
+        if let Some(old) = pending.borrow_mut().take() {
+            old.remove();
         }
+        let source = gtk::glib::timeout_add_local_once(std::time::Duration::from_secs(2), || {
+            TRIM.with(|pending| {
+                pending.borrow_mut().take();
+            });
+            // Return already-free allocator arenas after views/buffers are dropped.
+            // This neither frees live memory nor imposes an allocation/renderer cap.
+            unsafe {
+                libc::malloc_trim(0);
+            }
+        });
+        *pending.borrow_mut() = Some(source);
     });
 }
 

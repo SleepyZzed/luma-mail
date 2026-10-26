@@ -394,6 +394,7 @@ mod linux {
         // Weak owners: share engines while views coexist, release the session
         // and processes when the last message view is destroyed.
         static ENGINE: RefCell<(glib::WeakRef<webkit6::WebContext>, glib::WeakRef<webkit6::NetworkSession>)> = Default::default();
+        static PEERS: RefCell<Vec<glib::WeakRef<webkit6::WebView>>> = const { RefCell::new(Vec::new()) };
     }
     fn engine() -> (webkit6::WebContext, webkit6::NetworkSession) {
         ENGINE.with(|saved| {
@@ -469,11 +470,24 @@ mod linux {
         settings.set_enable_smooth_scrolling(true);
         settings.set_enable_page_cache(false);
         let (context, session) = engine();
-        let view = webkit6::WebView::builder()
-            .settings(&settings)
-            .network_session(&session)
-            .web_context(&context)
-            .build();
+        let view = PEERS.with(|peers| {
+            let mut peers = peers.borrow_mut();
+            peers.retain(|p| p.upgrade().is_some());
+            // Every document is sanitized local about:blank with sender
+            // scripting/network navigation disabled. Related views share the
+            // renderer process while keeping separate page DOMs and controls.
+            let view = if let Some(peer) = peers.iter().find_map(glib::WeakRef::upgrade) {
+                webkit6::WebView::builder().related_view(&peer).build()
+            } else {
+                webkit6::WebView::builder()
+                    .settings(&settings)
+                    .network_session(&session)
+                    .web_context(&context)
+                    .build()
+            };
+            peers.push(view.downgrade());
+            view
+        });
         view.set_background_color(&gtk::gdk::RGBA::TRANSPARENT);
         view.set_hexpand(true);
         view.set_vexpand(false);
@@ -773,7 +787,7 @@ mod linux {
     ) {
         let view = view(s);
         let weak = view.downgrade();
-        html_controls(
+        let document = html_controls(
             s,
             body,
             view.upcast_ref(),
@@ -787,6 +801,45 @@ mod linux {
                 }
             },
         );
+        let retry = gtk::Button::with_label("Reload message preview");
+        let notice = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let text = ui::label(
+            "The HTML renderer stopped. Your message is still in Gmail.",
+            "caption",
+        );
+        text.set_wrap(true);
+        text.set_hexpand(true);
+        notice.append(&text);
+        notice.append(&retry);
+        let failed = gtk::Revealer::builder()
+            .child(&notice)
+            .reveal_child(false)
+            .build();
+        body.append(&failed);
+        let model = Rc::downgrade(&document);
+        let failed_view = failed.downgrade();
+        view.connect_web_process_terminated(move |_, _| {
+            if let Some(model) = model.upgrade() {
+                model.borrow_mut().rendered = None;
+            }
+            if let Some(failed) = failed_view.upgrade() {
+                failed.set_reveal_child(true);
+            }
+        });
+        let recovered = failed.downgrade();
+        view.connect_load_changed(move |_, event| {
+            if event == webkit6::LoadEvent::Finished
+                && let Some(failed) = recovered.upgrade()
+            {
+                failed.set_reveal_child(false);
+            }
+        });
+        let state = Rc::downgrade(s);
+        retry.connect_clicked(move |_| {
+            if let Some(s) = state.upgrade() {
+                refresh_appearance(&s);
+            }
+        });
         body.append(&host(&view));
     }
 }

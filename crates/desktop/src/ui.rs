@@ -1388,6 +1388,7 @@ pub fn open_thread(s: &Rc<State>, key: ThreadKey) {
                                 request.abort();
                             }
                             clear(&body);
+                            crate::resources::trim();
                             if s.selected_message
                                 .borrow()
                                 .as_ref()
@@ -1416,6 +1417,7 @@ fn idle_reclaim(s: &Rc<State>) {
         }
         let Some(s) = weak.upgrade() else { return };
         if window.is_visible() {
+            s.list.resume();
             if suspended.replace(false)
                 && s.reader_request.borrow().is_none()
                 && s.body_requests.borrow().is_empty()
@@ -1437,6 +1439,7 @@ fn idle_reclaim(s: &Rc<State>) {
                     let Some(s) = weak.upgrade() else { return };
                     if s.window.is_visible()
                         || crate::compose::has_open_editor(&s)
+                        || s.window.visible_dialog().is_some()
                         || s.attachment_window
                             .borrow()
                             .upgrade()
@@ -1445,6 +1448,7 @@ fn idle_reclaim(s: &Rc<State>) {
                         return;
                     }
                     suspended.set(s.selected.borrow().is_some());
+                    s.list.suspend();
                     s.reading.set(s.reading.get().wrapping_add(1));
                     cancel_body_requests(&s);
                     if let Some(task) = s.reader_request.borrow_mut().take() {
@@ -1495,6 +1499,14 @@ pub fn resource_scroll(s: &State, bottom: bool) {
 #[cfg(debug_assertions)]
 pub fn verify_virtualization(s: &Rc<State>) {
     resource_rows(s, 1000);
+    let mut overflow = s.rows.borrow()[0].clone();
+    overflow.key.id = "beyond-loaded-limit".into();
+    rows::display(s, vec![overflow], false);
+    assert_eq!(
+        s.rows.borrow().len(),
+        1000,
+        "Partial pages cannot exceed the loaded metadata limit"
+    );
     s.settings.borrow_mut().reduced_motion = true;
     let state = s.clone();
     let mut stage = 0;
@@ -1560,8 +1572,25 @@ pub fn verify_virtualization(s: &Rc<State>) {
             }
             2 if first.widget().is_some() => {
                 assert!(state.list.bound_count() < 256);
+                let keys = selection::keys(&state);
+                state.list.suspend();
+                assert_eq!(
+                    state.list.bound_count(),
+                    0,
+                    "Tray reclamation releases row widgets"
+                );
+                assert_eq!(
+                    selection::keys(&state),
+                    keys,
+                    "Tray reclamation keeps selection metadata"
+                );
+                state.list.resume();
+                stage = 3;
+            }
+            3 if first.widget().is_some() => {
+                assert!(state.list.bound_count() < 256);
                 println!(
-                    "PASS virtual GtkListView: 1,000 metadata rows, {} bound widget trees, recycled selection, offscreen updates and loaded-only Select all",
+                    "PASS virtual GtkListView: 1,000 metadata rows, {} bound widget trees, offscreen actions/selection, loaded-only Select all and tray release/resume",
                     state.list.bound_count()
                 );
                 state.app.quit();
@@ -1573,6 +1602,7 @@ pub fn verify_virtualization(s: &Rc<State>) {
     });
 }
 fn cancel_body_requests(s: &State) {
+    crate::resources::trim();
     for (_, (_, request)) in s.body_requests.borrow_mut().drain() {
         request.abort();
     }

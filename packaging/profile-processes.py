@@ -126,6 +126,9 @@ for name in dict.fromkeys(s['phase'] for s in samples):
     report['phases'][name] = {k: round(statistics.mean(s[k] for s in subset), 3)
         for k in ['rss_mib', 'pss_mib', 'private_mib', 'cpu_one_core_percent']}
     report['phases'][name]['peak_rss_mib'] = max(s['rss_mib'] for s in samples if s['phase']==name)
+    report['phases'][name]['peak_pss_mib'] = max(s['pss_mib'] for s in samples if s['phase']==name)
+    report['phases'][name]['peak_cpu_one_core_percent'] = max(s['cpu_one_core_percent'] for s in samples if s['phase']==name)
+    report['phases'][name]['all_samples_cpu_one_core_percent'] = round(statistics.mean(s['cpu_one_core_percent'] for s in samples if s['phase']==name),3)
     report['phases'][name]['pss_complete'] = all(s['unreadable_pss']==0 for s in subset)
 if attached:
     report['description'] = 'Read-only attachment to the live Luma main process and descendants. No mail, tokens, titles or arguments recorded. Luma is not stopped or reconfigured. CPU is percentage of one core; RSS includes shared mappings and PSS apportions them.'

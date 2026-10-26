@@ -49,6 +49,12 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
   subject fields; resizable borderless Linux windows. See visual-system.md.
 - Available own-account photos can be reused across opted-in connected accounts.
 
+- Recycled GtkListView rows, direct identity lookup, batched page insertion,
+  shared immutable payloads and event-driven HTML measurement.
+- Hidden reader/list reclamation and complete process-tree profiling; real
+  sustained sync/desktop acceptance still required. See performance.md.
+- User-supplied Luma wordmark and a standalone SVG star mascot for the app.
+
 ## Next implementation priorities
 
 1. Inline image insertion and whole-conversation forwarding;

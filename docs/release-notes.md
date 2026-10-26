@@ -8,7 +8,10 @@ Luma Mail 0.7.0 early access — a rebuilt visual layer and safer draft workflow
   Live HTML views share ephemeral renderer resources, without page-history caches.
   After 45 seconds hidden, an inactive reader releases its bodies and views;
   restoring it fetches the selected conversation again. Open composers and media
-  previews are preserved. No hard memory kill is imposed on a complex message.
+  previews are preserved. Hidden inbox widget bindings are released too, keeping
+  metadata/selection/scroll for restore. Freed allocator arenas can return to
+  Linux after a short idle pause following close/collapse. No hard memory kill
+  is imposed on a complex message.
 - 52 consistent app-owned vector icons replace theme-dependent mail, navigation,
   editing and attachment icons. Inputs have stable focus outlines, Subject is
   compact, menus are quieter, and disclosure arrows are small and borderless.

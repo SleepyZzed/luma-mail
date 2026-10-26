@@ -235,6 +235,9 @@ lookup-rate limits; it creates no file and adds no permission.
 - A main window hidden for 45 seconds releases its current reader if no composer
   or visible attachment preview needs it. Reopening reloads the selected thread,
   keeping paged list metadata. Already-free allocator arenas can return to Linux.
+- Its inbox also drops widget bindings while retaining selection and metadata.
+  Restore rebinds the viewport and restores the scroll position without fetching
+  mailbox pages. No state is spooled to disk for this reclamation.
 - The wordmark has editable SVG source in the repository and one small raster
   resource in the app. It never downloads, caches or creates a user-data file.
 - The 52 app-owned SVG icons are compiled resources, without network requests

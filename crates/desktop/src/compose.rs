@@ -655,6 +655,7 @@ fn finish(e: &Rc<Editor>) {
     motion::dismiss(e);
 }
 fn release_editor(e: &Rc<Editor>) {
+    crate::resources::trim();
     detach(e);
     let owns = e
         .state

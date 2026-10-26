@@ -296,6 +296,8 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
         .default_height(620)
         .destroy_with_parent(true)
         .build();
+    #[cfg(target_os = "linux")]
+    crate::presentation::configure_window(&window, false);
     s.attachment_window.borrow_mut().set(Some(&window));
     let root = vbox(0);
     let header = adw::HeaderBar::new();
@@ -312,6 +314,10 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
     margins(&body, 20);
     root.append(&body);
     window.set_content(Some(&root));
+    window.connect_close_request(|_| {
+        crate::resources::trim();
+        glib::Propagation::Proceed
+    });
     let spinner = gtk::Spinner::new();
     spinner.start();
     spinner.set_vexpand(true);
