@@ -342,3 +342,66 @@ SHA256SUMS and GitHub asset digest:
 These checks do not claim actual target GPU/FUSE, two-account Linux acceptance
 or completed Google verification. PR #3 contains the changes. Later documentation
 commits do not alter the tagged source or published binary.
+
+## 0.3.1: presentation, installed fonts and safe bulk selection — 26 October 2026
+
+[PR #4](https://github.com/SleepyZzed/luma-mail/pull/4) adds a frameless main window,
+pinned Luma/Compose header and Settings/menu footer, independently scrolling
+navigation, 75–200% UI scaling and finite eased transitions with reduced motion.
+It adds installed-family composition without font downloads/copies and bounded
+visual restoration of new Luma-generated rich drafts. Unknown/older HTML stays
+intact in source mode. Font sizes sent in mail remain independent of UI scaling.
+
+Ctrl+click toggles loaded conversations; Shift+click selects ranges. Select offers
+Select all loaded, Clear, counts and bulk actions. Select all never loads pages.
+Context actions use the selection. Reply, forward, draft editing, sender blocking
+and label administration are hidden and handler-guarded for multiple selections;
+an empty bulk selection cannot fall back to the opened conversation.
+
+Local Windows checks passed formatting, strict Clippy, 88 core tests and five
+desktop tests. Native diagnostics exercised font choice/further typing, visual
+rich-draft round trips, To/Tab/Shift+Tab/Expand/Restore, blue links, reduced motion,
+Ctrl/Shift/Select all, incompatible menu/handler guards and fixed sidebar geometry
+at 100%/150%. Actual UI inspection confirmed bulk menus and hidden reader actions.
+Microsoft Times New Roman was chosen/typed in the Windows font picker; Linux
+families depend on what the user has installed. The different preview accents came
+from isolated test settings, not a forced change to existing users' palettes.
+
+[Final release run 40330041851](https://github.com/SleepyZzed/luma-mail/actions/runs/40330041851)
+passed on exact tagged head `a513ec1c5cc57bfe152f656091925b328fc03339`:
+
+- Strict fmt/Clippy, 88 core tests and five desktop tests; separate real GTK/tray/
+  system-notification D-Bus acceptance and three sandbox-launcher tests.
+- Composer font/typing/rich-draft/navigation/scaling checks and new selection/
+  fixed-sidebar diagnostics. Normal composition created no local draft store.
+- Native and bundled WebKit/GStreamer on X11 and headless Wayland, including
+  hidden host WebKit/JSC/helpers and a read-only extracted AppImage tree.
+- Real table widths, title removal, inline-image bounds, theme/original-colour
+  changes, UI zoom and settled full-content heights; stale layout results rejected.
+- In-memory WAV/WebM decoding/playback and host cursor-settings transport.
+- Zero-cache runs created no body cache, attachment spool or local draft store.
+  Private codec inventories remained approximately 1 MiB and contained no mail.
+
+Published dark/light/original document snapshots retain the 0.2.2 hashes above;
+the final dark/light captures were downloaded and visually inspected. Presentation
+changes avoid rebuilding existing rows or refetching Gmail. Remote search,
+25-row metadata pages, at most 1,000 loaded rows, on-demand bodies/previews and
+existing allocation-budget/zero-cache behavior remain. Selection stores only
+loaded keys in memory. There is no new mailbox index or attachment/draft archive.
+This is a boundedness audit and synthetic validation, not sustained mailbox/GPU
+performance acceptance.
+
+[v0.3.1-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.3.1-dev.1)
+is early access. Its downloaded 157,469,176-byte AppImage matches SHA256SUMS and
+GitHub's asset digest:
+
+```text
+b6c82e243b2111231c5fcd07251bcf36eceeb26abd2ffd66442f1d655ced2b66
+```
+
+The Arch package pins functional source `5494b9f9a4ccd0dcb5de22fdbe23152be3560396`;
+its downloaded source archive matches
+`6b8d7adc37ccefba8c5310b343d7da7d82758fbb25a88030663945ef86394d6c`.
+PR #4 is merged. Later verification-document updates do not change the tagged
+binary. Target Hyprland/GPU/FUSE, two-account Linux/Noctalia, real giant-mailbox
+profiling and Google verification remain gates; see roadmap and release checklist.
