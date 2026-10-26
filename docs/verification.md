@@ -235,3 +235,19 @@ spool or local composer store. Codec inventories were 1,037,145 bytes native and
 The bundle includes distro notices and corresponding source-package links.
 These synthetic checks do not replace the remaining target-desktop/live-account
 checks listed in STATUS.md.
+
+[Release run 40250308268](https://github.com/SleepyZzed/luma-mail/actions/runs/40250308268)
+repeated the gates on merged source `83c8c0412c10b432b7cb93566b1825dbd6d1adf9`,
+including the sign-in registration guard, and published
+[v0.2.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.0-dev.1)
+as a prerelease. The actual downloaded 157,092,344-byte AppImage matched both
+the published SHA256SUMS and GitHub asset digest:
+
+```text
+cbd1b7d8933ca684d61e1d06271693f27711fcf97538b2f6ddfcfcd7150fcafe
+```
+
+The release's native and AppImage newsletter snapshots also match the inspected
+PNG digest above. Source archives, checksums and native dependency source links
+accompany the AppImage. Post-publication documentation updates do not change
+the tagged application sources or binary.

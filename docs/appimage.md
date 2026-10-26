@@ -12,15 +12,20 @@ Download the AppImage and `SHA256SUMS` from the repository's Releases page:
 
 ```sh
 sha256sum --check SHA256SUMS
-chmod +x Luma-Mail-0.1.2-x86_64.AppImage
-./Luma-Mail-0.1.2-x86_64.AppImage
+chmod +x Luma-Mail-0.2.0-x86_64.AppImage
+./Luma-Mail-0.2.0-x86_64.AppImage
 ```
 
 If your desktop lacks FUSE support, use:
 
 ```sh
-APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.1.2-x86_64.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.2.0-x86_64.AppImage
 ```
+
+When upgrading, choose **Quit** from the old app's tray menu before launching
+the new AppImage. Closing the window can leave the old version running; a second
+launch then activates that existing instance. Your accounts and settings stay
+in their normal XDG locations.
 
 The bundle includes GTK/libadwaita dependencies and application resources. It
 also includes matching WebKit helpers and GTK/GStreamer media codecs for HTML
