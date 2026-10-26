@@ -109,25 +109,18 @@ pub fn open(s: &Rc<State>) {
                 s.save();
             });
         }
-        let signature = adw::EntryRow::builder()
-            .title("Signature (plain text)")
-            .text(&account.signature)
+        let signature = adw::ActionRow::builder()
+            .title("Rich signature")
+            .subtitle("Fonts, colours, lists, links and pictures · Saved online in Gmail")
+            .activatable(true)
             .build();
         g.add(&signature);
         {
             let s = s.clone();
             let id = account.id.clone();
-            signature.connect_changed(move |e| {
-                if let Some(a) = s
-                    .settings
-                    .borrow_mut()
-                    .accounts
-                    .iter_mut()
-                    .find(|a| a.id == id)
-                {
-                    a.signature = e.text().into();
-                }
-                s.save_debounced();
+            let email = account.email.clone();
+            signature.connect_activated(move |_| {
+                crate::signatures::open(&s, &id, &email, None);
             });
         }
         let photos = adw::SwitchRow::builder().title("Saved-contact profile photos").subtitle("Optional read-only Google Contacts permission. Visible senders only; small photos stay in memory. Unmatched senders keep initials.").active(account.contact_photos).build();

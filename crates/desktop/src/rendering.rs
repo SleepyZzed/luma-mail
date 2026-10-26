@@ -323,6 +323,13 @@ pub fn performance_fixture(s: &Rc<State>, count: usize) {
         );
     }
 }
+#[cfg(target_os = "linux")]
+pub(crate) fn signature_webview(s: &Rc<State>) -> Result<webkit6::WebView> {
+    if !linux::sandbox_available() {
+        return Err(luma_core::Error::Invalid("The HTML sandbox is unavailable. Enable the supported Linux sandbox before opening the rich signature editor.".into()));
+    }
+    Ok(linux::signature_view(s))
+}
 
 async fn image_map(
     message: Message,
@@ -456,6 +463,12 @@ mod linux {
     }
 
     fn view(s: &Rc<State>) -> webkit6::WebView {
+        view_base(s, true)
+    }
+    pub(super) fn signature_view(s: &Rc<State>) -> webkit6::WebView {
+        view_base(s, false)
+    }
+    fn view_base(s: &Rc<State>, auto_height: bool) -> webkit6::WebView {
         let settings = webkit6::Settings::new();
         // Native layout measurements are evaluated in an isolated world. Sender
         // scripts are disabled separately, removed by sanitization and blocked
@@ -522,13 +535,14 @@ mod linux {
             request.deny();
             true
         });
-        let revision = Rc::new(Cell::new(0u64));
-        let loaded = revision.clone();
-        view.connect_load_changed(move |view, event| {
-            if event == webkit6::LoadEvent::Finished {
-                measure(view, &loaded);
-            }
-        });
+        if auto_height {
+            let revision = Rc::new(Cell::new(0u64));
+            view.connect_load_changed(move |view, event| {
+                if event == webkit6::LoadEvent::Finished {
+                    measure(view, &revision);
+                }
+            });
+        }
         view
     }
     fn host(view: &webkit6::WebView) -> gtk::Overlay {

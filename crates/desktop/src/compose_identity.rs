@@ -160,6 +160,7 @@ pub(super) fn refresh(e: &Rc<Editor>) {
         e.identities.sync.set(false);
     }
     controls(e);
+    signature::load(e, false);
 }
 fn load(e: &Rc<Editor>, retry: bool) {
     let index = e.identities.account_index();

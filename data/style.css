@@ -127,6 +127,8 @@ textview { padding: 18px; }
 .inline-reply-header { padding: 7px 12px; }
 .inline-composer .compose-fields { padding: 0 12px; }
 .inline-composer .compose-toolbar { padding: 5px 10px; }
+.signature-summary { margin: 4px 12px; }
+.signature-summary button { padding: 4px; min-height: 18px; min-width: 18px; }
 .inline-composer textview { padding: 12px 16px; }
 .inline-composer .compose-footer { padding: 8px 12px; }
 .reply-quote { padding: 6px 16px; }

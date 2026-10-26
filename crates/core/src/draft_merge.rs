@@ -47,7 +47,7 @@ fn same(a: &Value, b: &Value) -> bool {
             .map(|s| (s.start, s.end, s.tag))
             .collect();
         spans.sort();
-        (r.text, r.quote, spans)
+        (r.text, r.quote, r.signature, spans)
     };
     spans(a) == spans(b)
 }

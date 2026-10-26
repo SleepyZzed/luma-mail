@@ -88,6 +88,13 @@ jobs:
           }
           PROFILE
           sudo apparmor_parser -r /etc/apparmor.d/luma-ci-bwrap
+      - name: Visual online signature editor and renderer release
+        run: |
+          root="$(mktemp -d)"
+          trap 'rm -rf -- "$root"' EXIT
+          mkdir -p "$root/runtime" "$root/cache" dist
+          chmod 700 "$root/runtime"
+          timeout 40s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" XDG_RUNTIME_DIR="$root/runtime" XDG_CACHE_HOME="$root/cache" GDK_BACKEND=x11 GTK_A11Y=none LUMA_SIGNATURE_SCREENSHOT="$(pwd)/dist/native-ui-signature.png" target/debug/luma-mail --design-preview --signature-diagnostics
       - name: Require app registration before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: cargo check --locked -p luma-mail --features require-google-client

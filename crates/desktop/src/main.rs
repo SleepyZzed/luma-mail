@@ -17,6 +17,8 @@ mod resources;
 mod search;
 mod sender_controls;
 mod settings;
+mod signature_rich;
+mod signatures;
 mod signin;
 mod tray;
 mod ui;

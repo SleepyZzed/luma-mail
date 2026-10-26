@@ -115,7 +115,8 @@ async fn main() -> Result<()> {
         | Some("photos")
         | Some("photos-own")
         | Some("draft-merge-aliases")
-        | Some("reply-regression") => {
+        | Some("reply-regression")
+        | Some("signature-read") => {
             let account = settings
                 .accounts
                 .last()
@@ -128,6 +129,18 @@ async fn main() -> Result<()> {
             println!("Checking fresh OAuth refresh and profile…");
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
+            }
+            if args[1] == "signature-read" {
+                use luma_core::signatures::SignatureStore;
+                let signature = gmail.signature(&account.email).await?;
+                assert!(signature.identity.eq_ignore_ascii_case(&account.email));
+                assert!(signature.html.len() <= luma_core::signatures::MAX_HTML);
+                println!(
+                    "PASS real projected Gmail signature read: {} bytes, primary={}; no settings writes, image upload or local signature cache",
+                    signature.html.len(),
+                    signature.can_update
+                );
+                return Ok(());
             }
             if args[1] == "draft-merge-aliases" {
                 draft_merge_aliases(&gmail, &account.email).await?;
