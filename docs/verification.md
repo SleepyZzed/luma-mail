@@ -209,6 +209,7 @@ must be recorded from the completed run before claiming the new AppImage passed.
 passed actual WebKit layout, colours, hyperlink, prepared image and inert-content
 checks, followed by real RAM-backed WAV/WebM playback. This exposed and fixed a
 GStreamer registry path conflict with WebKit's sandbox device mounts. Registry
-writes remain disabled in a private runtime directory. The run then failed in
-the diagnostic screenshot path; capture now uses WebKit's document snapshot API.
+metadata now stays in a private runtime directory, outside the message-cache
+budget (the initial codec inventory cannot be disabled with the update flag).
+The run then failed in the diagnostic screenshot path; capture now uses WebKit's document snapshot API.
 Packaged-engine acceptance is still required before publishing the new AppImage.

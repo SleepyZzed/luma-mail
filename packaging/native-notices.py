@@ -9,12 +9,14 @@ appdir=Path(sys.argv[1]).resolve(strict=True)
 notices=appdir/'usr/share/licenses/luma-mail/native'
 notices.mkdir(parents=True,exist_ok=True)
 packages=set()
-for name in sorted({p.name for p in (appdir/'usr').rglob('*') if p.is_file()}):
-    result=subprocess.run(['dpkg-query','-S','*/'+name],text=True,capture_output=True)
-    for line in result.stdout.splitlines():
-        owner,sep,_=line.partition(': ')
-        if sep and not owner.startswith('diversion'):
-            packages.update(owner.split(', '))
+names={p.name for p in (appdir/'usr').rglob('*') if p.is_file()}
+# Query the installed file inventory once. Reopening dpkg's database separately
+# for every bundled icon/library made packaging needlessly slow.
+inventory=subprocess.check_output(['dpkg-query','-S','*'],text=True)
+for line in inventory.splitlines():
+    owner,sep,path=line.partition(': ')
+    if sep and not owner.startswith('diversion') and Path(path).name in names:
+        packages.update(owner.split(', '))
 rows=['Binary package\tVersion\tSource package\tSource version\tCorresponding source']
 for package in sorted(packages):
     result=subprocess.check_output(['dpkg-query','-W','-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}',package],text=True)
