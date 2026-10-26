@@ -419,6 +419,10 @@ mod linux {
         let session = webkit6::NetworkSession::new_ephemeral();
         session.connect_download_started(|_, download| download.cancel());
         let context = webkit6::WebContext::new();
+        let graphics = gtk::glib::user_runtime_dir().join("luma-mail/graphics");
+        if graphics.is_dir() {
+            context.add_path_to_sandbox(graphics, false);
+        }
         if let Some(root) = std::env::var_os("APPDIR") {
             let runtime = std::path::PathBuf::from(root).join("usr");
             if let Ok(runtime) = runtime.canonicalize() {

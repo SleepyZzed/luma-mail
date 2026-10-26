@@ -13,6 +13,8 @@ Luma Mail 0.5.0 early access — quieter navigation, compact compose and photo f
   duplicate names get numbered suffixes. Completed files remain after cancellation.
 - Persistent navigation avoids rebuilding/reparenting every folder on unread or
   selection changes. Contact lookup scheduling resumes after its rate budget resets.
+- Mesa shader caches use private temporary runtime storage with a 16 MiB driver
+  limit instead of its large default persistent cache. Other apps are unaffected.
 - Linux checks now publish separate package/runtime storage reports, including
   the extracted installation and files outside the configurable body cache.
 

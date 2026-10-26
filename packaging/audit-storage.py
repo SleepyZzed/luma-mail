@@ -10,6 +10,8 @@ from pathlib import Path
 def measure(path):
     result = dict(logical_bytes=0, allocated_bytes=0, files=0, directories=0, links=0)
     seen = set()
+    groups = {}
+    root = Path(path)
     todo = [Path(path)]
     while todo:
         current = todo.pop()
@@ -21,6 +23,13 @@ def measure(path):
         if identity in seen:
             continue
         seen.add(identity)
+        if current != root:
+            name = current.relative_to(root).parts[0]
+            group = groups.setdefault(name, dict(logical_bytes=0, allocated_bytes=0, files=0))
+            group["allocated_bytes"] += getattr(info, "st_blocks", (info.st_size + 511) // 512) * 512
+            if stat.S_ISREG(info.st_mode):
+                group["logical_bytes"] += info.st_size
+                group["files"] += 1
         result["allocated_bytes"] += getattr(info, "st_blocks", (info.st_size + 511) // 512) * 512
         if stat.S_ISLNK(info.st_mode):
             result["links"] += 1
@@ -31,6 +40,7 @@ def measure(path):
         elif stat.S_ISREG(info.st_mode):
             result["files"] += 1
             result["logical_bytes"] += info.st_size
+    result["top_level"] = dict(sorted(groups.items()))
     return result
 
 
