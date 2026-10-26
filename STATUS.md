@@ -15,6 +15,10 @@ decision and Google's final response remain gates.
 - Shared immutable body/attachment buffers, projected draft revision checks,
   resize-driven HTML measurement and background reader/list reclamation.
   Process-tree/long-soak tooling is documented in docs/performance.md.
+- Published process-tree results miss the RAM targets with the default software
+  renderer. An optional Cairo comparison improves fresh idle to 136.59 MiB PSS,
+  but HTML still exceeds 200 MiB. Real GPU/long-soak acceptance remains pending;
+  the defaults are unchanged. See docs/performance.md for RSS, CPU and limits.
 - Supplied wordmark and standalone star SVG icon, with a small sidebar resource.
 
 - Rebuilt icon/control visual layer, compact Subject and borderless disclosures;

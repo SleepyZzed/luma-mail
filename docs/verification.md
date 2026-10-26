@@ -10,7 +10,9 @@ The downloaded 157,866,488-byte AppImage matches SHA256SUMS and GitHub's digest:
 PKGBUILD pins functional source `d4505a15e2276d0f7485b59509828be22db31179`;
 its downloaded archive matches
 `6f9fc7fc43cf0a34300a5453e20d749b7690d817228126498bbed0d0ffcc0266`.
-All 174 files other than the intentionally updated pin recipe match local source.
+At the archive check, all 174 files other than the intentionally updated pin
+recipe matched the prepared functional source. Later commits update test cleanup
+and documentation without changing the published application binary.
 
 Strict fmt/Clippy, 108 core and eight desktop unit tests passed. The opt-in
 desktop acceptance ran separately against real GTK/D-Bus, exercising tray and

@@ -57,11 +57,16 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 
 ## Next implementation priorities
 
-1. Inline image insertion and whole-conversation forwarding;
+1. Attribute remaining RAM/CPU to individual processes and renderer allocations;
+   measure longer settled HTML phases and real GPU frame timing. The default
+   0.7 CI run misses the RAM goals; Cairo improves fresh idle but HTML remains
+   above 200 MiB. Preserve accurate rendering and smooth interaction while
+   investigating lower-cost defaults; see performance.md for measured results.
+2. Inline image insertion and whole-conversation forwarding;
    interrupted Drive upload/sharing recovery and existing-file selection.
-2. Search highlighting, accessible keyboard/focus review, account identity polish
+3. Search highlighting, accessible keyboard/focus review, account identity polish
    and useful offline/partial-failure recovery.
-3. Keep complex external HTML intact until its editor can represent it without
+4. Keep complex external HTML intact until its editor can represent it without
    silently losing content. Complete alias delivery and target-desktop acceptance.
 
 ## Required acceptance and distribution gates
