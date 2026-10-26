@@ -2,6 +2,12 @@
 
 ## 0.4 acceptance, 26 October 2026
 
+The final gated [release run 40347048702](https://github.com/SleepyZzed/luma-mail/actions/runs/40347048702)
+repeated all checks on `1c6772c18aa5dbd930b74dc27145497ed0d1a450` and published
+[v0.4.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.4.0-dev.1).
+The downloaded 157,538,808-byte x86_64 AppImage matched SHA256SUMS and GitHub's
+asset digest: `8101032b701ad87bb6204cabf4f662a20046c105a2a76fcfe907685c4fa7932c`.
+
 [Run 40344826916](https://github.com/SleepyZzed/luma-mail/actions/runs/40344826916)
 passed formatting, strict Clippy, 93 core/5 desktop tests, the separate GTK/D-Bus
 tray/notification test, real clipboard-image attachment diagnostics, animated
