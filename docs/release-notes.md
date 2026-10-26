@@ -1,4 +1,17 @@
-Luma Mail 0.2.0 early access
+Luma Mail 0.2.1 early access — AppImage HTML crash fix
+
+Fixes a packaging failure when opening formatted messages on systems without
+Ubuntu's WebKit libraries and helper directories. The old build could abort with
+`libwebkitgtk-6.0.so.4` missing, a read-only relative bind path, and
+`Failed to fully launch dbus-proxy`. Plain messages often avoided that path.
+
+The AppImage now explicitly supplies its bundled shared libraries and translates
+WebKit's sandbox helper paths to absolute bundle paths. The original bubblewrap
+namespace/seccomp protections remain enabled. Release checks cover X11, headless
+Wayland, absent system WebKit, and a read-only extracted application tree.
+
+Quit the previous version from its tray menu before launching the replacement.
+Accounts and settings stay in their normal locations. All 0.2 mail features remain:
 
 - Faster bounded metadata pages with batches and a rolling account quota budget.
 - Confirmed archive/Trash/star/label updates in place, Undo, arrival/removal

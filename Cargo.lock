@@ -2107,7 +2107,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "luma-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ammonia",
  "async-trait",
@@ -2143,7 +2143,7 @@ dependencies = [
 
 [[package]]
 name = "luma-mail"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "futures-util",

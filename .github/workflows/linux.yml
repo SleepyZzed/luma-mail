@@ -12,7 +12,11 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.2.0-dev.1
+        default: v0.2.1-dev.1
+      reproduce_legacy:
+        description: Reproduce the reported 0.2.0 missing-system-WebKit crash
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -81,6 +85,7 @@ jobs:
       - name: Native HTML and attachment playback
         run: bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail" dist/native-newsletter.png
       - name: Reproduce the published AppImage missing-library crash
+        if: github.event_name == 'workflow_dispatch' && inputs.reproduce_legacy
         run: |
           old="$RUNNER_TEMP/Luma-Mail-0.2.0-x86_64.AppImage"
           curl --fail --location --retry 2 --output "$old" https://github.com/SleepyZzed/luma-mail/releases/download/v0.2.0-dev.1/Luma-Mail-0.2.0-x86_64.AppImage
@@ -109,6 +114,8 @@ jobs:
         run: bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-isolated-newsletter.png
       - name: AppImage Wayland HTML without system WebKit
         run: LUMA_TEST_DISPLAY=wayland bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-wayland-newsletter.png
+      - name: Read-only AppImage without system WebKit on Wayland
+        run: LUMA_TEST_DISPLAY=wayland bash packaging/test-readonly-appimage.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-readonly-newsletter.png
       - name: Preserve native rendering evidence
         if: always()
         uses: actions/upload-artifact@v4

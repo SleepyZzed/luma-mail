@@ -1,5 +1,15 @@
 # Troubleshooting
 
+## AppImage aborts opening formatted mail
+
+The 0.2.0 AppImage could accidentally use the build host's WebKit dependencies.
+On other distributions its helper could report `libwebkitgtk-6.0.so.4` missing,
+then bubblewrap would reject a relative bind destination and the application
+would abort with `Failed to fully launch dbus-proxy`. The 0.2.1 packaging fix
+supplies bundled libraries and absolute sandbox paths. Upgrade the AppImage and
+choose Quit from the old tray menu before starting it. Keep the error output if
+a different launch failure remains; CSS parser warnings alone are not this abort.
+
 ## HTML fallback on systems restricting namespaces
 
 HTML previews require WebKit's namespace sandbox. Ubuntu 24.04 restricts
