@@ -37,6 +37,67 @@ Unreadable sandbox PSS is explicitly marked incomplete rather than counted as
 zero. Shared libraries make summed RSS larger than physical memory consumption.
 Software-rendered CI is not a substitute for a real GPU/Hyprland desktop.
 
+## 0.7 measured result
+
+The checked release run 40409671509 profiles the published AppImage, with
+complete readable process-tree PSS. Values below are means after five seconds
+in each phase; CPU is percentage of one core. Summed RSS counts shared pages
+more than once. The fixture has no live accounts/network and uses software
+graphics under Xvfb; HTML phases are short and may still include engine startup.
+
+| Phase | PSS MiB | Summed RSS MiB | CPU % |
+| --- | ---: | ---: | ---: |
+| Baseline | 265.77 | 297.89 | 0.00 |
+| 1,000 metadata records | 281.89 | 314.02 | 0.00 |
+| Scrolled 1,000 records | 281.93 | 314.05 | 0.00 |
+| One HTML view | 523.55 | 716.41 | 9.04 |
+| Three related HTML views | 633.50 | 830.28 | 16.67 |
+| HTML released | 311.09 | 343.31 | 0.00 |
+| Hidden and reclaimed | 308.50 | 340.71 | 0.00 |
+
+Peak HTML PSS was 640.18 MiB. The raw JSON includes unsettled peaks and every
+sample. This does **not** meet the requested RAM goals, and the short HTML
+CPU intervals do not establish steady idle CPU. Reclamation released the
+renderers and all bound inbox widgets, but did not return the entire process
+to its initial footprint. Do not describe 0.7 as a sub-150-MiB client based on
+these measurements. Compare rendering backends and per-process ownership,
+then confirm on an actual GPU desktop before choosing further defaults.
+
+## Cairo comparison on the same binary
+
+[Comparison run 40412013880](https://github.com/SleepyZzed/luma-mail/actions/runs/40412013880)
+downloads the published AppImage and verifies its exact checksum, then runs the
+same fixture with `GSK_RENDERER=cairo`. It does not rebuild or change Luma.
+
+| Phase | Default renderer PSS MiB | Cairo UI PSS MiB |
+| --- | ---: | ---: |
+| Fresh baseline | 265.77 | 136.59 |
+| 1,000 records | 281.89 | 149.25 |
+| One HTML view | 523.55 | 409.63 |
+| Three HTML views | 633.50 | 512.00 |
+| Hidden after reading/reclamation | 308.50 | 187.68 |
+
+Cairo's summed RSS was 159.37 MiB at baseline and 172.41 MiB with 1,000 rows;
+PSS is not the same as the RSS some desktop monitors display. Scrolled-list,
+released-reader and reclaimed settled CPU means were 0%; initial baseline
+still averaged 2.31% over its short post-settle interval. HTML intervals averaged
+9.71%/8.61%. This comparison uses software graphics on different disposable CI
+hosts, not a real GPU A/B test or a live mailbox. It demonstrates a useful
+renderer cost difference, not a universal memory or animation-performance promise.
+
+To try the optional GTK UI backend on a desktop, quit the existing instance
+through its tray menu, then launch:
+
+```sh
+GSK_RENDERER=cairo ./Luma-Mail-0.7.0-x86_64.AppImage
+```
+
+Omit the variable to return to GTK's automatic renderer. The default remains
+unchanged because GPU acceleration can improve animation and scrolling on real
+hardware. HTML still uses the full sandboxed WebKit engine; this option does not
+make it meet the 200-MiB goal. Further per-process/renderer attribution, real
+desktop frame timing and the live soak remain required before changing defaults.
+
 For a three-hour test while the actual Linux app syncs and is used normally:
 
 ```sh

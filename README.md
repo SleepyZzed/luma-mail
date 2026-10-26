@@ -1,5 +1,7 @@
 # Luma Mail
 
+<img src="data/luma-wordmark.png" alt="Luma Mail" width="320">
+
 A native Rust / GTK4 / libadwaita Gmail client built around **online-first access**.
 The mailbox stays on Google. Luma loads a page of conversation metadata, then
 fetches individual message bodies only when you expand them. It never builds a

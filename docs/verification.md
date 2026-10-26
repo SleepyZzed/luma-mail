@@ -1,5 +1,80 @@
 # Verification log
 
+## Final 0.7 release, 26 October 2026
+
+[Release run 40409671509](https://github.com/SleepyZzed/luma-mail/actions/runs/40409671509)
+passed on `eec4aa1e5d8136e8ae89f5fe5dacc1876e103dd2` before publishing
+[v0.7.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.7.0-dev.1).
+The downloaded 157,866,488-byte AppImage matches SHA256SUMS and GitHub's digest:
+`ae58d47ed2f9f4806996d6543eaf18eff2120d6516aa0ae2916af05dd5161b1c`.
+PKGBUILD pins functional source `d4505a15e2276d0f7485b59509828be22db31179`;
+its downloaded archive matches
+`6f9fc7fc43cf0a34300a5453e20d749b7690d817228126498bbed0d0ffcc0266`.
+All 174 files other than the intentionally updated pin recipe match local source.
+
+Strict fmt/Clippy, 108 core and eight desktop unit tests passed. The opt-in
+desktop acceptance ran separately against real GTK/D-Bus, exercising tray and
+system-notification transport. Native diagnostics covered compose traversal,
+formatting, identity routing, field-level merge choices and memory release,
+inline close/repeated Reply, selection, navigation and 1,000 metadata records
+with 205 recycled widget bindings. Offscreen selection/actions and suspension
+to zero bindings passed. Three sandbox-launcher tests passed.
+
+Native/AppImage HTML and RAM-backed audio/video checks passed on X11 and
+headless Wayland, including hidden host WebKit and a read-only installation.
+Native reader/compact composer/inline reply screenshots were visually inspected.
+The released reader screenshot matches the inspected SHA-256
+`5535ace93843ff0be3019a64e9bd9a4c7148ca43bc2a21a82136689b97b25176`.
+An earlier Wayland run rendered/played successfully but failed in a document
+portal unmount race during fixture cleanup; the harness now rechecks the mount.
+No renderer sandbox was disabled to obtain a passing release.
+
+| Disk category | Logical bytes | Allocated bytes on CI |
+| --- | ---: | ---: |
+| Compressed AppImage | 157,866,488 | 157,868,032 |
+| Extracted installation | 497,466,860 | 511,483,904 |
+| X11 fixture temporary runtime | 2,729,517 | 3,510,272 |
+| App body cache, local drafts and attachment spool | 0 | 0 |
+| Other persistent XDG cache files | 0 | 0 file bytes |
+
+The extracted tree is an alternative representation, not an additional mail
+archive during normal FUSE operation. Extraction fallback does require its
+temporary installation space. Empty directories still occupy blocks. The
+Wayland/read-only runtime contained no files; synthetic configuration was 36
+bytes. Graphics/codec inventories are separate temporary session metadata, not
+body-cache entries. Essential preferences/keyring storage and explicit saves
+remain separate from the configured mail-cache budget.
+
+The release includes `performance.json`, measuring the entire main-process
+descendant tree. Under software-rendered X11, settled baseline was 265.77 MiB
+PSS (297.89 MiB summed RSS); 1,000 rows used 281.89 MiB PSS; one and three HTML
+views averaged 523.55 and 633.50 MiB PSS. After hidden reclamation, zero widget
+bindings remained and PSS was 308.50 MiB, with 0% sampled settled CPU. The HTML
+windows averaged 9.04%/16.67% CPU after a five-second settling allowance; these
+short software-rendered intervals do not establish long-term idle CPU.
+**The requested RAM targets are not met by this run.** See performance.md.
+
+The same checksum-verified binary also passed a Cairo UI comparison in
+[run 40412013880](https://github.com/SleepyZzed/luma-mail/actions/runs/40412013880):
+fresh baseline 136.59 MiB PSS, 1,000 records 149.25 MiB, one HTML view 409.63 MiB,
+three views 512.00 MiB, hidden after reading 187.68 MiB. This is an optional launch
+choice, not a changed default or evidence that all idle/use goals are met.
+The corrected Wayland cleanup harness passed the complete check in
+[run 40410693307](https://github.com/SleepyZzed/luma-mail/actions/runs/40410693307).
+[PR #8](https://github.com/SleepyZzed/luma-mail/pull/8) merged as
+`54db04921c0de69f8f529d1688e7e8fbeafdcaec`; its only post-release source change
+is the test-fixture cleanup race fix, not an application-binary change.
+
+A fresh authorized real-Gmail check verified the two available Send-as choices,
+stale-draft conflict refusal, independent merged copy, preservation of the
+original, projected revision checks and draft-only deletion. All synthetic
+drafts were removed; this test sent no mail and changed no unrelated mail.
+Live alias delivery and two-account Linux acceptance remain outstanding.
+
+Google branding/data access remains under review; no scope was added. This
+release remains early access. Target GPU/Hyprland, Noctalia/keyring, sustained
+live-sync profiling, the remaining roadmap and security acceptance still gate 1.0.
+
 ## Final 0.6 release
 
 [PR check 40379155798](https://github.com/SleepyZzed/luma-mail/actions/runs/40379155798)
