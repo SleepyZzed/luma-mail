@@ -28,13 +28,26 @@ impl RichEditor {
             view.set_vexpand(true);
             view.set_height_request(280);
             view.set_zoom_level(crate::presentation::scale(s));
+            // Keep this isolated script world registered for the editor lifetime.
+            // evaluate_javascript alone creates a transient world on WebKitGTK.
+            let script = webkit6::UserScript::for_world(
+                include_str!("signature_editor.js"),
+                webkit6::UserContentInjectedFrames::TopFrame,
+                webkit6::UserScriptInjectionTime::End,
+                "LumaSignature",
+                &[],
+                &[],
+            );
+            view.user_content_manager()
+                .expect("signature content manager")
+                .add_script(&script);
             let ready = Rc::new(Cell::new(false));
             let loaded = ready.clone();
             view.connect_load_changed(move |view, event| {
                 if event == webkit6::LoadEvent::Finished {
                     let ready = loaded.clone();
                     view.evaluate_javascript(
-                        include_str!("signature_editor.js"),
+                        "Boolean(window.lumaSignature)",
                         Some("LumaSignature"),
                         None,
                         None::<&gtk::gio::Cancellable>,

@@ -136,6 +136,19 @@ mod tests {
         assert_eq!(mine.text, "Remote body");
     }
     #[test]
+    fn different_signatures_are_not_silently_merged_as_equal_bodies() {
+        let body = "<div data-luma-editor=\"1\">Same authored body</div>";
+        let a = Value {
+            text: crate::signatures::append(body, "Old signature").unwrap(),
+            html: true,
+        };
+        let b = Value {
+            text: crate::signatures::append(body, "New signature").unwrap(),
+            html: true,
+        };
+        assert!(!same(&a, &b));
+    }
+    #[test]
     fn rich_markup_is_preserved_and_equal_supported_formatting_is_not_a_conflict() {
         let a = Value {
             text: "<div data-luma-editor=\"1\"><strong><em>Hello</em></strong></div>".into(),

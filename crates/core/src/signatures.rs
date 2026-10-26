@@ -243,6 +243,33 @@ mod tests {
             assert_eq!(current, first);
         }
     }
+    #[test]
+    fn signature_and_quote_survive_outgoing_mime_without_entering_editable_text() {
+        let mut c = crate::composer::Compose::new("me@example.invalid".into());
+        c.to = "you@example.invalid".into();
+        c.html = true;
+        let signature = "<table><tr><td><strong>Alex</strong></td><td><img src=\"https://example.com/logo.png\"></td></tr></table>";
+        c.text = crate::rich_draft::with_quote(
+            &append("<div data-luma-editor=\"1\">My answer</div>", signature).unwrap(),
+            "Previous conversation",
+        );
+        let bytes = c.mime().unwrap();
+        let mime = mailparse::parse_mail(&bytes).unwrap();
+        let plain = mime.subparts[0].get_body().unwrap();
+        let html = mime.subparts[1].get_body().unwrap();
+        assert!(
+            plain.contains("Alex")
+                && plain.contains("My answer")
+                && plain.contains("Previous conversation")
+        );
+        let rich = crate::rich_draft::parse(&html).unwrap();
+        assert_eq!(rich.text, "My answer");
+        assert_eq!(rich.quote, "Previous conversation");
+        assert!(rich.signature.contains("<table>") && rich.signature.contains("logo.png"));
+        assert_eq!(html.matches(START).count(), 1);
+        assert!(clean("<img src=\"data:image/png;base64,abcdef\">").is_err());
+        assert!(clean(&"<img src=\"https://example.com/a.png\">".repeat(9)).is_err());
+    }
     #[tokio::test]
     async fn only_signature_is_patched_and_a_changed_server_copy_is_preserved() {
         use wiremock::{

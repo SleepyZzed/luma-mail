@@ -1174,7 +1174,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let header = adw::HeaderBar::new();
     header.set_show_end_title_buttons(false);
     header.set_show_start_title_buttons(false);
-    let back = ui::button("luma-back-symbolic", "Save draft and return to mail");
+    let back = ui::button("luma-back-symbolic", "Close composer and return to mail");
     header.pack_start(&back);
     let popout = ui::button("luma-popout-symbolic", "Pop out into a separate window");
     let expand = ui::button("luma-expand-symbolic", "Expand composer");
@@ -3285,76 +3285,8 @@ fn discard_editor(e: &Rc<Editor>) {
                 return;
             };
             let Some(c) = e.state.clients.borrow().get(&a.id).cloned() else {
-                return;
-            };
-            let editor = e.clone();
-            e.busy.set(true);
-            ui::async_work(
-                &e.state,
-                async move { Ok(c.discard_draft(&draft.id).await) },
-                move |_, result| {
-                    editor.busy.set(false);
-                    match result {
-                        Ok(()) => {
-                            editor
-                                .local_closed
-                                .store(true, std::sync::atomic::Ordering::SeqCst);
-                            let _ = editor.state.local_compose.remove(&editor.local_id.borrow());
-                            finish(&editor);
-                        }
-                        Err(err) => editor.status.set_text(&err.to_string()),
-                    }
-                },
-            );
-        } else {
-            e.local_closed
-                .store(true, std::sync::atomic::Ordering::SeqCst);
-            let _ = e.state.local_compose.remove(&e.local_id.borrow());
-            finish(&e);
-        }
-    });
-}
-pub fn find_draft(s: &Rc<State>, message: &str) {
-    let Some(key) = s.selected.borrow().clone() else {
-        return;
-    };
-    let Some(c) = s.clients.borrow().get(&key.account).cloned() else {
-        return;
-    };
-    let id = message.to_owned();
-    let rfc = s
-        .selected_message
-        .borrow()
-        .as_ref()
-        .map(|m| m.payload.header("Message-ID").to_owned())
-        .unwrap_or_default();
-    ui::async_work(
-        s,
-        async move {
-            let d = c.find_draft(&id, &rfc).await?;
-            let (draft, parts) = c.edit_draft(&d.id).await?;
-            Ok((key.account, draft, parts))
-        },
-        |s, d| open(&s, None, Some(d)),
-    );
-}
-
-pub(crate) fn rescale(s: &Rc<State>) {
-    s.compose_editors
-        .borrow_mut()
-        .retain(|e| e.strong_count() > 0);
-    for e in s
-        .compose_editors
-        .borrow()
-        .iter()
-        .filter_map(|e| e.upgrade())
-    {
-        motion::resize(&e, s.window.width(), s.window.height());
-        fonts::rescale(&e);
-    }
-}
-pub(crate) fn resize_compact(s: &Rc<State>, width: i32, height: i32) {
-    if let Some(e) = s.editor.borrow().as_ref() {
-        motion::resize(e, width, height);
-    }
-}
+             MethodInvocationException: 
+Line |
+   2 |  [Console]::Write([IO.File]::ReadAllText('crates/desktop/src/compose.r …
+     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Exception calling "Substring" with "2" argument(s): "Index and length must refer to a location within the string. (Parameter 'length')"

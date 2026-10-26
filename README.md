@@ -20,7 +20,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.7 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.7.1-dev.1)
+[Download the 0.8 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.8.0-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
@@ -45,6 +45,19 @@ publication. See [sign-in limits and protocol options](docs/oauth.md).
 The 0.7 visual and editing milestone adds app-owned icons, refined controls,
 verified Send-as aliases and explicit draft conflict merging. See the
 [visual system](docs/visual-system.md) and [roadmap](docs/roadmap.md).
+
+## Signatures and draft saving
+
+Settings → Accounts → Rich signature opens the Linux visual editor: fonts,
+colours, lists, alignment, links, tables and pictures. Signatures are saved online
+in Gmail and included separately from editable message text. A local picture
+requires explicit approval for a public optimized Drive copy. See
+[signature controls, limits and privacy](docs/signatures.md).
+
+Settings → Storage → Drafts offers **Ask on close** (default), **Save on close**
+only with a valid recipient and authored body, or **Manual Save only**. Typing and
+attaching files do not create automatic drafts. Explicit Save and Send still work;
+closing without saving keeps any previously saved Gmail version unchanged.
 
 ## Tray, notifications and Refresh now
 
@@ -123,8 +136,8 @@ bullets and Insert link are available, with real upload-byte progress and a
 separate Gmail confirmation stage. **Ctrl+Enter** sends.
 New messages start in To. Tab and Shift+Tab traverse visible text fields; links
 are blue and Ctrl+click opens them. Recent-recipient completion learns only from
-successful sends in Luma (100 entries, 90 days, 64 KiB maximum). Drafts autosave to
-Gmail. Conflicts keep your edits and offer a separate Gmail draft, preserving the
+successful sends in Luma (100 entries, 90 days, 64 KiB maximum). Drafts save to
+Gmail through explicit Save or the selected close policy. Conflicts keep your edits and offer a separate Gmail draft, preserving the
 newer server version. Pasting a raster image attaches it in memory with a preview,
 subject to the retained attachment limits; it does not create temporary image files.
 New local draft copies are disabled; any older unsent recovery copies stay

@@ -116,7 +116,8 @@ async fn main() -> Result<()> {
         | Some("photos-own")
         | Some("draft-merge-aliases")
         | Some("reply-regression")
-        | Some("signature-read") => {
+        | Some("signature-read")
+        | Some("signature-mail") => {
             let account = settings
                 .accounts
                 .last()
@@ -129,6 +130,15 @@ async fn main() -> Result<()> {
             println!("Checking fresh OAuth refresh and profile…");
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
+            }
+            if args[1] == "signature-mail" {
+                if !args.iter().any(|a| a == "--allow-self-mail") {
+                    return Err(Error::Invalid(
+                        "Explicit --allow-self-mail is required".into(),
+                    ));
+                }
+                signature_mail(&gmail, &account.email).await?;
+                return Ok(());
             }
             if args[1] == "signature-read" {
                 use luma_core::signatures::SignatureStore;
@@ -701,5 +711,67 @@ async fn exercise(gmail: &Gmail, email: &str, paths: &Paths, resume: bool) -> Re
         serde_json::to_vec_pretty(&report)?,
     )?;
     println!("PASS report saved; synthetic self-mail and label retained for visual inspection");
+    Ok(())
+}
+
+async fn signature_mail(gmail: &Gmail, email: &str) -> Result<()> {
+    use luma_core::signatures::SignatureStore;
+    let baseline = gmail.signature(email).await?;
+    let marker = format!("Luma-Signature-{}", uuid::Uuid::new_v4());
+    let mut compose = Compose::new(email.into());
+    compose.to = email.into();
+    compose.subject = marker;
+    compose.html = true;
+    let signature = "<table style=\"border-collapse:collapse\"><tr><td><strong>Luma synthetic signature</strong><br><span style=\"color:#2456ab;font-family:Arial;font-size:12pt\">Signature integration check</span><ul><li>Online only</li></ul><a href=\"https://github.com/SleepyZzed/luma-mail\">Project</a></td><td><img width=\"160\" src=\"https://raw.githubusercontent.com/SleepyZzed/luma-mail/main/data/luma-wordmark.png\" alt=\"Public Luma logo\"></td></tr></table>";
+    let body =
+        "<div data-luma-editor=\"1\">Synthetic self-mail for Luma signature acceptance</div>";
+    compose.text = luma_core::rich_draft::with_quote(
+        &luma_core::signatures::append(body, signature)?,
+        "Synthetic quoted history",
+    );
+    let original = gmail.save_draft(None, &compose.mime()?, None).await?;
+    let mut draft = original;
+    for _ in 0..3 {
+        let (remote, parts) = gmail.edit_draft(&draft.id).await?;
+        assert!(parts.is_empty());
+        let html = luma_core::html_mail::body(&remote.message.payload)?.expect("HTML draft");
+        let restored = luma_core::rich_draft::parse(&html).expect("Separate Gmail draft signature");
+        assert_eq!(
+            restored.text,
+            "Synthetic self-mail for Luma signature acceptance"
+        );
+        assert_eq!(restored.quote, "Synthetic quoted history");
+        assert!(
+            restored.signature.contains("luma-wordmark.png")
+                && restored.signature.contains("<table")
+        );
+        assert_eq!(html.matches("<!--luma-signature-start-->").count(), 1);
+        compose.text = luma_core::rich_draft::with_quote(
+            &luma_core::signatures::append(body, &restored.signature)?,
+            &restored.quote,
+        );
+        draft = gmail
+            .save_draft(Some(&remote), &compose.mime()?, None)
+            .await?;
+    }
+    let sent = gmail.send_draft(&draft).await?;
+    let received = gmail.message(&sent.id).await?;
+    assert!(received.has("SENT"));
+    let html = luma_core::html_mail::body(&received.payload)?.expect("Delivered HTML signature");
+    assert!(html.contains("Luma synthetic signature") && html.contains("luma-wordmark.png"));
+    assert_eq!(html.matches("<!--luma-signature-start-->").count(), 1);
+    assert!(matches!(
+        gmail.draft(&draft.id).await,
+        Err(Error::Api { status: 404, .. })
+    ));
+    assert_eq!(
+        gmail.signature(email).await?.html,
+        baseline.html,
+        "Actual account signature was not changed"
+    );
+    gmail.act(&sent.id, true, &MailAction::Trash).await?;
+    println!(
+        "PASS real Gmail signature MIME self-delivery, three repeated draft reopen/save cycles, one signature, sent-draft removal and unchanged account signature; synthetic message moved to Trash; no public upload or local archive"
+    );
     Ok(())
 }
