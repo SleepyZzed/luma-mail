@@ -627,8 +627,240 @@ mod linux {
         model.borrow_mut().merge(HashMap::from([(
             "cid:photo".into(),
             html_mail::image_data(
-                &std::fs::read(root.jMethodInvocationException: 
-Line |
-   2 |  [Console]::Write([IO.File]::ReadAllText('crates/desktop/src/rendering …
-     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     | Exception calling "Substring" with "2" argument(s): "Index and length must refer to a location within the string. (Parameter 'length')"
+                &std::fs::read(root.join("portrait.png")).expect("portrait fixture"),
+            )
+            .unwrap(),
+        )]));
+        let bar = s
+            .reader
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let original = bar
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::ToggleButton>()
+            .unwrap();
+        s.reader.append(&host(&view));
+        let stage = Rc::new(Cell::new(0));
+        let busy = Rc::new(Cell::new(false));
+        let state = Rc::downgrade(s);
+        view.connect_load_changed(move |view, event| {
+            if event != webkit6::LoadEvent::Finished || busy.replace(true) { return; }
+            let stage = stage.clone(); let busy = busy.clone(); let state = state.clone();
+            let original = original.clone(); let weak = view.downgrade();
+            view.evaluate_javascript(include_str!("../tests/fixtures/layout-check.js"), Some("LumaLayout"), None, None::<&gio::Cancellable>, move |result| {
+                let value = result.expect("native isolated-world layout");
+                let value: serde_json::Value = serde_json::from_str(&value.to_str()).expect("layout JSON");
+                assert_eq!(value["tables"], 2); assert_eq!(value["link"], "https://example.com/");
+                assert_eq!(value["button"], "rgb(145, 71, 255)");
+                assert_eq!(value["scripts"], 0); assert_eq!(value["executed"], "");
+                assert_eq!(value["titleText"], false); assert_eq!(value["image"], 180);
+                assert!(value["statusWidth"].as_f64().unwrap() > 40., "Status must fit a word: {value}");
+                assert!(value["statusHeight"].as_f64().unwrap() < 70., "Status must not wrap vertically: {value}");
+                assert!(value["imageHeight"].as_f64().unwrap() <= 480.);
+                assert!(value["imageHeight"].as_f64().unwrap() >= 100.);
+                let step = stage.get();
+                if step == 1 {
+                    assert_eq!(value["background"], "rgb(229, 227, 232)");
+                } else {
+                    assert_eq!(value["background"], "rgba(0, 0, 0, 0)");
+                    assert_eq!(value["bodyBackground"], "rgba(0, 0, 0, 0)");
+                    let colours = appearance(&state.upgrade().unwrap());
+                    let [r,g,b] = colours.foreground;
+                    assert_eq!(value["text"], format!("rgb({r}, {g}, {b})"));
+                    let [r,g,b] = colours.background;
+                    assert_eq!(value["pageBackground"], format!("rgb({r}, {g}, {b})"));
+                }
+                let Some(view) = weak.upgrade() else { return };
+                if step >= 5 {
+                    let height = (value["height"].as_f64().unwrap() * view.zoom_level()).clamp(48.,60000.) as i32;
+                    assert!((view.height_request()-height).abs()<=1, "HTML height must match the final zoom/layout");
+                }
+                let next_view = view.clone();
+                let advance = move || {
+                    busy.set(false);
+                    stage.set(step + 1);
+                    let s = state.upgrade().unwrap();
+                    match step {
+                        0 => original.set_active(true),
+                        1 => {
+                            s.settings.borrow_mut().theme = "light".into();
+                            ui::apply_theme(&s);
+                            original.set_active(false);
+                        }
+                        2 => {
+                            s.settings.borrow_mut().theme = "dark".into();
+                            ui::apply_theme(&s);
+                        }
+                        3 => {
+                            s.settings.borrow_mut().ui_scale_percent=125;
+                            crate::presentation::apply(&s);
+                        }
+                        4 => {
+                            assert!((next_view.zoom_level()-1.25).abs()<0.01);
+                            s.settings.borrow_mut().ui_scale_percent=100;
+                            crate::presentation::apply(&s);
+                        }
+                        _ => {
+                            assert!((next_view.zoom_level()-1.).abs()<0.01);
+                            next_view.set_widget_name("html-diagnostic-passed");
+                            println!("PASS actual WebKit table sizing, title removal, inline image bounds, dark/light theme updates, Original colours and UI zoom; inert sender content");
+                        }
+                    }
+                };
+                if step < 3 && let Some(path) = std::env::var_os("LUMA_RENDER_SCREENSHOT") {
+                    let path = std::path::PathBuf::from(path);
+                    let stem = path.file_stem().unwrap().to_string_lossy();
+                    let base = stem.strip_suffix("-newsletter").unwrap_or(&stem);
+                    let label = ["dark", "original", "light"][step as usize];
+                    let path = path.with_file_name(format!("{base}-{label}-newsletter.png"));
+                    webkit6::prelude::WebViewExt::snapshot(&view, webkit6::SnapshotRegion::FullDocument, webkit6::SnapshotOptions::empty(), None::<&gio::Cancellable>, move |result| {
+                        result.expect("theme snapshot").save_to_png(path).expect("theme PNG"); advance();
+                    });
+                } else { advance(); }
+            });
+        });
+        for refresh in s.html_refresh.borrow().iter().filter_map(|f| f.upgrade()) {
+            refresh();
+        }
+        let mut streams = Vec::new();
+        for name in ["audio.wav", "video.webm"] {
+            let media =
+                crate::media::from_bytes(std::fs::read(root.join(name)).expect("synthetic media"))
+                    .expect("anonymous RAM media source");
+            media.set_muted(true);
+            if name.ends_with("webm") {
+                let video = gtk::Video::for_media_stream(Some(&media));
+                video.set_autoplay(false);
+                s.reader.append(&video);
+            } else {
+                s.reader.append(&gtk::MediaControls::new(Some(&media)));
+            }
+            streams.push(media);
+        }
+        let app = s.app.clone();
+        let mut ticks = 0;
+        let mut settled = None::<(i32, std::time::Instant)>;
+        glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            ticks += 1;
+            assert!(ticks < 300, "HTML/media diagnostics timed out");
+            for media in &streams {
+                assert!(
+                    media.error().is_none(),
+                    "Media decoding failed: {:?}",
+                    media.error()
+                );
+                if media.is_prepared() && !media.is_playing() && media.timestamp() == 0 {
+                    media.play();
+                }
+            }
+            if view.widget_name() == "html-diagnostic-passed"
+                && streams.iter().all(|m| m.timestamp() > 0 || m.is_ended())
+            {
+                let height = view.height_request();
+                if settled
+                    .as_ref()
+                    .is_none_or(|(previous, _)| *previous != height)
+                {
+                    settled = Some((height, std::time::Instant::now()));
+                    return glib::ControlFlow::Continue;
+                }
+                if settled.as_ref().unwrap().1.elapsed() < std::time::Duration::from_millis(200) {
+                    return glib::ControlFlow::Continue;
+                }
+                for media in &streams {
+                    media.pause();
+                    media.clear();
+                }
+                println!(
+                    "PASS actual in-memory WAV and WebM decoding/playback; no attachment temp files"
+                );
+                if let Some(path) = std::env::var_os("LUMA_RENDER_SCREENSHOT") {
+                    let app = app.clone();
+                    webkit6::prelude::WebViewExt::snapshot(
+                        &view,
+                        webkit6::SnapshotRegion::FullDocument,
+                        webkit6::SnapshotOptions::empty(),
+                        None::<&gio::Cancellable>,
+                        move |result| {
+                            let texture = result.expect("actual WebKit document snapshot");
+                            assert!(texture.width() > 100 && texture.height() > 100);
+                            texture.save_to_png(path).expect("renderer screenshot");
+                            app.quit();
+                        },
+                    );
+                } else {
+                    app.quit();
+                }
+                return glib::ControlFlow::Break;
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+    pub(super) fn append(
+        s: &Rc<State>,
+        body: &gtk::Box,
+        message: &Message,
+        account: &str,
+        html: String,
+    ) {
+        let view = view(s);
+        let weak = view.downgrade();
+        let document = html_controls(
+            s,
+            body,
+            view.upcast_ref(),
+            message,
+            account,
+            html,
+            move |page, zoom| {
+                if let Some(view) = weak.upgrade() {
+                    view.set_zoom_level(zoom);
+                    view.load_html(&page, Some("about:blank"));
+                }
+            },
+        );
+        let retry = gtk::Button::with_label("Reload message preview");
+        let notice = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let text = ui::label(
+            "The HTML renderer stopped. Your message is still in Gmail.",
+            "caption",
+        );
+        text.set_wrap(true);
+        text.set_hexpand(true);
+        notice.append(&text);
+        notice.append(&retry);
+        let failed = gtk::Revealer::builder()
+            .child(&notice)
+            .reveal_child(false)
+            .build();
+        body.append(&failed);
+        let model = Rc::downgrade(&document);
+        let failed_view = failed.downgrade();
+        view.connect_web_process_terminated(move |_, _| {
+            if let Some(model) = model.upgrade() {
+                model.borrow_mut().rendered = None;
+            }
+            if let Some(failed) = failed_view.upgrade() {
+                failed.set_reveal_child(true);
+            }
+        });
+        let recovered = failed.downgrade();
+        view.connect_load_changed(move |_, event| {
+            if event == webkit6::LoadEvent::Finished
+                && let Some(failed) = recovered.upgrade()
+            {
+                failed.set_reveal_child(false);
+            }
+        });
+        let state = Rc::downgrade(s);
+        retry.connect_clicked(move |_| {
+            if let Some(s) = state.upgrade() {
+                refresh_appearance(&s);
+            }
+        });
+        body.append(&host(&view));
+    }
+}
