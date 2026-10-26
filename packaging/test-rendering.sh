@@ -7,11 +7,17 @@ if [[ -n ${2:-} ]]; then
 fi
 trap 'rm -rf -- "$root"' EXIT
 python3 - "$root" <<'PY'
-import sys, wave
+import sys, wave, struct, zlib
 from pathlib import Path
 with wave.open(str(Path(sys.argv[1]) / 'audio.wav'), 'wb') as wav:
     wav.setparams((1, 2, 8000, 0, 'NONE', 'not compressed'))
     wav.writeframes(b'\0\0' * 16000)
+def chunk(kind, data):
+    return struct.pack('!I', len(data)) + kind + data + struct.pack('!I', zlib.crc32(kind + data))
+# Synthetic portrait image: no private mailbox content in rendering artifacts.
+rows = b''.join(b'\0' + bytes((30, 170 if y < 360 else 110, 180)) * 180 for y in range(720))
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!IIBBBBB', 180, 720, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+(Path(sys.argv[1]) / 'portrait.png').write_bytes(png)
 PY
 gst-launch-1.0 -q videotestsrc num-buffers=30 ! video/x-raw,width=160,height=120,framerate=15/1 ! videoconvert ! vp8enc ! webmmux ! filesink location="$root/video.webm"
 mkdir -p "$root/app/config"

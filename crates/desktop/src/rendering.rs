@@ -3,7 +3,193 @@ use crate::ui::{self, State};
 use adw::prelude::*;
 use luma_core::{Result, mail_images, preview};
 use luma_core::{html_mail, model::Message};
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+#[allow(deprecated)] // GTK's named CSS colours also include the active Noctalia provider.
+fn appearance(s: &State) -> html_mail::Appearance {
+    let dark = adw::StyleManager::default().is_dark();
+    let context = s.window.style_context();
+    let bytes = |c: gtk::gdk::RGBA| {
+        [c.red(), c.green(), c.blue()].map(|v| (v.clamp(0., 1.) * 255.).round() as u8)
+    };
+    html_mail::Appearance {
+        background: context
+            .lookup_color("window_bg_color")
+            .map(bytes)
+            .unwrap_or(if dark { [30, 30, 30] } else { [250, 250, 250] }),
+        foreground: bytes(s.window.color()),
+        dark,
+    }
+}
+pub fn refresh_appearance(s: &Rc<State>) {
+    if s.html_refresh_pending.replace(true) {
+        return;
+    }
+    let weak = Rc::downgrade(s);
+    gtk::glib::idle_add_local_once(move || {
+        if let Some(s) = weak.upgrade() {
+            s.html_refresh_pending.set(false);
+            let jobs: Vec<_> = s
+                .html_refresh
+                .borrow()
+                .iter()
+                .filter_map(|f| f.upgrade())
+                .collect();
+            s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
+            for refresh in jobs {
+                refresh();
+            }
+        }
+    });
+}
+struct Document {
+    html: String,
+    images: HashMap<String, String>,
+    original: bool,
+    revision: u64,
+    rendered: Option<(Option<html_mail::Appearance>, u64)>,
+}
+impl Document {
+    fn merge(&mut self, images: HashMap<String, String>) {
+        let mut bytes: usize = self.images.values().map(String::len).sum();
+        for (source, image) in images {
+            if !self.images.contains_key(&source)
+                && self.images.len() < 8
+                && bytes + image.len() <= 12 * 1024 * 1024
+            {
+                bytes += image.len();
+                self.images.insert(source, image);
+                self.revision = self.revision.wrapping_add(1);
+            }
+        }
+    }
+}
+fn html_controls(
+    s: &Rc<State>,
+    body: &gtk::Box,
+    owner: &gtk::Widget,
+    message: &Message,
+    account: &str,
+    html: String,
+    apply: impl Fn(String) + 'static,
+) -> Rc<RefCell<Document>> {
+    let document = Rc::new(RefCell::new(Document {
+        html,
+        images: HashMap::new(),
+        original: false,
+        revision: 0,
+        rendered: None,
+    }));
+    let model = document.clone();
+    let weak = Rc::downgrade(s);
+    let refresh: Rc<dyn Fn()> = Rc::new(move || {
+        if let Some(s) = weak.upgrade() {
+            let mut model = model.borrow_mut();
+            let colours = (!model.original).then(|| appearance(&s));
+            let key = (colours, model.revision);
+            if model.rendered == Some(key) {
+                return;
+            }
+            model.rendered = Some(key);
+            apply(html_mail::styled_document(
+                &model.html,
+                &model.images,
+                colours,
+            ));
+        }
+    });
+    s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
+    s.html_refresh.borrow_mut().push(Rc::downgrade(&refresh));
+    let mapped = refresh.clone();
+    owner.connect_map(move |_| mapped());
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let notice = ui::label("", "caption");
+    notice.set_wrap(true);
+    notice.set_hexpand(true);
+    bar.append(&notice);
+    let original = gtk::ToggleButton::with_label("Original colours");
+    original.add_css_class("flat");
+    original.set_tooltip_text(Some("Use the sender’s colours instead of matching Luma’s theme. Images retain their own colours in either mode."));
+    bar.append(&original);
+    let model = document.clone();
+    let redraw = refresh.clone();
+    original.connect_toggled(move |b| {
+        model.borrow_mut().original = b.is_active();
+        redraw();
+    });
+    let sources = mail_images::sources(&message.payload);
+    let client = s.clients.borrow().get(account).cloned();
+    if sources.iter().any(|source| source.starts_with("https://")) {
+        notice.set_text("External images are blocked for privacy.");
+        let load = gtk::Button::with_label("Load images");
+        load.set_tooltip_text(Some(
+            "Contact this message’s image servers. This may reveal that you opened the email.",
+        ));
+        bar.append(&load);
+        let weak = Rc::downgrade(s);
+        let message = message.clone();
+        let client = client.clone();
+        let model = document.clone();
+        let redraw = refresh.clone();
+        let owner = owner.downgrade();
+        let notice = notice.downgrade();
+        load.connect_clicked(move |button| {
+            let Some(s) = weak.upgrade() else { return };
+            button.set_sensitive(false);
+            button.set_label("Loading images…");
+            let button = button.downgrade();
+            let notice = notice.clone();
+            let model = model.clone();
+            let redraw = redraw.clone();
+            let message = message.clone();
+            let client = client.clone();
+            let request = ui::async_work(
+                &s,
+                async move { Ok(image_map(message, client, true).await) },
+                move |_, images| {
+                    let loaded = images.keys().any(|url| url.starts_with("https://"));
+                    model.borrow_mut().merge(images);
+                    redraw();
+                    if let Some(button) = button.upgrade() {
+                        button.set_label(if loaded {
+                            "Images loaded"
+                        } else {
+                            "Retry images"
+                        });
+                        button.set_sensitive(!loaded);
+                    }
+                    if let Some(notice) = notice.upgrade() {
+                        notice.set_text(if loaded {
+                            "External images loaded for this message."
+                        } else {
+                            "External images could not be loaded."
+                        });
+                    }
+                },
+            );
+            if let Some(owner) = owner.upgrade() {
+                owner.connect_unrealize(move |_| request.abort());
+            }
+        });
+    }
+    body.append(&bar);
+    refresh();
+    if sources.iter().any(|source| !source.starts_with("https://")) {
+        let model = document.clone();
+        let redraw = refresh;
+        let message = message.clone();
+        let request = ui::async_work(
+            s,
+            async move { Ok(image_map(message, client, false).await) },
+            move |_, images| {
+                model.borrow_mut().merge(images);
+                redraw();
+            },
+        );
+        owner.connect_unrealize(move |_| request.abort());
+    }
+    document
+}
 
 pub fn open_link(s: &Rc<State>, uri: &str) {
     let Ok(url) = url::Url::parse(uri) else {
@@ -242,6 +428,7 @@ mod linux {
             .network_session(&session)
             .web_context(&context)
             .build();
+        view.set_background_color(&gtk::gdk::RGBA::TRANSPARENT);
         view.set_hexpand(true);
         view.set_vexpand(false);
         view.set_height_request(160);
@@ -311,29 +498,113 @@ mod linux {
         );
         ui::clear(&s.reader);
         let view = view(s);
-        s.reader.append(&view);
-        let done = Rc::new(Cell::new(false));
-        let tested = done.clone();
-        view.connect_load_changed(move |view,event| {
-            if event!=webkit6::LoadEvent::Finished||tested.replace(true) {return;}
-            let weak=view.downgrade();
-            view.evaluate_javascript("JSON.stringify({table:document.querySelectorAll('table').length,link:document.querySelector('a').href,colour:getComputedStyle(document.querySelector('td')).color,button:getComputedStyle(document.querySelector('a')).backgroundColor,background:getComputedStyle(document.querySelector('table')).backgroundColor,scripts:document.querySelectorAll('script,iframe,form').length,executed:document.body.dataset.executed||'',image:document.querySelector('img').naturalWidth})",Some("LumaLayout"),None,None::<&gio::Cancellable>,move |result| {
-                let value=result.expect("HTML engine must evaluate native isolated-world layout");
-                let value:serde_json::Value=serde_json::from_str(&value.to_str()).expect("renderer diagnostic JSON");
-                assert_eq!(value["table"],1);assert_eq!(value["link"],"https://example.com/");assert_eq!(value["colour"],"rgb(145, 70, 255)");assert_eq!(value["button"],"rgb(145, 71, 255)");assert_eq!(value["background"],"rgb(229, 227, 232)");assert_eq!(value["scripts"],0);assert_eq!(value["executed"],"");assert_eq!(value["image"],1);
-                if let Some(view)=weak.upgrade(){view.set_widget_name("html-diagnostic-passed");}
-                println!("PASS actual WebKit HTML layout, hyperlink, prepared image and inert sender content");
-            });
-        });
-        let html = r##"<table cellpadding="32" style="width:600px;background:#E5E3E8"><tr><td style="color:#9146ff;padding:32px;background:#fff;text-align:center"><h1>Newsletter preview</h1><p>A layout check with real HTML, colours and a button.</p><img src="cid:photo"><p><a href="https://example.com" style="background:#9147ff;color:#fff;display:inline-block;padding:12px 32px;border-radius:4px">Watch now</a></p><script>document.body.dataset.executed='yes'</script><iframe src="https://example.invalid"></iframe><form><input></form></td></tr></table>"##;
-        let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
-        view.load_html(
-            &html_mail::document(html, HashMap::from([("cid:photo".into(), png.into())])),
-            Some("about:blank"),
-        );
         let root = std::path::PathBuf::from(
             std::env::var_os("LUMA_RENDER_MEDIA").expect("media fixtures required"),
         );
+        s.settings.borrow_mut().theme = "dark".into();
+        ui::apply_theme(s);
+        let html = include_str!("../tests/fixtures/layout-mail.html");
+        let weak = view.downgrade();
+        let model = html_controls(
+            s,
+            &s.reader,
+            view.upcast_ref(),
+            &Message::default(),
+            "",
+            html.into(),
+            move |page| {
+                if let Some(view) = weak.upgrade() {
+                    view.load_html(&page, Some("about:blank"));
+                }
+            },
+        );
+        model.borrow_mut().merge(HashMap::from([(
+            "cid:photo".into(),
+            html_mail::image_data(
+                &std::fs::read(root.join("portrait.png")).expect("portrait fixture"),
+            )
+            .unwrap(),
+        )]));
+        let bar = s
+            .reader
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let original = bar
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::ToggleButton>()
+            .unwrap();
+        s.reader.append(&view);
+        let stage = Rc::new(Cell::new(0));
+        let busy = Rc::new(Cell::new(false));
+        let state = Rc::downgrade(s);
+        view.connect_load_changed(move |view, event| {
+            if event != webkit6::LoadEvent::Finished || busy.replace(true) { return; }
+            let stage = stage.clone(); let busy = busy.clone(); let state = state.clone();
+            let original = original.clone(); let weak = view.downgrade();
+            view.evaluate_javascript(include_str!("../tests/fixtures/layout-check.js"), Some("LumaLayout"), None, None::<&gio::Cancellable>, move |result| {
+                let value = result.expect("native isolated-world layout");
+                let value: serde_json::Value = serde_json::from_str(&value.to_str()).expect("layout JSON");
+                assert_eq!(value["tables"], 2); assert_eq!(value["link"], "https://example.com/");
+                assert_eq!(value["button"], "rgb(145, 71, 255)");
+                assert_eq!(value["scripts"], 0); assert_eq!(value["executed"], "");
+                assert_eq!(value["titleText"], false); assert_eq!(value["image"], 180);
+                assert!(value["statusWidth"].as_f64().unwrap() > 40., "Status must fit a word: {value}");
+                assert!(value["statusHeight"].as_f64().unwrap() < 70., "Status must not wrap vertically: {value}");
+                assert!(value["imageHeight"].as_f64().unwrap() <= 480.);
+                assert!(value["imageHeight"].as_f64().unwrap() >= 100.);
+                let step = stage.get();
+                if step == 1 {
+                    assert_eq!(value["background"], "rgb(229, 227, 232)");
+                } else {
+                    assert_eq!(value["background"], "rgba(0, 0, 0, 0)");
+                    assert_eq!(value["bodyBackground"], "rgba(0, 0, 0, 0)");
+                    let colours = appearance(&state.upgrade().unwrap());
+                    let [r,g,b] = colours.foreground;
+                    assert_eq!(value["text"], format!("rgb({r}, {g}, {b})"));
+                    let [r,g,b] = colours.background;
+                    assert_eq!(value["pageBackground"], format!("rgb({r}, {g}, {b})"));
+                }
+                let Some(view) = weak.upgrade() else { return };
+                let next_view = view.clone();
+                let advance = move || {
+                    busy.set(false);
+                    stage.set(step + 1);
+                    let s = state.upgrade().unwrap();
+                    match step {
+                        0 => original.set_active(true),
+                        1 => {
+                            s.settings.borrow_mut().theme = "light".into();
+                            ui::apply_theme(&s);
+                            original.set_active(false);
+                        }
+                        2 => {
+                            s.settings.borrow_mut().theme = "dark".into();
+                            ui::apply_theme(&s);
+                        }
+                        _ => {
+                            next_view.set_widget_name("html-diagnostic-passed");
+                            println!("PASS actual WebKit table sizing, title removal, inline image bounds, dark/light theme updates and Original colours; inert sender content");
+                        }
+                    }
+                };
+                if step < 3 && let Some(path) = std::env::var_os("LUMA_RENDER_SCREENSHOT") {
+                    let path = std::path::PathBuf::from(path);
+                    let stem = path.file_stem().unwrap().to_string_lossy();
+                    let base = stem.strip_suffix("-newsletter").unwrap_or(&stem);
+                    let label = ["dark", "original", "light"][step as usize];
+                    let path = path.with_file_name(format!("{base}-{label}-newsletter.png"));
+                    webkit6::prelude::WebViewExt::snapshot(&view, webkit6::SnapshotRegion::FullDocument, webkit6::SnapshotOptions::empty(), None::<&gio::Cancellable>, move |result| {
+                        result.expect("theme snapshot").save_to_png(path).expect("theme PNG"); advance();
+                    });
+                } else { advance(); }
+            });
+        });
+        for refresh in s.html_refresh.borrow().iter().filter_map(|f| f.upgrade()) {
+            refresh();
+        }
         let mut streams = Vec::new();
         for name in ["audio.wav", "video.webm"] {
             let media =
@@ -404,79 +675,20 @@ mod linux {
         html: String,
     ) {
         let view = view(s);
-        let external = mail_images::sources(&message.payload)
-            .iter()
-            .any(|s| s.starts_with("https://"));
-        if external {
-            let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-            let notice = ui::label("External images are blocked for privacy.", "caption");
-            notice.set_wrap(true);
-            notice.set_hexpand(true);
-            bar.append(&notice);
-            let load = gtk::Button::with_label("Load images");
-            load.set_tooltip_text(Some(
-                "Contact this message’s image servers. This may reveal that you opened the email.",
-            ));
-            bar.append(&load);
-            body.append(&bar);
-            let state = s.clone();
-            let weak = view.downgrade();
-            let message = message.clone();
-            let client = s.clients.borrow().get(account).cloned();
-            let source = html.clone();
-            load.connect_clicked(move |button| {
-                button.set_sensitive(false);
-                button.set_label("Loading images…");
-                let button = button.downgrade();
-                let weak = weak.clone();
-                let message = message.clone();
-                let client = client.clone();
-                let html = source.clone();
-                let callback_view = weak.clone();
-                let request = ui::async_work(
-                    &state,
-                    async move { Ok(image_map(message, client, true).await) },
-                    move |_, images| {
-                        let empty = images.is_empty();
-                        if let Some(view) = callback_view.upgrade() {
-                            view.load_html(
-                                &html_mail::document(&html, images),
-                                Some("about:blank"),
-                            );
-                        }
-                        if let Some(button) = button.upgrade() {
-                            button.set_label(if empty {
-                                "Images unavailable"
-                            } else {
-                                "Images loaded"
-                            });
-                        }
-                    },
-                );
-                if let Some(view) = weak.upgrade() {
-                    view.connect_unrealize(move |_| request.abort());
-                }
-            });
-        }
-        body.append(&view);
-        view.load_html(
-            &html_mail::document(&html, HashMap::new()),
-            Some("about:blank"),
-        );
-        let client = s.clients.borrow().get(account).cloned();
-        let message = message.clone();
         let weak = view.downgrade();
-        let request = ui::async_work(
+        html_controls(
             s,
-            async move { Ok(image_map(message, client, false).await) },
-            move |_, images| {
-                if !images.is_empty()
-                    && let Some(view) = weak.upgrade()
-                {
-                    view.load_html(&html_mail::document(&html, images), Some("about:blank"));
+            body,
+            view.upcast_ref(),
+            message,
+            account,
+            html,
+            move |page| {
+                if let Some(view) = weak.upgrade() {
+                    view.load_html(&page, Some("about:blank"));
                 }
             },
         );
-        view.connect_unrealize(move |_| request.abort());
+        body.append(&view);
     }
 }

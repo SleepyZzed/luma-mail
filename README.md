@@ -18,7 +18,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.2.1 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.1-dev.1)
+[Download the 0.2.2 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.2-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
@@ -94,7 +94,11 @@ Linux HTML mail uses a sandboxed WebKit renderer with sanitized layout, tables,
 colours and clickable links. External images remain blocked until **Load images**;
 that explicit request contacts the sender's image servers. Embedded images are
 decoded and resized first. Sender scripts and local-file/network access are blocked.
-Simple phone messages use the normal themed text body. Windows development
+Neutral HTML backgrounds and text follow the active system/Luma/Noctalia theme.
+**Original colours** restores the sender’s palette for that message. Theme changes
+reuse prepared images without another network request. Table columns keep words
+together, and inline images fit within 480 pixels of height; attachment previews
+remain available for a larger view. Simple phone messages use the normal themed text body. Windows development
 builds use an InPrivate WebView2 child for formatted HTML; its runtime metadata
 is separate from the body-cache budget (see docs/storage.md).
 

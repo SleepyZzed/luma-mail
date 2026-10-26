@@ -75,7 +75,12 @@ content. CSP blocks direct network/file requests. Only bounded decoded PNG image
 enter the renderer. External HTTPS images require Load images and can reveal an
 open to their servers; no Google authorization, cookies, referrer or proxy
 credentials are attached. Private-network addresses and redirects are rejected.
-There is no persistent WebKit content database. GStreamer keeps its codec
+The themed reader adapts neutral HTML surfaces and text in memory, retaining brand
+button colours and image pixels. Original colours restores the sender’s palette.
+Changing theme or colour mode reuses prepared images: at most eight and 12 MiB
+of encoded PNGs per open HTML message. There are no extra downloads or new disk
+copies for theme changes. Inline images fit within 480 pixels of height; full
+attachment previews remain on demand. There is no persistent WebKit content database. GStreamer keeps its codec
 inventory (about 1 MiB on the CI host) under the private Linux runtime directory,
 outside the body-cache budget. It records installed libraries and capabilities,
 never message bodies or attachment bytes. With a normal XDG desktop runtime this

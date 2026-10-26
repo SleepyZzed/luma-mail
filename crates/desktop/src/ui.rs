@@ -78,6 +78,8 @@ pub struct State {
     body_requests: RefCell<HashMap<ThreadKey, (u64, tokio::task::AbortHandle)>>,
     body_serial: Cell<u64>,
     pub theme_provider: gtk::CssProvider,
+    pub(crate) html_refresh: RefCell<Vec<std::rc::Weak<dyn Fn()>>>,
+    pub(crate) html_refresh_pending: Cell<bool>,
     theme_monitor: RefCell<Option<gio::FileMonitor>>,
     pub last_error: RefCell<Option<String>>,
     pub tray_available: Cell<bool>,
@@ -414,6 +416,8 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         body_requests: RefCell::new(HashMap::new()),
         body_serial: Cell::new(0),
         theme_provider: gtk::CssProvider::new(),
+        html_refresh: RefCell::new(Vec::new()),
+        html_refresh_pending: Cell::new(false),
         theme_monitor: RefCell::new(None),
         last_error: RefCell::new(None),
         tray_available: Cell::new(false),
@@ -439,6 +443,14 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     self::sidebar(&s);
     empty_reader(&s);
     apply_theme(&s);
+    {
+        let weak = Rc::downgrade(&s);
+        adw::StyleManager::default().connect_dark_notify(move |_| {
+            if let Some(s) = weak.upgrade() {
+                crate::rendering::refresh_appearance(&s);
+            }
+        });
+    }
     watch_theme(&s);
     {
         let s = s.clone();
@@ -1798,6 +1810,7 @@ pub fn apply_theme(s: &Rc<State>) {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
         );
     }
+    crate::rendering::refresh_appearance(s);
 }
 fn watch_theme(s: &Rc<State>) {
     if luma_core::config::private_dir(&s.paths.config).is_err() {

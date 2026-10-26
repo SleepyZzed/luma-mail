@@ -112,7 +112,7 @@ pub fn thumbnail(bytes: &[u8], width: u32, height: u32) -> Result<Thumbnail> {
     let image = reader
         .decode()
         .map_err(|_| invalid())?
-        .thumbnail(width.max(1), height.max(1))
+        .thumbnail(width.max(1).min(w), height.max(1).min(h))
         .to_rgba8();
     Ok(Thumbnail {
         width: image.width(),
@@ -218,6 +218,17 @@ mod tests {
         let out = thumbnail(encoded.get_ref(), 320, 200).unwrap();
         assert!(out.width <= 320 && out.height <= 200);
         assert_eq!(out.rgba.len(), out.width as usize * out.height as usize * 4);
+        let source = image::RgbaImage::new(180, 720);
+        let mut encoded = Cursor::new(Vec::new());
+        source
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .unwrap();
+        let out = thumbnail(encoded.get_ref(), 1280, 960).unwrap();
+        assert_eq!(
+            (out.width, out.height),
+            (180, 720),
+            "small images must not be enlarged in memory"
+        );
         assert!(thumbnail(b"not an image", 320, 200).is_err());
         assert_eq!(
             Kind::of("photo.JPG", "application/octet-stream"),

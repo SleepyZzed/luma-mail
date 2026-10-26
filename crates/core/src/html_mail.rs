@@ -7,6 +7,9 @@ use std::{
     collections::{HashMap, HashSet},
     io::Cursor,
 };
+#[path = "html_appearance.rs"]
+mod appearance;
+pub use appearance::Appearance;
 
 pub fn body(payload: &Part) -> Result<Option<String>> {
     let mut html = None;
@@ -97,8 +100,17 @@ pub fn needs_layout(html: &str) -> bool {
     tokenizer.sink.0.get()
 }
 pub fn document(html: &str, images: HashMap<String, String>) -> String {
+    styled_document(html, &images, None)
+}
+pub fn styled_document(
+    html: &str,
+    images: &HashMap<String, String>,
+    appearance: Option<Appearance>,
+) -> String {
+    let images = images.clone();
     let mut cleaner = ammonia::Builder::default();
     cleaner
+        .add_clean_content_tags(&["title"])
         .add_tags(&["font", "center"])
         .add_generic_attributes(&["style", "align", "bgcolor", "width", "height", "valign"])
         .add_tag_attributes("table", &["cellpadding", "cellspacing", "border"])
@@ -107,6 +119,7 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
         .url_relative(ammonia::UrlRelative::Deny)
         .filter_style_properties(HashSet::from([
             "color",
+            "box-sizing",
             "background-color",
             "font-family",
             "font-size",
@@ -116,6 +129,7 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
             "text-align",
             "text-decoration",
             "border",
+            "border-color",
             "border-top",
             "border-bottom",
             "border-left",
@@ -137,6 +151,9 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
             "min-width",
             "width",
             "height",
+            "max-height",
+            "overflow",
+            "opacity",
             "display",
             "vertical-align",
             "table-layout",
@@ -147,7 +164,14 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
         ]))
         .attribute_filter(move |tag, attribute, value| {
             if attribute == "style" {
-                Some(Cow::Owned(normalize_backgrounds(value)))
+                let style = normalize_backgrounds(value);
+                Some(Cow::Owned(
+                    appearance.map(|a| a.style(&style)).unwrap_or(style),
+                ))
+            } else if appearance.is_some_and(|a| a.neutral_attribute(value))
+                && matches!(attribute, "bgcolor" | "color")
+            {
+                None
             } else if tag == "img" && attribute == "src" {
                 images
                     .get(value)
@@ -163,8 +187,11 @@ pub fn document(html: &str, images: HashMap<String, String>) -> String {
             }
         });
     let safe = cleaner.clean(html).to_string();
+    let appearance = appearance.map(Appearance::css).unwrap_or_else(|| {
+        "html{color-scheme:light}body{background:#fff;color:#202124}a{color:#1a73e8}".into()
+    });
     format!(
-        r#"<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; connect-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{{color-scheme:light}}body{{margin:0;padding:16px;background:#fff;color:#202124;font:16px/1.5 system-ui,sans-serif;overflow-wrap:anywhere}}img{{max-width:100%;height:auto}}table{{max-width:100%}}pre{{white-space:pre-wrap}}a{{color:#1a73e8}}</style></head><body>{safe}</body></html>"#
+        r#"<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; connect-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{{margin:0;padding:0;font:16px/1.5 system-ui,sans-serif;overflow-wrap:break-word;word-break:normal}}img{{max-width:100%;max-height:480px;height:auto;object-fit:contain}}table{{max-width:100%}}th,td{{overflow-wrap:normal;word-break:normal}}pre{{white-space:pre-wrap}}a{{overflow-wrap:anywhere}}{appearance}</style></head><body>{safe}</body></html>"#
     )
 }
 // Newsletter templates commonly use background:#fff / background:#9147ff.
@@ -243,6 +270,40 @@ pub fn links(text: &str) -> Vec<(usize, usize, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn themed_mail_keeps_layout_and_images_without_white_surfaces_or_title_text() {
+        let html = r##"<html><head><title>Duplicate subject</title></head><body bgcolor="#ffffff"><table bgcolor="#ffffff" style="background:rgb(248,249,250);width:100%"><tr><th style="width:24px;box-sizing:border-box;padding:16px">Status</th><th style="width:100%">Job</th><th style="white-space:nowrap">Annotations</th></tr></table><p style="color:#202124">Hi</p><img src="cid:photo"><a href="https://example.com" style="background:#238636;color:white;padding:12px">Open</a><script>evil()</script></body></html>"##;
+        let images = HashMap::from([("cid:photo".into(), "data:image/png;base64,AA==".into())]);
+        for dark in [false, true] {
+            let page = styled_document(
+                html,
+                &images,
+                Some(Appearance {
+                    background: if dark { [40, 24, 34] } else { [250, 250, 250] },
+                    foreground: if dark { [245, 235, 240] } else { [30, 30, 30] },
+                    dark,
+                }),
+            );
+            assert!(!page.contains("Duplicate subject"));
+            assert!(!page.contains("bgcolor="));
+            assert!(!page.contains("<script"));
+            assert!(page.contains("box-sizing:border-box"));
+            assert!(page.contains("white-space:nowrap"));
+            assert!(page.contains("background-color:transparent"));
+            assert!(page.contains("background-color:#238636"));
+            assert!(page.contains("color:white"));
+            assert!(page.contains("data:image/png;base64,AA=="));
+        }
+        let original = styled_document(html, &images, None);
+        assert!(original.contains("bgcolor=\"#ffffff\""));
+        assert!(
+            original
+                .replace(" ", "")
+                .contains("background-color:rgb(248,249,250)"),
+            "{original}"
+        );
+        assert!(!original.contains("Duplicate subject"));
+    }
     #[test]
     fn simple_phone_text_uses_native_body_but_layout_and_links_keep_html() {
         assert!(!needs_layout(
