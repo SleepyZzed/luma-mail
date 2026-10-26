@@ -207,6 +207,11 @@ impl SignatureStore for Gmail {
         }
         let safe = clean(html)?;
         let current = self.signature(&expected.identity).await?;
+        if !current.can_update {
+            return Err(Error::Invalid(
+                "This sending address no longer permits signature editing".into(),
+            ));
+        }
         if current.html != expected.html {
             return Err(Error::DraftConflict);
         }

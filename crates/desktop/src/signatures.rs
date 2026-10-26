@@ -760,15 +760,18 @@ fn save(e: &Rc<Editor>) {
     }
     e.busy.set(true);
     e.save.set_sensitive(false);
+    e.rich.widget.set_sensitive(false);
     let weak = Rc::downgrade(e);
     e.rich.snapshot(move|result| {
         let Some(e)=weak.upgrade() else { return; };
         let html=match result {
             Ok(html)=>html,
-            Err(error)=>{ e.busy.set(false); e.save.set_sensitive(true); e.status.set_text(&error.to_string()); return; }
+            Err(error)=>{ e.busy.set(false); e.save.set_sensitive(true);
+                e.rich.widget.set_sensitive(true); e.status.set_text(&error.to_string()); return; }
         };
         let Some(provider)=store(&e.state,&e.account.id) else {
-            e.busy.set(false); e.save.set_sensitive(true); e.status.set_text("Reconnect the account before saving"); return;
+            e.busy.set(false); e.save.set_sensitive(true);
+                e.rich.widget.set_sensitive(true); e.status.set_text("Reconnect the account before saving"); return;
         };
         let expected=e.baseline.borrow().clone();
         e.status.set_text("Saving signature to Gmail…");
@@ -777,6 +780,7 @@ fn save(e: &Rc<Editor>) {
             let Some(e)=weak.upgrade() else { return; };
             e.busy.set(false);
             e.save.set_sensitive(true);
+                e.rich.widget.set_sensitive(true);
             match result {
                 Ok(signature)=> {
                     let display=e.rich.replace(&signature.html);

@@ -95,6 +95,9 @@ jobs:
           mkdir -p "$root/runtime" "$root/cache" dist
           chmod 700 "$root/runtime"
           timeout 40s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" XDG_RUNTIME_DIR="$root/runtime" XDG_CACHE_HOME="$root/cache" GDK_BACKEND=x11 GTK_A11Y=none LUMA_SIGNATURE_SCREENSHOT="$(pwd)/dist/native-ui-signature.png" target/debug/luma-mail --design-preview --signature-diagnostics
+          python3 packaging/audit-storage.py --tree signature_config "$root/config" --tree signature_cache "$root/cache" --tree signature_runtime "$root/runtime" --output dist/signature-editor-storage.json
+          test -z "$(find "$root/cache" -type f -print -quit)"
+          test ! -d "$root/config/compose"
       - name: Require app registration before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: cargo check --locked -p luma-mail --features require-google-client

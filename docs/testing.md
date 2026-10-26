@@ -130,7 +130,7 @@ in a collapsed read-only section. Compose new text, optionally exclude the
 previous message, and check both the sent text and Gmail draft removal.
 
 Attach a synthetic large file, then add another file or paste a synthetic image
-while autosave/upload runs. Send should wait, reuse one draft and close only
+while explicit Save/upload runs. Send should wait, reuse one draft and close only
 after Gmail confirms. After idle/restart, search the exact synthetic subject in
 Gmail Sent and Drafts; check message counts rather than counting threads. Never
 retry an uncertain send without checking Gmail first. Test cancellation and
@@ -140,3 +140,25 @@ Inspect release JSON package/runtime reports alongside the body-cache budget.
 Verify zero-cache mode creates no body files, and that no normal local draft
 files or attachment spool are introduced. Installed binaries and temporary
 renderer/driver metadata remain separate categories.
+
+## 0.8 signatures and close policy
+
+Test Settings → Storage → Drafts in all three modes, including an empty composer,
+recipient-only/body-only, a valid recipient plus authored body, a signature with
+no authored body, pasted images and close while Save is finishing. Keep editing
+must not save or arm a delayed close. Manual mode must never save automatically;
+Gmail drafts remain after closing without saving until explicitly changed.
+
+In Rich signature, test selection and further typing after font/size/colour changes,
+bullets, numbering, alignment, hyperlinks, a small table and a synthetic public
+picture. Confirm edits survive Save/reload from Gmail web and update the selected
+primary identity only. Test a remote settings change before Save and confirm it
+is refused. Changing the actual account signature requires permission; restore
+it afterward. Do not use private images for public-hosting tests.
+
+Test local picture permission confirmation, upload progress and cancellation at
+preparation/chunk/sharing phases. Confirm recipient rendering and Workspace
+sharing restrictions separately. Public Drive copies are not automatically
+removed when omitted from signatures. Check the zero-cache report and close the
+editor to verify renderer reclamation. The Windows source preview cannot replace
+actual Linux visual-editor acceptance.

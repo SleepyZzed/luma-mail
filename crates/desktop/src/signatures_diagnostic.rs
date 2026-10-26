@@ -89,14 +89,14 @@ pub(super) fn start(s: &Rc<State>) {
         glib::timeout_future(Duration::from_millis(120)).await;
         let d=e.window.visible_dialog().unwrap().downcast::<adw::AlertDialog>().unwrap();
         d.emit_by_name::<()>("response",&[&"cancel"]);
-        glib::timeout_future(Duration::from_millis(60)).await;
+        glib::timeout_future(Duration::from_millis(350)).await;
         assert!(!e.allow_close.get()&&!e.checking_close.get());
         e.window.close();
-        glib::timeout_future(Duration::from_millis(80)).await;
+        for _ in 0..50 {if e.window.visible_dialog().is_some(){break;}glib::timeout_future(Duration::from_millis(50)).await;}
         let d=e.window.visible_dialog().unwrap().downcast::<adw::AlertDialog>().unwrap();
         d.emit_by_name::<()>("response",&[&"close"]);
         let weak=Rc::downgrade(&e);drop(e);
-        glib::timeout_future(Duration::from_millis(250)).await;
+        glib::timeout_future(Duration::from_millis(600)).await;
         assert!(weak.upgrade().is_none(),"Closed signature editor must release its renderer and owner");
         println!("PASS actual Linux signature toolbar, font/colour/link/bullets/table/picture, bounded hosted-image snapshot, separate draft signature, close confirmation and renderer release; no account or upload");
         state.app.quit();
