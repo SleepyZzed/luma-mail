@@ -326,7 +326,7 @@ mod linux {
             });
         });
         let html = r##"<table cellpadding="32" style="width:600px;background:#E5E3E8"><tr><td style="color:#9146ff;padding:32px;background:#fff;text-align:center"><h1>Newsletter preview</h1><p>A layout check with real HTML, colours and a button.</p><img src="cid:photo"><p><a href="https://example.com" style="background:#9147ff;color:#fff;display:inline-block;padding:12px 32px;border-radius:4px">Watch now</a></p><script>document.body.dataset.executed='yes'</script><iframe src="https://example.invalid"></iframe><form><input></form></td></tr></table>"##;
-        let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+        let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
         view.load_html(
             &html_mail::document(html, HashMap::from([("cid:photo".into(), png.into())])),
             Some("about:blank"),
@@ -350,7 +350,6 @@ mod linux {
             streams.push(media);
         }
         let app = s.app.clone();
-        let window = s.window.clone();
         let mut ticks = 0;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
             ticks += 1;
@@ -376,17 +375,22 @@ mod linux {
                     "PASS actual in-memory WAV and WebM decoding/playback; no attachment temp files"
                 );
                 if let Some(path) = std::env::var_os("LUMA_RENDER_SCREENSHOT") {
-                    let paintable = gtk::WidgetPaintable::new(Some(&window));
-                    let snapshot = gtk::Snapshot::new();
-                    paintable.snapshot(&snapshot, window.width() as f64, window.height() as f64);
-                    let node = snapshot.to_node().expect("visible renderer window");
-                    let renderer = window.renderer().expect("native renderer");
-                    renderer
-                        .render_texture(&node, None)
-                        .save_to_png(path)
-                        .expect("renderer screenshot");
+                    let app = app.clone();
+                    webkit6::prelude::WebViewExt::snapshot(
+                        &view,
+                        webkit6::SnapshotRegion::FullDocument,
+                        webkit6::SnapshotOptions::empty(),
+                        None::<&gio::Cancellable>,
+                        move |result| {
+                            let texture = result.expect("actual WebKit document snapshot");
+                            assert!(texture.width() > 100 && texture.height() > 100);
+                            texture.save_to_png(path).expect("renderer screenshot");
+                            app.quit();
+                        },
+                    );
+                } else {
+                    app.quit();
                 }
-                app.quit();
                 return glib::ControlFlow::Break;
             }
             glib::ControlFlow::Continue

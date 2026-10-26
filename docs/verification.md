@@ -204,3 +204,11 @@ safety, and migration to Gmail drafts with preserved custom polling preferences.
 Linux CI exercises the new-reply unread update without replacing loaded widgets,
 plus actual native and AppImage HTML/media with the mail cache disabled. Results
 must be recorded from the completed run before claiming the new AppImage passed.
+
+[Linux run 40247171247](https://github.com/SleepyZzed/luma-mail/actions/runs/40247171247)
+passed actual WebKit layout, colours, hyperlink, prepared image and inert-content
+checks, followed by real RAM-backed WAV/WebM playback. This exposed and fixed a
+GStreamer registry path conflict with WebKit's sandbox device mounts. Registry
+writes remain disabled in a private runtime directory. The run then failed in
+the diagnostic screenshot path; capture now uses WebKit's document snapshot API.
+Packaged-engine acceptance is still required before publishing the new AppImage.
