@@ -1,0 +1,39 @@
+name: Renderer resource comparison
+on:
+  push:
+    branches: [benchmark/0.7-renderer]
+    paths: [.github/workflows/renderer-profile.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cairo:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Private display tools
+        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11
+      - name: Permit the bundled namespace sandbox on this disposable runner
+        run: |
+          sudo tee /etc/apparmor.d/luma-ci-bwrap >/dev/null <<'PROFILE'
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile luma-ci-bwrap /{usr/bin/bwrap,tmp/**/usr/bin/bwrap,tmp/**/usr/bin/bwrap.real} flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser -r /etc/apparmor.d/luma-ci-bwrap
+      - name: Download and verify the published AppImage
+        run: |
+          mkdir -p dist
+          curl --fail --location --retry 2 --output dist/Luma-Mail-0.7.0-x86_64.AppImage https://github.com/SleepyZzed/luma-mail/releases/download/v0.7.0-dev.1/Luma-Mail-0.7.0-x86_64.AppImage
+          echo 'ae58d47ed2f9f4806996d6543eaf18eff2120d6516aa0ae2916af05dd5161b1c  dist/Luma-Mail-0.7.0-x86_64.AppImage' | sha256sum -c -
+          chmod +x dist/Luma-Mail-0.7.0-x86_64.AppImage
+      - name: Same release binary with Cairo UI rendering
+        run: GSK_RENDERER=cairo bash packaging/test-performance.sh "$(pwd)/dist/Luma-Mail-0.7.0-x86_64.AppImage"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: luma-cairo-profile
+          path: dist/performance.json
+          if-no-files-found: warn
