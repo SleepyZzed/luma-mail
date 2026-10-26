@@ -6,8 +6,10 @@ fetches individual message bodies only when you expand them. It never builds a
 local mail mirror, search index, or attachment archive.
 
 **Early access, not production-ready.** See [STATUS.md](STATUS.md) for
-implemented features, limitations and the verification boundary. No Google
-account has been connected during development in this workspace.
+implemented features, limitations and the verification boundary. Real browser
+consent, Windows keyring, synthetic self-mail operations and Gmail sender-filter
+creation/removal have been tested with the maintainer's authorized account.
+Two-account and target Linux desktop acceptance remain outstanding.
 
 The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptance
 criteria to implementation evidence and the remaining code/desktop checks.
@@ -16,19 +18,23 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the x86_64 development AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.2-dev.1)
+[Download the 0.2.0 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.0-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
-The 0.1.2 build uses the maintainer's bundled Google app registration with
+The 0.2.0 mail experience and validation are described in
+[PR #1](https://github.com/SleepyZzed/luma-mail/pull/1) and
+[the verification record](docs/verification.md). Native and packaged HTML/media,
+composer navigation, notification transport and system cursor checks passed.
+
+Release builds use the maintainer's bundled Google app registration with
 **Sign in with Google**. The older 0.1.1 binary still has the removed JSON import flow.
 Luma's Desktop registration is provisioned and supplied through the release
 build. On 25 October 2026, the Google app was published as **External / In
 production / unverified**. There is **no per-address test list**. Google's
 unverified-app warning and **100 lifetime user cap** remain until verification;
 Workspace or Advanced Protection policies may block access. This is not
-uncapped or Google-approved distribution. The existing 0.1.2 AppImage uses the
-published registration, so no new binary is needed for this audience change.
+uncapped or Google-approved distribution.
 Unconfigured developer builds cannot authenticate and are blocked from release
 publication. See [sign-in limits and protocol options](docs/oauth.md).
 
@@ -49,10 +55,54 @@ clearly labelled **system test notification** action for verification.
 
 The refresh toolbar button and **Ctrl+R** fetch the visible mailbox and request
 an immediate new-mail polling check. Overlapping polling requests are prevented.
-Periodic polling defaults to 120 seconds and is configurable. Gmail push is not
+Periodic polling defaults to 60 seconds and is configurable. Quiet history checks
+insert new conversations and update unread replies in place, without a loading
+bar, replacing loaded pages or reopening the reader. Gmail push is not
 claimed. No always-running daemon or autostart entry is installed.
 
 ## Daily-use controls
+
+**Unified Inbox** combines Inbox messages from enabled accounts. **All Mail**
+combines their Inbox, sent and archived mail, excluding Spam and Trash. Click an
+account in the sidebar for that account's Inbox.
+
+Mail actions update confirmed rows in place, with Undo and arrival/removal
+transitions. A normal click opens one conversation; **Select** enables bulk
+selection. Right-click a row for its actions. Refresh and Load more fetch only
+bounded metadata pages, with a rolling quota budget and batched reads.
+
+Compose opens inside the main window; replies open inline below their message.
+Expand or pop out the same draft as needed. Bold, italic, underline, strike,
+bullets and Insert link are available, with real upload-byte progress and a
+separate Gmail confirmation stage. **Ctrl+Enter** sends.
+New messages start in To. Tab and Shift+Tab traverse visible text fields; links
+are blue and Ctrl+click opens them. Recent-recipient completion learns only from
+successful sends in Luma (100 entries, 90 days, 64 KiB maximum). Drafts autosave to
+Gmail. New local draft copies are disabled; any older unsent recovery copies stay
+available until saved to Gmail or discarded. Restore returns to an inline reply
+or a compact composer window. Large Drive attachments insert one filename link.
+
+Attachments sit in a separate strip below message headers and above the body.
+Image thumbnails are bounded; image, DOCX/text, audio and video previews load on
+demand in memory. Audio/video playback depends on available codecs. DOCX previews
+show extracted text, not original pagination. Composer attachments use the same
+cards. Original files are saved only to a location you choose.
+
+Linux HTML mail uses a sandboxed WebKit renderer with sanitized layout, tables,
+colours and clickable links. External images remain blocked until **Load images**;
+that explicit request contacts the sender's image servers. Embedded images are
+decoded and resized first. Sender scripts and local-file/network access are blocked.
+Simple phone messages use the normal themed text body. Windows development
+builds use an InPrivate WebView2 child for formatted HTML; its runtime metadata
+is separate from the body-cache budget (see docs/storage.md).
+
+**Block sender…** creates a Gmail filter for the receiving account, sending future
+mail from that address to Gmail Trash while Luma is closed. Existing mail is kept.
+It requests optional Gmail settings/filter permission on first use. Manage rules
+under **Settings → account → Blocked senders**. Unblock removes only the exact rule
+Luma created; edited filters must be reviewed in Gmail. This is a Gmail filter,
+not an entry in Gmail's separate native blocked-address list. **Report spam**
+and **Not spam** operate on existing selected mail and are available separately.
 
 **Search options & accounts** builds Gmail queries for sender, recipient,
 subject, dates, unread/starred status and attachments, and lets you choose any
@@ -69,7 +119,7 @@ missing label without applying an unrelated ID.
 ## Build on Arch Linux / CachyOS
 
 ```sh
-sudo pacman -S --needed base-devel rust gtk4 libadwaita pkgconf gnome-keyring
+sudo pacman -S --needed base-devel rust gtk4 libadwaita webkitgtk-6.0 gst-plugins-good gst-libav pkgconf gnome-keyring
 cargo build --locked
 cargo run --locked -p luma-mail
 ```

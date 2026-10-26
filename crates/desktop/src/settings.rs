@@ -137,6 +137,7 @@ pub fn open(s: &Rc<State>) {
             ("Enable Drive permission", 3),
             ("Clear this account's cache", 4),
             ("Revoke authorization and remove account", 5),
+            ("Blocked senders", 6),
         ] {
             let row = adw::ActionRow::builder()
                 .title(title)
@@ -151,6 +152,7 @@ pub fn open(s: &Rc<State>) {
                 2=>ui::add_account(&s,a.drive_enabled,Some(a.email.clone())),
                 3=>{let d=adw::AlertDialog::builder().heading("Allow Google Drive files?").body("Google will request gmail.modify and drive.file together. Luma can manage files you select or create with this app. Sharing still requires a separate choice for each upload.").build();d.add_responses(&[("cancel","Cancel"),("allow","Continue to Google")]);let s=s.clone();let email=a.email.clone();glib::MainContext::default().spawn_local(async move{if d.choose_future(Some(&s.window)).await=="allow"{ui::add_account(&s,true,Some(email));}});},
                 4=>match s.cache.lock().expect("cache mutex").clear_account(&a.id){Ok(())=>s.info("Account cache cleared"),Err(e)=>s.error(&e)},
+                6=>crate::sender_controls::manage(&s,&a.id),
                 _=>remove_account(&s,&a.id,&a.email),
             });
         }
@@ -297,6 +299,51 @@ pub fn open(s: &Rc<State>) {
         );
     }
     storage.add(&g);
+    let local=adw::PreferencesGroup::builder().title("Recent recipients").description("Gmail stores and autosaves your drafts. Luma retains at most 100 recently sent recipients (64 KiB), expiring after 90 days. No mailbox or Sent-folder indexing.").build();
+    let recent = adw::SwitchRow::builder()
+        .title("Suggest recently sent recipients")
+        .subtitle("Learns only after confirmed sends in Luma; expires after 90 days")
+        .active(s.settings.borrow().recent_recipients)
+        .build();
+    local.add(&recent);
+    {
+        let s = s.clone();
+        recent.connect_active_notify(move |row| {
+            s.settings.borrow_mut().recent_recipients = row.is_active();
+            s.local_compose
+                .configure(s.settings.borrow().local_drafts, row.is_active());
+            if !row.is_active()
+                && let Err(error) = s.local_compose.clear_recent()
+            {
+                s.error(&error);
+            }
+            s.save();
+        });
+    }
+    let local_usage = adw::ActionRow::builder()
+        .title("Local composer storage")
+        .subtitle(format!(
+            "{} bytes allocated",
+            s.local_compose.usage().unwrap_or(0)
+        ))
+        .build();
+    local.add(&local_usage);
+    let clear_recent = adw::ActionRow::builder()
+        .title("Forget recent recipients now")
+        .activatable(true)
+        .build();
+    local.add(&clear_recent);
+    {
+        let s = s.clone();
+        clear_recent.connect_activated(move |_| {
+            if let Err(error) = s.local_compose.clear_recent() {
+                s.error(&error);
+            } else {
+                s.info("Recent recipients cleared. Reopen the composer to reload suggestions.");
+            }
+        });
+    }
+    storage.add(&local);
     dialog.add(&storage);
     let general = adw::PreferencesPage::builder()
         .title("Notifications & Privacy")
@@ -431,11 +478,13 @@ fn remove_account(s: &Rc<State>, id: &str, email: &str) {
         };
         let manager = TokenManager::new(id.clone(), config, s.http.clone(), Arc::new(SystemVault));
         let cache = s.cache.clone();
+        let local = s.local_compose.clone();
         ui::async_work(
             &s,
             async move {
                 manager.revoke().await?;
                 cache.lock().expect("cache mutex").clear_account(&id)?;
+                local.clear_account(&id)?;
                 Ok(id)
             },
             |s, id| {
@@ -581,7 +630,7 @@ fn mutate_label(s: &Rc<State>, id: String, name: String, delete: bool) {
     });
 }
 
-pub fn drive_dialog(s: &Rc<State>, text: &gtk::TextView, id: &str) {
+pub fn drive_dialog(s: &Rc<State>, text: &gtk::TextView, id: &str, html: bool) {
     let account = s
         .settings
         .borrow()
@@ -678,7 +727,7 @@ pub fn drive_dialog(s: &Rc<State>, text: &gtk::TextView, id: &str) {
                 let d=adw::AlertDialog::builder().heading("Upload and grant read access?").body(format!("This will change Drive sharing for: {emails}. A link is inserted only after every permission request succeeds.")).build();d.add_responses(&[("cancel","Cancel"),("share","Upload / share")]);if d.choose_future(Some(&w)).await!="share"{return;}
                 cancelled.store(false,Ordering::Relaxed);upload.set_sensitive(false);use_existing.set_sensitive(false);cancel.set_sensitive(true);status.set_text("Preparing Drive attachment…");let(tx,mut rx)=tokio::sync::watch::channel((0,1));
                 glib::MainContext::default().spawn_local(async move{while rx.changed().await.is_ok(){let(done,total)=*rx.borrow();progress.set_fraction(done as f64/total.max(1)as f64);progress.set_text(Some(&format!("{done} / {total} bytes")));}});
-                let flag=cancelled.clone();ui::async_work(&s,async move{let result=async{let file=if let Some(path)=path{luma_core::drive::upload(&c,&path,tx,flag.clone()).await?}else{luma_core::drive::existing(&c,&id).await?};if flag.load(Ordering::Relaxed){return Err(Error::Invalid("Upload cancelled. No link inserted.".into()));}let link=luma_core::drive::share(&c,&file,&emails).await?;Ok::<_,Error>((file.name,link))}.await;Ok(result)},move|_,result|{upload.set_sensitive(true);use_existing.set_sensitive(true);cancel.set_sensitive(false);match result{Ok((name,link))=>{text.buffer().insert_at_cursor(&format!("\n{name}: {link}\n"));w.close();},Err(e)=>status.set_text(&format!("{e}. No link inserted. An uploaded file may remain private in Drive."))}});
+                let flag=cancelled.clone();ui::async_work(&s,async move{let result=async{let file=if let Some(path)=path{luma_core::drive::upload(&c,&path,tx,flag.clone()).await?}else{luma_core::drive::existing(&c,&id).await?};if flag.load(Ordering::Relaxed){return Err(Error::Invalid("Upload cancelled. No link inserted.".into()));}let link=luma_core::drive::share(&c,&file,&emails).await?;Ok::<_,Error>((file.name,link))}.await;Ok(result)},move|_,result|{upload.set_sensitive(true);use_existing.set_sensitive(true);cancel.set_sensitive(false);match result{Ok((name,link))=>{crate::compose::insert_named_link(&text,&name,&link,html);w.close();},Err(e)=>status.set_text(&format!("{e}. No link inserted. An uploaded file may remain private in Drive."))}});
             });
         });
     }

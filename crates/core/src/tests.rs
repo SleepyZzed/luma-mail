@@ -17,6 +17,27 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
 };
+#[test]
+fn upgrade_keeps_gmail_drafts_and_custom_polling_preferences() {
+    let root = tempfile::tempdir().unwrap();
+    let paths = Paths {
+        config: root.path().join("config"),
+        cache: root.path().join("cache"),
+    };
+    std::fs::create_dir_all(&paths.config).unwrap();
+    let settings = paths.config.join("settings.json");
+    std::fs::write(&settings, r#"{"poll_seconds":120,"local_drafts":true}"#).unwrap();
+    let migrated = paths.load().unwrap();
+    assert_eq!(migrated.poll_seconds, 60);
+    assert!(
+        !migrated.local_drafts,
+        "an old preference cannot enable new local draft copies"
+    );
+    std::fs::write(&settings, r#"{"poll_seconds":300}"#).unwrap();
+    assert_eq!(paths.load().unwrap().poll_seconds, 300);
+    std::fs::write(&settings, r#"{"poll_seconds":120,"poll_version":1}"#).unwrap();
+    assert_eq!(paths.load().unwrap().poll_seconds, 120);
+}
 
 #[derive(Default)]
 struct MemoryVault(
@@ -73,7 +94,7 @@ fn google_registration_requires_valid_build_time_fields() {
     assert_eq!(client.client_id, valid);
     assert!(ClientConfig::from_registration(valid, &"x".repeat(257)).is_err());
 }
-fn gmail(server: &MockServer) -> Gmail {
+pub(crate) fn gmail(server: &MockServer) -> Gmail {
     let http = Http::new().unwrap();
     let mut tokens = TokenManager::new(
         "account-a".into(),
@@ -85,6 +106,171 @@ fn gmail(server: &MockServer) -> Gmail {
     let mut client = Gmail::new("account-a".into(), http, Arc::new(tokens));
     client.test_base(server.uri());
     client
+}
+
+#[tokio::test]
+async fn sender_filter_is_server_side_and_unblock_checks_ownership() {
+    use crate::sender_rules::address;
+    assert_eq!(
+        address("Spam Sender <Junk@Example.com>").unwrap(),
+        "junk@example.com"
+    );
+    for invalid in [
+        "",
+        "a@example.com,b@example.com",
+        "bad\r\nBcc: other@example.com",
+    ] {
+        assert!(address(invalid).is_err());
+    }
+    let server = MockServer::start().await;
+    let client = gmail(&server);
+    let rule = json!({"id":"filter_1","criteria":{"from":"junk@example.com"},"action":{"addLabelIds":["TRASH"],"removeLabelIds":["INBOX"]}});
+    Mock::given(method("POST")).and(path("/settings/filters")).and(header("authorization","Bearer test-access"))
+        .and(body_json(json!({"criteria":{"from":"junk@example.com"},"action":{"addLabelIds":["TRASH"],"removeLabelIds":["INBOX"]}})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&rule)).expect(1).mount(&server).await;
+    let filter = client
+        .create_sender_block("Junk <junk@example.com>")
+        .await
+        .unwrap();
+    assert_eq!(filter.id, "filter_1");
+    Mock::given(method("GET"))
+        .and(path("/settings/filters/filter_1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&rule))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/settings/filters/filter_1"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    client
+        .remove_sender_block(&filter.id, "junk@example.com")
+        .await
+        .unwrap();
+    let normalized = json!({"id":"filter_normalized","criteria":{"from":"junk@example.com"},"action":{"addLabelIds":["TRASH"]}});
+    Mock::given(method("GET"))
+        .and(path("/settings/filters/filter_normalized"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(normalized))
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/settings/filters/filter_normalized"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    client
+        .remove_sender_block("filter_normalized", "junk@example.com")
+        .await
+        .unwrap();
+    let mut changed = rule;
+    changed["id"] = json!("filter_2");
+    changed["action"]["forward"] = json!("archive@example.com");
+    Mock::given(method("GET"))
+        .and(path("/settings/filters/filter_2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(changed))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/settings/filters/filter_2"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(0)
+        .mount(&server)
+        .await;
+    assert!(
+        client
+            .remove_sender_block("filter_2", "junk@example.com")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("changed in Gmail")
+    );
+    let mut spam = message("spam", 0);
+    for removed in MailAction::Spam.labels().1 {
+        spam.label_ids.retain(|id| id != &removed);
+    }
+    spam.label_ids.extend(MailAction::Spam.labels().0);
+    let thread = Thread {
+        id: "thread-a".into(),
+        messages: vec![spam],
+        ..Default::default()
+    };
+    assert!(Folder::Spam.matches(&thread));
+    assert!(!Folder::Inbox.matches(&thread));
+    assert!(!Folder::AllMail.matches(&thread));
+}
+
+#[tokio::test]
+async fn gmail_filter_permission_is_requested_only_when_needed() {
+    let normal = Authorization::begin(&config(), false).await.unwrap();
+    let scope = normal
+        .url
+        .query_pairs()
+        .find(|(key, _)| key == "scope")
+        .unwrap()
+        .1
+        .into_owned();
+    assert_eq!(scope, GMAIL_SCOPE);
+    let filters = Authorization::begin_with_settings(&config(), true, true)
+        .await
+        .unwrap();
+    let scope = filters
+        .url
+        .query_pairs()
+        .find(|(key, _)| key == "scope")
+        .unwrap()
+        .1
+        .into_owned();
+    assert!(scope.split_whitespace().any(|s| s == GMAIL_SCOPE));
+    assert!(scope.split_whitespace().any(|s| s == DRIVE_SCOPE));
+    assert!(scope.split_whitespace().any(|s| s == SETTINGS_SCOPE));
+    assert!(
+        filters
+            .url
+            .query_pairs()
+            .any(|(key, value)| key == "include_granted_scopes" && value == "true")
+    );
+}
+#[tokio::test]
+async fn upload_progress_matches_real_json_transport_and_is_scoped() {
+    let server = MockServer::start().await;
+    let body = json!({"raw":"x".repeat(100000)});
+    let bytes = serde_json::to_vec(&body).unwrap().len() as u64;
+    Mock::given(method("POST"))
+        .and(path("/draft"))
+        .and(body_json(&body))
+        .and(header("content-type", "application/json"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok":true})))
+        .expect(2)
+        .mount(&server)
+        .await;
+    let http = Http::new().unwrap();
+    let progress = Arc::new(crate::http::UploadProgress::default());
+    let scoped = http.with_upload_progress(progress.clone());
+    scoped
+        .request(
+            reqwest::Method::POST,
+            &format!("{}/draft", server.uri()),
+            "test",
+            &[],
+            Some(&body),
+        )
+        .await
+        .unwrap();
+    assert_eq!(progress.snapshot(), (bytes, bytes));
+    http.request(
+        reqwest::Method::POST,
+        &format!("{}/draft", server.uri()),
+        "test",
+        &[],
+        Some(&body),
+    )
+    .await
+    .unwrap();
+    assert_eq!(progress.snapshot(), (bytes, bytes));
 }
 fn message(id: &str, date: i64) -> Message {
     serde_json::from_value(json!({"id":id,"threadId":"thread-a","internalDate":date.to_string(),"labelIds":["INBOX","UNREAD"],"payload":{"mimeType":"text/plain","headers":[{"name":"Subject","value":"Hello"},{"name":"From","value":"Ann <ann@example.com>"}],"body":{"data":URL_SAFE_NO_PAD.encode("Hello world")}}})).unwrap()
@@ -545,6 +731,7 @@ async fn gmail_trash_and_restore_use_endpoints() {
     for action in ["trash", "untrash"] {
         Mock::given(method("POST"))
             .and(path(format!("/messages/m/{action}")))
+            .and(header("Content-Length", "0"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
             .expect(1)
             .mount(&server)
@@ -553,6 +740,15 @@ async fn gmail_trash_and_restore_use_endpoints() {
     let g = gmail(&server);
     g.act("m", true, &MailAction::Trash).await.unwrap();
     g.act("m", true, &MailAction::Restore).await.unwrap();
+    assert!(
+        server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .all(|r| r.body.is_empty()),
+        "Trash/untrash endpoints require an empty request body"
+    );
 }
 #[tokio::test]
 async fn remote_search_is_paged_and_does_not_fetch_bodies() {
@@ -569,11 +765,25 @@ async fn remote_search_is_paged_and_does_not_fetch_bodies() {
         .expect(1)
         .mount(&server)
         .await;
-    let m = message("m", 50);
+    let mut m = message("m", 50);
+    m.payload.headers.push(Header {
+        name: "Message-ID".into(),
+        value: "<search@example.com>".into(),
+    });
     Mock::given(method("GET"))
         .and(path("/threads/t"))
-        .and(query_param("format", "full"))
+        .and(query_param("format", "metadata"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"t","messages":[m]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param(
+            "q",
+            "has:attachment {rfc822msgid:\"search@example.com\"}",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[]})))
         .expect(1)
         .mount(&server)
         .await;
@@ -646,6 +856,128 @@ async fn google_403_quota_uses_bounded_read_retries() {
         .mount(&server)
         .await;
     assert!(gmail(&server).thread("a").await.is_err());
+}
+
+#[tokio::test]
+async fn forbidden_errors_explain_permissions_without_exposing_response_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(403).set_body_json(json!({"error":{
+            "message":"PRIVATE-RESPONSE-CONTENT", "errors":[{"reason":"insufficientPermissions"}]
+        }})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let error = gmail(&server).thread("a").await.unwrap_err().to_string();
+    assert!(error.contains("permission missing"));
+    assert!(!error.contains("PRIVATE-RESPONSE-CONTENT"));
+}
+
+#[tokio::test]
+async fn visible_list_uses_metadata_and_exact_bounded_attachment_query() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("q", "in:inbox "))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path("/threads/a"))
+        .and(query_param("format", "metadata"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{
+            "id":"m","threadId":"a","internalDate":"1","snippet":"preview", "payload":{"headers":[
+                {"name":"Message-ID","value":"<one@example.com>"},
+                {"name":"Subject","value":"visible subject"}
+            ]}
+        }]})))
+        .expect(1).mount(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param(
+            "q",
+            "has:attachment {rfc822msgid:\"one@example.com\"}",
+        ))
+        .and(query_param("maxResults", "100"))
+        .and(query_param("includeSpamTrash", "true"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = gmail(&server).list(&Folder::Inbox, "", None).await.unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].subject, "visible subject");
+    assert_eq!(page.items[0].snippet, "preview");
+    assert!(page.items[0].attachments);
+    let requests = server.received_requests().await.unwrap();
+    assert!(!requests.iter().any(|r| {
+        r.url
+            .query_pairs()
+            .any(|(k, v)| k == "format" && v == "full")
+    }));
+    assert_eq!(requests.len(), 3);
+}
+
+#[tokio::test]
+async fn invalid_rfc_id_uses_projected_metadata_without_query_injection() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("q", "in:inbox "))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path("/threads/a"))
+        .and(query_param("format", "metadata"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{
+            "id":"m", "payload":{"headers":[{"name":"Message-ID","value":"bad\"} OR in:anywhere"}]}
+        }]})))
+        .expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/threads/a"))
+        .and(query_param("format", "full"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{
+            "id":"m", "payload":{"parts":[{"filename":"one.txt", "body":{"size":12,"attachmentId":"att"}}]}
+        }]})))
+        .expect(1).mount(&server).await;
+    let page = gmail(&server).list(&Folder::Inbox, "", None).await.unwrap();
+    assert!(page.items[0].attachments);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 3);
+    assert!(
+        requests
+            .iter()
+            .filter_map(|r| r.url.query_pairs().find(|(k, _)| k == "fields"))
+            .all(|(_, v)| !v.contains("body(data"))
+    );
+}
+
+#[tokio::test]
+async fn empty_projected_attachment_search_keeps_visible_mail() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param("q", "in:inbox "))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"threads":[{"id":"a"}]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path("/threads/a")).and(query_param("format","metadata"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"a","messages":[{"id":"m","threadId":"a","payload":{"headers":[{"name":"Message-ID","value":"<one@example.com>"}]}}]})))
+        .expect(1).mount(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/threads"))
+        .and(query_param(
+            "q",
+            "has:attachment {rfc822msgid:\"one@example.com\"}",
+        ))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = gmail(&server).list(&Folder::Inbox, "", None).await.unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert!(!page.items[0].attachments);
 }
 #[test]
 fn only_uncertain_writes_require_reconciliation() {

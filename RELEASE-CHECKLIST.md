@@ -4,6 +4,19 @@ The numbered rows below match section 21 of the original brief. An implemented
 API path or a passing mock test is not a passed real-account acceptance test.
 The release stays a development prerelease until every mandatory row passes.
 
+**0.2.0 evidence update:** one authorized real account passed Google browser
+consent, Windows OS-vault/token refresh and synthetic draft/send/attachment/
+read/star/label/archive/Trash/restore/search tests. Sender filter create/list/delete
+also passed and its disposable rule was cleaned up. Two-account Linux acceptance
+remains open. Rows below retain their original scope; the latest evidence in
+docs/verification.md supersedes earlier statements that no account was connected.
+
+New code implements inline replies, an embedded/pop-out composer, basic visual
+formatting and hyperlinks, attachment previews/media playback, Linux sanitized
+HTML, explicit image loading, stable animated row changes and server-side sender
+filters. Full visual HTML draft re-editing, real contact photos and the other
+remaining STATUS.md gaps are not claimed complete.
+
 | # | Original acceptance criterion | Current evidence | What remains |
 |---|---|---|---|
 | 1 | Sign into two Gmail accounts | PKCE/loopback/token tests; Linux keyring; button-only sign-in; configured AppImage; External/In production registration with no test list | Verify live consent and restart with two Gmail accounts. Google verification remains pending; unverified warning and lifetime 100-user cap apply. |

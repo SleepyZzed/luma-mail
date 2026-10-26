@@ -113,7 +113,7 @@ pub struct Thread {
     pub messages: Vec<Message>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Conversation {
     pub key: ThreadKey,
     pub subject: String,
@@ -159,10 +159,37 @@ pub enum Folder {
     Drafts,
     Archive,
     Trash,
+    Spam,
     Label(String),
 }
 
 impl Folder {
+    pub fn matches(&self, thread: &Thread) -> bool {
+        thread.messages.iter().any(|message| {
+            if matches!(self, Self::Trash) {
+                return message.has("TRASH");
+            }
+            if matches!(self, Self::Spam) {
+                return message.has("SPAM");
+            }
+            if message.has("TRASH") || message.has("SPAM") {
+                return false;
+            }
+            match self {
+                Self::Inbox => message.has("INBOX"),
+                Self::AllMail => true,
+                Self::Unread => message.has("UNREAD"),
+                Self::Starred => message.has("STARRED"),
+                Self::Sent => message.has("SENT"),
+                Self::Drafts => message.has("DRAFT"),
+                Self::Archive => {
+                    !message.has("INBOX") && !message.has("SENT") && !message.has("DRAFT")
+                }
+                Self::Label(id) => message.has(id),
+                Self::Trash | Self::Spam => unreachable!(),
+            }
+        })
+    }
     pub fn query(&self) -> String {
         match self {
             Self::Inbox => "in:inbox",
@@ -173,6 +200,7 @@ impl Folder {
             Self::Drafts => "in:drafts",
             Self::Archive => "-in:inbox -in:spam -in:trash -in:sent -in:drafts",
             Self::Trash => "in:trash",
+            Self::Spam => "in:spam",
             Self::Label(_) => "-in:spam -in:trash",
         }
         .into()
@@ -200,6 +228,8 @@ pub enum MailAction {
     Inbox,
     Trash,
     Restore,
+    Spam,
+    NotSpam,
     Important,
     Unimportant,
     AddLabel(String),
@@ -250,6 +280,8 @@ impl MailAction {
             Self::Inbox => (Some("INBOX"), None),
             Self::Important => (Some("IMPORTANT"), None),
             Self::Unimportant => (None, Some("IMPORTANT")),
+            Self::Spam => (Some("SPAM"), Some("INBOX")),
+            Self::NotSpam => (Some("INBOX"), Some("SPAM")),
             Self::AddLabel(id) => (Some(id.as_str()), None),
             Self::RemoveLabel(id) => (None, Some(id.as_str())),
             Self::Trash | Self::Restore => (None, None),

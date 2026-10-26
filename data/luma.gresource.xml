@@ -1,0 +1,6 @@
+<gresources><gresource prefix="/io/github/lumamail/Luma">
+  <file>icons/scalable/actions/luma-archive-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-inbox-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-filter-symbolic.svg</file>
+  <file>icons/scalable/actions/luma-tag-symbolic.svg</file>
+</gresource></gresources>

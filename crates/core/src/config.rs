@@ -13,6 +13,15 @@ pub struct Account {
     pub signature: String,
     #[serde(default)]
     pub drive_enabled: bool,
+    #[serde(default)]
+    pub sender_controls: bool,
+    #[serde(default)]
+    pub blocked_senders: Vec<BlockedSender>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BlockedSender {
+    pub address: String,
+    pub filter_id: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,8 +35,15 @@ pub struct Settings {
     pub theme: String,
     pub compact: bool,
     pub poll_seconds: u64,
+    #[serde(default)]
+    pub poll_version: u8,
     pub notification_privacy: bool,
     pub close_to_tray: bool,
+    // Old development builds wrote recovery copies. Retain their reader, but
+    // never resume local autosaving from an old preference file.
+    #[serde(skip)]
+    pub local_drafts: bool,
+    pub recent_recipients: bool,
     pub window_width: i32,
     pub window_height: i32,
     pub list_width: i32,
@@ -44,9 +60,12 @@ impl Default for Settings {
             clear_cache_on_exit: false,
             theme: "system".into(),
             compact: false,
-            poll_seconds: 120,
+            poll_seconds: 60,
+            poll_version: 1,
             notification_privacy: false,
             close_to_tray: true,
+            local_drafts: false,
+            recent_recipients: true,
             window_width: 1320,
             window_height: 840,
             list_width: 390,
@@ -85,7 +104,14 @@ impl Paths {
     }
     pub fn load(&self) -> Result<Settings> {
         match fs::read(self.config.join("settings.json")) {
-            Ok(data) => Ok(serde_json::from_slice(&data)?),
+            Ok(data) => {
+                let mut settings: Settings = serde_json::from_slice(&data)?;
+                if settings.poll_version == 0 && settings.poll_seconds == 120 {
+                    settings.poll_seconds = 60;
+                }
+                settings.poll_version = 1;
+                Ok(settings)
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
             Err(e) => Err(e.into()),
         }

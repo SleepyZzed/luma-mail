@@ -23,22 +23,63 @@ struct SignIn {
     task: RefCell<Option<tokio::task::AbortHandle>>,
     active: Cell<bool>,
     drive: bool,
+    filters: bool,
+    ready: RefCell<Option<Ready>>,
     expected: Option<String>,
 }
+type Ready = Box<dyn FnOnce(Rc<State>, String)>;
 
 pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
-    open_with_config(s, drive, expected, s.client_config());
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|a| a == "--design-preview") {
+        s.info("Use the normal Luma window to connect an account. This preview contains synthetic test data.");
+        return;
+    }
+    let account = expected.as_ref().and_then(|email| {
+        s.settings
+            .borrow()
+            .accounts
+            .iter()
+            .find(|a| &a.email == email)
+            .cloned()
+    });
+    let filters = account.as_ref().is_some_and(|a| a.sender_controls);
+    let drive = drive || account.as_ref().is_some_and(|a| a.drive_enabled);
+    open_with_config(s, drive, expected, filters, None, s.client_config());
+}
+pub fn sender_controls(
+    s: &Rc<State>,
+    account: &Account,
+    ready: impl FnOnce(Rc<State>, String) + 'static,
+) {
+    open_with_config(
+        s,
+        account.drive_enabled,
+        Some(account.email.clone()),
+        true,
+        Some(Box::new(ready)),
+        s.client_config(),
+    );
 }
 
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn open_unconfigured(s: &Rc<State>) {
-    open_with_config(s, false, None, ClientConfig::from_registration("", ""));
+    open_with_config(
+        s,
+        false,
+        None,
+        false,
+        None,
+        ClientConfig::from_registration("", ""),
+    );
 }
 
 fn open_with_config(
     s: &Rc<State>,
     drive: bool,
     expected: Option<String>,
+    filters: bool,
+    ready: Option<Ready>,
     config: Result<ClientConfig>,
 ) {
     if let Some(window) = s.signin_window.borrow().as_ref() {
@@ -89,6 +130,8 @@ fn open_with_config(
         task: RefCell::new(None),
         active: Cell::new(false),
         drive,
+        filters,
+        ready: RefCell::new(ready),
         expected,
     });
     *s.signin_window.borrow_mut() = Some(flow.window.clone());
@@ -151,10 +194,11 @@ fn begin(flow: &Rc<SignIn>, config: ClientConfig) {
     flow.status.set_text("Preparing secure Google sign-in…");
     let c = config.clone();
     let drive = flow.drive;
+    let filters = flow.filters;
     let weak = Rc::downgrade(flow);
     let task = ui::async_work(
         &flow.state,
-        async move { Ok(Authorization::begin(&c, drive).await) },
+        async move { Ok(Authorization::begin_with_settings(&c, drive, filters).await) },
         move |_, result| {
             let Some(flow) = weak.upgrade() else { return };
             flow.task.borrow_mut().take();
@@ -221,6 +265,7 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                     if let Some(account) = settings.accounts.iter_mut().find(|a| a.id == id) {
                         account.enabled = true;
                         account.drive_enabled = flow.drive;
+                        account.sender_controls = flow.filters;
                     } else {
                         settings.accounts.push(Account {
                             id: id.clone(),
@@ -230,10 +275,12 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                             notifications: true,
                             signature: String::new(),
                             drive_enabled: flow.drive,
+                            sender_controls: flow.filters,
+                            blocked_senders: vec![],
                         });
                     }
                     if settings.default_account.is_none() {
-                        settings.default_account = Some(id);
+                        settings.default_account = Some(id.clone());
                     }
                     drop(settings);
                     s.save();
@@ -244,6 +291,9 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                     ui::sidebar(&s);
                     ui::reload(&s);
                     flow.window.close();
+                    if let Some(ready) = flow.ready.borrow_mut().take() {
+                        ready(s, id);
+                    }
                 }
                 Err(error) => failed(&flow, &error),
             }

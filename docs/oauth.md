@@ -67,13 +67,20 @@ or different client requires reconnecting before any refresh request is sent.
 
 ## Scopes and Google consent
 
+Optional sender blocking requests `gmail.settings.basic` alongside the account's
+existing Gmail and optional Drive scopes. This creates Gmail filters sending
+future mail from a chosen address to Trash; it does not use Gmail's private native
+blocked-address mechanism. The app retains the filter ID for ownership-checked
+Unblock. Google normalizes away redundant INBOX removal on a TRASH filter.
+
 `https://www.googleapis.com/auth/gmail.modify` supports reading, labels, drafts,
 sending, archive and Trash. Permanent deletion is absent, and Luma does not
 request the broader `https://mail.google.com/` scope.
 
 Drive is opt-in through Settings → Account → Enable Drive permission.
 Reauthorization requests Gmail plus `https://www.googleapis.com/auth/drive.file`
-together because installed apps do not support incremental authorization.
+together to preserve the account's required permissions during reconnection.
+Previously granted scopes are included in Google's combined authorization.
 Only app-created or app-authorized files can be accessed. A Google Picker is not
 yet implemented. Upload sharing is separately confirmed, recipient-specific and
 read-only; Luma never creates an `anyone` permission.

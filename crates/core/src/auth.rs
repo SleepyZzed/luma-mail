@@ -19,6 +19,7 @@ use url::Url;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub const GMAIL_SCOPE: &str = "https://www.googleapis.com/auth/gmail.modify";
+pub const SETTINGS_SCOPE: &str = "https://www.googleapis.com/auth/gmail.settings.basic";
 pub const DRIVE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
 
 #[derive(Clone)]
@@ -70,6 +71,10 @@ pub trait Vault: Send + Sync {
 }
 
 pub struct SystemVault;
+
+#[cfg(target_os = "windows")]
+#[path = "windows_vault.rs"]
+mod windows_vault;
 
 #[cfg(target_os = "linux")]
 #[async_trait]
@@ -151,7 +156,7 @@ fn keyring_error(_: impl std::fmt::Display) -> Error {
     )
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 #[async_trait]
 impl Vault for SystemVault {
     async fn load(&self, _: &str) -> Result<Credentials> {
@@ -187,21 +192,33 @@ pub struct Authorization {
     redirect: String,
     pub url: Url,
     drive: bool,
+    settings: bool,
 }
 
 impl Authorization {
     pub async fn begin(client: &ClientConfig, drive: bool) -> Result<Self> {
+        Self::begin_with_settings(client, drive, false).await
+    }
+    pub async fn begin_with_settings(
+        client: &ClientConfig,
+        drive: bool,
+        settings: bool,
+    ) -> Result<Self> {
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await?;
         let redirect = format!("http://127.0.0.1:{}", listener.local_addr()?.port());
         let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
         let state = CsrfToken::new_random().secret().clone();
         let mut url =
             Url::parse("https://accounts.google.com/o/oauth2/v2/auth").expect("constant URL");
-        let scope = if drive {
+        let mut scope = if drive {
             format!("{GMAIL_SCOPE} {DRIVE_SCOPE}")
         } else {
             GMAIL_SCOPE.into()
         };
+        if settings {
+            scope.push(' ');
+            scope.push_str(SETTINGS_SCOPE);
+        }
         url.query_pairs_mut().extend_pairs([
             ("client_id", client.client_id.as_str()),
             ("redirect_uri", &redirect),
@@ -212,6 +229,7 @@ impl Authorization {
             ("state", &state),
             ("access_type", "offline"),
             ("prompt", "consent select_account"),
+            ("include_granted_scopes", "true"),
         ]);
         Ok(Self {
             listener,
@@ -220,6 +238,7 @@ impl Authorization {
             redirect,
             url,
             drive,
+            settings,
         })
     }
     pub async fn complete(mut self, http: &Http, client: &ClientConfig) -> Result<TokenResponse> {
@@ -273,6 +292,7 @@ impl Authorization {
         let token: TokenResponse = json(response).await?;
         if !token.scope.split_whitespace().any(|s| s == GMAIL_SCOPE)
             || (self.drive && !token.scope.split_whitespace().any(|s| s == DRIVE_SCOPE))
+            || (self.settings && !token.scope.split_whitespace().any(|s| s == SETTINGS_SCOPE))
         {
             return Err(Error::Invalid(
                 "Required permissions were not granted by Google".into(),

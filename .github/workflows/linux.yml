@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.1.2-dev.1
+        default: v0.2.0-dev.1
 permissions:
   contents: read
 jobs:
@@ -24,22 +24,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Native libraries
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
+        timeout-minutes: 15
+        run: |
+          # The runner's Azure mirror stalled on WebKit downloads. Use Ubuntu's
+          # primary archive with bounded retries; package signatures stay enforced.
+          # Hosted images can put the real URL behind mirror+file: indirection.
+          for source in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/apt-mirrors.txt /etc/apt/apt-mirrors-security.txt; do
+            if [[ -f "$source" ]]; then
+              sudo sed -i -E 's|https?://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libgtk-4-media-gstreamer libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav bubblewrap xdg-dbus-proxy libdbus-1-dev pkg-config xvfb dbus-x11 librsvg2-dev gobject-introspection libgirepository1.0-dev patchelf file desktop-file-utils adwaita-icon-theme curl python3-dbus python3-gi dconf-gsettings-backend dconf-cli gsettings-desktop-schemas
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
       - name: Tray and system notification D-Bus acceptance
         run: dbus-run-session -- xvfb-run -a /usr/bin/python3 packaging/test-desktop.py
+      - name: Composer focus, links and compact restore
+        run: |
+          cargo build --locked -p luma-mail
+          root="$(mktemp -d)"
+          trap 'rm -rf -- "$root"' EXIT
+          timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --compose-diagnostics
+      - name: Media fixture tools
+        run: sudo apt-get install -y gstreamer1.0-tools
+      - name: Allow sandbox namespaces on the disposable Ubuntu runner
+        run: |
+          # Ubuntu 24.04 requires explicit userns permission for third-party
+          # sandbox executables. Keep the global restriction and WebKit sandbox.
+          sudo tee /etc/apparmor.d/luma-ci-bwrap >/dev/null <<'PROFILE'
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile luma-ci-bwrap /{usr/bin/bwrap,tmp/**/usr/bin/bwrap} flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser -r /etc/apparmor.d/luma-ci-bwrap
       - name: Require app registration before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: cargo check --locked -p luma-mail --features require-google-client
       - run: cargo build --locked --release
       - name: Native GTK launch
         run: dbus-run-session -- xvfb-run -a target/release/luma-mail --smoke-test
+      - name: Native HTML and attachment playback
+        run: bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail" dist/native-newsletter.png
       - name: Package AppImage
         run: bash packaging/appimage.sh
       - name: Launch bundled AppImage
@@ -49,6 +84,15 @@ jobs:
           dbus-run-session -- xvfb-run -a env APPIMAGE_EXTRACT_AND_RUN=1 "${images[0]}" --smoke-test
       - name: Bundled system cursor settings
         run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-*-x86_64.AppImage
+      - name: Bundled HTML engine and attachment playback
+        run: bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-newsletter.png
+      - name: Preserve native rendering evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luma-rendering-evidence
+          path: dist/*newsletter.png
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: luma-mail-linux-x86_64

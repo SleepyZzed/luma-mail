@@ -11,7 +11,9 @@ use futures_util::{StreamExt, stream};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
+#[path = "gmail_batch.rs"]
+mod batch;
 
 #[derive(Clone)]
 pub struct Gmail {
@@ -19,6 +21,8 @@ pub struct Gmail {
     pub http: Http,
     pub tokens: Arc<TokenManager>,
     base: String,
+    rate: Arc<crate::rate::Rate>,
+    batch_url: String,
 }
 
 #[derive(Deserialize)]
@@ -41,10 +45,13 @@ impl Gmail {
             http,
             tokens,
             base: "https://gmail.googleapis.com/gmail/v1/users/me".into(),
+            rate: Arc::new(crate::rate::Rate::new()),
+            batch_url: "https://gmail.googleapis.com/batch".into(),
         }
     }
     #[cfg(test)]
     pub(crate) fn test_base(&mut self, base: String) {
+        self.batch_url = format!("{base}/batch");
         self.base = base;
     }
     pub async fn call(
@@ -54,6 +61,7 @@ impl Gmail {
         query: &[(&str, String)],
         body: Option<&serde_json::Value>,
     ) -> Result<crate::http::HttpResponse> {
+        self.rate.acquire(quota_cost(&method, path, query)).await;
         self.http
             .request(
                 method,
@@ -154,7 +162,222 @@ impl Gmail {
             ("metadataHeaders", "Reply-To".into()),
         ], None).await?).await
     }
+    pub async fn thread_metadata(&self, id: &str) -> Result<Thread> {
+        check_id(id)?;
+        json(self.call(Method::GET, &format!("/threads/{id}"), &[
+            ("format", "metadata".into()),
+            ("fields", "id,messages(id,threadId,labelIds,snippet,internalDate,payload(headers(name,value)))".into()),
+            ("metadataHeaders", "From".into()), ("metadataHeaders", "Subject".into()),
+            ("metadataHeaders", "Message-ID".into()),
+        ], None).await?).await
+    }
+    /// Consume Gmail's mutation response for immediate label reconciliation.
+    /// Header/body projection avoids downloading the conversation again.
+    pub async fn act_confirmed(
+        &self,
+        id: &str,
+        message: bool,
+        action: &MailAction,
+    ) -> Result<Vec<Message>> {
+        check_id(id)?;
+        let resource = if message { "messages" } else { "threads" };
+        let endpoint = match action {
+            MailAction::Trash => "trash",
+            MailAction::Restore => "untrash",
+            _ => "modify",
+        };
+        let (add, remove) = action.labels();
+        let body = json!({"addLabelIds":add,"removeLabelIds":remove});
+        let fields = if message {
+            "id,threadId,labelIds"
+        } else {
+            "id,messages(id,threadId,labelIds)"
+        };
+        let response = self
+            .call(
+                Method::POST,
+                &format!("/{resource}/{id}/{endpoint}"),
+                &[("fields", fields.into())],
+                if endpoint == "modify" {
+                    Some(&body)
+                } else {
+                    None
+                },
+            )
+            .await?;
+        if message {
+            let result: Message = json(response).await?;
+            if result.id != id {
+                return Err(Error::Invalid(
+                    "Gmail returned an unexpected message after the change".into(),
+                ));
+            }
+            Ok(vec![result])
+        } else {
+            let result: Thread = json(response).await?;
+            if result.id != id {
+                return Err(Error::Invalid(
+                    "Gmail returned an unexpected conversation after the change".into(),
+                ));
+            }
+            Ok(result.messages)
+        }
+    }
+
+    /// Ask Gmail for attachment flags only for this visible page's RFC message
+    /// IDs. This avoids a 120-unit `format=full` request per conversation merely
+    /// to draw a paperclip. No historical mailbox scan or attachment fetch.
+    async fn attachment_flags(
+        &self,
+        threads: &[Thread],
+    ) -> Result<(HashSet<String>, HashSet<String>)> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Response {
+            #[serde(default)]
+            threads: Vec<Thread>,
+            next_page_token: Option<String>,
+        }
+        let mut tokens = Vec::new();
+        let mut fallback = HashSet::new();
+        for thread in threads {
+            for message in &thread.messages {
+                if let Some(token) = message_id_query(message.payload.header("Message-ID")) {
+                    tokens.push((thread.id.clone(), token));
+                } else {
+                    fallback.insert(thread.id.clone());
+                }
+            }
+        }
+        let mut flags = HashSet::new();
+        let mut batch = Vec::new();
+        let mut bytes = 0;
+        for token in tokens
+            .into_iter()
+            .chain(std::iter::once((String::new(), String::new())))
+        {
+            if !batch.is_empty()
+                && (batch.len() >= 25 || bytes + token.1.len() > 3000 || token.1.is_empty())
+            {
+                let q = format!(
+                    "has:attachment {{{}}}",
+                    batch
+                        .iter()
+                        .map(|(_, q): &(String, String)| q.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
+                let response: Response = json(
+                    self.call(
+                        Method::GET,
+                        "/threads",
+                        &[
+                            ("q", q),
+                            ("maxResults", "100".into()),
+                            ("includeSpamTrash", "true".into()),
+                            ("fields", "threads(id),nextPageToken".into()),
+                        ],
+                        None,
+                    )
+                    .await?,
+                )
+                .await?;
+                if response.next_page_token.is_some() {
+                    // Duplicate RFC IDs can have many matches. Do not walk a
+                    // history-sized result or silently claim a missing flag.
+                    fallback.extend(batch.iter().map(|(id, _)| id.clone()));
+                }
+                flags.extend(response.threads.into_iter().map(|t| t.id));
+                batch.clear();
+                bytes = 0;
+            }
+            if !token.1.is_empty() {
+                bytes += token.1.len();
+                batch.push(token);
+            }
+        }
+        Ok((flags, fallback))
+    }
+    pub async fn matches_view(
+        &self,
+        thread: &Thread,
+        folder: &Folder,
+        search: &str,
+    ) -> Result<Option<bool>> {
+        if search.trim().is_empty() {
+            return Ok(Some(folder.matches(thread)));
+        }
+        let Some(tokens) = thread
+            .messages
+            .iter()
+            .map(|m| message_id_query(m.payload.header("Message-ID")))
+            .collect::<Option<Vec<_>>>()
+        else {
+            return Ok(None);
+        };
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Matches {
+            #[serde(default)]
+            threads: Vec<Thread>,
+            next_page_token: Option<String>,
+        }
+        if tokens.is_empty() {
+            return Ok(Some(false));
+        }
+        let mut batch = Vec::new();
+        let mut bytes = 0;
+        for token in tokens.into_iter().chain(std::iter::once(String::new())) {
+            if !batch.is_empty()
+                && (batch.len() >= 25 || bytes + token.len() > 3000 || token.is_empty())
+            {
+                let result: Matches = json(
+                    self.call(
+                        Method::GET,
+                        "/threads",
+                        &[
+                            (
+                                "q",
+                                format!("({} {search}) {{{}}}", folder.query(), batch.join(" ")),
+                            ),
+                            ("maxResults", "100".into()),
+                            (
+                                "includeSpamTrash",
+                                matches!(folder, Folder::Trash).to_string(),
+                            ),
+                            ("fields", "threads(id),nextPageToken".into()),
+                        ],
+                        None,
+                    )
+                    .await?,
+                )
+                .await?;
+                if result.threads.iter().any(|t| t.id == thread.id) {
+                    return Ok(Some(true));
+                }
+                if result.next_page_token.is_some() {
+                    return Ok(None);
+                }
+                batch.clear();
+                bytes = 0;
+            }
+            if !token.is_empty() {
+                bytes += token.len();
+                batch.push(token);
+            }
+        }
+        Ok(Some(false))
+    }
     pub async fn attachment(&self, message: &str, attachment: &str) -> Result<Vec<u8>> {
+        self.attachment_limited(message, attachment, 26 * 1024 * 1024)
+            .await
+    }
+    pub async fn attachment_limited(
+        &self,
+        message: &str,
+        attachment: &str,
+        max: usize,
+    ) -> Result<Vec<u8>> {
         check_id(message)?;
         check_id(attachment)?;
         let response = self
@@ -165,11 +388,19 @@ impl Gmail {
                 None,
             )
             .await?;
+        let max = max.min(26 * 1024 * 1024);
         let body: PartBody =
-            serde_json::from_slice(&bounded_bytes(response, 36 * 1024 * 1024).await?)?;
-        URL_SAFE_NO_PAD
+            serde_json::from_slice(&bounded_bytes(response, max.div_ceil(3) * 4 + 4096).await?)?;
+        if body.size > max as u64 {
+            return Err(Error::ResponseLimit);
+        }
+        let data = URL_SAFE_NO_PAD
             .decode(body.data.as_deref().unwrap_or("").trim_end_matches('='))
-            .map_err(|_| Error::Invalid("Attachment has invalid encoding".into()))
+            .map_err(|_| Error::Invalid("Attachment has invalid encoding".into()))?;
+        if data.len() > max {
+            return Err(Error::ResponseLimit);
+        }
+        Ok(data)
     }
     pub async fn draft(&self, id: &str) -> Result<Draft> {
         check_id(id)?;
@@ -345,6 +576,85 @@ pub fn check_id(id: &str) -> Result<()> {
     Ok(())
 }
 
+fn message_id_query(value: &str) -> Option<String> {
+    let id = value.trim().trim_start_matches('<').trim_end_matches('>');
+    if id.is_empty()
+        || id.len() > 500
+        || !id
+            .bytes()
+            .all(|b| b.is_ascii_graphic() && !b"\"\\{}<>".contains(&b))
+    {
+        return None;
+    }
+    Some(format!("rfc822msgid:\"{id}\""))
+}
+
+fn quota_cost(method: &Method, path: &str, query: &[(&str, String)]) -> u32 {
+    let full = query
+        .iter()
+        .any(|(k, v)| *k == "format" && matches!(v.as_str(), "full" | "raw" | "html"));
+    let parts: Vec<_> = path.trim_matches('/').split('/').collect();
+    match parts.as_slice() {
+        ["profile"] => 1,
+        ["history"] => 2,
+        ["settings", "filters"] | ["settings", "filters", _] => {
+            if *method == Method::GET {
+                1
+            } else {
+                5
+            }
+        }
+        ["labels"] | ["labels", _] => {
+            if *method == Method::GET {
+                1
+            } else {
+                5
+            }
+        }
+        ["threads"] => 10,
+        ["threads", _] if *method == Method::GET => {
+            if full {
+                120
+            } else {
+                40
+            }
+        }
+        ["threads", _, "trash"] => 20,
+        ["threads", _, _] => 10,
+        ["messages"] => 5,
+        ["messages", _, "attachments", _] => 20,
+        ["messages", _] if *method == Method::GET => {
+            if full {
+                60
+            } else {
+                20
+            }
+        }
+        ["messages", _, "trash"] => 20,
+        ["messages", _, _] => 5,
+        ["drafts"] => {
+            if *method == Method::POST {
+                10
+            } else {
+                5
+            }
+        }
+        ["drafts", "send"] => 100,
+        ["drafts", _] => match *method {
+            Method::GET => {
+                if full {
+                    60
+                } else {
+                    20
+                }
+            }
+            Method::PUT => 15,
+            _ => 10,
+        },
+        _ => 100,
+    }
+}
+
 #[async_trait]
 impl MailProvider for Gmail {
     fn account_id(&self) -> &str {
@@ -368,7 +678,7 @@ impl MailProvider for Gmail {
             ("q", format!("{} {search}", folder.query())),
             (
                 "includeSpamTrash",
-                matches!(folder, Folder::Trash).to_string(),
+                matches!(folder, Folder::Trash | Folder::Spam).to_string(),
             ),
         ];
         if let Some(page) = page {
@@ -379,19 +689,19 @@ impl MailProvider for Gmail {
         }
         let response: Response =
             json(self.call(Method::GET, "/threads", &query, None).await?).await?;
-        let items: Vec<Result<Option<Conversation>>> =
-            stream::iter(response.threads.into_iter().map(|t| async move {
-                Ok(Conversation::from_thread(
-                    &self.account,
-                    &self.metadata(&t.id).await?,
-                ))
-            }))
-            .buffer_unordered(4)
-            .collect()
-            .await;
+        let threads = self
+            .metadata_page(response.threads.into_iter().map(|t| t.id).collect())
+            .await?;
+        let (flags, fallback) = self.attachment_flags(&threads).await?;
         let mut conversations = Vec::new();
-        for item in items {
-            if let Some(item) = item? {
+        for thread in threads {
+            let thread = if fallback.contains(&thread.id) {
+                self.metadata(&thread.id).await?
+            } else {
+                thread
+            };
+            if let Some(mut item) = Conversation::from_thread(&self.account, &thread) {
+                item.attachments |= flags.contains(&thread.id);
                 conversations.push(item);
             }
         }

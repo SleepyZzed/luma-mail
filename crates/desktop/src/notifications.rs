@@ -1,5 +1,6 @@
 use crate::ui::{self, State};
 use adw::prelude::*;
+use futures_util::{StreamExt, stream};
 use gtk::{gio, glib};
 use luma_core::notifications::Monitor;
 use std::{
@@ -49,19 +50,35 @@ pub fn poll_now(s: &Rc<State>, refresh_list: bool) {
         s,
         async move {
             let mut monitors = work.lock().await;
-            let mut result = Vec::new();
-            for c in clients {
-                let monitor = monitors.entry(c.account.clone()).or_default();
-                let updates = monitor.poll(&c).await;
-                let unread = c.unread().await;
-                result.push((c.account.clone(), updates, unread));
+            let jobs: Vec<_> = clients
+                .into_iter()
+                .map(|c| {
+                    let monitor = monitors.remove(&c.account).unwrap_or_default();
+                    (c, monitor)
+                })
+                .collect();
+            drop(monitors);
+            let result: Vec<_> = stream::iter(jobs)
+                .map(|(c, mut monitor)| async move {
+                    let (updates, unread) = tokio::join!(monitor.poll(&c), c.unread());
+                    (c.account.clone(), monitor, updates, unread)
+                })
+                .buffer_unordered(4)
+                .collect()
+                .await;
+            let mut monitors = work.lock().await;
+            let mut output = Vec::new();
+            for (account, monitor, updates, unread) in result {
+                monitors.insert(account.clone(), monitor);
+                output.push((account, updates, unread));
             }
             monitors.retain(|id, _| prefs.iter().any(|a| a.id == *id && a.enabled));
-            Ok(result)
+            Ok(output)
         },
         move |s, results| {
             s.poller.running.set(false);
             let mut changed = false;
+            let mut incoming = Vec::new();
             for (account, updates, unread) in results {
                 if let Ok(count) = unread {
                     s.unread.borrow_mut().insert(account.clone(), count);
@@ -69,6 +86,7 @@ pub fn poll_now(s: &Rc<State>, refresh_list: bool) {
                 match updates {
                     Ok((messages, did_change)) => {
                         changed |= did_change;
+                        incoming.extend(messages.iter().cloned().map(|m| (account.clone(), m)));
                         let a = s
                             .settings
                             .borrow()
@@ -103,8 +121,10 @@ pub fn poll_now(s: &Rc<State>, refresh_list: bool) {
                     Err(e) => s.error(&e),
                 }
             }
-            if changed && refresh_list {
-                ui::refresh_background(&s);
+            if !incoming.is_empty() {
+                ui::receive_messages(&s, incoming);
+            } else if changed && refresh_list {
+                ui::mark_updates(&s);
             }
             ui::sidebar(&s);
             let weak = Rc::downgrade(&s);

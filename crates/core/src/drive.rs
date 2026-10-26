@@ -5,7 +5,7 @@ use crate::{
     http::{bounded_bytes, json},
 };
 use reqwest::Method;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     path::Path,
@@ -19,12 +19,16 @@ use tokio::{
     sync::watch,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DriveFile {
     pub id: String,
     pub name: String,
     pub web_view_link: Option<String>,
+    #[serde(default)]
+    pub owned_by_me: bool,
+    #[serde(default)]
+    pub app_properties: std::collections::HashMap<String, String>,
 }
 
 pub async fn upload(
@@ -46,12 +50,12 @@ pub async fn upload(
         .post("https://www.googleapis.com/upload/drive/v3/files")
         .query(&[
             ("uploadType", "resumable"),
-            ("fields", "id,name,webViewLink"),
+            ("fields", "id,name,webViewLink,ownedByMe,appProperties"),
         ])
         .bearer_auth(token)
         .header("X-Upload-Content-Type", "application/octet-stream")
         .header("X-Upload-Content-Length", size)
-        .json(&json!({"name":path.file_name().unwrap_or_default().to_string_lossy()}))
+        .json(&json!({"name":path.file_name().unwrap_or_default().to_string_lossy(),"appProperties":{"lumaMailAttachment":"1"}}))
         .send()
         .await?;
     if !response.status().is_success() {
@@ -189,6 +193,9 @@ pub async fn share(client: &Gmail, file: &DriveFile, emails: &str) -> Result<Str
             .await?;
         let _ = bounded_bytes(response, 65536).await?;
     }
+    verified_link(file)
+}
+pub fn verified_link(file: &DriveFile) -> Result<String> {
     file.web_view_link
         .clone()
         .filter(|link| {
@@ -208,7 +215,10 @@ pub async fn existing(client: &Gmail, id: &str) -> Result<DriveFile> {
                 Method::GET,
                 &format!("https://www.googleapis.com/drive/v3/files/{id}"),
                 &client.tokens.access_token().await?,
-                &[("fields", "id,name,webViewLink".into())],
+                &[(
+                    "fields",
+                    "id,name,webViewLink,ownedByMe,appProperties".into(),
+                )],
                 None,
             )
             .await?,

@@ -1,10 +1,18 @@
+mod attachments;
 mod compose;
+mod compose_lists;
+#[cfg(debug_assertions)]
+mod design_preview;
 mod desktop;
 #[cfg(all(test, target_os = "linux"))]
 mod desktop_test;
 mod google;
+mod media;
+mod message_images;
 mod notifications;
+mod rendering;
 mod search;
+mod sender_controls;
 mod settings;
 mod signin;
 mod tray;
@@ -12,9 +20,19 @@ mod ui;
 use adw::prelude::*;
 use gtk::{gio, glib};
 fn main() -> glib::ExitCode {
+    #[cfg(target_os = "linux")]
+    if let Err(error) = media::configure() {
+        eprintln!("Cannot prepare private media runtime: {error}");
+        return glib::ExitCode::FAILURE;
+    }
+    let flags = if cfg!(debug_assertions) && std::env::args().any(|a| a == "--design-preview") {
+        gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::NON_UNIQUE
+    } else {
+        gio::ApplicationFlags::HANDLES_OPEN
+    };
     let app = adw::Application::builder()
         .application_id("io.github.lumamail.Luma")
-        .flags(gio::ApplicationFlags::HANDLES_OPEN)
+        .flags(flags)
         .build();
     app.connect_activate(|app| {
         if let Some(window) = app.active_window() {
@@ -62,6 +80,10 @@ fn main() -> glib::ExitCode {
                 app.quit();
             });
         });
+        app.run_with_args(&["luma-mail"])
+    } else if std::env::args().any(|a| a == "--render-diagnostics")
+        || (cfg!(debug_assertions) && std::env::args().any(|a| a == "--design-preview"))
+    {
         app.run_with_args(&["luma-mail"])
     } else {
         app.run()

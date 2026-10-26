@@ -1,56 +1,36 @@
-Luma Mail is an online-first Rust / GTK4 / libadwaita Gmail client for Linux.
+Luma Mail 0.2.0 early access
 
-0.1.2 Google sign-in update:
+- Faster bounded metadata pages with batches and a rolling account quota budget.
+- Confirmed archive/Trash/star/label updates in place, Undo, arrival/removal
+  transitions, loading indicators, stable selection and right-click actions.
+- Main-window composer, inline replies, top Reply and optional pop-out; basic
+  visual formatting, hyperlinks, attachment cards and real upload/send progress.
+- Image/DOCX/text previews and in-app audio/video without an attachment archive.
+- Linux HTML newsletter layouts, safe embedded images and explicit Load images.
+  Systems blocking WebKit's sandbox use a readable-text fallback.
+- Gmail-side Block/Unblock filters, optional settings permission, separate
+  Report spam/Not spam actions and a Spam folder.
+- System cursor settings, notification-daemon delivery, close-to-tray/Open/Quit,
+  manual refresh and the existing bounded-cache controls.
+- Quiet 60-second history checks update new mail and unread replies in place;
+  automatic checks have no page-loading bar. Simple phone mail uses themed text.
+- Compact composer Restore, initial To focus, Tab/Shift+Tab text-field traversal,
+  bounded recent-recipient completion and blue Ctrl+click links.
+- Full-content newsletter height, Settings stacking fixes and one filename
+  hyperlink per Drive attachment. Drafts autosave to Gmail; new local copies
+  are disabled. Existing unsent recovery copies are kept until saved/discarded.
 
-- Sign in with Google opens your default browser directly. The app's Desktop
-  OAuth registration is supplied by the maintainer at build time.
-- Removed client JSON import controls and runtime configuration overrides.
-  Connecting an account no longer requires a Google Cloud project per user.
-- Release publication is blocked if the app registration is missing or invalid.
-- Asynchronous browser launching, reopen/copy-link recovery and cancellation.
-- Bundled dconf settings support and host cursor-theme paths; session cursor
-  overrides and live configured desktop cursor preferences.
-- Advanced search with dates, flags and any selected subset of enabled accounts;
-  Ctrl+1…9 account switching.
-- Retry failed pages/messages, cancel body fetches when collapsed or left behind,
-  preserve loaded pages/bulk selection during background changes and highlight Refresh.
-- Persistent label navigation, safe name-based cross-account label mapping,
-  overlapping-write protection and debounced settings text edits.
-- Network limits cover response bodies; quota backoff releases transfer slots.
-  Notification bursts continue within a history page without discarding its tail.
-- RELEASE-CHECKLIST.md maps every original acceptance criterion to remaining work.
+Sign in with Google opens your browser. No OAuth JSON or personal Cloud project
+is needed. There is no test-user list; Google's unverified warning and lifetime
+100-user cap remain. Account/Workspace policy can block access. This is not 1.0.
 
-**Public early-access update — 25 October 2026:** Luma's Google registration is
-now **External / In production / unverified**. There is **no test-user list**:
-eligible Gmail users can request consent without being added manually. Google's
-unverified-app warning and **100 lifetime user cap** remain until verification;
-account protection and Workspace policy can block access. This is an unfinished
-early-access release, not a production-complete or Google-verified application.
+Download the x86_64 AppImage and SHA256SUMS, verify, mark executable and launch.
+A session D-Bus, unlocked Secret Service keyring, notification daemon and optional
+StatusNotifier tray host are required. WebKit and media codecs make the application
+bundle larger; mailbox storage remains bounded. GitHub provides source archives.
 
-The existing 0.1.2 AppImage already embeds this registration, so this is a
-server-side audience change and release-documentation update; its binary and
-SHA-256 checksum are unchanged. No JSON file or personal Cloud project is needed.
-New production grants are not subject to Testing's seven-day lifetime; reconnect
-if an older grant has expired. Public homepage, privacy policy and terms are at
-[Luma Mail](https://sleepyzzed.github.io/luma-mail/). The protocol assessment and
-remaining verification gates are in the [OAuth guide](https://github.com/SleepyZzed/luma-mail/blob/main/docs/oauth.md).
-
-- Gmail accounts, remote search, paging, lazy body retrieval and server-backed mail actions.
-- Gmail drafts, reply/forward, bounded attachments and Drive upload/sharing paths.
-- System notification-daemon delivery, periodic Gmail history polling, Refresh now / Ctrl+R.
-- Close to tray with Open and Quit actions where a StatusNotifier host is available.
-- Enforced disposable cache and optional Noctalia palette integration.
-
-Download the x86_64 AppImage, mark it executable and run it. Verify its checksum
-against `SHA256SUMS`. Source archives are supplied automatically by GitHub.
-
-Complete Google's consent after clicking Sign in with Google. An
-unlocked Linux Secret Service keyring, session D-Bus, notification daemon and
-optional tray host are required. User credentials are never bundled. Anyone
-migrating from a personal client in an older preview must reconnect their account
-to authorize Luma's new app registration.
-
-Read `README.md`, `STATUS.md`, `docs/oauth.md`, `docs/noctalia.md` and
-`docs/testing.md` before using real mail. Build/launch checks do not establish
-real Gmail/Drive interoperability, correct Google OAuth configuration, or a full
-Hyprland/Noctalia desktop acceptance pass. Notifications use polling, not push.
+One authorized real account passed browser consent, Windows vault/token refresh,
+synthetic self-mail operations and Gmail filter creation/removal. Two-account Linux/
+Noctalia, Drive recipient access and sustained mailbox checks remain. Real contact
+photos and full HTML draft visual re-editing are incomplete. See STATUS and the
+release checklist. Notifications use configurable polling, not Gmail push.

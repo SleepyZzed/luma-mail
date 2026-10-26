@@ -1,97 +1,56 @@
 # Implementation and verification status
 
-This is a substantial **development implementation**, not a claim that the full
-project brief or all 20 acceptance criteria have passed. No user credentials
-were available and no real Google account was connected or modified.
+0.2.0 is **early access**. It does not complete the original brief. Google sign-in
+has no per-address test list, but its unverified warning and lifetime 100-user
+cap remain. Formal verification is not submitted: homepage ownership propagation
+and the final review video are still gates.
 
-The maintainer's Google app registration was published on 25 October 2026 as
-External / In production / unverified, removing the per-address test list for
-early access. The configured 0.1.2 AppImage uses it without an update. Google's
-warning and lifetime 100-user cap remain, as do live Linux account acceptance
-and formal verification. Publishing this configuration is not a completed
-end-to-end Google consent test. See [OAuth status and protocol assessment](docs/oauth.md).
+## Implemented and exercised
 
-## Working code paths
+- Native GTK4/libadwaita; account Inbox, Unified Inbox and All Mail; remote search,
+  25-thread metadata pages, batched reads and a shared rolling account quota budget.
+- Server-confirmed row updates for archive, Trash, read/star/labels, previous-state
+  Undo, stable reader/scroll, right-click menus and explicit bulk selection.
+- Main-window composer, inline replies, top Reply, expand/pop-out; basic visual
+  formatting and hyperlinks, Gmail drafts/conflict protection and real byte progress.
+- Separate attachment cards in received mail and compose; bounded image thumbnails,
+  image/text/DOCX previews and in-memory audio/video playback. DOCX extracts text.
+- Sanitized HTML layout in ephemeral, sandboxed WebKit on Linux. Scripts, forms,
+  direct network/file loads are blocked. External images require Load images.
+  A namespace probe falls back to readable text if the OS blocks the sandbox.
+- Optional Gmail sender filters and ownership-checked Unblock; Report spam/Not spam
+  and Spam navigation. Future-mail filters work while Luma is closed.
+- Native notification-daemon requests, history polling, Refresh, close-to-tray with
+  Open/Quit and lost-tray recovery. No extra daemon/autostart is installed.
+- Bounded body cache, zero-cache mode, TTL/LRU and clearing; no local history index
+  or attachment archive. Noctalia palette monitoring.
 
-| Area | Implemented | Verification boundary |
-|---|---|---|
-| Foundation | Rust workspace; native three-pane GTK4/libadwaita window; XDG settings; loading/error status; worker runtime | Windows and Ubuntu Linux build/native launch checked, including the bundled AppImage. Real keyring interaction remains manual. |
-| Authentication | Default browser, loopback listener, S256 PKCE, state validation, scopes, per-account refresh serialization, Linux Secret Service, reconnect/revoke | OAuth URL, state and mocked refresh tested. Real consent, keyring prompts and revocation need Linux testing. |
-| Mail access | Multiple enabled Gmail accounts, metadata projection, 25-row provider pages, transactional unified merge, account identity, one-body-per-expansion retrieval | Mocked response/search/pagination tests; real mailbox not connected. |
-| Mail changes | Conversation and individual read/unread, stars, archive, inbox, Trash/restore, importance; labels CRUD/add/remove; cross-account dispatch; previous-state undo | Endpoint and semantic tests. UI waits for server confirmation; no speculative local success. Real persistence needs browser comparison. |
-| Search and folders | Gmail operators, advanced builder with dates/flags/account subsets, Inbox/All Mail/Unread/Starred/Sent/Drafts/Archive/Trash, cached label navigation | Remote query, date validation and Spam/Trash exclusion tested. Search is date-oriented, not relevance-ranked. |
-| Composition | Multiple native compose windows; To/Cc/Bcc validation; plain text and HTML source; markup insertion; reply/all and message forwarding with bounded attachments; signatures; undo/redo | MIME, headers and validation tested. Real send/reply threading needs Google testing. |
-| Drafts | Gmail creation/update/delete/send; 2-second debounce; save state; message-ID conflict check; reopen with attachments fetched only on explicit edit, bounded to 16 MiB | Mocked create/conflict/attachment tests. Gmail lacks atomic draft CAS, so a residual cross-client race remains. |
-| Attachments | Native picker/drop, file list/removal, MIME attachments up to 16 MiB combined, on-demand save | MIME/size tests. Received attachment responses capped; no historical archive. |
-| Drive | Opt-in consent; 256 KiB resumable chunks; real progress; cancellation; existing authorized file IDs; explicit recipient read access | Implemented against documented API. Requires live upload/sharing verification; no mock claim of recipient access. |
-| Desktop | Real system notification-service requests, bounded history polling, Refresh now / Ctrl+R, privacy settings; close-to-tray, Open/Quit menu, lost-tray fallback; mailto; launcher/icon | Dedup/baseline/close-policy/menu tests; Linux D-Bus acceptance verifies actual GTK hide/hold/restore, tray Quit and notification transport. Noctalia display and notification clicks remain manual. |
-| Themes | System/dark/light/Noctalia modes, validated palette, parent-directory file monitor, contrast fallback, documented v5/v4 templates | Palette parsing/validation tested. Installed Noctalia unavailable on Windows; wallpaper hot reload needs Linux test. |
-| Storage | Enforced allocated-byte cache, presets/custom limit, TTL, LRU, per-account clearing, clear-on-exit, disabled = zero contents | Budget/eviction/expiry tests and synthetic 100,000-message paging test. Real giant-mailbox acceptance remains manual. |
-| Delivery | Public GitHub source, lockfile, license, desktop assets, Arch package recipe, Linux CI, setup/privacy/test/troubleshooting guides, published x86_64 AppImage prerelease | Full Linux release workflow passed; downloaded bundle checksum verified. Results in docs/verification.md. makepkg has not been run. |
+Real authorized Windows tests completed browser consent, PKCE/loopback, OS-vault
+storage/reload, token refresh and synthetic self-mail draft create/edit/reload/send,
+inline photo/DOCX/audio attachments, read/star/label/archive/Trash/restore/search.
+Gmail filter create/list/delete and cleanup passed. Unrelated mail was not changed.
+A 25-row test measured Inbox 0.93s, Load more 0.70s, Archive 1.12s and All Mail 0.88s.
+These are observations, not latency guarantees.
 
-## Still incomplete
+Linux CI checks compilation/tests, actual GTK/D-Bus close/restore/Quit, native
+notification transport, AppImage launch and cursor-settings transport. HTML/media
+diagnostics additionally launch the real engines; see docs/verification.md for
+executed results rather than assuming runtime success from compilation.
 
-These are real gaps, not hidden controls or placeholders:
+## Remaining release work
 
-- Full WYSIWYG rich-text editing, recipient chips/autocomplete, inline image
-  insertion, contact integration and authorized send-as aliases.
-- Editing drafts whose attachments exceed 16 MiB combined; those drafts are
-  explicitly refused rather than stripped. A whole conversation cannot yet be
-  forwarded in one operation; individual-message forwarding preserves attachments.
-- Save-all attachments, attachment previews, granular image-loading consent,
-  HTML layout rendering and per-sender remote-content preferences. Reader uses
-  safe text conversion; it does not claim browser-equivalent rendering.
-- Search term highlighting; user-selectable sort/datetime format;
-  horizontal/hidden reading pane; conversation grouping preference; account
-  avatars/custom colours; configurable custom accents.
-- Opt-in standalone notification process, opt-in session autostart,
-  notification sound and command palette.
-- Permanent message deletion and the corresponding elevated OAuth scope.
-- Google Picker for previously unapproved Drive files, upload session persistence
-  across application restarts, and rollback of partial Drive sharing grants.
-- Full accessibility/Wayland/HiDPI review, exhaustive MIME interoperability,
-  external security review, restricted-scope verification, signed releases and
-  Flatpak packaging.
+- Two real Gmail accounts and restart in Linux Secret Service; account-isolated
+  sorting/actions, incoming notification clicks and installed Noctalia/Wayland.
+- User-tested automatic Drive upload works; recipient access, cancellation and
+  partial-sharing recovery still need formal acceptance.
+  Existing authorized file IDs work; Google Picker remains absent.
+- Recipient chips, real contact photos (current avatars use initials),
+  send-as aliases, richer lists and inline-image insertion in compose.
+  Existing HTML drafts reopen as source; full visual HTML re-editing is incomplete.
+- Draft conflict reconciliation, editing attachments over 16 MiB combined, save-all,
+  whole-conversation forwarding and persistent sender remote-image preferences.
+- View preferences/search highlighting, accents, optional autostart/sound,
+  keyboard/accessibility/HiDPI audit, native Arch acceptance and sustained profiling.
+- Google verification, final demo, any required assessment and external security review.
 
-The next release priorities are Linux/Google acceptance testing, draft
-reconciliation, WYSIWYG composition, then
-remaining desktop and accessibility work. Do not distribute this build as
-production-ready or describe the entire brief as complete.
-
-## Local checks
-
-The final verification results are recorded in `docs/verification.md`. Tests use
-local mock servers and synthetic data. The native preview is an actual GTK
-launch with zero connected accounts, not fabricated mailbox contents.
-
-## 0.1.1 development work
-
-- Guided one-window OAuth setup/import, asynchronous browser launch, copy-link,
-  retry and cancellation. That 0.1.1 preview had no bundled OAuth registration.
-
-## 0.1.2 Google sign-in change
-
-Main removes the JSON importer and runtime file override. Sign in with Google
-uses the maintainer's Desktop client embedded at compile time, keeping browser
-launch/retry/cancellation and the existing PKCE/Secret Service flow. Release
-publication is gated on valid app registration values. Luma's Desktop client is
-now created and the two GitHub build values are configured. At initial release,
-Google used External Testing mode with listed users and seven-day grants; the
-early-access publication recorded above supersedes that audience configuration.
-Live consent, keyring acceptance and Google verification remain pending. The published
-0.1.1 binary uses the old flow. The configured 0.1.2 development AppImage is now
-published as v0.1.2-dev.1 with its own Desktop registration. The same binary now
-uses unverified production access; this is not completion of Google verification.
-- AppImage dconf module and host cursor-theme paths; session cursor overrides,
-  live desktop cursor settings and diagnostics. Configuration transport passed
-  Linux CI; the reporter's cursor artwork still needs another desktop check.
-- Advanced search/account subsets and Ctrl+1…9 account switching.
-- Retry failed page/message loads; cancel body requests on collapse/navigation.
-- Preserve multi-page views, scroll position and bulk selection when background
-  changes arrive; highlight Refresh to request an update.
-- Retain sidebar label navigation across unread-count updates; map cross-account
-  label actions by name and reject missing matches; prevent overlapping writes.
-- Keep HTTP limits through body consumption and release slots during backoff;
-  bounded notification-burst continuation; debounce settings text-field writes.
-
-The [release checklist](RELEASE-CHECKLIST.md) remains the acceptance ledger.
+The 20 acceptance criteria remain tracked in RELEASE-CHECKLIST.md.

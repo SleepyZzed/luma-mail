@@ -32,7 +32,7 @@ pub struct RetainedAttachment {
     pub data: Vec<u8>,
     pub content_id: Option<String>,
 }
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct Compose {
     pub from: String,
     pub to: String,
@@ -42,7 +42,9 @@ pub struct Compose {
     pub text: String,
     pub html: bool,
     pub attachments: Vec<PathBuf>,
+    #[serde(skip)] // Recovery stores references, never copies received attachments.
     pub retained: Vec<RetainedAttachment>,
+    pub drive_files: Vec<crate::drive::DriveFile>,
     pub thread: Option<String>,
     pub reply_to: String,
     pub references: String,
@@ -246,6 +248,24 @@ impl Compose {
                 self.reply_to, self.references
             ));
         }
+        if !self.drive_files.is_empty() {
+            if self.drive_files.len() > 32 {
+                return Err(Error::ResponseLimit);
+            }
+            let references = serde_json::to_vec(&self.drive_files)?;
+            if references.len() > 8192 {
+                return Err(Error::ResponseLimit);
+            }
+            let encoded = URL_SAFE_NO_PAD.encode(references);
+            out.push_str("X-Luma-Drive-Attachments: ");
+            for (index, chunk) in encoded.as_bytes().chunks(76).enumerate() {
+                if index > 0 {
+                    out.push('\t');
+                }
+                out.push_str(std::str::from_utf8(chunk).expect("base64 ASCII"));
+                out.push_str("\r\n");
+            }
+        }
         let boundary = format!("luma_{}", uuid::Uuid::new_v4());
         let multipart = !self.attachments.is_empty() || !self.retained.is_empty();
         if multipart {
@@ -345,7 +365,7 @@ pub fn readable(part: &Part) -> Result<String> {
         }
     });
     let Some(selected) = plain.or(html) else {
-        return Ok("No text body is available. Attachments can be saved below.".into());
+        return Ok("No text body is available.".into());
     };
     let data = URL_SAFE_NO_PAD
         .decode(
@@ -368,9 +388,12 @@ pub fn readable(part: &Part) -> Result<String> {
         encoding_rs::Encoding::for_label(charset.as_bytes()).unwrap_or(encoding_rs::UTF_8);
     let (text, _, _) = encoding.decode(&data);
     if selected.mime_type == "text/html" {
-        html2text::from_read(text.as_bytes(), 90)
-            .map_err(|_| Error::Invalid("Cannot display malformed HTML email".into()))
+        html_text(&text)
     } else {
         Ok(text.into_owned())
     }
+}
+pub fn html_text(html: &str) -> Result<String> {
+    html2text::from_read(html.as_bytes(), 90)
+        .map_err(|_| Error::Invalid("Cannot display malformed HTML email".into()))
 }

@@ -17,9 +17,21 @@ chrono.workspace = true
 serde_json.workspace = true
 url.workspace = true
 futures-util.workspace = true
+serde.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+wry = { version = "0.55", default-features = false, features = ["os-webview", "protocol"] }
+raw-window-handle = "0.6"
+gdk-win32 = { package = "gdk4-win32", version = "0.11" }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ksni = "0.3.7"
+webkit6 = "0.6"
+libc = "0.2"
 
 [dev-dependencies]
 ksni = "0.3.7"
+
+[build-dependencies]
+glib-build-tools = "0.22"

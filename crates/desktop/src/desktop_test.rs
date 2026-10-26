@@ -15,6 +15,7 @@ pub fn start(s: &Rc<State>) {
         assert!(ticks < 250, "desktop D-Bus integration test timed out");
         if stage == 0 && s.tray_available.get() {
             crate::ui::verify_view_behaviour(&s);
+            crate::compose::verify_host_lifecycle(&s);
             // Exercise an unconfigured developer build without launching a real
             // browser, even when CI has the maintainer's app registration.
             crate::signin::open_unconfigured(&s);

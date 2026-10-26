@@ -154,3 +154,84 @@ install the configured 0.1.2 AppImage for the next real Linux acceptance pass.
 The current protocol decision and verification limits are in [oauth.md](oauth.md).
 Formal verification, uncapped sign-in and the 20 live acceptance checks remain
 separate full-release requirements.
+
+## 0.2.0 mail experience and authorized live checks
+
+Historical "not executed" notes above describe earlier releases. Subsequent
+authorized testing completed browser consent/PKCE/loopback, Windows Credential
+Manager, token refresh and synthetic self-mail draft create/reload/edit/conflict,
+send, inline photo/DOCX/audio attachments, search/star/read/labels, archive/Inbox
+and Trash/restore. Gmail archive responses were checked for labels without INBOX.
+Empty projected attachment-search and bodyless Trash POST handling were fixed
+from observed responses. Private mailbox content is not in the repository.
+
+A bounded metadata test measured Inbox 25/25 snippets 0.93s, next page 0.70s,
+Archive 1.12s and All Mail 0.88s; network/account/quota conditions affect results.
+With explicit permission approval, a random example.invalid sender filter was
+created, read back and ownership-checked deleted; its absence was confirmed.
+Google normalizes away redundant remove-INBOX on a TRASH filter, now tested.
+No existing mail was changed by this filter test.
+
+[Linux run 40235667937](https://github.com/SleepyZzed/luma-mail/actions/runs/40235667937)
+passed tests, GTK/D-Bus acceptance, release build, AppImage packaging/launch and
+cursor settings. It did not instantiate WebKit. Deeper rendering run 40237135136
+exposed Ubuntu 24.04's namespace/AppArmor restriction. Luma now probes and falls
+back to text; CI grants userns specifically to its disposable runner bwrap.
+WebKit's sandbox and the global OS restriction remain enabled. Final rendering,
+media and 0.2.0 release results will be recorded after completion.
+
+Remaining: second account, target Secret Service/Wayland/Noctalia, real incoming
+notification presentation/clicks, Drive recipient access, sustained giant-mailbox
+profiling, Google verification and the full control audit.
+
+## Composer and newsletter regressions — 25 October 2026
+
+Native Windows GTK diagnostics passed To focus, recent-recipient completion,
+Tab/Shift+Tab through text fields, one filename hyperlink, fullscreen Expand and
+compact Restore, and absence of new local draft files. This caught a real empty
+paragraph serialization bug that repeated the next line, including Drive links.
+
+Actual WebView2 diagnostics measured a short newsletter at 615 GTK units and a
+9,000-CSS-pixel synthetic newsletter at 13,778 GTK units on the fractional-DPI
+host. Both hid their native child beneath Settings and restored after closing it.
+WebView2 emits a nonfatal native window-class cleanup diagnostic at shutdown.
+Its InPrivate runtime metadata used approximately 1.5–2.6 MB in these synthetic
+runs; this overhead is separate from the disposable body budget. Linux uses an
+ephemeral WebKit session instead. No private email fixtures are published.
+
+Local checks passed strict Clippy, cache corruption/binary overhead, legacy draft
+safety, and migration to Gmail drafts with preserved custom polling preferences.
+Linux CI exercises the new-reply unread update without replacing loaded widgets,
+plus actual native and AppImage HTML/media with the mail cache disabled. Results
+must be recorded from the completed run before claiming the new AppImage passed.
+
+[Linux run 40247171247](https://github.com/SleepyZzed/luma-mail/actions/runs/40247171247)
+passed actual WebKit layout, colours, hyperlink, prepared image and inert-content
+checks, followed by real RAM-backed WAV/WebM playback. This exposed and fixed a
+GStreamer registry path conflict with WebKit's sandbox device mounts. Registry
+metadata now stays in a private runtime directory, outside the message-cache
+budget (the initial codec inventory cannot be disabled with the update flag).
+The run then failed in the diagnostic screenshot path; capture now uses WebKit's document snapshot API.
+Packaged-engine acceptance is still required before publishing the new AppImage.
+
+## Completed Linux native and AppImage checks — 26 October 2026
+
+[Run 40249509620](https://github.com/SleepyZzed/luma-mail/actions/runs/40249509620)
+passed strict formatting/Clippy, 84 core tests, four desktop unit tests and the
+separately executed GTK/D-Bus acceptance test. Composer diagnostics passed initial
+To focus, completion, Tab/Shift+Tab, filename hyperlinks, Expand/Restore and absence
+of new local drafts. The new-reply test preserves the existing row and reader
+while restoring unread state.
+
+Both the native release and actual bundled AppImage passed sandboxed WebKit
+layout/colour/link/image/inert-content checks and RAM-backed WAV/WebM playback.
+Their captured newsletter PNGs were inspected and have identical SHA-256
+`bdf19a20ecc5898b61471330b19f2d3111bfc284040816dc743647cedbb3e8c9`.
+The bundle also passed GTK launch and dconf/session cursor preference checks.
+
+With cache set to zero, neither run created a body-cache directory, attachment
+spool or local composer store. Codec inventories were 1,037,145 bytes native and
+1,041,393 bytes bundled, containing plugin metadata in private runtime storage.
+The bundle includes distro notices and corresponding source-package links.
+These synthetic checks do not replace the remaining target-desktop/live-account
+checks listed in STATUS.md.
