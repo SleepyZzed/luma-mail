@@ -819,6 +819,12 @@ pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
     s.settings.borrow_mut().accounts.push(account);
     make(s, Compose::new("fixture@example.invalid".into()), None);
     let e = s.editor.borrow().as_ref().unwrap().clone();
+    assert_eq!(e.placement.get(), 3, "new composers start compact");
+    assert_eq!(
+        s.compose_stack.visible_child_name().as_deref(),
+        Some("mail")
+    );
+    expand_editor(&e);
     assert_eq!(
         s.compose_stack.visible_child_name().as_deref(),
         Some("compose")
