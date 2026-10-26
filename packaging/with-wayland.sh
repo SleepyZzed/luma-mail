@@ -8,7 +8,14 @@ cleanup() {
   # The session's document portal may leave its FUSE mount behind briefly after
   # the private bus exits. Detach only this fixture's mount before removing the
   # runtime directory; otherwise successful renderer runs fail during cleanup.
-  if mountpoint -q -- "$root/doc"; then sudo umount -l -- "$root/doc"; fi
+  if mountpoint -q -- "$root/doc"; then
+    # The portal can unmount between the check and umount. Fail only if our
+    # private mount still exists, never turn that harmless race into a UI failure.
+    if ! sudo umount -l -- "$root/doc" 2>/dev/null && mountpoint -q -- "$root/doc"; then
+      echo 'Could not detach the fixture document portal' >&2
+      return 1
+    fi
+  fi
   rm -rf -- "$root"
   return "$status"
 }
