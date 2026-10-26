@@ -18,6 +18,98 @@ use wiremock::{
     matchers::{body_json, header, method, path, query_param},
 };
 #[test]
+fn rich_replies_include_plain_and_html_alternatives_and_keep_quoted_history() {
+    let mut compose = Compose::new("sender@example.invalid".into());
+    compose.to = "recipient@example.invalid".into();
+    compose.html = true;
+    compose.text = crate::rich_draft::with_quote(
+        r#"<div data-luma-editor="1">Hello <strong>world</strong></div>"#,
+        "On yesterday: Original words",
+    );
+    compose.retained.push(RetainedAttachment {
+        name: "image.png".into(),
+        mime_type: "image/png".into(),
+        data: vec![1, 2, 3],
+        ..Default::default()
+    });
+    let bytes = compose.mime().unwrap();
+    let mail = mailparse::parse_mail(&bytes).unwrap();
+    assert_eq!(mail.ctype.mimetype, "multipart/mixed");
+    let alternatives = &mail.subparts[0];
+    assert_eq!(alternatives.ctype.mimetype, "multipart/alternative");
+    assert_eq!(alternatives.subparts[0].ctype.mimetype, "text/plain");
+    assert_eq!(alternatives.subparts[1].ctype.mimetype, "text/html");
+    let plain = alternatives.subparts[0].get_body().unwrap();
+    assert!(plain.contains("Original words") && plain.contains("world"));
+    let rich = crate::rich_draft::parse(&alternatives.subparts[1].get_body().unwrap()).unwrap();
+    assert!(!rich.text.contains("Original words"));
+    assert_eq!(rich.quote, "On yesterday: Original words");
+    assert_eq!(mail.subparts[1].get_body_raw().unwrap(), [1, 2, 3]);
+}
+#[tokio::test]
+async fn repeated_attachment_saves_update_one_draft_and_send_that_same_draft_once() {
+    let server = MockServer::start().await;
+    let revision = Arc::new(AtomicUsize::new(0));
+    Mock::given(method("POST"))
+        .and(path("/drafts"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"id":"one-draft","message":{"id":"m0"}})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let current = revision.clone();
+    Mock::given(method("GET")).and(path("/drafts/one-draft"))
+        .respond_with(move |_: &wiremock::Request| ResponseTemplate::new(200).set_body_json(json!({"id":"one-draft","message":{"id":format!("m{}",current.load(Ordering::SeqCst))}})))
+        .expect(2).mount(&server).await;
+    let current = revision.clone();
+    Mock::given(method("PUT"))
+        .and(path("/drafts/one-draft"))
+        .respond_with(move |_: &wiremock::Request| {
+            let n = current.fetch_add(1, Ordering::SeqCst) + 1;
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"id":"one-draft","message":{"id":format!("m{n}")}}))
+        })
+        .expect(2)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/drafts/send"))
+        .and(body_json(json!({"id":"one-draft"})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"id":"sent-once","labelIds":["SENT"]})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let gmail = gmail(&server);
+    let mut compose = Compose::new("sender@example.invalid".into());
+    compose.to = "recipient@example.invalid".into();
+    let mut draft = gmail
+        .save_draft(None, &compose.mime().unwrap(), None)
+        .await
+        .unwrap();
+    compose.retained.push(RetainedAttachment {
+        name: "pasted.png".into(),
+        mime_type: "image/png".into(),
+        data: vec![1, 2],
+        ..Default::default()
+    });
+    for body in [
+        "With pasted image",
+        "With image and Drive link https://drive.google.com/file/d/test/view",
+    ] {
+        compose.text = body.into();
+        draft = gmail
+            .save_draft(Some(&draft), &compose.mime().unwrap(), None)
+            .await
+            .unwrap();
+        assert_eq!(draft.id, "one-draft");
+    }
+    assert_eq!(gmail.send_draft(&draft).await.unwrap().id, "sent-once");
+}
+#[test]
 fn upgrade_keeps_gmail_drafts_and_custom_polling_preferences() {
     let root = tempfile::tempdir().unwrap();
     let paths = Paths {
@@ -1436,7 +1528,7 @@ async fn contact_photo_search_is_on_demand_projected_and_warms_only_once() {
     Mock::given(method("GET"))
         .and(path("/people:searchContacts"))
         .and(query_param("query", "sender@example.invalid"))
-        .and(query_param("pageSize", "10"))
+        .and(query_param("pageSize", "30"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"results":[]})))
         .expect(2)
         .mount(&server)

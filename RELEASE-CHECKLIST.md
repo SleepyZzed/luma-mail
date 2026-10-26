@@ -150,3 +150,14 @@ The remaining priorities and distribution gates are ordered in docs/roadmap.md.
 - [x] Save all attachments sequentially with cancellation and unique filenames.
 - [x] Record final 0.5 package/runtime storage and Linux execution evidence (run 40363407935).
 - [ ] Target Linux/two-account acceptance and Google approval remain 1.0 gates.
+
+## 0.6 reply and editing milestone
+
+- [x] Small inline reply controls; separate read-only quoted history.
+- [x] Serialized autosave/send and late clipboard/file callback protection.
+- [x] Recipient chips, numbered lists and bounded formatting-preserving undo/redo.
+- [x] Read-only conflict comparison and separate-copy identity.
+- [x] Real own-account photo retrieval with existing permission.
+- [x] Real self-mail: repeated attachment saves reuse one draft; one delivered mail.
+- [ ] Record final 0.6 Linux/AppImage/runtime evidence after publication gates pass.
+- [ ] Target Linux/two-account acceptance and Google approval remain required.

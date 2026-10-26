@@ -1,7 +1,7 @@
 # Road to 1.0
 
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
-0.5 is an early-access milestone, not a completed 1.0 release.
+0.6 is an early-access milestone, not a completed 1.0 release.
 
 ## This milestone
 
@@ -27,10 +27,18 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Sequential attachment Save all with progress, cancellation and safe filenames.
 - Separate whole-package/runtime allocation reports alongside zero-cache gates.
 
+## 0.6 reply and editing milestone
+
+- Small inline replies and separate read-only quoted history.
+- Native-size slide/reveal composer transitions without glyph stretching.
+- Serialized attachment autosaves/send, terminal sent state and late callback guards.
+- Recipient chips, numbered lists and formatting-preserving bounded rich undo/redo.
+- Read-only conflict comparison and distinct identity for intentionally separate copies.
+- Visible-avatar lookup scheduling and own-account photo using existing Drive access.
+
 ## Next implementation priorities
 
-1. Richer draft conflict comparison/merging, full rich-text undo/redo,
-   recipient chips and authorised send-as aliases. Keep complex HTML intact until
+1. Deliberate draft merging and authorised send-as aliases. Keep complex HTML intact until
    its editor can represent it without silently losing content.
 2. Inline image insertion and whole-conversation forwarding;
    interrupted Drive upload/sharing recovery and existing-file selection.

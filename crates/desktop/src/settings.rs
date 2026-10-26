@@ -144,6 +144,7 @@ pub fn open(s: &Rc<State>) {
                 .activatable(true)
                 .build();
             g.add(&retry);
+            crate::contact_photos::watch(s, &account.id, &retry);
             let state = Rc::downgrade(s);
             retry.connect_activated(move |_| {
                 if let Some(s) = state.upgrade() {
@@ -162,6 +163,7 @@ pub fn open(s: &Rc<State>) {
                 if !row.is_active() {
                     if let Some(a) = state.settings.borrow_mut().accounts.iter_mut().find(|a| a.id == account.id) { a.contact_photos = false; }
                     state.photos.clear();
+                    crate::contact_photos::queue(&state);
                     state.save();
                     return;
                 }

@@ -13,6 +13,10 @@ pub fn duration(s: &State, millis: u32) -> u32 {
     {
         0
     } else {
+        #[cfg(debug_assertions)]
+        if std::env::args().any(|a| a == "--motion-preview") {
+            return millis.saturating_mul(6);
+        }
         millis
     }
 }

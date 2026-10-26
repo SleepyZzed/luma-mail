@@ -19,7 +19,11 @@ pub(super) fn install(e: &Rc<Editor>) {
     });
 }
 fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
-    if e.closing.get() || e.busy.get() || e.clipboard_busy.replace(true) {
+    if e.closing.get()
+        || e.sent.get()
+        || (e.busy.get() && !e.form.is_sensitive())
+        || e.clipboard_busy.replace(true)
+    {
         return;
     }
     e.status.set_text("Reading image from clipboard…");
@@ -67,6 +71,7 @@ fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
             Ok(data) => data,
             Err(error) => {
                 e.clipboard_busy.set(false);
+                e.pending_send.set(false);
                 e.status.set_text(&error.to_string());
                 return;
             }
@@ -106,6 +111,7 @@ fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
                         if total > luma_core::composer::MAX_ATTACHMENT_BYTES
                             || e.retained.borrow().len() >= 64
                         {
+                            e.pending_send.set(false);
                             e.status.set_text(
                                 "Pasted/reopened attachments must fit within 16 MiB and 64 files.",
                             );
@@ -115,8 +121,13 @@ fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
                         render_files(&e);
                         changed(&e);
                         e.status.set_text("Image attached · Autosaves to Gmail");
+                        if !e.busy.get() && e.pending_send.replace(false) { persist(&e, true); }
+                        else if !e.busy.get() && e.close_after_save.get() { persist(&e, false); }
                     }
-                    Err(error) => e.status.set_text(&error.to_string()),
+                    Err(error) => {
+                        e.pending_send.set(false);
+                        e.status.set_text(&error.to_string());
+                    }
                 }
             },
         );

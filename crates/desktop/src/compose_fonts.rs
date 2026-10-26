@@ -75,6 +75,7 @@ fn chosen(e: &Rc<Editor>) {
             .set_text("This draft has too many formatting styles.");
         return;
     }
+    super::history::checkpoint(e);
     let size = SIZES
         .get(e.font_size.selected() as usize)
         .copied()
@@ -85,6 +86,7 @@ fn chosen(e: &Rc<Editor>) {
         changed(e);
     }
     e.text.grab_focus();
+    super::history::checkpoint(e);
 }
 pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
     let group = gtk::Box::new(gtk::Orientation::Horizontal, 4);
@@ -112,6 +114,7 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
     let weak = Rc::downgrade(e);
     reset.connect_clicked(move |_| {
         if let Some(e) = weak.upgrade() {
+            super::history::checkpoint(&e);
             *e.typing_font.borrow_mut() = (None, None);
             if let Some((a, z)) = e.text.buffer().selection_bounds() {
                 apply(&e, &a, &z);
@@ -119,6 +122,7 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
             }
             sync_controls(&e);
             e.text.grab_focus();
+            super::history::checkpoint(&e);
         }
     });
     let weak = Rc::downgrade(e);
@@ -195,7 +199,7 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
         sync_controls(&e);
     });
 }
-fn sync_controls(e: &Editor) {
+pub(super) fn sync_controls(e: &Editor) {
     e.font_sync.set(true);
     let (family, size) = e.typing_font.borrow().clone();
     let mut desc = gtk::pango::FontDescription::new();

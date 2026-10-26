@@ -15,8 +15,12 @@ use std::{
 };
 #[path = "compose_clipboard.rs"]
 mod clipboard;
+#[path = "compose_conflict.rs"]
+mod draft_conflict;
 #[path = "compose_fonts.rs"]
 mod fonts;
+#[path = "compose_history.rs"]
+mod history;
 #[path = "compose_motion.rs"]
 mod motion;
 #[path = "compose_recipients.rs"]
@@ -26,15 +30,25 @@ pub(crate) struct Editor {
     state: Rc<State>,
     window: adw::Window,
     root: gtk::Box,
+    surface: gtk::Box,
     header: adw::HeaderBar,
+    inline_header: gtk::Box,
+    from_row: gtk::Box,
+    field_separator: gtk::Separator,
+    body_scroll: gtk::ScrolledWindow,
+    quote: String,
+    include_quote: gtk::CheckButton,
     placement: Cell<u8>,
     motion_busy: Cell<bool>,
+    history: history::History,
     detached_expanded: Cell<bool>,
     clipboard_busy: Cell<bool>,
     popout: gtk::Button,
     inline_origin: glib::WeakRef<gtk::Box>,
     close_after_save: Cell<bool>,
     from: gtk::DropDown,
+    chips: recipients::Chips,
+    field_sync: Cell<bool>,
     accounts: Vec<luma_core::config::Account>,
     to: gtk::Entry,
     cc: gtk::Entry,
@@ -51,10 +65,13 @@ pub(crate) struct Editor {
     upload_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     cancel_upload: gtk::Button,
     template: Compose,
+    message_id: RefCell<String>,
     draft: RefCell<Option<Draft>>,
     revision: Cell<u64>,
     saved: Cell<u64>,
     busy: Cell<bool>,
+    sent: Cell<bool>,
+    pending_send: Cell<bool>,
     uncertain: Cell<bool>,
     conflict: Cell<bool>,
     conflict_bar: gtk::Box,
@@ -91,7 +108,7 @@ impl Editor {
     }
 }
 fn focus_message(e: &Editor) {
-    if e.to.text().is_empty() {
+    if recipients::value(e, &e.to).is_empty() {
         e.to.grab_focus();
     } else {
         e.text.grab_focus();
@@ -99,7 +116,7 @@ fn focus_message(e: &Editor) {
 }
 // Handle traversal at the editor root, before GtkText/Entry/TextView consume it.
 // In the body, Tab still indents lists; Shift+Tab returns to Subject.
-fn focus_tab(e: &Editor, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -> bool {
+fn focus_tab(e: &Rc<Editor>, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -> bool {
     if !matches!(key, gtk::gdk::Key::Tab | gtk::gdk::Key::ISO_Left_Tab)
         || mods.intersects(gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::ALT_MASK)
     {
@@ -118,11 +135,16 @@ fn focus_tab(e: &Editor, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -> bo
         if !backwards && index < 3 && recipients::complete(e, fields[index]) {
             return true;
         }
+        if !backwards && index < 3 {
+            recipients::commit_typed(e, fields[index]);
+        }
         if backwards {
             if let Some(field) = fields[..index].iter().rev().find(|f| f.is_mapped()) {
                 field.grab_focus();
-            } else {
+            } else if e.from.is_mapped() {
                 e.from.grab_focus();
+            } else {
+                return false;
             }
         } else if let Some(field) = fields[index + 1..].iter().find(|f| f.is_mapped()) {
             field.grab_focus();
@@ -131,8 +153,17 @@ fn focus_tab(e: &Editor, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -> bo
         }
         return true;
     }
+    if backwards
+        && (focus == e.text || focus.is_ancestor(&e.text))
+        && !e.html.is_active()
+        && crate::compose_lists::key(&e.text.buffer(), key, mods)
+    {
+        return true;
+    }
     if backwards && (focus == e.text || focus.is_ancestor(&e.text)) {
-        e.subject.grab_focus();
+        if let Some(field) = fields.iter().rev().find(|f| f.is_mapped()) {
+            field.grab_focus();
+        }
         return true;
     }
     if !backwards && (focus == e.from || focus.is_ancestor(&e.from)) {
@@ -155,8 +186,7 @@ fn expand_editor(e: &Rc<Editor>) {
                 detach(e);
                 e.placement.set(1);
                 motion::reset_layout(e);
-                e.root.add_css_class("inline-composer");
-                e.text.set_height_request(200);
+                motion::inline(e);
                 slot.append(&e.root);
                 e.state
                     .compose_stack
@@ -176,7 +206,6 @@ fn expand_editor(e: &Rc<Editor>) {
                 e.window.set_default_size(760, 640);
             }
             motion::controls(e);
-            crate::presentation::enter(&e.state, &e.root);
         }
         _ => show_full(e),
     }
@@ -200,7 +229,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
         assert!(ticks < 80, "composer diagnostics timed out");
         let current = state.editor.borrow().clone();
         match stage {
-            0 => {
+            0 if !original.motion_busy.get() => {
                 let e = current.unwrap();
                 let focus =
                     gtk::prelude::GtkWindowExt::focus(&e.parent()).expect("new composer focus");
@@ -214,7 +243,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                     return glib::ControlFlow::Continue;
                 }
                 assert!(recipients::complete(&e, &e.to));
-                assert!(e.to.text().contains("jamie@example.invalid"));
+                assert!(recipients::value(&e, &e.to).contains("jamie@example.invalid"));
                 let key = |backwards: bool| {
                     let controllers = e.root.observe_controllers();
                     for i in 0..controllers.n_items() {
@@ -385,7 +414,9 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                     id: "newer-gmail-draft".into(),
                     message: Message::default(),
                 });
+                let old_id = original.message_id.borrow().clone();
                 save_conflict_copy(&original);
+                assert_ne!(*original.message_id.borrow(), old_id);
                 assert!(original.draft.borrow().is_none() && !original.conflict.get());
                 assert!(!original.conflict_bar.is_visible());
                 finish(&original);
@@ -412,6 +443,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                 );
                 assert!(state.local_compose.drafts().unwrap().is_empty());
                 println!("PASS normal composition creates no local draft files; Gmail owns drafts");
+                verify_inline_reply(&state);
                 state.app.quit();
                 return glib::ControlFlow::Break;
             }
@@ -419,6 +451,54 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
         }
         glib::ControlFlow::Continue
     });
+}
+#[cfg(debug_assertions)]
+fn verify_inline_reply(s: &Rc<State>) {
+    let slot = vbox(0);
+    s.reader.append(&slot);
+    let mut message = Compose::new("alex@example.com".into());
+    message.to = "jamie@example.invalid".into();
+    message.html = true;
+    message.text = luma_core::rich_draft::with_quote(
+        "<div data-luma-editor=\"1\"></div>",
+        "On yesterday, Jamie wrote:\nPrevious mail",
+    );
+    make_at(s, message, None, Some(slot.clone()));
+    let editor = s.editor.borrow().clone().unwrap();
+    assert_eq!(editor.placement.get(), 1);
+    assert!(!editor.header.is_visible() && editor.inline_header.is_visible());
+    assert!(!gtk::prelude::WidgetExt::is_visible(&editor.subject) && !editor.from_row.is_visible());
+    assert!(!editor.form.vexpands());
+    assert_eq!(
+        editor.text.buffer().char_count(),
+        0,
+        "history is not editable reply text"
+    );
+    editor.text.buffer().set_text("My new reply");
+    let outbound = snapshot(&editor).unwrap();
+    let parsed = luma_core::rich_draft::parse(&outbound.text).unwrap();
+    assert_eq!(parsed.text.trim(), "My new reply");
+    assert!(parsed.quote.contains("Previous mail"));
+    editor.include_quote.set_active(false);
+    assert!(!snapshot(&editor).unwrap().text.contains("Previous mail"));
+    recipients::verify(&editor);
+    history::verify(&editor);
+    editor.sent.set(true);
+    editor.closing.set(true);
+    let revision = editor.revision.get();
+    changed(&editor);
+    persist(&editor, false);
+    persist(&editor, true);
+    assert_eq!(
+        editor.revision.get(),
+        revision,
+        "confirmed sends are terminal"
+    );
+    finish(&editor);
+    s.reader.remove(&slot);
+    println!(
+        "PASS native compact inline reply, separate read-only quote, quote exclusion and no post-send autosave"
+    );
 }
 fn detach(e: &Editor) {
     if e.placement.get() == 2 {
@@ -487,7 +567,7 @@ fn pop_out(e: &Rc<Editor>) {
     e.state.compose_stack.set_visible_child_name("mail");
     motion::controls(e);
     e.window.present();
-    crate::presentation::enter(&e.state, &e.root);
+
     focus_message(e);
 }
 pub fn park_inline(s: &Rc<State>) {
@@ -507,6 +587,7 @@ fn finish(e: &Rc<Editor>) {
         return;
     }
     e.closing.set(true);
+    history::cancel_pending(e);
     e.local_closed
         .store(true, std::sync::atomic::Ordering::SeqCst);
     if let Some(timer) = e.debounce.borrow_mut().take() {
@@ -527,15 +608,21 @@ fn release_editor(e: &Rc<Editor>) {
         .is_some_and(|current| Rc::ptr_eq(current, e));
     if owns {
         e.state.editor.borrow_mut().take();
-        if e.state.compose_stack.visible_child_name().as_deref() == Some("compose") {
-            e.state.compose_stack.set_visible_child_name("mail");
-        }
+        e.state
+            .compose_stack
+            .set_visible_child_full("mail", gtk::StackTransitionType::None);
     }
     e.window.destroy();
 }
 fn request_close(e: &Rc<Editor>) -> glib::Propagation {
     if e.closing.get() {
         return glib::Propagation::Proceed;
+    }
+    if e.clipboard_busy.get() {
+        e.close_after_save.set(true);
+        e.status
+            .set_text("Finishing the pasted image before saving and closing…");
+        return glib::Propagation::Stop;
     }
     #[cfg(debug_assertions)]
     if std::env::args().any(|arg| arg == "--design-preview") {
@@ -727,6 +814,9 @@ fn open_internal(
         c.thread = Some(d.message.thread_id.clone());
         c.reply_to = p.header("In-Reply-To").into();
         c.references = p.header("References").into();
+        if !p.header("Message-ID").is_empty() {
+            c.message_id = p.header("Message-ID").into();
+        }
         let mut html = None;
         p.walk(&mut |p| {
             if p.mime_type == "text/html" && p.filename.is_empty() {
@@ -742,18 +832,32 @@ fn open_internal(
     } else if let Some((m, mode)) = reply {
         if mode < 2 {
             c = Compose::reply(a.email, &m, mode == 1);
-            c.text = format!(
-                "{}\n\nOn {}, {} wrote:\n{}",
-                a.signature,
+            let previous = readable(&m.payload).unwrap_or_default();
+            let mut excerpt: String = previous.chars().take(32768).collect();
+            if previous.chars().nth(32768).is_some() {
+                excerpt.push_str(
+                    "\n[Earlier message shortened; open the original email to read it in full.]",
+                );
+            }
+            let quoted = format!(
+                "On {}, {} wrote:\n{}",
                 m.payload.header("Date"),
                 m.payload.header("From"),
-                readable(&m.payload)
-                    .unwrap_or_default()
-                    .lines()
-                    .map(|l| format!("> {l}"))
-                    .collect::<Vec<_>>()
-                    .join("\n")
+                excerpt.trim()
             );
+            let body = if a.signature.is_empty() {
+                String::new()
+            } else {
+                format!("\n\n{}", a.signature)
+            };
+            c.text = luma_core::rich_draft::with_quote(
+                &format!(
+                    "<div data-luma-editor=\"1\" style=\"white-space:pre-wrap\">{}</div>",
+                    escape(&body)
+                ),
+                &quoted,
+            );
+            c.html = true;
         } else {
             c.subject = format!("Fwd: {}", m.payload.header("Subject"));
             c.text = format!(
@@ -918,6 +1022,24 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     save.add_css_class("flat");
     header.pack_end(&save);
     root.append(&header);
+    let inline_header = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    inline_header.add_css_class("inline-reply-header");
+    let reply_title = label("Reply", "heading");
+    inline_header.append(&reply_title);
+    let identity = label(&format!("from {}", c.from), "caption");
+    identity.set_hexpand(true);
+    identity.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+    inline_header.append(&identity);
+    let inline_save = ui::button("document-save-symbolic", "Save reply to Gmail");
+    let inline_expand = ui::button("view-fullscreen-symbolic", "Expand reply");
+    let inline_popout = ui::button("window-new-symbolic", "Pop out reply");
+    let inline_close = ui::button("window-close-symbolic", "Save reply and close");
+    for button in [&inline_save, &inline_expand, &inline_popout, &inline_close] {
+        button.add_css_class("flat");
+        inline_header.append(button);
+    }
+    inline_header.set_visible(false);
+    root.append(&inline_header);
     let conflict_bar = vbox(6);
     conflict_bar.add_css_class("draft-conflict");
     ui::margins(&conflict_bar, 12);
@@ -928,6 +1050,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     notice.set_wrap(true);
     conflict_bar.append(&notice);
     let save_copy = gtk::Button::with_label("Save my version as a separate Gmail draft");
+    let compare = gtk::Button::with_label("Compare my version with Gmail");
+    conflict_bar.append(&compare);
     conflict_bar.append(&save_copy);
     conflict_bar.set_visible(false);
     root.append(&conflict_bar);
@@ -967,7 +1091,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         toggle.connect_toggled(move |b| row.set_visible(b.is_active()));
         to_row.append(&toggle);
     }
-    fields.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    let field_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+    fields.append(&field_separator);
     let subject = gtk::Entry::builder()
         .placeholder_text("Subject")
         .text(&c.subject)
@@ -1020,13 +1145,35 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         }
         text.buffer().tag_table().add(&tag);
     }
-    form.append(
-        &gtk::ScrolledWindow::builder()
-            .vexpand(true)
-            .min_content_height(240)
-            .child(&text)
-            .build(),
-    );
+    let body_scroll = gtk::ScrolledWindow::builder()
+        .vexpand(true)
+        .min_content_height(240)
+        .child(&text)
+        .build();
+    form.append(&body_scroll);
+    let quote = rich.as_ref().map(|r| r.quote.clone()).unwrap_or_default();
+    let include_quote = gtk::CheckButton::with_label("Include previous message when sending");
+    include_quote.set_active(!quote.is_empty());
+    if !quote.is_empty() {
+        let details = vbox(6);
+        details.append(&include_quote);
+        let quoted = label(&quote, "caption");
+        quoted.set_wrap(true);
+        quoted.set_selectable(true);
+        quoted.set_max_width_chars(70);
+        let scroll = gtk::ScrolledWindow::builder()
+            .child(&quoted)
+            .max_content_height(160)
+            .propagate_natural_height(true)
+            .build();
+        details.append(&scroll);
+        let expand = gtk::Expander::builder()
+            .label("Previous message · read-only")
+            .child(&details)
+            .build();
+        expand.add_css_class("reply-quote");
+        form.append(&expand);
+    }
     let html = gtk::CheckButton::with_label("Edit HTML source");
     html.set_active(c.html && rich.is_none());
     html.set_tooltip_text(Some(
@@ -1096,19 +1243,37 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     template.attachments.clear();
     template.drive_files.clear();
     let (font_family, font_size) = fonts::controls();
+    // Snapshot the opaque content independently from the outer motion container.
+    let surface = vbox(0);
+    surface.set_vexpand(true);
+    while let Some(child) = root.first_child() {
+        root.remove(&child);
+        surface.append(&child);
+    }
+    root.append(&surface);
     let e = Rc::new(Editor {
         state: s.clone(),
         window,
         root,
+        surface,
         header,
+        inline_header,
+        from_row,
+        field_separator,
+        body_scroll,
+        quote,
+        include_quote,
         placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
         motion_busy: Cell::new(false),
+        history: Default::default(),
         detached_expanded: Cell::new(false),
         clipboard_busy: Cell::new(false),
         popout: popout.clone(),
         inline_origin: slot.as_ref().map(|s| s.downgrade()).unwrap_or_default(),
         close_after_save: Cell::new(false),
         from,
+        chips: Default::default(),
+        field_sync: Cell::new(false),
         accounts,
         to,
         cc,
@@ -1125,10 +1290,13 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         upload_cancel: Default::default(),
         cancel_upload,
         template,
+        message_id: RefCell::new(c.message_id.clone()),
         draft: RefCell::new(draft),
         revision: Cell::new(0),
         saved: Cell::new(0),
         busy: Cell::new(false),
+        sent: Cell::new(false),
+        pending_send: Cell::new(false),
         uncertain: Cell::new(false),
         conflict: Cell::new(false),
         conflict_bar,
@@ -1154,6 +1322,32 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         typing_font: RefCell::new((None, None)),
         font_sync: Cell::new(false),
         font_inserting: Cell::new(false),
+    });
+    for (button, action) in [
+        (inline_save, 0),
+        (inline_expand, 1),
+        (inline_popout, 2),
+        (inline_close, 3),
+    ] {
+        let weak = Rc::downgrade(&e);
+        button.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                match action {
+                    0 => persist(&e, false),
+                    1 => expand_editor(&e),
+                    2 => pop_out(&e),
+                    _ => {
+                        request_close(&e);
+                    }
+                }
+            }
+        });
+    }
+    let weak = Rc::downgrade(&e);
+    e.include_quote.connect_toggled(move |_| {
+        if let Some(e) = weak.upgrade() {
+            changed(&e);
+        }
     });
     s.compose_editors
         .borrow_mut()
@@ -1234,21 +1428,36 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             }
         });
     }
-    let list = ui::button("view-list-symbolic", "Toggle bullet list");
-    list.add_css_class("flat");
-    styling.append(&list);
-    let weak = Rc::downgrade(&e);
-    list.connect_clicked(move |_| {
-        if let Some(e) = weak.upgrade() {
-            if e.html.is_active() {
-                e.status
-                    .set_text("Switch off HTML source to edit a visual list.");
-                return;
+    for (icon, title, kind) in [
+        (
+            "view-list-symbolic",
+            "Toggle bullet list",
+            luma_core::lists::Kind::Bullet,
+        ),
+        (
+            "view-list-ordered-symbolic",
+            "Toggle numbered list",
+            luma_core::lists::Kind::Numbered,
+        ),
+    ] {
+        let list = ui::button(icon, title);
+        list.add_css_class("flat");
+        styling.append(&list);
+        let weak = Rc::downgrade(&e);
+        list.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                if e.html.is_active() {
+                    e.status
+                        .set_text("Switch off HTML source to edit a visual list.");
+                    return;
+                }
+                history::checkpoint(&e);
+                crate::compose_lists::toggle_kind(&e.text.buffer(), kind);
+                history::checkpoint(&e);
+                e.text.grab_focus();
             }
-            crate::compose_lists::toggle(&e.text.buffer());
-            e.text.grab_focus();
-        }
-    });
+        });
+    }
     let link = ui::button("insert-link-symbolic", "Insert link");
     link.add_css_class("flat");
     styling.append(&link);
@@ -1333,7 +1542,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     for field in [&e.to, &e.cc, &e.bcc, &e.subject] {
         let weak = Rc::downgrade(&e);
         field.connect_changed(move |_| {
-            if let Some(e) = weak.upgrade() {
+            if let Some(e) = weak.upgrade()
+                && !e.field_sync.get()
+            {
                 changed(&e);
             }
         });
@@ -1359,6 +1570,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let weak = Rc::downgrade(&e);
         e.html.connect_toggled(move |mode| {
             if let Some(e) = weak.upgrade() {
+                if e.history.restoring.get() {
+                    return;
+                }
+                history::checkpoint_mode(&e, !mode.is_active());
                 let buffer = e.text.buffer();
                 if mode.is_active() {
                     let source = formatted_html(&buffer);
@@ -1374,6 +1589,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
                     }
                 }
                 changed(&e);
+                history::checkpoint(&e);
             }
         });
     }
@@ -1400,6 +1616,12 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         save_copy.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
                 save_conflict_copy(&e);
+            }
+        });
+        let weak = Rc::downgrade(&e);
+        compare.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                draft_conflict::compare(&e);
             }
         });
     }
@@ -1476,6 +1698,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         });
     }
     e.text.add_controller(drop);
+    if is_new {
+        e.text.buffer().place_cursor(&e.text.buffer().start_iter());
+    }
     if e.draft.borrow().is_some() {
         e.from.set_sensitive(false);
     }
@@ -1487,9 +1712,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
     *s.editor.borrow_mut() = Some(e.clone());
     if let Some(slot) = slot {
-        e.root.add_css_class("inline-composer");
+        motion::inline(&e);
         slot.append(&e.root);
-        e.text.set_height_request(200);
         s.window.present();
         focus_message(&e);
         motion::controls(&e);
@@ -1498,7 +1722,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         motion::controls(&e);
         s.window.present();
         focus_message(&e);
-        crate::presentation::enter(s, &e.root);
+        motion::enter(&e);
     }
     render_files(&e);
     highlight_links(&e);
@@ -1519,6 +1743,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     );
     recipients::install(&e);
     clipboard::install(&e);
+    history::install(&e, &styling);
+    focus_message(&e);
     if is_new
         && (!e.template.text.is_empty()
             || !e.template.to.is_empty()
@@ -1528,6 +1754,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
 }
 fn changed(e: &Rc<Editor>) {
+    if e.sent.get() || e.closing.get() || e.history.restoring.get() {
+        return;
+    }
     e.revision.set(e.revision.get() + 1);
     if e.conflict.get() {
         e.status.set_text("Draft changed in Gmail · Your version is kept here. Save a separate draft to continue.");
@@ -1552,6 +1781,9 @@ fn changed(e: &Rc<Editor>) {
         e.status.set_text("Unsaved changes. Check Gmail Sent/Drafts after the interrupted request; automatic saves and sending are locked.");
         return;
     }
+    if e.busy.get() {
+        return;
+    }
     e.status.set_text("Unsaved changes");
     if let Some(id) = e.debounce.borrow_mut().take() {
         id.remove();
@@ -1560,7 +1792,11 @@ fn changed(e: &Rc<Editor>) {
     let id = glib::timeout_add_local_once(Duration::from_secs(2), move || {
         if let Some(e) = weak.upgrade() {
             e.debounce.borrow_mut().take();
-            if !e.busy.get() {
+            if !e.busy.get()
+                && !e.sent.get()
+                && !e.closing.get()
+                && e.revision.get() != e.saved.get()
+            {
                 persist(&e, false);
             }
         }
@@ -1896,6 +2132,7 @@ fn format_selection(e: &Rc<Editor>, tag: &str) {
         return;
     }
     let buffer = e.text.buffer();
+    history::checkpoint(e);
     if let Some((a, z)) = buffer.selection_bounds() {
         if let Some(format) = buffer.tag_table().lookup(tag) {
             if a.has_tag(&format) {
@@ -1904,6 +2141,7 @@ fn format_selection(e: &Rc<Editor>, tag: &str) {
                 buffer.apply_tag(&format, &a, &z);
             }
             changed(e);
+            history::checkpoint(e);
         }
     } else {
         e.status
@@ -1950,7 +2188,7 @@ fn has_formatting(buffer: &gtk::TextBuffer) -> bool {
 }
 fn formatted_html(buffer: &gtk::TextBuffer) -> String {
     let mut output = String::from("<div data-luma-editor=\"1\" style=\"white-space:pre-wrap\">");
-    let mut depth = 0;
+    let mut stack: Vec<luma_core::lists::Kind> = vec![];
     for n in 0..buffer.line_count() {
         let start = buffer.iter_at_line(n).unwrap_or_else(|| buffer.end_iter());
         let mut end = start;
@@ -1958,29 +2196,33 @@ fn formatted_html(buffer: &gtk::TextBuffer) -> String {
             end.forward_to_line_end();
         }
         let text = buffer.text(&start, &end, false);
-        if let Some((level, skip)) = crate::compose_lists::prefix(&text) {
-            let target = (level + 1).min(depth + 1);
-            if target > depth {
-                while depth < target {
-                    output.push_str("<ul><li>");
-                    depth += 1;
-                }
+        if let Some(marker) = luma_core::lists::marker(&text) {
+            let target = (marker.depth + 1).min(stack.len() + 1);
+            while stack.len() > target {
+                output.push_str(&format!("</li></{}>", stack.pop().unwrap().tag()));
+            }
+            if stack.len() == target && stack.last() != Some(&marker.kind) {
+                output.push_str(&format!("</li></{}>", stack.pop().unwrap().tag()));
+            }
+            if stack.len() < target {
+                output.push_str(&format!("<{}>", marker.kind.tag()));
+                stack.push(marker.kind);
             } else {
-                while depth > target {
-                    output.push_str("</li></ul>");
-                    depth -= 1;
-                }
-                output.push_str("</li><li>");
+                output.push_str("</li>");
+            }
+            if marker.kind == luma_core::lists::Kind::Numbered {
+                output.push_str(&format!("<li value=\"{}\">", marker.number));
+            } else {
+                output.push_str("<li>");
             }
             output.push_str(&formatted_range(
                 buffer,
-                start.offset() + skip,
+                start.offset() + marker.chars,
                 end.offset(),
             ));
         } else {
-            while depth > 0 {
-                output.push_str("</li></ul>");
-                depth -= 1;
+            while let Some(kind) = stack.pop() {
+                output.push_str(&format!("</li></{}>", kind.tag()));
             }
             output.push_str(&formatted_range(buffer, start.offset(), end.offset()));
             if n + 1 < buffer.line_count() {
@@ -1988,9 +2230,8 @@ fn formatted_html(buffer: &gtk::TextBuffer) -> String {
             }
         }
     }
-    while depth > 0 {
-        output.push_str("</li></ul>");
-        depth -= 1;
+    while let Some(kind) = stack.pop() {
+        output.push_str(&format!("</li></{}>", kind.tag()));
     }
     output.push_str("</div>");
     output
@@ -2025,13 +2266,15 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
             }
             previous = tags;
         }
-        let ch = iter.char();
-        if ch == '\n' {
-            output.push_str("<br>");
-        } else {
-            output.push_str(&escape(&ch.to_string()));
+        let mut next = iter;
+        if !next.forward_to_tag_toggle(None::<&gtk::TextTag>) || next.offset() > end {
+            next = buffer.iter_at_offset(end);
         }
-        iter.forward_char();
+        if next.offset() <= iter.offset() {
+            next.forward_char();
+        }
+        output.push_str(&escape(&buffer.text(&iter, &next, false)).replace('\n', "<br>"));
+        iter = next;
     }
     for tag in previous.iter().rev() {
         output.push_str(&format!(
@@ -2076,6 +2319,7 @@ fn insert_link(e: &Rc<Editor>) {
                 .set_text("Use an https://, http:// or mailto: link.");
             return;
         }
+        history::checkpoint(&e);
         let buffer = e.text.buffer();
         let (a, z) = if let Some(bounds) = buffer.selection_bounds() {
             bounds
@@ -2098,6 +2342,7 @@ fn insert_link(e: &Rc<Editor>) {
         }
         buffer.apply_tag(&tag, &a, &z);
         changed(&e);
+        history::checkpoint(&e);
         e.text.grab_focus();
     });
 }
@@ -2188,16 +2433,24 @@ fn snapshot_impl(e: &Editor, mime: bool) -> Result<Compose> {
         .get(e.from.selected() as usize)
         .ok_or_else(|| Error::Invalid("Choose a sending account".into()))?;
     let mut c = e.template.clone();
+    c.message_id = e.message_id.borrow().clone();
     c.from = a.email.clone();
-    c.to = e.to.text().into();
-    c.cc = e.cc.text().into();
-    c.bcc = e.bcc.text().into();
+    c.to = recipients::value(e, &e.to);
+    c.cc = recipients::value(e, &e.cc);
+    c.bcc = recipients::value(e, &e.bcc);
     c.subject = e.subject.text().into();
     let b = e.text.buffer();
     c.text = b.text(&b.start_iter(), &b.end_iter(), false).into();
     c.html = e.html.is_active();
-    if mime && !c.html && has_formatting(&b) {
+    if mime
+        && !c.html
+        && (has_formatting(&b) || (!e.quote.is_empty() && e.include_quote.is_active()))
+    {
         c.text = formatted_html(&b);
+        c.html = true;
+    }
+    if mime && e.include_quote.is_active() && !e.quote.is_empty() {
+        c.text = luma_core::rich_draft::with_quote(&c.text, &e.quote);
         c.html = true;
     }
     c.attachments = e.attachments.borrow().clone();
@@ -2208,18 +2461,36 @@ fn snapshot_impl(e: &Editor, mime: bool) -> Result<Compose> {
     Ok(c)
 }
 fn persist(e: &Rc<Editor>, send: bool) {
+    if e.sent.get() || e.closing.get() {
+        return;
+    }
     if e.conflict.get() {
         e.conflict_bar.set_visible(true);
         return;
     }
     if e.clipboard_busy.get() {
-        e.status
-            .set_text("Wait for the pasted image to finish attaching.");
+        if send {
+            e.pending_send.set(true);
+        }
+        e.status.set_text(if send {
+            "Finishing image preparation, then sending…"
+        } else {
+            "Wait for the pasted image to finish attaching."
+        });
         return;
     }
     if e.busy.get() || e.uncertain.get() {
+        if send && e.busy.get() && !e.uncertain.get() {
+            e.pending_send.set(true);
+            e.status
+                .set_text("Waiting for the current save/upload, then sending your latest changes…");
+        }
         return;
     }
+    if let Some(timer) = e.debounce.borrow_mut().take() {
+        timer.remove();
+    }
+    e.pending_send.set(false);
     let c = match snapshot(e) {
         Ok(c) => c,
         Err(err) => {
@@ -2266,7 +2537,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
     if send {
         e.form.set_sensitive(false);
     }
-    e.send.set_sensitive(false);
+    e.send.set_sensitive(!send);
     e.save.set_sensitive(false);
     e.from.set_sensitive(false);
     e.status.set_text(if send {
@@ -2392,11 +2663,26 @@ fn persist(e: &Rc<Editor>, send: bool) {
             Ok((Ok(draft), None, false))
         },
         move |_, (result, persisted, uncertain)| {
-            editor.busy.set(false);
+            let succeeded_send = send && result.is_ok();
+            if succeeded_send {
+                history::verify(&editor);
+                editor.sent.set(true);
+                editor.closing.set(true);
+                editor.pending_send.set(false);
+                if let Some(timer) = editor.debounce.borrow_mut().take() {
+                    timer.remove();
+                }
+                if let Some(timer) = editor.local_debounce.borrow_mut().take() {
+                    timer.remove();
+                }
+            }
             editor.progress.set_visible(false);
             editor.cancel_upload.set_visible(false);
             editor.files.set_sensitive(true);
-            reconcile_drive_uploads(&editor);
+            if !succeeded_send {
+                reconcile_drive_uploads(&editor);
+            }
+            editor.busy.set(false);
             editor.form.set_sensitive(true);
             editor.save.set_sensitive(true);
             if let Some(draft) = persisted {
@@ -2412,6 +2698,10 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     } else {
                         "Saved in Gmail"
                     });
+                    if !send && editor.pending_send.replace(false) {
+                        persist(&editor, true);
+                        return;
+                    }
                     if send {
                         editor
                             .local_closed
@@ -2438,11 +2728,9 @@ fn persist(e: &Rc<Editor>, send: bool) {
                             );
                         }
                         editor.closing.set(true);
-                        editor.send_reveal.set_reveal_child(false);
                         editor.state.toast("Sent · Confirmed by Gmail");
-                        let delay = crate::presentation::duration(&editor.state, 280) as u64;
                         let sent = editor.clone();
-                        glib::timeout_add_local_once(Duration::from_millis(delay), move || {
+                        glib::idle_add_local_once(move || {
                             finish(&sent);
                             let selected = sent.state.selected.borrow().clone();
                             if let Some(key) = selected
@@ -2465,7 +2753,10 @@ fn persist(e: &Rc<Editor>, send: bool) {
                                     editor.state.local_compose.remove(&editor.local_id.borrow());
                             }
                         }
-                        if editor.close_after_save.get() && editor.revision.get() == revision {
+                        if editor.close_after_save.get()
+                            && editor.revision.get() == revision
+                            && !editor.clipboard_busy.get()
+                        {
                             if editor.state.settings.borrow().local_drafts {
                                 save_local(&editor, true);
                             } else {
@@ -2481,6 +2772,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                     }
                 }
                 Err(err) => {
+                    editor.pending_send.set(false);
                     editor.status.set_text(&err.to_string());
                     if matches!(err, Error::DraftConflict) {
                         editor.conflict.set(true);
@@ -2516,6 +2808,7 @@ fn save_conflict_copy(e: &Rc<Editor>) {
     }
     // Never overwrite/delete the newer Gmail draft, and never send automatically.
     e.draft.borrow_mut().take();
+    *e.message_id.borrow_mut() = Compose::new(e.template.from.clone()).message_id;
     e.conflict.set(false);
     e.conflict_bar.set_visible(false);
     e.close_after_save.set(false);
@@ -2532,6 +2825,9 @@ fn attach_files(e: &Rc<Editor>) {
         let Ok(files) = dialog.open_multiple_future(Some(&e.parent())).await else {
             return;
         };
+        if e.closing.get() || e.sent.get() {
+            return;
+        }
         for i in 0..files.n_items() {
             if let Some(file) = files
                 .item(i)
