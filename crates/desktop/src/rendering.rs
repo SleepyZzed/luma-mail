@@ -406,9 +406,11 @@ mod linux {
             session.connect_download_started(|_, download| download.cancel());
             let mut pressure = webkit6::MemoryPressureSettings::new();
             pressure.set_memory_limit(256);
-            pressure.set_conservative_threshold(0.5);
-            pressure.set_strict_threshold(0.75);
             pressure.set_kill_threshold(0.);
+            // Each setter validates against the current neighbouring thresholds.
+            // Raise the default strict threshold before raising conservative.
+            pressure.set_strict_threshold(0.75);
+            pressure.set_conservative_threshold(0.5);
             pressure.set_poll_interval(30.);
             let context = webkit6::WebContext::builder()
                 .memory_pressure_settings(&pressure)
