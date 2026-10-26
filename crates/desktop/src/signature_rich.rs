@@ -112,9 +112,11 @@ impl RichEditor {
             None,
             None::<&gtk::gio::Cancellable>,
             move |result| {
-                done(result.map(|v| v.to_str().to_string()).map_err(|_| {
-                    Error::Invalid("The signature editor could not complete this action".into())
-                }))
+                done(
+                    result
+                        .map(|v| v.to_str().to_string())
+                        .map_err(|error| Error::Invalid(format!("Signature editor: {error}"))),
+                )
             },
         );
     }

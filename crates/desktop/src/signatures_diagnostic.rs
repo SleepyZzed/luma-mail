@@ -9,6 +9,10 @@ async fn js(e: &Editor, code: &str) -> String {
     rx.await.unwrap().unwrap()
 }
 async fn snapshot(e: &Editor) -> String {
+    println!(
+        "Signature snapshot world: {}",
+        js(e, "typeof window.lumaSignature").await
+    );
     let (tx, rx) = tokio::sync::oneshot::channel();
     e.rich.snapshot(move |result| {
         let _ = tx.send(result);
