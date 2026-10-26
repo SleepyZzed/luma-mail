@@ -46,6 +46,13 @@ struct Photo {
     fallback: bool,
 }
 
+/// A From header is a mailbox, not necessarily a bare email address.
+pub fn sender_email(sender: &str) -> Result<String> {
+    if sender.len() > 2048 {
+        return Err(Error::Invalid("Sender header is too long".into()));
+    }
+    crate::sender_rules::address(sender)
+}
 fn photo_url(search: Search, email: &str) -> Option<url::Url> {
     search
         .results
@@ -56,7 +63,12 @@ fn photo_url(search: Search, email: &str) -> Option<url::Url> {
                 .iter()
                 .any(|a| a.value.eq_ignore_ascii_case(email))
         })
-        .flat_map(|r| r.person.photos)
+        .find_map(|r| person_photo(r.person))
+}
+fn person_photo(person: Person) -> Option<url::Url> {
+    person
+        .photos
+        .into_iter()
         .filter(|p| !p.fallback)
         .find_map(|p| {
             if p.url.len() > 8192 {
@@ -96,6 +108,8 @@ impl Photos {
                         ("query", query.into()),
                         ("pageSize", "10".into()),
                         ("readMask", "emailAddresses,photos".into()),
+                        ("sources", "READ_SOURCE_TYPE_CONTACT".into()),
+                        ("sources", "READ_SOURCE_TYPE_PROFILE".into()),
                         (
                             "fields",
                             "results(person(emailAddresses(value),photos(url,default)))".into(),
@@ -108,9 +122,7 @@ impl Photos {
         .await
     }
     pub async fn get(&self, email: &str) -> Result<Option<Thumbnail>> {
-        if email.len() > 320 || !email.contains('@') || email.chars().any(char::is_control) {
-            return Ok(None);
-        }
+        let email = sender_email(email)?;
         {
             let mut warm = self.warm.lock().await;
             if warm.is_none_or(|at| at.elapsed() > Duration::from_secs(300)) {
@@ -120,13 +132,16 @@ impl Photos {
                 *warm = Some(Instant::now());
             }
         }
-        let Some(url) = photo_url(self.search(email).await?, email) else {
+        let Some(url) = photo_url(self.search(&email).await?, &email) else {
             return Ok(None);
         };
+        self.download(url).await.map(Some)
+    }
+    async fn download(&self, url: url::Url) -> Result<Thumbnail> {
         // Never send a Gmail/People bearer token, cookies or a referrer to the CDN.
         let response = self.client.http.public_get(url.as_str()).await?;
         let bytes = bounded_bytes(response, 2 * 1024 * 1024).await?;
-        tokio::task::spawn_blocking(move || crate::preview::thumbnail(&bytes, 96, 96).map(Some))
+        tokio::task::spawn_blocking(move || crate::preview::thumbnail(&bytes, 96, 96))
             .await
             .map_err(|_| Error::Invalid("Contact photo decode failed".into()))?
     }
@@ -134,6 +149,20 @@ impl Photos {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn from_headers_resolve_to_the_same_address_as_google_contacts() {
+        for sender in [
+            "Person <SENDER@example.com>",
+            "\"Last, First\" <sender@example.com>",
+            "Zéd <sender@example.com>",
+            "sender@example.com",
+        ] {
+            assert_eq!(sender_email(sender).unwrap(), "sender@example.com");
+        }
+        assert!(sender_email("a@example.com, b@example.com").is_err());
+        assert!(sender_email("not a mailbox").is_err());
+        assert!(sender_email("a@example.com\r\nBcc: b@example.com").is_err());
+    }
     #[test]
     fn matching_is_exact_and_photos_cannot_send_tokens_to_arbitrary_or_local_hosts() {
         let search = |email: &str, url: &str, fallback: bool| {

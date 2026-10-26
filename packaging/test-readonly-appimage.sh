@@ -15,5 +15,8 @@ cleanup() {
 }
 trap cleanup EXIT
 (cd "$root"; "$image" --appimage-extract >/dev/null)
+python3 packaging/audit-storage.py --tree compressed_appimage "$image" \
+  --tree extracted_installation "$root/squashfs-root" \
+  --output "${screenshot%.png}-package-storage.json"
 chmod -R a-w "$root/squashfs-root"
 bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$root/squashfs-root/AppRun" "$screenshot"

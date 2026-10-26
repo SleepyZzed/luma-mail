@@ -45,6 +45,7 @@ pub struct State {
     pub status: gtk::Label,
     pub sidebar: gtk::Box,
     pub sidebar_top: gtk::Box,
+    navigation: navigation::Navigation,
     sidebar_scroll: gtk::ScrolledWindow,
     pub list: gtk::ListBox,
     row_widgets: RefCell<HashMap<ThreadKey, rows::MailRow>>,
@@ -465,6 +466,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         status,
         sidebar,
         sidebar_top,
+        navigation: navigation::Navigation::default(),
         sidebar_scroll: ss,
         list,
         row_widgets: RefCell::new(HashMap::new()),
@@ -1832,13 +1834,17 @@ pub fn verify_view_behaviour(s: &Rc<State>) {
     *s.filter.borrow_mut() = Some("fixture".into());
     for _ in 0..2 {
         sidebar(s);
-        let mut child = s.sidebar.first_child();
+        let mut children = vec![s.sidebar.clone().upcast::<gtk::Widget>()];
         let mut found = false;
-        while let Some(widget) = child {
+        while let Some(widget) = children.pop() {
             found |= widget
                 .downcast_ref::<gtk::Button>()
                 .is_some_and(|button| button.tooltip_text().as_deref() == Some("Fixture label"));
-            child = widget.next_sibling();
+            let mut child = widget.first_child();
+            while let Some(widget) = child {
+                child = widget.next_sibling();
+                children.push(widget);
+            }
         }
         assert!(found, "unread/sidebar updates must retain label navigation");
     }
@@ -1873,7 +1879,12 @@ pub fn verify_selection(s: &Rc<State>) {
 }
 #[cfg(debug_assertions)]
 pub fn verify_navigation(s: &Rc<State>) {
+    navigation::fixture_unified(s, false);
     navigation::diagnostic(s);
+}
+#[cfg(debug_assertions)]
+pub fn scroll_navigation_fixture(s: &Rc<State>) {
+    navigation::fixture_unified(s, true);
 }
 pub fn valid_single_selection(s: &State) -> bool {
     let keys = selection::keys(s);

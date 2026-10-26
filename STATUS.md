@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-0.4.0 is **early access**. It does not complete the original brief. Google sign-in
+0.5.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Branding and data-access verification were submitted on 26 October
 2026 with an English demo and the homepage ownership appeal. Google Auth Platform
@@ -8,6 +8,18 @@ confirms both are under review. Submission is not approval; any assessment
 decision and Google's final response remain gates.
 
 ## Implemented and exercised
+
+- Unified mail folders start collapsed, with animated expansion/collapse. Account
+  groups remain mounted for opening/closing transitions and stable geometry.
+- New non-inline composers start in the existing compact overlay. Expand, Restore,
+  Back, inline replies and pop-out retain their established behavior.
+- Contact photos normalize display-name From headers to bare addresses. Saved
+  contacts can merge available Google profile photos, with bounded retries and
+  a Settings retry action. Arbitrary Gmail sender photos are not exposed by Gmail.
+- Save all attachments downloads sequentially to an explicitly selected folder,
+  with completion progress, cancellation and collision-safe filenames. It keeps
+  no attachment archive or upload/download spool.
+- Repeatable package/runtime storage reports now accompany Linux rendering gates.
 
 - Animated composer Back/compact/full-page transitions without main-window fullscreen changes.
 - Explicit per-account folders, stable sidebar geometry and right-click Gmail label deletion.

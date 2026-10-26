@@ -1445,7 +1445,7 @@ async fn contact_photo_search_is_on_demand_projected_and_warms_only_once() {
     photos.test_endpoint(format!("{}/people:searchContacts", server.uri()));
     assert!(
         photos
-            .get("sender@example.invalid")
+            .get("\"Sender, Example\" <SENDER@example.invalid>")
             .await
             .unwrap()
             .is_none()
@@ -1458,6 +1458,18 @@ async fn contact_photo_search_is_on_demand_projected_and_warms_only_once() {
             .is_none()
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 3);
+    for request in server.received_requests().await.unwrap() {
+        let sources: Vec<_> = request
+            .url
+            .query_pairs()
+            .filter(|(key, _)| key == "sources")
+            .map(|(_, value)| value.into_owned())
+            .collect();
+        assert_eq!(
+            sources,
+            ["READ_SOURCE_TYPE_CONTACT", "READ_SOURCE_TYPE_PROFILE"]
+        );
+    }
 }
 #[tokio::test]
 async fn public_contact_photo_transport_does_not_forward_authorization_or_cookies() {

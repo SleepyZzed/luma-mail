@@ -139,5 +139,14 @@ The remaining priorities and distribution gates are ordered in docs/roadmap.md.
 - [x] Right-click user-label deletion and context-sensitive Inbox/Important actions.
 - [x] Bounded clipboard-image attachments without a disk spool.
 - [x] Opt-in saved-contact photos without a contacts/photo database.
-- [ ] Record final Linux/AppImage and live Contacts/draft-conflict acceptance.
-- [ ] Complete the Google review video and submit eligible verification material.
+- [x] Record 0.4 Linux/AppImage and live Contacts/draft-conflict checks (see docs/verification.md).
+- [x] Complete the Google review video and submit eligible verification material (26 October; under review).
+
+## 0.5 hardening milestone
+
+- [x] Unified folders collapsed initially; animated unified/account disclosure.
+- [x] Compact-first new compose with existing layout and expansion behavior.
+- [x] Normalize named senders for available contact pictures, retry transient failures.
+- [x] Save all attachments sequentially with cancellation and unique filenames.
+- [ ] Record final 0.5 package/runtime storage and Linux execution evidence.
+- [ ] Target Linux/two-account acceptance and Google approval remain 1.0 gates.

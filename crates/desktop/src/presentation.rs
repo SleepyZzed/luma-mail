@@ -102,6 +102,7 @@ pub fn change_scale(s: &Rc<State>, direction: i32) {
 pub fn diagnostic(s: &Rc<State>) {
     assert!(s.clients.borrow().is_empty() && std::env::var_os("LUMA_TEST_ROOT").is_some());
     crate::ui::verify_selection(s);
+    crate::ui::scroll_navigation_fixture(s);
     s.window.set_default_size(1000, 620);
     let mut ancestor = s.sidebar.parent();
     let scroll = loop {

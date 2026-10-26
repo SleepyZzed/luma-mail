@@ -1,4 +1,5 @@
 //! Online-first mail services. No mailbox database or background history crawler.
+pub mod attachment_save;
 pub mod auth;
 pub mod cache;
 pub mod clipboard_image;

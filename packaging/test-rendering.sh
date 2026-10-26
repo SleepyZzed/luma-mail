@@ -56,3 +56,10 @@ if [[ -f "$codec_index" ]]; then
   echo "PASS private runtime codec inventory: $(stat -c %s "$codec_index") bytes, no mail data"
 fi
 echo 'PASS zero-budget HTML/media creates no body cache, attachment spool or local draft store'
+report=()
+if [[ -n ${LUMA_RENDER_SCREENSHOT:-} ]]; then
+  report=(--output "${LUMA_RENDER_SCREENSHOT%.png}-runtime-storage.json")
+fi
+python3 packaging/audit-storage.py --tree configuration "$root/app/config" \
+  --tree app_cache "$root/app/cache" --tree runtime "$root/runtime" \
+  --tree other_cache "$root/xdg-cache" "${report[@]}"
