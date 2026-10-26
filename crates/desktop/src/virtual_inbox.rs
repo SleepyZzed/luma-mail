@@ -167,6 +167,7 @@ impl Row {
             r.height(),
         ))
     }
+    #[cfg(debug_assertions)]
     pub fn last_child(&self) -> Option<gtk::Widget> {
         self.widget()?.last_child()
     }

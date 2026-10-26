@@ -5,7 +5,7 @@ pub(super) fn delete(s: &Rc<State>, keys: Vec<ThreadKey>) {
     if *s.folder.borrow() != Folder::Drafts || keys.is_empty() {
         return;
     }
-    if s.editor.borrow().is_some() {
+    if crate::compose::has_open_editor(s) {
         s.info("Close the composer before deleting drafts so an autosave cannot recreate one.");
         return;
     }
@@ -21,7 +21,7 @@ pub(super) fn delete(s: &Rc<State>, keys: Vec<ThreadKey>) {
     glib::spawn_future_local(async move {
         if dialog.choose_future(Some(&state.window)).await != "delete"
             || *state.folder.borrow() != Folder::Drafts
-            || state.editor.borrow().is_some()
+            || crate::compose::has_open_editor(&state)
         {
             return;
         }
@@ -82,7 +82,7 @@ fn run(s: &Rc<State>, keys: Vec<ThreadKey>) {
             }
             if let Some(error) = failure {
                 s.refresh_button.add_css_class("suggested-action");
-                s.error(&Error::Invalid(format!("{deleted} drafts deleted. {error} Refresh Drafts to reconcile any partial change.")));
+                s.error(&Error::Invalid(format!("{deleted} draft deletions confirmed in completed conversations. {error} A failed conversation may be partly changed; refresh Drafts.")));
             } else {
                 s.info(&format!(
                     "Deleted {deleted} Gmail draft(s). Other messages were kept."

@@ -1416,7 +1416,11 @@ fn idle_reclaim(s: &Rc<State>) {
         }
         let Some(s) = weak.upgrade() else { return };
         if window.is_visible() {
-            if suspended.replace(false) {
+            if suspended.replace(false)
+                && s.reader_request.borrow().is_none()
+                && s.body_requests.borrow().is_empty()
+                && s.selected_message.borrow().is_none()
+            {
                 let selected = s.selected.borrow().clone();
                 if let Some(key) = selected {
                     open_thread(&s, key);
@@ -1432,7 +1436,7 @@ fn idle_reclaim(s: &Rc<State>) {
                     source.borrow_mut().take();
                     let Some(s) = weak.upgrade() else { return };
                     if s.window.is_visible()
-                        || s.editor.borrow().is_some()
+                        || crate::compose::has_open_editor(&s)
                         || s.attachment_window
                             .borrow()
                             .upgrade()

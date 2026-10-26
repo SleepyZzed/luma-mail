@@ -1691,3 +1691,29 @@ fn message_actions_and_composer_snapshots_share_large_payloads_in_ram() {
             .all(|c| Arc::ptr_eq(&c.retained[0].data, &bytes))
     );
 }
+
+#[tokio::test]
+async fn autosave_revision_check_omits_headers_and_body_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/drafts/draft1"))
+        .and(query_param("format", "minimal"))
+        .and(query_param("fields", "message(id)"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"message":{"id":"current"}})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let old = crate::gmail::Draft {
+        id: "draft1".into(),
+        message: Message {
+            id: "stale".into(),
+            ..Default::default()
+        },
+    };
+    assert!(matches!(
+        gmail(&server)
+            .save_draft(Some(&old), b"synthetic", None)
+            .await,
+        Err(Error::DraftConflict)
+    ));
+}

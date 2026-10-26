@@ -737,6 +737,13 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
     }
     glib::Propagation::Proceed
 }
+pub fn has_open_editor(s: &State) -> bool {
+    s.compose_editors
+        .borrow()
+        .iter()
+        .filter_map(std::rc::Weak::upgrade)
+        .any(|e| !e.sent.get() && !e.closing.get())
+}
 pub fn prepare_quit(s: &Rc<State>) -> bool {
     let editor = s.editor.borrow().clone();
     if let Some(e) = editor {

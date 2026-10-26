@@ -415,6 +415,31 @@ impl Gmail {
         )
         .await
     }
+    async fn draft_revision(&self, id: &str) -> Result<String> {
+        #[derive(Deserialize)]
+        struct Revision {
+            message: Id,
+        }
+        #[derive(Deserialize)]
+        struct Id {
+            id: String,
+        }
+        check_id(id)?;
+        let current: Revision = json(
+            self.call(
+                Method::GET,
+                &format!("/drafts/{id}"),
+                &[
+                    ("format", "minimal".into()),
+                    ("fields", "message(id)".into()),
+                ],
+                None,
+            )
+            .await?,
+        )
+        .await?;
+        Ok(current.message.id)
+    }
     /// Explicit edit action only. Preserve attachments in bounded memory; never
     /// spool private draft attachments into an unbudgeted temporary directory.
     pub async fn edit_draft(
@@ -524,8 +549,8 @@ impl Gmail {
         thread: Option<&str>,
     ) -> Result<Draft> {
         if let Some(draft) = existing {
-            let current = self.draft(&draft.id).await?;
-            if current.message.id != draft.message.id {
+            let current = self.draft_revision(&draft.id).await?;
+            if current != draft.message.id {
                 return Err(Error::DraftConflict);
             }
         }
@@ -570,12 +595,12 @@ impl Gmail {
         // Preflight the whole selection before the first deletion. Gmail does
         // not provide compare-and-swap; recheck immediately before each DELETE.
         for draft in &drafts {
-            if self.draft(&draft.id).await?.message.id != draft.message.id {
+            if self.draft_revision(&draft.id).await? != draft.message.id {
                 return Err(Error::DraftConflict);
             }
         }
         for draft in &drafts {
-            if self.draft(&draft.id).await?.message.id != draft.message.id {
+            if self.draft_revision(&draft.id).await? != draft.message.id {
                 return Err(Error::DraftConflict);
             }
             self.discard_draft(&draft.id).await?;

@@ -263,6 +263,9 @@ pub(super) fn sort(a: &crate::virtual_inbox::Row, b: &crate::virtual_inbox::Row)
 }
 pub(super) fn display(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
     for item in items {
+        if s.rows.borrow().len() >= 1000 {
+            break;
+        }
         if s.row_widgets.borrow().contains_key(&item.key) {
             continue;
         }
@@ -282,7 +285,23 @@ pub(super) fn display(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
     ));
     selection::update(s);
 }
-pub(super) fn reconcile(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
+pub(super) fn reconcile(s: &Rc<State>, mut items: Vec<Conversation>, more: bool) {
+    items.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.key.cmp(&b.key)));
+    if items.len() > 1000 {
+        let selected = s
+            .selected
+            .borrow()
+            .as_ref()
+            .and_then(|key| items.iter().find(|r| &r.key == key))
+            .cloned();
+        items.truncate(1000);
+        if let Some(selected) = selected
+            && !items.iter().any(|r| r.key == selected.key)
+        {
+            items.pop();
+            items.push(selected);
+        }
+    }
     s.changing_selection.set(true);
     let keep: HashSet<_> = items.iter().map(|r| r.key.clone()).collect();
     let obsolete: Vec<_> = s

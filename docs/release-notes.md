@@ -44,4 +44,3 @@ audited separately from the configured body-cache budget.
 
 This is early access. Target Linux/two-account acceptance, sustained profiling,
 remaining roadmap features and Google's decision still block 1.0.
-
