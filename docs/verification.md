@@ -1,19 +1,66 @@
 # Verification log
 
-## 0.5 work in progress, 26 October 2026
+## Final 0.5 release
+
+[Release run 40363651714](https://github.com/SleepyZzed/luma-mail/actions/runs/40363651714)
+rebuilt `cedbedf3bfdad26ab7c8278d4d15b8b6501e920c` and repeated all Linux gates
+before [v0.5.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.5.0-dev.2).
+Its AppImage is 157,563,384 bytes; published SHA-256:
+`8089d1affd5fd64eef45fb418359380e352fbfa574f10650e3f2156f28598d78`.
+The downloaded AppImage matched SHA256SUMS and GitHub’s asset digest.
+The release includes package/runtime allocation JSON reports and synthetic
+renderer screenshots. Dev.2 includes the Mesa runtime hardening; dev.1 predates it.
+The README/homepage point to dev.2. Google branding/data-access review remains
+pending; no additional scope was added during this pass.
+
+## 0.5 hardening, 26 October 2026
 
 Windows strict Clippy and 95 core/5 desktop tests passed (one opt-in OS-vault
 test excluded). Native GTK diagnostics pass compact-first compose, To focus,
 Tab/Shift+Tab, font/link preservation, full/compact/Back transitions, no local
 draft creation, bulk selection, pinned navigation at 100/150%, and persistent
-account/unified expansion/collapse with long names. Linux package/runtime results
-will be recorded after the final build.
+account/unified expansion/collapse with long names. A native visual check
+confirmed the compact overlay with initial To focus and unchanged theme/layout.
+
+[Linux run 40361360863](https://github.com/SleepyZzed/luma-mail/actions/runs/40361360863)
+passed strict fmt/Clippy, 95 core/5 desktop tests and the separate GTK/D-Bus test,
+actual clipboard-image paste and composer transitions, animated navigation,
+native/bundled X11/Wayland HTML/media, isolated host WebKit and read-only package
+checks. The initial Linux lifecycle test's old full-page assumption was updated
+to exercise compact start followed by expansion; no lifecycle gate was removed.
+
+The first audit measured a 157,563,384-byte AppImage and 496,793,202 logical /
+510,812,160 allocated bytes extracted. Zero-cache renderer checks created no app
+body-cache files or new local drafts/attachment spool. About 2.1 MiB of other XDG
+cache allocation prompted additional Mesa runtime/size hardening. Final shader-hardened PR results follow below.
+
+[Final PR run 40363407935](https://github.com/SleepyZzed/luma-mail/actions/runs/40363407935)
+repeated all gates successfully on `cedbedf3bfdad26ab7c8278d4d15b8b6501e920c`,
+including private Mesa cache location/size configuration. The resulting AppImage
+was 157,563,384 bytes; its extracted tree was 496,789,106 logical / 510,808,064
+allocated bytes. Native/bundled/isolated X11 reports recorded zero app-cache files
+and zero other-XDG-cache files. Private session data (including Mesa, codecs and
+test portals) occupied 3,416,064–3,440,640 allocated bytes. The 36-byte fixture
+configuration occupied 8 KiB including its directory. These are synthetic test
+figures, not a claim that essential user settings/keyring need no storage.
+Wayland's fixture wrapper tears down its private runtime before the outer report;
+its zero post-run runtime count must not be read as zero live session memory or
+an all-driver cache guarantee. Test reports measure allocation, not RAM usage.
+The patch was merged through [PR #6](https://github.com/SleepyZzed/luma-mail/pull/6).
 
 A real read-only named-address Contacts query completed without an API error;
 the deleted disposable self-contact no longer has a matching photo. A separate
 people/me experiment returned 403 with the granted Contacts scope and was removed
 from production code. No extra scopes or third-party sender lookups were added.
+The exact-address and named-From normalization/transport guards pass tests.
 
+A temporary Windows debug cache stress driver wrote 2,000 × 64 KiB synthetic
+bodies through a 1 MiB allocation-aware budget. Usage after both 1,000 and 2,000
+writes was 1,040,384 bytes (14 entries); this was also the measured peak. Setting
+zero removed the body directory. Writes plus allocation checks took 6,932 ms;
+this measures cache I/O, not Gmail latency or a real large-account soak. The
+fixture directory and temporary driver were removed. The metadata pager's
+100,000-message fake mailbox still fetches only one 25-row page initially.
 
 ## 0.4 acceptance, 26 October 2026
 

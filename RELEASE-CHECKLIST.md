@@ -148,5 +148,5 @@ The remaining priorities and distribution gates are ordered in docs/roadmap.md.
 - [x] Compact-first new compose with existing layout and expansion behavior.
 - [x] Normalize named senders for available contact pictures, retry transient failures.
 - [x] Save all attachments sequentially with cancellation and unique filenames.
-- [ ] Record final 0.5 package/runtime storage and Linux execution evidence.
+- [x] Record final 0.5 package/runtime storage and Linux execution evidence (run 40363407935).
 - [ ] Target Linux/two-account acceptance and Google approval remain 1.0 gates.

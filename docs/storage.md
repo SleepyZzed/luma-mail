@@ -193,3 +193,10 @@ temporary; its fallback can persist. See [Mesa's cache settings](https://docs.me
 The limit concerns supported Mesa drivers, not a universal quota on every GPU
 vendor's implementation. Runtime reports include top-level metadata breakdowns
 so non-mail library files are visible rather than hidden in a zero-cache claim.
+
+The extracted package figure is an alternative representation of the compressed
+AppImage, not an additional permanent mail store. Normal Type 2 execution mounts
+the compressed image through FUSE. Extract-and-run needs temporary extraction
+space and cleans it when the app exits; keeping a manual extraction consumes its
+own installation space. See the [AppImage runtime architecture](https://docs.appimage.org/reference/architecture.html)
+and [extract-and-run behavior](https://docs.appimage.org/user-guide/troubleshooting/fuse.html).

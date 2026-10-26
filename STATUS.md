@@ -19,7 +19,9 @@ decision and Google's final response remain gates.
 - Save all attachments downloads sequentially to an explicitly selected folder,
   with completion progress, cancellation and collision-safe filenames. It keeps
   no attachment archive or upload/download spool.
-- Repeatable package/runtime storage reports now accompany Linux rendering gates.
+- Whole-package/runtime storage reports accompany Linux rendering gates. Mesa shaders
+  use private runtime storage with a 16 MiB driver limit; zero-cache tests leave no
+  body files or other persistent XDG cache files on the CI host.
 
 - Animated composer Back/compact/full-page transitions without main-window fullscreen changes.
 - Explicit per-account folders, stable sidebar geometry and right-click Gmail label deletion.
@@ -77,7 +79,7 @@ executed results rather than assuming runtime success from compilation.
   send-as aliases, richer lists and inline-image insertion in compose.
   Luma 0.3-generated rich drafts reopen visually; complex/older/third-party HTML
   remains in source mode. General visual HTML re-editing is incomplete.
-- General conflict comparison/merging, editing attachments over 16 MiB combined, save-all,
+- General conflict comparison/merging, editing attachments over 16 MiB combined,
   whole-conversation forwarding and persistent sender remote-image preferences.
 - View preferences/search highlighting, accents, optional autostart/sound,
   keyboard/accessibility/HiDPI audit, native Arch acceptance and sustained profiling.

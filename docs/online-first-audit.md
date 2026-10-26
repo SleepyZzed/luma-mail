@@ -97,3 +97,12 @@ to private runtime storage and sets its driver limit to 16 MiB, retaining shader
 reuse during the session. CI rejects shader-cache escape into XDG_CACHE_HOME and
 records a top-level cache/runtime breakdown. Final rebuilt figures follow in the
 verification record. No unrelated/shared user caches are deleted.
+
+Final PR run 40363407935 confirmed the change: app cache and other XDG cache had
+zero files in all recorded synthetic renderer runs. X11 private runtime data
+(including codecs, graphics and portal test services) allocated about 3.4 MB.
+Wayland's helper cleans its own temporary runtime before reporting; that zero
+post-run number is not a live-memory measurement. The whole-app installation is
+fixed-size and mail storage remains bounded independently of mailbox size. This
+supports the online-first design while leaving the real two-account/Linux soak
+and hardware-specific behavior as explicit 1.0 acceptance work.
