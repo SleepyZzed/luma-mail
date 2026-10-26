@@ -1,49 +1,10 @@
-Luma Mail 0.7.0 early access — a rebuilt visual layer and safer draft workflows
+Luma Mail 0.7.1 early access — composer controls and explicit draft saving
 
-- Luma's supplied wordmark replaces the sidebar text logo, with a separate
-  star mascot for the AppImage/desktop/tray. Editable SVG sources are included.
-- The inbox now uses recycled GtkListView rows. Selection and actions work on
-  loaded metadata, including offscreen messages; clicked-row identity is direct.
-- HTML width measurement runs on resize rather than a permanent frame callback.
-  Live HTML views share ephemeral renderer resources, without page-history caches.
-  After 45 seconds hidden, an inactive reader releases its bodies and views;
-  restoring it fetches the selected conversation again. Open composers and media
-  previews are preserved. Hidden inbox widget bindings are released too, keeping
-  metadata/selection/scroll for restore. Freed allocator arenas can return to
-  Linux after a short idle pause following close/collapse. No hard memory kill
-  is imposed on a complex message.
-- 52 consistent app-owned vector icons replace theme-dependent mail, navigation,
-  editing and attachment icons. Inputs have stable focus outlines, Subject is
-  compact, menus are quieter, and disclosure arrows are small and borderless.
-  The existing pane layout, features, theme integration and scaling are kept.
-- Linux main/compose windows stay resizable and undecorated. Luma draws no resize
-  border; Super/Meta + right-click is left to the compositor. Hyprland's actual
-  configured resize binding still needs a target-desktop test.
-- Inline reply X now closes a saved reply. Repeated Reply preserves the same
-  inline editor and text; opening/restoring a reply reveals it in the conversation.
-- Right-click a draft to Delete draft, with confirmation. Only verified Gmail
-  draft resources are discarded; other mail in the conversation is kept.
-  Close the composer first to prevent autosave recreating a deleted draft.
-- Verified Gmail Send-as addresses appear in From, including inline replies.
-  Choosing an alias keeps the owning account's tokens, draft and Drive routing.
-  Unavailable aliases block saving/sending until verified or changed explicitly.
-- Draft conflict comparison combines independent field changes and requires
-  choices for conflicting fields/body and attachment sets. Open merged copy
-  creates a separate draft with a new message identity, preserving Gmail's
-  original. Comparison never sends mail.
-- Available own-account photos can be reused when that sender is another opted-in
-  account connected to Luma. Contacts and connected-account photos use supported
-  APIs; Google does not expose every sender picture shown in Gmail.
+- Restore discoverable Bold, Italic, Underline, Strikethrough, bullets, numbered lists, links and Undo/Redo. Individual toolbar actions wrap to fit compact and inline composers instead of being clipped inside one grouped layout.
+- Settings → Storage → Drafts now offers Ask on close (default), Save on close, and Manual Save only.
+- Typing and attaching files no longer start background Gmail draft saves. Ask offers Keep editing, Close without saving, or Save draft.
+- Save on close requires a valid recipient in To/Cc/Bcc and a nonempty authored message body. Otherwise the composer closes without an automatic draft. Quoted history does not count as a body.
+- Manual mode saves only through the composer’s Save button. Closing drops unsaved edits and keeps any previously saved Gmail draft unchanged. Sending continues to send normally.
+- Pending clipboard/import/save callbacks respect the close policy. Repeated Close opens one confirmation; it cannot queue repeated saves.
 
-Quit the old version through its tray menu before launching the replacement.
-Sign in with Google stays built in; no JSON import or additional OAuth scope.
-Google verification remains under review, with its warning and user cap.
-
-The app stays online-first: server drafts, remote search, paged metadata and
-bounded optional body caching. Alias lists and merge comparisons are RAM-only.
-No mailbox mirror, local draft archive, avatar store, icon download or background
-animation loop was added. Package libraries and temporary renderer metadata are
-audited separately from the configured body-cache budget.
-
-This is early access. Target Linux/two-account acceptance, sustained profiling,
-remaining roadmap features and Google's decision still block 1.0.
+Quit the previous version through its tray menu before launching this build. Google verification and target desktop/long-soak acceptance remain outstanding. The measured RAM goals in docs/performance.md are not claimed achieved. This is early access.

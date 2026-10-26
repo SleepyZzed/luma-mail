@@ -20,7 +20,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.7 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.7.0-dev.1)
+[Download the 0.7 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.7.1-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 

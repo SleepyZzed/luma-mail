@@ -72,6 +72,7 @@ fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
             Err(error) => {
                 e.clipboard_busy.set(false);
                 e.pending_send.set(false);
+                e.close_pending.set(false);
                 e.status.set_text(&error.to_string());
                 return;
             }
@@ -112,6 +113,7 @@ fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
                             || e.retained.borrow().len() >= 64
                         {
                             e.pending_send.set(false);
+                            e.close_pending.set(false);
                             e.status.set_text(
                                 "Pasted/reopened attachments must fit within 16 MiB and 64 files.",
                             );
@@ -120,12 +122,13 @@ fn paste(e: &Rc<Editor>, clipboard: gtk::gdk::Clipboard) {
                         e.retained.borrow_mut().push(file);
                         render_files(&e);
                         changed(&e);
-                        e.status.set_text("Image attached · Autosaves to Gmail");
+                        e.status.set_text("Image attached · Unsaved changes");
                         if !e.busy.get() && e.pending_send.replace(false) { persist(&e, true); }
-                        else if !e.busy.get() && e.close_after_save.get() { persist(&e, false); }
+                        else if !e.busy.get() { close_policy::resume(&e); }
                     }
                     Err(error) => {
                         e.pending_send.set(false);
+                        e.close_pending.set(false);
                         e.status.set_text(&error.to_string());
                     }
                 }
