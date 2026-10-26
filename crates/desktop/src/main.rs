@@ -90,10 +90,14 @@ fn main() -> glib::ExitCode {
             });
         });
         app.run_with_args(&["luma-mail"])
-    } else if std::env::args().any(|a| a == "--render-diagnostics")
-        || (cfg!(debug_assertions)
-            && std::env::args()
-                .any(|a| matches!(a.as_str(), "--design-preview" | "--verification-session")))
+    } else if std::env::args().any(|a| {
+        matches!(
+            a.as_str(),
+            "--render-diagnostics" | "--performance-diagnostics"
+        )
+    }) || (cfg!(debug_assertions)
+        && std::env::args()
+            .any(|a| matches!(a.as_str(), "--design-preview" | "--verification-session")))
     {
         app.run_with_args(&["luma-mail"])
     } else {
