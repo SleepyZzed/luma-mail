@@ -220,6 +220,19 @@ lookup-rate limits; it creates no file and adds no permission.
 
 ## 0.7 visual and editing additions
 
+- Inbox metadata stays capped at 1,000 rows; GtkListView recycles its rendered
+  widget trees. Selection uses model identity and does not require offscreen
+  widgets. No extra disk data is created by recycling.
+- WebKit views share weakly held ephemeral contexts/sessions, use DocumentViewer
+  caching and disable back/forward page caching. Resize allocation events replace
+  per-frame width polling. WebKit's 30-second memory-pressure checks can release
+  non-critical memory at 128 MiB and stricter caches at 192 MiB per process;
+  this is not an application-wide cap and never kills a message renderer.
+- A main window hidden for 45 seconds releases its current reader if no composer
+  or visible attachment preview needs it. Reopening reloads the selected thread,
+  keeping paged list metadata. Already-free allocator arenas can return to Linux.
+- The wordmark has editable SVG source in the repository and one small raster
+  resource in the app. It never downloads, caches or creates a user-data file.
 - The 52 app-owned SVG icons are compiled resources, without network requests
   or per-user storage. Existing finite animation/RAM limits remain in force.
 - Verified alias lists are projected, bounded reads for the selected account

@@ -16,7 +16,9 @@ process = subprocess.Popen([sys.argv[1], '--performance-diagnostics'],
 
 def readout():
     for line in process.stdout:
-        if line.startswith('PERF '):
+        if line.startswith('PERF bound_rows '):
+            print(line.strip(), flush=True)
+        elif line.startswith('PERF '):
             phase[:] = [line.strip()[5:], time.monotonic()]
             print(line.strip(), flush=True)
 
@@ -54,7 +56,7 @@ while process.poll() is None:
         if added <= family:
             break
         family |= added
-    pss = rss = private = cpu = count = 0
+    pss = rss = private = cpu = count = unreadable_pss = 0
     current = {}
     now = time.monotonic()
     for pid in family:
@@ -64,8 +66,16 @@ while process.poll() is None:
         try:
             values = {k: int(v.split()[0]) for k, v in
                       (line.split(':', 1) for line in (entry/'smaps_rollup').read_text().splitlines()[1:])}
-        except (FileNotFoundError, PermissionError, ProcessLookupError):
+        except FileNotFoundError:
             continue
+        except (PermissionError, ProcessLookupError):
+            # Sandboxed helpers may deny smaps. Keep their RSS and CPU in the
+            # totals and explicitly mark the PSS figure incomplete.
+            try:
+                values = {'Rss': int((entry/'statm').read_text().split()[1])*os.sysconf('SC_PAGE_SIZE')//1024}
+            except (FileNotFoundError, PermissionError, ProcessLookupError):
+                continue
+            unreadable_pss += 1
         count += 1
         pss += values.get('Pss', 0)
         rss += values.get('Rss', 0)
@@ -77,9 +87,9 @@ while process.poll() is None:
     previous = current
     if count:
         samples.append(dict(seconds=round(now-begin, 2), phase=phase[0],
-            settled=now-phase[1]>=5, processes=count, rss_mib=round(rss/1024, 2),
+            settled=now-phase[1]>=5, processes=count, unreadable_pss=unreadable_pss, rss_mib=round(rss/1024, 2),
             pss_mib=round(pss/1024, 2), private_mib=round(private/1024, 2), cpu_one_core_percent=round(cpu, 3)))
-    if now-begin > 130:
+    if now-begin > 150:
         process.terminate()
         raise SystemExit('Performance fixture timeout')
 code = process.wait(timeout=5)
@@ -94,7 +104,8 @@ for name in dict.fromkeys(s['phase'] for s in samples):
     report['phases'][name] = {k: round(statistics.mean(s[k] for s in subset), 3)
         for k in ['rss_mib', 'pss_mib', 'private_mib', 'cpu_one_core_percent']}
     report['phases'][name]['peak_rss_mib'] = max(s['rss_mib'] for s in samples if s['phase']==name)
+    report['phases'][name]['pss_complete'] = all(s['unreadable_pss']==0 for s in subset)
 Path(sys.argv[2]).write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
 print(json.dumps(report['phases'], indent=2))
-required = {'baseline', 'newsletter', 'three_html_messages', 'released', 'reclaimed_background'}
+required = {'baseline', 'inbox_1000', 'scrolled_1000', 'newsletter', 'three_html_messages', 'released', 'reclaimed_background'}
 assert required <= report['phases'].keys(), 'All resource lifecycle phases must be measured'

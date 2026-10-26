@@ -1,5 +1,14 @@
 Luma Mail 0.7.0 early access — a rebuilt visual layer and safer draft workflows
 
+- Luma's supplied wordmark replaces the sidebar text logo, with a separate
+  star mascot for the AppImage/desktop/tray. Editable SVG sources are included.
+- The inbox now uses recycled GtkListView rows. Selection and actions work on
+  loaded metadata, including offscreen messages; clicked-row identity is direct.
+- HTML width measurement runs on resize rather than a permanent frame callback.
+  Live HTML views share ephemeral renderer resources, without page-history caches.
+  After 45 seconds hidden, an inactive reader releases its bodies and views;
+  restoring it fetches the selected conversation again. Open composers and media
+  previews are preserved. No hard memory kill is imposed on a complex message.
 - 52 consistent app-owned vector icons replace theme-dependent mail, navigation,
   editing and attachment icons. Inputs have stable focus outlines, Subject is
   compact, menus are quieter, and disclosure arrows are small and borderless.

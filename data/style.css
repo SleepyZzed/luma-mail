@@ -70,13 +70,13 @@ expander-widget > box > title > expander:checked {
 .navigation-section { font-size: 0.72em; font-weight: 650; color: alpha(@window_fg_color, 0.5); margin: 12px 6px 4px; }
 .account-folders { margin-left: 12px; border-left: 1px solid alpha(@accent_bg_color, 0.16); padding-left: 5px; }
 .navigation-sidebar { background: transparent; padding: 4px; }
-.navigation-sidebar row.mail-row {
+.navigation-sidebar row > .mail-row {
   border-radius: 12px; margin: 3px 5px; border: 1px solid transparent;
   transition: background-color 180ms ease-out, border-color 180ms ease-out, opacity 180ms ease-out;
 }
-.navigation-sidebar row.mail-row:selected { background: alpha(@accent_bg_color, 0.12); border-color: alpha(@accent_bg_color, 0.22); color: @window_fg_color; }
-.navigation-sidebar row.mail-row:hover { background: alpha(@window_fg_color, 0.04); }
-.navigation-sidebar row.mail-row:selected:hover { background: alpha(@accent_bg_color, 0.17); }
+.navigation-sidebar row:selected > .mail-row { background: alpha(@accent_bg_color, 0.12); border-color: alpha(@accent_bg_color, 0.22); color: @window_fg_color; }
+.navigation-sidebar row:hover > .mail-row { background: alpha(@window_fg_color, 0.04); }
+.navigation-sidebar row:selected:hover > .mail-row { background: alpha(@accent_bg_color, 0.17); }
 .mail-row.pending { opacity: 0.65; }
 .mail-sender { font-size: 0.96em; font-weight: 500; }
 .mail-sender.unread-sender { font-weight: 700; }
@@ -142,9 +142,12 @@ textview { padding: 18px; }
 .app-status { font-size: 0.78em; opacity: 0.55; margin: 5px 14px; }
 .bulk-actions { padding: 7px; border-radius: 10px; background: alpha(@accent_bg_color, 0.05); }
 .bulk-actions button { padding: 6px 8px; border-radius: 7px; }
-.selection-mode row.mail-row:selected { background: alpha(@accent_bg_color, 0.20); border-color: alpha(@accent_bg_color, 0.3); }
+.selection-mode row:selected > .mail-row { background: alpha(@accent_bg_color, 0.20); border-color: alpha(@accent_bg_color, 0.3); }
 .draft-conflict { background: alpha(@warning_bg_color, 0.10); border-radius: 9px; padding: 10px; }
 /* No client resize grips/shadow on borderless Linux windows; WM owns them. */
 window.luma-compositor-managed { border-radius: 0; box-shadow: none; }
 window.luma-compositor-managed > decoration { margin: 0; padding: 0; border: none; box-shadow: none; }
 
+
+.navigation-sidebar row { padding: 0; background: transparent; border: none; color: inherit; }
+.navigation-sidebar row:selected { background: transparent; color: inherit; }

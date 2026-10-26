@@ -49,7 +49,7 @@ pub struct State {
     pub sidebar_top: gtk::Box,
     navigation: navigation::Navigation,
     sidebar_scroll: gtk::ScrolledWindow,
-    pub list: gtk::ListBox,
+    pub list: crate::virtual_inbox::Inbox,
     row_widgets: RefCell<HashMap<ThreadKey, rows::MailRow>>,
     changing_selection: Cell<bool>,
     selection_anchor: RefCell<Option<ThreadKey>>,
@@ -314,7 +314,11 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     nav.append(&ss);
     let footer = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     footer.add_css_class("sidebar-footer");
-    let footer_name = label("Luma", "heading");
+    let footer_name =
+        gtk::Image::from_resource("/io/github/lumamail/Luma/io.github.lumamail.Luma.svg");
+    footer_name.set_pixel_size(28);
+    footer_name.set_tooltip_text(Some("Luma Mail"));
+    footer_name.set_halign(gtk::Align::Start);
     footer_name.set_hexpand(true);
     footer.append(&footer_name);
     prefs.add_css_class("flat");
@@ -393,14 +397,14 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     page_activity.add_css_class("mail-loading");
     page_activity.set_visible(false);
     center.append(&page_activity);
-    let list = gtk::ListBox::new();
+    let list = crate::virtual_inbox::Inbox::new();
     list.set_sort_func(rows::sort);
     list.set_selection_mode(gtk::SelectionMode::Single);
     list.add_css_class("navigation-sidebar");
     let list_scroll = gtk::ScrolledWindow::builder()
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
-        .child(&list)
+        .child(&list.widget)
         .build();
     center.append(&list_scroll);
     let more = gtk::Button::with_label("Load 25 more conversations");
@@ -590,6 +594,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
             }
         });
     }
+    rows::install(&s);
     selection::install(&s);
     {
         let state = s.clone();
@@ -1449,6 +1454,118 @@ fn idle_reclaim(s: &Rc<State>) {
                 },
             ));
         }
+    });
+}
+#[cfg(any(debug_assertions, target_os = "linux"))]
+pub fn resource_rows(s: &Rc<State>, count: usize) {
+    assert!(s.clients.borrow().is_empty() && std::env::var_os("LUMA_TEST_ROOT").is_some());
+    rows::clear_rows(s);
+    let items = (0..count.min(1000))
+        .map(|n| Conversation {
+            key: ThreadKey {
+                account: "synthetic-performance".into(),
+                id: format!("row-{n}"),
+            },
+            sender: format!("Test sender {n} <sender{n}@example.invalid>"),
+            subject: format!("Synthetic conversation {n}"),
+            snippet: "Metadata-only inbox stress fixture".into(),
+            date: 1_800_000_000_000 - n as i64,
+            unread: n % 3 == 0,
+            starred: false,
+            important: false,
+            attachments: n % 4 == 0,
+            count: 1,
+        })
+        .collect();
+    rows::display(s, items, false);
+}
+#[cfg(any(debug_assertions, target_os = "linux"))]
+pub fn resource_scroll(s: &State, bottom: bool) {
+    let a = s.list_scroll.vadjustment();
+    a.set_value(if bottom {
+        (a.upper() - a.page_size()).max(0.)
+    } else {
+        0.
+    });
+}
+#[cfg(debug_assertions)]
+pub fn verify_virtualization(s: &Rc<State>) {
+    resource_rows(s, 1000);
+    s.settings.borrow_mut().reduced_motion = true;
+    let state = s.clone();
+    let mut stage = 0;
+    let start = std::time::Instant::now();
+    glib::timeout_add_local(Duration::from_millis(200), move || {
+        assert!(
+            start.elapsed() < Duration::from_secs(12),
+            "Virtual inbox diagnostic timed out"
+        );
+        let first = state.list.row_at_index(0).unwrap();
+        let last = state.list.row_at_index(999).unwrap();
+        match stage {
+            0 if first.widget().is_some() => {
+                assert!(
+                    state.list.bound_count() < 256,
+                    "1,000 metadata rows must not create 1,000 widget trees"
+                );
+                *state.selected.borrow_mut() = Some(first.key());
+                selection::mode(&state, false, false);
+                selection::click(&state, &last, gtk::gdk::ModifierType::SHIFT_MASK);
+                assert_eq!(
+                    selection::keys(&state).len(),
+                    1000,
+                    "Shift range includes offscreen rows"
+                );
+                selection::click(&state, &last, gtk::gdk::ModifierType::CONTROL_MASK);
+                assert_eq!(selection::keys(&state).len(), 999);
+                resource_scroll(&state, true);
+                stage = 1;
+            }
+            1 => {
+                resource_scroll(&state, true);
+                if last.widget().is_none() {
+                    return glib::ControlFlow::Continue;
+                }
+                assert!(state.list.bound_count() < 256);
+                assert_eq!(
+                    selection::keys(&state).len(),
+                    999,
+                    "Recycling preserves selection"
+                );
+                let row = state.list.row_at_index(500).unwrap();
+                let mut item = row.item();
+                item.important = true;
+                rows::apply(
+                    &state,
+                    rows::Update {
+                        key: row.key(),
+                        row: Some(item),
+                        visible: Some(true),
+                        selected_labels: None,
+                    },
+                );
+                assert!(
+                    row.item().important,
+                    "Offscreen updates belong to the model"
+                );
+                selection::all(&state);
+                assert_eq!(selection::keys(&state).len(), 1000);
+                selection::mode(&state, false, false);
+                resource_scroll(&state, false);
+                stage = 2;
+            }
+            2 if first.widget().is_some() => {
+                assert!(state.list.bound_count() < 256);
+                println!(
+                    "PASS virtual GtkListView: 1,000 metadata rows, {} bound widget trees, recycled selection, offscreen updates and loaded-only Select all",
+                    state.list.bound_count()
+                );
+                state.app.quit();
+                return glib::ControlFlow::Break;
+            }
+            _ => (),
+        }
+        glib::ControlFlow::Continue
     });
 }
 fn cancel_body_requests(s: &State) {

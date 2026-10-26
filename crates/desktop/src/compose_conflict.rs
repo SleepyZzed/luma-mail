@@ -260,6 +260,7 @@ fn show(e: &Rc<Editor>, prepared: Prepared, revision: u64) -> MergeView {
         .content_height(760)
         .child(&content)
         .build();
+    dialog.connect_closed(|dialog| dialog.set_child(None::<&gtk::Widget>));
     let inputs = Rc::new(inputs);
     for input in inputs.iter().chain(std::iter::once(&attachments)) {
         let controls: Vec<_> = inputs.iter().map(|input| input.downgrade()).collect();
@@ -467,6 +468,9 @@ pub(super) fn verify(e: &Rc<Editor>) {
     assert!(view.1.is_sensitive());
     let body_choice = view.2[5].downgrade();
     view.0.force_close();
+    // GTK may retain the closing AdwDialog for its final animation frame.
+    // Detach its child to exercise content ownership independently of that frame.
+    view.0.set_child(None::<&gtk::Widget>);
     drop(view);
     assert!(
         body_choice.upgrade().is_none(),

@@ -254,7 +254,12 @@ pub(super) fn sidebar(s: &Rc<State>) {
     if s.sidebar_top.first_child().is_none() {
         let brand = vbox(2);
         brand.add_css_class("sidebar-brand");
-        brand.append(&label("Luma", "title-1"));
+        let logo = gtk::Picture::for_resource("/io/github/lumamail/Luma/luma-wordmark.png");
+        logo.set_can_shrink(true);
+        logo.set_content_fit(gtk::ContentFit::Contain);
+        logo.set_height_request(58);
+        logo.set_alternative_text(Some("Luma"));
+        brand.append(&logo);
         brand.append(&label("Online-first mail", "caption"));
         s.sidebar_top.append(&brand);
         let compose = gtk::Button::new();

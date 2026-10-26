@@ -208,6 +208,10 @@ pub fn show(s: &Rc<State>) {
         crate::presentation::diagnostic(s);
         return;
     }
+    if std::env::args().any(|a| a == "--list-diagnostics") {
+        ui::verify_virtualization(s);
+        return;
+    }
     if std::env::args().any(|a| a == "--compose-diagnostics") {
         crate::compose::diagnostic(s);
         return;

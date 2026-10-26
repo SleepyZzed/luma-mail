@@ -1,7 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs><linearGradient id="a" x2="1" y2="1"><stop stop-color="#c4c2ff"/><stop offset="1" stop-color="#7589e6"/></linearGradient></defs>
-  <rect x="8" y="8" width="112" height="112" rx="30" fill="#252638"/>
-  <rect x="24" y="35" width="80" height="59" rx="14" fill="url(#a)"/>
-  <path d="M28 43 59 66q5 4 10 0l31-23" fill="none" stroke="#252638" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="100" cy="31" r="14" fill="#d7edb7" stroke="#252638" stroke-width="5"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img"><title>Luma star mascot</title><defs>
+<linearGradient id="star" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="#FFD272"/><stop offset=".52" stop-color="#FFF996"/><stop offset="1" stop-color="#FFB965"/></linearGradient>
+<linearGradient id="eyes" x2=".4" y2="1"><stop stop-color="#10094D"/><stop offset="1" stop-color="#30266D"/></linearGradient>
+<linearGradient id="letters" x1=".2" y1="0" x2=".55" y2="1"><stop stop-color="#FFFFFF"/><stop offset=".42" stop-color="#D9F2FF"/><stop offset=".75" stop-color="#91C3FF"/><stop offset="1" stop-color="#9C6BFF"/></linearGradient>
+<linearGradient id="ell" x1=".15" y1="0" x2=".55" y2="1"><stop stop-color="#B4FCFF"/><stop offset=".32" stop-color="#5DD9F3"/><stop offset=".7" stop-color="#BB8CFF"/><stop offset="1" stop-color="#F5A6ED"/></linearGradient>
+<linearGradient id="a" x1=".2" y1="1" x2=".9" y2="0"><stop stop-color="#8D6BFA"/><stop offset=".43" stop-color="#EEA1E5"/><stop offset=".75" stop-color="#FFC0C5"/><stop offset="1" stop-color="#FFF5A7"/></linearGradient>
+<linearGradient id="orbit" x1="0" y1=".7" x2="1" y2=".25"><stop stop-color="#51DEFD"/><stop offset=".3" stop-color="#A9F3FE"/><stop offset=".53" stop-color="#EC98FF"/><stop offset=".8" stop-color="#FFB6D8"/><stop offset="1" stop-color="#FFF286"/></linearGradient>
+</defs><g stroke-linecap="round" stroke-linejoin="round">
+<path d="M269 43C314 3 348 26 365 135L382 184C454 213 497 248 464 286L411 323 407 365C419 439 386 477 335 451L267 409 207 449C148 487 112 460 128 387L137 329 77 280C31 241 60 188 127 194L189 198 233 109C244 79 255 57 269 43Z" fill="url(#star)" stroke="#10094E" stroke-width="30"/>
+<path d="M275 69C301 41 323 44 337 81L356 156" fill="none" stroke="#FFFCC6" stroke-width="16" opacity=".85"/>
+<ellipse cx="218" cy="257" rx="25" ry="38" transform="rotate(19 218 257)" fill="url(#eyes)"/>
+<ellipse cx="344" cy="279" rx="25" ry="38" transform="rotate(19 344 279)" fill="url(#eyes)"/>
+<g fill="white"><ellipse cx="224" cy="241" rx="9" ry="11"/><ellipse cx="350" cy="263" rx="9" ry="11"/><circle cx="209" cy="260" r="3"/><circle cx="335" cy="282" r="3"/></g>
+<ellipse cx="184" cy="303" rx="24" ry="15" transform="rotate(10 184 303)" fill="#FF91B0"/>
+<ellipse cx="375" cy="326" rx="24" ry="15" transform="rotate(10 375 326)" fill="#FF91B0"/>
+<path d="M260 291Q285 304 315 302C325 303 324 318 317 335C307 366 271 362 262 337C256 324 254 295 260 291Z" fill="#8E1855"/>
+<path d="M266 329Q293 322 309 343C298 360 278 355 270 345Z" fill="#FF7EA9"/>
+</g></svg>

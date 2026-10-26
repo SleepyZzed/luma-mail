@@ -22,32 +22,44 @@ pub fn diagnostic(s: &std::rc::Rc<crate::ui::State>) {
         let seconds = start.elapsed().as_secs();
         match stage {
             0 if seconds >= 10 => {
-                crate::rendering::performance_fixture(&state, 1);
-                println!("PERF newsletter");
+                crate::ui::resource_rows(&state, 1000);
+                println!("PERF inbox_1000");
                 stage = 1;
             }
-            1 if seconds >= 25 => {
-                crate::rendering::performance_fixture(&state, 3);
-                println!("PERF three_html_messages");
+            1 if seconds >= 18 => {
+                crate::ui::resource_scroll(&state, true);
+                println!("PERF scrolled_1000");
                 stage = 2;
             }
-            2 if seconds >= 40 => {
+            2 if seconds >= 28 => {
+                crate::ui::resource_scroll(&state, false);
+                crate::rendering::performance_fixture(&state, 1);
+                println!("PERF newsletter");
+                stage = 3;
+            }
+            3 if seconds >= 43 => {
+                crate::rendering::performance_fixture(&state, 3);
+                println!("PERF three_html_messages");
+                stage = 4;
+            }
+            4 if seconds >= 58 => {
                 crate::ui::clear(&state.reader);
                 trim();
                 println!("PERF released");
-                stage = 3;
+                stage = 5;
             }
-            3 if seconds >= 55 => {
+            5 if seconds >= 73 => {
                 crate::rendering::performance_fixture(&state, 1);
                 state.window.set_visible(false);
                 println!("PERF background");
-                stage = 4;
+                stage = 6;
             }
-            4 if seconds >= 105 => {
+            6 if seconds >= 123 => {
                 println!("PERF reclaimed_background");
-                stage = 5;
+                stage = 7;
             }
-            5 if seconds >= 115 => {
+            7 if seconds >= 133 => {
+                println!("PERF bound_rows {}", state.list.bound_count());
                 state.app.quit();
                 return gtk::glib::ControlFlow::Break;
             }

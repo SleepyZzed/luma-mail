@@ -1,4 +1,7 @@
 <gresources><gresource prefix="/io/github/lumamail/Luma">
+  <file>luma-wordmark.png</file>
+  <file>io.github.lumamail.Luma.svg</file>
+  <file alias="icons/scalable/apps/io.github.lumamail.Luma.svg">io.github.lumamail.Luma.svg</file>
   <file>icons/scalable/actions/luma-add-symbolic.svg</file>
   <file>icons/scalable/actions/luma-archive-symbolic.svg</file>
   <file>icons/scalable/actions/luma-attachment-symbolic.svg</file>

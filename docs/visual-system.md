@@ -13,6 +13,17 @@ borderless disclosures. GtkExpander's root is `expander-widget`; its `expander`
 node is just the arrow. Styling that arrow as a padded card caused the large
 boxes visible in earlier Linux builds.
 
+The supplied Luma wordmark is traced into real vector paths with gradient fills
+in `data/luma-wordmark.svg`. A standalone star mascot is drawn in
+`data/io.github.lumamail.Luma.svg` for the desktop/AppImage icon and tray.
+The pinned sidebar uses a 960-pixel transparent export so it does not parse the
+detailed trace on every launch. The SVG sources remain editable and font-free.
+
+The inbox uses GtkListView factory recycling. Its account/thread model and
+selection remain independent of widget bindings. Clicked rows carry their own
+identity; no widget-map scan is needed. The native 1,000-row diagnostic also
+checks offscreen range selection, updates, Select all and scroll recycling.
+
 GTK remains the native toolkit. Replacing it would require rebuilding the
 working Linux integration and increase the package/runtime footprint before
 acceptance. The redesign is checked using native GTK screenshots on Linux,

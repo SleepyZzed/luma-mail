@@ -22,6 +22,7 @@ mod tray;
 mod ui;
 #[cfg(debug_assertions)]
 mod verification;
+mod virtual_inbox;
 use adw::prelude::*;
 use gtk::{gio, glib};
 fn main() -> glib::ExitCode {

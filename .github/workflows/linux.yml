@@ -62,6 +62,11 @@ jobs:
           root="$(mktemp -d)"
           trap 'rm -rf -- "$root"' EXIT
           timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --presentation-diagnostics
+      - name: Virtual inbox selection and recycled rows
+        run: |
+          root="$(mktemp -d)"
+          trap 'rm -rf -- "$root"' EXIT
+          timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --list-diagnostics
       - name: Media fixture tools
         run: sudo apt-get install -y gstreamer1.0-tools weston
       - name: Native Linux UI evidence
@@ -123,8 +128,6 @@ jobs:
         run: LUMA_TEST_DISPLAY=wayland bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-wayland-newsletter.png
       - name: Read-only AppImage without system WebKit on Wayland
         run: LUMA_TEST_DISPLAY=wayland bash packaging/test-readonly-appimage.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-readonly-newsletter.png
-      - name: Preserve native rendering evidence
-        run: echo 'Rendering checks complete'
       - name: Release process-tree RAM and idle CPU audit
         run: bash packaging/test-performance.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage
       - name: Preserve native rendering evidence
