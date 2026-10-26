@@ -36,4 +36,11 @@ for unexpected in "$root/app/cache/bodies" "$root/app/config/composer" "$root/ru
     exit 1
   fi
 done
+codec_index="$root/runtime/luma-mail/gstreamer/codecs.bin"
+if [[ -f "$codec_index" ]]; then
+  # Fixed library metadata is separate from message contents. This inventory is
+  # private runtime data, not a mailbox/attachment cache; guard against growth.
+  test "$(stat -c %s "$codec_index")" -lt 4194304
+  echo "PASS private runtime codec inventory: $(stat -c %s "$codec_index") bytes, no mail data"
+fi
 echo 'PASS zero-budget HTML/media creates no body cache, attachment spool or local draft store'

@@ -86,6 +86,13 @@ jobs:
         run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-*-x86_64.AppImage
       - name: Bundled HTML engine and attachment playback
         run: bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-newsletter.png
+      - name: Preserve native rendering evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luma-rendering-evidence
+          path: dist/*newsletter.png
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: luma-mail-linux-x86_64

@@ -2,36 +2,27 @@
 //! RAM file gives it a seekable URI, with no path in the disk cache or /tmp.
 #[cfg(target_os = "linux")]
 pub fn configure() -> luma_core::Result<()> {
-    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
     let runtime = gtk::glib::user_runtime_dir().join("luma-mail");
     luma_core::config::private_dir(&runtime)?;
     let registry = runtime.join("gstreamer");
-    match std::fs::DirBuilder::new().mode(0o500).create(&registry) {
-        Ok(()) => (),
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => (),
-        Err(error) => return Err(error.into()),
-    }
-    let meta = registry.symlink_metadata()?;
-    if !meta.is_dir() || meta.uid() != unsafe { libc::geteuid() } {
-        return Err(luma_core::Error::Invalid(
-            "Media runtime must be a private directory owned by this user".into(),
-        ));
-    }
+    luma_core::config::private_dir(&registry)?;
     // Remove only our disposable codec index from an earlier development build.
-    let index = registry.join("disabled-registry.bin");
-    if index.symlink_metadata().is_ok_and(|m| m.is_file()) {
-        std::fs::remove_file(&index)?;
+    let old = registry.join("disabled-registry.bin");
+    if old.symlink_metadata().is_ok_and(|m| m.is_file()) {
+        std::fs::remove_file(old)?;
     }
-    std::fs::set_permissions(&registry, std::fs::Permissions::from_mode(0o500))?;
+    let index = registry.join("codecs.bin");
     // WebKit exposes GST_REGISTRY's parent directory to its sandbox. /dev/null
     // would cause it to rebind all of /dev, breaking its private device mounts.
-    // The update flag alone still writes an initial cache when none exists.
-    // A non-writable private directory keeps plugin discovery in memory too.
+    // Keep the small plugin inventory in the private runtime directory instead.
+    // It contains library paths/capabilities, never mail or attachment bytes.
+    // Allow updates so installed codecs are detected without a full rescan on
+    // every launch. GST_REGISTRY_UPDATE=no still writes an initial inventory.
     // SAFETY: called at the very start of main, before GTK/GIO/Tokio threads.
     unsafe {
         std::env::set_var("GST_REGISTRY", &index);
         std::env::set_var("GST_REGISTRY_1_0", &index);
-        std::env::set_var("GST_REGISTRY_UPDATE", "no");
+        std::env::remove_var("GST_REGISTRY_UPDATE");
     }
     Ok(())
 }

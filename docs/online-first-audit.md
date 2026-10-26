@@ -34,7 +34,11 @@ mirror a mailbox, scan Sent for suggestions, or maintain a local search index.
 - Attachment previews use bounded memory. Linux audio/video uses sealed
   anonymous RAM files, retained only for playback. Drive uploads use 256 KiB
   chunks and no disk spool. User-selected saved files are outside the cache.
-- Linux HTML uses ephemeral WebKit. Windows QA uses InPrivate WebView2, which
+- Linux HTML uses ephemeral WebKit. GStreamer keeps a small codec inventory in
+  the private runtime directory, outside the body budget (about 1 MiB in CI).
+  It contains installed library metadata, no mail. Normal XDG runtime directories
+  are temporary; GLib's fallback may persist this inventory without XDG_RUNTIME_DIR.
+  Windows QA uses InPrivate WebView2, which
   still creates runtime profile metadata outside the body budget (about 1.46 MB
   logical size in an earlier synthetic run). The Windows renderer therefore
   cannot claim a zero-disk footprint. No mailbox content cache is enabled there.

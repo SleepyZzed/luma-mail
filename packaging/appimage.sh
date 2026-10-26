@@ -88,7 +88,7 @@ export GIO_EXTRA_MODULES="$APPDIR/usr/lib/gio/modules${GIO_EXTRA_MODULES:+:$GIO_
 export GTK_EXE_PREFIX="$APPDIR/usr"
 export GST_PLUGIN_SYSTEM_PATH_1_0="$APPDIR/usr/lib/gstreamer-1.0"
 export GST_PLUGIN_SCANNER="$APPDIR/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
-# Luma configures a non-persistent GStreamer registry in its private runtime dir.
+# Luma keeps GStreamer's codec inventory in its private runtime directory.
 # GST_REGISTRY=/dev/null would make WebKit rebind the parent /dev into its sandbox.
 # Release WebKit uses compiled helper paths, relocated relative to this directory.
 cd "$APPDIR/usr"

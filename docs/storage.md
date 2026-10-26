@@ -75,8 +75,12 @@ content. CSP blocks direct network/file requests. Only bounded decoded PNG image
 enter the renderer. External HTTPS images require Load images and can reveal an
 open to their servers; no Google authorization, cookies, referrer or proxy
 credentials are attached. Private-network addresses and redirects are rejected.
-There is no persistent WebKit content database; the AppImage disables GStreamer
-registry persistence. A blocked namespace sandbox falls back to readable text.
+There is no persistent WebKit content database. GStreamer keeps its codec
+inventory (about 1 MiB on the CI host) under the private Linux runtime directory,
+outside the body-cache budget. It records installed libraries and capabilities,
+never message bodies or attachment bytes. With a normal XDG desktop runtime this
+is temporary session data; GLib's fallback can persist it if XDG_RUNTIME_DIR is
+unavailable. A blocked namespace sandbox falls back to readable text.
 Windows developer builds use InPrivate WebView2, with mail served from memory,
 sender scripting disabled, no-store responses and a disabled content/shader disk
 cache. WebView2 still creates runtime profile metadata under
