@@ -1,14 +1,15 @@
-Luma Mail 0.2.1 early access — AppImage HTML crash fix
+Luma Mail 0.2.2 early access — HTML layout and theme fixes
 
-Fixes a packaging failure when opening formatted messages on systems without
-Ubuntu's WebKit libraries and helper directories. The old build could abort with
-`libwebkitgtk-6.0.so.4` missing, a read-only relative bind path, and
-`Failed to fully launch dbus-proxy`. Plain messages often avoided that path.
-
-The AppImage now explicitly supplies its bundled shared libraries and translates
-WebKit's sandbox helper paths to absolute bundle paths. The original bubblewrap
-namespace/seccomp protections remain enabled. Release checks cover X11, headless
-Wayland, absent system WebKit, and a read-only extracted application tree.
+- Newsletter tables keep complete words in narrow columns, preserve box sizing
+  and no longer repeat the hidden HTML title above the message.
+- Neutral HTML surfaces and text follow the active system/Luma/Noctalia palette.
+  Original colours restores the sender’s palette for an individual message.
+  Brand button colours and image pixels retain their colours.
+- Inline images fit within the reader width and 480 pixels of height. Attachment
+  cards still provide larger previews and saving.
+- Theme/colour changes reuse bounded prepared images in memory, without fetching
+  them again. External images still require the explicit Load images action.
+- Preserves 0.2.1’s sandboxed AppImage WebKit fix and online-first storage model.
 
 Quit the previous version from its tray menu before launching the replacement.
 Accounts and settings stay in their normal locations. All 0.2 mail features remain:

@@ -55,7 +55,23 @@ pub(super) fn append(
     area.set_widget_name("html-mail-view");
     let view: Rc<RefCell<Option<WebView>>> = Default::default();
     let geometry = Rc::new(Cell::new(None::<[i32; 9]>));
-    let document = Arc::new(Mutex::new(html_mail::document(&html, HashMap::new())));
+    let document = Arc::new(Mutex::new(String::new()));
+    let data = document.clone();
+    let handle = view.clone();
+    html_controls(
+        s,
+        body,
+        area.upcast_ref(),
+        message,
+        account,
+        html,
+        move |page| {
+            *data.lock().expect("HTML document") = page;
+            if let Some(view) = handle.borrow().as_ref() {
+                let _ = view.load_url("http://luma.mail/document");
+            }
+        },
+    );
     let (links, received) = std::sync::mpsc::channel::<Event>();
     let state = s.clone();
     let weak_area = area.downgrade();
@@ -124,7 +140,7 @@ pub(super) fn append(
         let data=source.clone(); let navigation=map_events.clone(); let new_window=map_events.clone();
         let loaded=map_events.clone(); let wheel=map_events.clone();
         let result=WebViewBuilder::new_with_web_context(&mut context)
-            .with_incognito(true).with_javascript_disabled().with_devtools(false)
+            .with_transparent(true).with_incognito(true).with_javascript_disabled().with_devtools(false)
             .with_focused(false).with_visible(false).with_default_context_menus(false)
             .with_browser_accelerator_keys(false)
             .with_additional_browser_args("--disk-cache-size=1 --media-cache-size=1 --disable-gpu-shader-disk-cache --disable-background-networking --disable-component-update --no-first-run")
@@ -254,54 +270,6 @@ pub(super) fn append(
     area.connect_unmap(move |_| {
         handle.borrow_mut().take();
     });
-    if mail_images::sources(&message.payload)
-        .iter()
-        .any(|s| s.starts_with("https://"))
-    {
-        let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let label = ui::label("External images are blocked for privacy.", "caption");
-        label.set_hexpand(true);
-        bar.append(&label);
-        let load = gtk::Button::with_label("Load images");
-        load.set_tooltip_text(Some(
-            "Contact this message's image servers. This may reveal that you opened it.",
-        ));
-        bar.append(&load);
-        body.append(&bar);
-        let state = s.clone();
-        let message = message.clone();
-        let client = s.clients.borrow().get(account).cloned();
-        let source = html.clone();
-        let data = document.clone();
-        let handle = view.clone();
-        let weak = area.downgrade();
-        load.connect_clicked(move |button| {
-            button.set_sensitive(false);
-            button.set_label("Loading images…");
-            let button = button.downgrade();
-            let data = data.clone();
-            let handle = handle.clone();
-            let message = message.clone();
-            let client = client.clone();
-            let html = source.clone();
-            let request = ui::async_work(
-                &state,
-                async move { Ok(image_map(message, client, true).await) },
-                move |_, images| {
-                    *data.lock().unwrap() = html_mail::document(&html, images);
-                    if let Some(view) = handle.borrow().as_ref() {
-                        let _ = view.load_url("http://luma.mail/document");
-                    }
-                    if let Some(button) = button.upgrade() {
-                        button.set_label("Images loaded");
-                    }
-                },
-            );
-            if let Some(area) = weak.upgrade() {
-                area.connect_unmap(move |_| request.abort());
-            }
-        });
-    }
     body.append(&area);
     #[cfg(debug_assertions)]
     if std::env::args().any(|a| a == "--html-diagnostics") {
@@ -363,24 +331,5 @@ pub(super) fn append(
             }
             glib::ControlFlow::Continue
         });
-    }
-    let client = s.clients.borrow().get(account).cloned();
-    let message = message.clone();
-    let handle = view;
-    let weak = area.downgrade();
-    let request = ui::async_work(
-        s,
-        async move { Ok(image_map(message, client, false).await) },
-        move |_, images| {
-            if !images.is_empty() {
-                *document.lock().unwrap() = html_mail::document(&html, images);
-                if let Some(view) = handle.borrow().as_ref() {
-                    let _ = view.load_url("http://luma.mail/document");
-                }
-            }
-        },
-    );
-    if let Some(area) = weak.upgrade() {
-        area.connect_unmap(move |_| request.abort());
     }
 }
