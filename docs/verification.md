@@ -289,3 +289,56 @@ SHA256SUMS and GitHub's asset digest:
 
 The tested source was merged in PR #2. The corrective bundle replaces the 0.2.0
 download; it does not claim hardware/FUSE or Google verification is complete.
+
+
+## HTML layout and theme regression — 26 October 2026
+
+The reported GitHub Actions notification was inspected read-only. Its inline
+24-pixel Status column lost `box-sizing`, while reader-wide aggressive wrapping
+allowed words to shrink to one-letter columns. The HTML title also leaked into
+the visible body. Sanitization now preserves box sizing, removes title content
+and keeps complete words in table cells. A synthetic equivalent is committed;
+private message HTML and user screenshots are not published.
+
+Neutral HTML surfaces/text follow the active GTK/Noctalia palette. Original
+colours restores sender styling for the opened message; brand buttons and image
+pixels keep their colours. Theme changes reuse bounded prepared images in RAM.
+Inline images fit the reader width and 480-pixel height. Small decoded images
+are no longer enlarged to fill the preview bounds.
+
+[PR run 40313390992](https://github.com/SleepyZzed/luma-mail/actions/runs/40313390992)
+passed the complete Linux gates on `d048e4ee9b498003659703066225a736d7d86304`.
+[Release run 40313692368](https://github.com/SleepyZzed/luma-mail/actions/runs/40313692368)
+repeated them on exact tagged source `4e00f3b0eea00228ccb826b0b9c4bbb7e2b118b4`,
+including the updated source-package pin and sign-in registration guard:
+
+- Strict fmt/Clippy, 86 core tests, four desktop tests, separately executed
+  GTK/tray/notification D-Bus acceptance, and three sandbox-launcher tests.
+- Composer focus/Tab/Shift+Tab, recipient completion, hyperlinks, compact Restore,
+  Gmail-only draft storage, and bundled cursor settings.
+- Real WebKit table/title/image-height checks, dark/light theme updates and the
+  Original colours toggle, plus in-memory WAV/WebM playback.
+- Native X11/Wayland and bundled X11/Wayland, with host WebKit/JSC/helpers hidden,
+  and a read-only extracted AppImage tree. Sandbox protections remain enabled.
+- Zero-budget runs created no body cache, attachment spool or local draft store.
+  Private runtime codec inventories remained about 1 MiB and contain no mail.
+
+Final dark document snapshots match across all six renderer environments:
+`0d7f105d8a2e3fe1ef2ab4fcd4c048f9d0d7b3a4fde80b06a3b9b9b742373d23`.
+Light snapshots match `9899f7185408204deb00e83a88731fb2738a2e137681492f6928c120f55fa7a4`;
+original-colour snapshots match `e3a0bc1a80936bec94a8e6faf4e1e7d6a0ea8ce617dc40cfb9730153b18dcd39`.
+The captures were inspected. Windows QA also checked the actual notification's
+1471-unit content height and Settings stacking, and a synthetic table's live
+Noctalia palette changes and Original colours toggle.
+
+It published [v0.2.2-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.2-dev.1)
+as early access. The downloaded 157,411,832-byte AppImage matches the published
+SHA256SUMS and GitHub asset digest:
+
+```text
+2cd2aab31fdebe4ed7d75aa0f3c3e60790af821f4038d627b87cc7393f91276e
+```
+
+These checks do not claim actual target GPU/FUSE, two-account Linux acceptance
+or completed Google verification. PR #3 contains the changes. Later documentation
+commits do not alter the tagged source or published binary.
