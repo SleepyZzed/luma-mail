@@ -268,3 +268,24 @@ and media diagnostics too. That run failed during test-runtime cleanup of the
 document portal's FUSE mount; the fixture now detaches its own mount before
 cleanup. Final 0.2.1 publication requires the complete gates, including a
 read-only extracted tree. This is not evidence of actual FUSE/target-GPU testing.
+
+[Release run 40306946881](https://github.com/SleepyZzed/luma-mail/actions/runs/40306946881)
+subsequently passed all gates on exact head
+`b61c768103ef091c7d0984c195c8962d76156d81`: strict fmt/Clippy, 84 core tests,
+four desktop tests, separately executed GTK/D-Bus acceptance, three launcher
+tests, composer and cursor checks, native and bundled HTML/media on X11 and
+Wayland, absence of host WebKit/JSC/helpers, and the read-only extracted tree.
+All six newsletter PNGs have the inspected digest
+`bdf19a20ecc5898b61471330b19f2d3111bfc284040816dc743647cedbb3e8c9`.
+Zero-cache body/attachment/local-draft retention checks also passed.
+
+It published [v0.2.1-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.1-dev.1)
+after the complete gates. The downloaded 157,288,952-byte AppImage matched both
+SHA256SUMS and GitHub's asset digest:
+
+```text
+23b647b70e2a0696f177e2f2ececb3427e18f18029b5c552a37e27d3c9359e31
+```
+
+The tested source was merged in PR #2. The corrective bundle replaces the 0.2.0
+download; it does not claim hardware/FUSE or Google verification is complete.
