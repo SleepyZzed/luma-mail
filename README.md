@@ -18,22 +18,23 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the currently published 0.1.2 AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.1.2-dev.1)
+[Download the 0.2.0 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.0-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
-The 0.2.0 mail experience is being validated in [PR #1](https://github.com/SleepyZzed/luma-mail/pull/1).
-Its new AppImage has not been published yet; the 0.1.2 download predates those changes.
+The 0.2.0 mail experience and validation are described in
+[PR #1](https://github.com/SleepyZzed/luma-mail/pull/1) and
+[the verification record](docs/verification.md). Native and packaged HTML/media,
+composer navigation, notification transport and system cursor checks passed.
 
-The 0.1.2 build uses the maintainer's bundled Google app registration with
+Release builds use the maintainer's bundled Google app registration with
 **Sign in with Google**. The older 0.1.1 binary still has the removed JSON import flow.
 Luma's Desktop registration is provisioned and supplied through the release
 build. On 25 October 2026, the Google app was published as **External / In
 production / unverified**. There is **no per-address test list**. Google's
 unverified-app warning and **100 lifetime user cap** remain until verification;
 Workspace or Advanced Protection policies may block access. This is not
-uncapped or Google-approved distribution. The existing 0.1.2 AppImage uses the
-published registration, so no new binary is needed for this audience change.
+uncapped or Google-approved distribution.
 Unconfigured developer builds cannot authenticate and are blocked from release
 publication. See [sign-in limits and protocol options](docs/oauth.md).
 

@@ -213,3 +213,25 @@ metadata now stays in a private runtime directory, outside the message-cache
 budget (the initial codec inventory cannot be disabled with the update flag).
 The run then failed in the diagnostic screenshot path; capture now uses WebKit's document snapshot API.
 Packaged-engine acceptance is still required before publishing the new AppImage.
+
+## Completed Linux native and AppImage checks — 26 October 2026
+
+[Run 40249509620](https://github.com/SleepyZzed/luma-mail/actions/runs/40249509620)
+passed strict formatting/Clippy, 84 core tests, four desktop unit tests and the
+separately executed GTK/D-Bus acceptance test. Composer diagnostics passed initial
+To focus, completion, Tab/Shift+Tab, filename hyperlinks, Expand/Restore and absence
+of new local drafts. The new-reply test preserves the existing row and reader
+while restoring unread state.
+
+Both the native release and actual bundled AppImage passed sandboxed WebKit
+layout/colour/link/image/inert-content checks and RAM-backed WAV/WebM playback.
+Their captured newsletter PNGs were inspected and have identical SHA-256
+`bdf19a20ecc5898b61471330b19f2d3111bfc284040816dc743647cedbb3e8c9`.
+The bundle also passed GTK launch and dconf/session cursor preference checks.
+
+With cache set to zero, neither run created a body-cache directory, attachment
+spool or local composer store. Codec inventories were 1,037,145 bytes native and
+1,041,393 bytes bundled, containing plugin metadata in private runtime storage.
+The bundle includes distro notices and corresponding source-package links.
+These synthetic checks do not replace the remaining target-desktop/live-account
+checks listed in STATUS.md.

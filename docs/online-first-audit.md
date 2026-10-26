@@ -1,4 +1,4 @@
-# Online-first audit — 25 October 2026
+# Online-first audit — 26 October 2026
 
 The app still queries Gmail for lists, search, drafts and actions. It does not
 mirror a mailbox, scan Sent for suggestions, or maintain a local search index.
@@ -50,6 +50,11 @@ mailbox needing only one page, cache budget/expiry/LRU/zero retention, corrupt
 envelopes, recipient limits, and legacy recovery safety. Native GTK diagnostics
 exercise field focus, Tab/Shift+Tab, filename links and composer Restore. Linux
 CI additionally checks real HTML/media engines and the packaged AppImage.
+Completed [Linux run 40249509620](https://github.com/SleepyZzed/luma-mail/actions/runs/40249509620)
+passed native and AppImage HTML/media, composer navigation, GTK/D-Bus transport,
+system cursor preferences and the zero-mail-retention check. Their inspected
+newsletter snapshots matched byte-for-byte. This is a synthetic runtime check,
+not sustained CPU/memory profiling on the user's desktop.
 
 Earlier authorized 25-row live checks measured Inbox 0.93 s, Load more 0.70 s,
 Archive 1.12 s and All Mail 0.88 s; these are observations, not guarantees. A
