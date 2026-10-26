@@ -2,7 +2,9 @@
 
 The release engine ignores WEBKIT_EXEC_PATH. Keep its matching helper processes
 and injected bundle under the original relative directory and replace only
-known /usr path prefixes by equal-length ././ prefixes. AppRun sets cwd=AppDir/usr.
+known /usr path prefixes by equal-length ././ prefixes. AppRun sets cwd=AppDir/usr;
+bwrap-relocate.rs converts those prefixes to absolute bundle paths before the
+sandbox starts, including paths delivered through WebKit's argument descriptor.
 """
 from pathlib import Path
 import sys

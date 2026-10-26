@@ -12,14 +12,14 @@ Download the AppImage and `SHA256SUMS` from the repository's Releases page:
 
 ```sh
 sha256sum --check SHA256SUMS
-chmod +x Luma-Mail-0.2.0-x86_64.AppImage
-./Luma-Mail-0.2.0-x86_64.AppImage
+chmod +x Luma-Mail-0.2.1-x86_64.AppImage
+./Luma-Mail-0.2.1-x86_64.AppImage
 ```
 
 If your desktop lacks FUSE support, use:
 
 ```sh
-APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.2.0-x86_64.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./Luma-Mail-0.2.1-x86_64.AppImage
 ```
 
 When upgrading, choose **Quit** from the old app's tray menu before launching
@@ -36,6 +36,13 @@ Bundled distro copyright notices and common license texts are under
 versions and source download pages. Luma's matching application source is the
 release's GitHub source archive; Rust dependencies are pinned in Cargo.lock.
 WebKit helper-prefix relocation is implemented in packaging/relocate-webkit.py.
+The small bwrap-relocate.rs launcher expands WebKit's argument descriptor and
+converts only the known relocated bundle prefixes to absolute paths before
+executing the distro bubblewrap. AppRun explicitly supplies the bundle's shared
+library path to helper processes. Native and bundled tests include Wayland;
+bundled tests hide the runner's system WebKit/JSC libraries and helpers, and
+exercise a read-only extracted tree. Actual FUSE mounts and the target GPU still
+need testing on the user's desktop.
 To replace an LGPL library, extract the AppImage, replace its matching shared
 library/helpers under usr/lib, and run squashfs-root/AppRun; no signature check
 prevents modification. Preserve ABI compatibility and rebuild matching helpers.

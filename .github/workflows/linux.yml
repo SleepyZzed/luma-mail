@@ -12,7 +12,11 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.2.0-dev.1
+        default: v0.2.1-dev.1
+      reproduce_legacy:
+        description: Reproduce the reported 0.2.0 missing-system-WebKit crash
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -54,7 +58,12 @@ jobs:
           trap 'rm -rf -- "$root"' EXIT
           timeout 30s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" target/debug/luma-mail --design-preview --compose-diagnostics
       - name: Media fixture tools
-        run: sudo apt-get install -y gstreamer1.0-tools
+        run: sudo apt-get install -y gstreamer1.0-tools weston
+      - name: WebKit sandbox path launcher tests
+        run: |
+          rustfmt --check --edition 2024 packaging/bwrap-relocate.rs
+          rustc --edition=2024 --test packaging/bwrap-relocate.rs -o /tmp/luma-bwrap-tests
+          /tmp/luma-bwrap-tests
       - name: Allow sandbox namespaces on the disposable Ubuntu runner
         run: |
           # Ubuntu 24.04 requires explicit userns permission for third-party
@@ -62,7 +71,7 @@ jobs:
           sudo tee /etc/apparmor.d/luma-ci-bwrap >/dev/null <<'PROFILE'
           abi <abi/4.0>,
           include <tunables/global>
-          profile luma-ci-bwrap /{usr/bin/bwrap,tmp/**/usr/bin/bwrap} flags=(unconfined) {
+          profile luma-ci-bwrap /{usr/bin/bwrap,tmp/**/usr/bin/bwrap,tmp/**/usr/bin/bwrap.real} flags=(unconfined) {
             userns,
           }
           PROFILE
@@ -75,6 +84,21 @@ jobs:
         run: dbus-run-session -- xvfb-run -a target/release/luma-mail --smoke-test
       - name: Native HTML and attachment playback
         run: bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail" dist/native-newsletter.png
+      - name: Reproduce the published AppImage missing-library crash
+        if: github.event_name == 'workflow_dispatch' && inputs.reproduce_legacy
+        run: |
+          old="$RUNNER_TEMP/Luma-Mail-0.2.0-x86_64.AppImage"
+          curl --fail --location --retry 2 --output "$old" https://github.com/SleepyZzed/luma-mail/releases/download/v0.2.0-dev.1/Luma-Mail-0.2.0-x86_64.AppImage
+          printf '%s  %s\n' cbd1b7d8933ca684d61e1d06271693f27711fcf97538b2f6ddfcfcd7150fcafe "$old" | sha256sum --check
+          chmod +x "$old"
+          if bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$old" >"$RUNNER_TEMP/old-renderer.log" 2>&1; then
+            echo 'Expected the old bundle to fail without its accidental system WebKit fallback'
+            exit 1
+          fi
+          grep -E 'libwebkitgtk.*cannot open shared object|bwrap:.*mkdir parents|Failed to fully launch dbus-proxy' "$RUNNER_TEMP/old-renderer.log"
+          echo 'PASS reproduced published 0.2.0 crash without system WebKit'
+      - name: Native Wayland HTML and attachment playback
+        run: LUMA_TEST_DISPLAY=wayland bash packaging/test-rendering.sh "$(pwd)/target/release/luma-mail" dist/native-wayland-newsletter.png
       - name: Package AppImage
         run: bash packaging/appimage.sh
       - name: Launch bundled AppImage
@@ -86,6 +110,12 @@ jobs:
         run: /usr/bin/python3 packaging/test-settings.py dist/Luma-Mail-*-x86_64.AppImage
       - name: Bundled HTML engine and attachment playback
         run: bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-newsletter.png
+      - name: AppImage HTML without system WebKit
+        run: bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-isolated-newsletter.png
+      - name: AppImage Wayland HTML without system WebKit
+        run: LUMA_TEST_DISPLAY=wayland bash packaging/without-system-webkit.sh bash packaging/test-rendering.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-wayland-newsletter.png
+      - name: Read-only AppImage without system WebKit on Wayland
+        run: LUMA_TEST_DISPLAY=wayland bash packaging/test-readonly-appimage.sh "$(pwd)"/dist/Luma-Mail-*-x86_64.AppImage dist/appimage-readonly-newsletter.png
       - name: Preserve native rendering evidence
         if: always()
         uses: actions/upload-artifact@v4

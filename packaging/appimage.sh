@@ -66,14 +66,15 @@ cp -a "$gst_dir/"*.so "$appdir/usr/lib/gstreamer-1.0/"
 scanner="$(pkg-config --variable=pluginscannerdir gstreamer-1.0)/gst-plugin-scanner"
 test -x "$scanner"
 install -Dm755 "$scanner" "$appdir/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
-install -Dm755 /usr/bin/bwrap "$appdir/usr/bin/bwrap"
+install -Dm755 /usr/bin/bwrap "$appdir/usr/bin/bwrap.real"
+rustc --edition=2024 -O -C strip=symbols packaging/bwrap-relocate.rs -o "$appdir/usr/bin/bwrap"
 install -Dm755 /usr/bin/xdg-dbus-proxy "$appdir/usr/bin/xdg-dbus-proxy"
 deploy_extra=()
 while IFS= read -r -d '' item; do
   if [[ -x "$item" && "$item" != *.so ]]; then deploy_extra+=(--executable "$item");
   elif [[ "$item" == *.so ]]; then deploy_extra+=(--library "$item"); fi
 done < <(find "$appdir$webkit_dir" "$appdir/usr/lib/gtk-4.0" "$appdir/usr/lib/gstreamer-1.0" "$appdir/usr/libexec" -type f -print0)
-deploy_extra+=(--executable "$appdir/usr/bin/bwrap" --executable "$appdir/usr/bin/xdg-dbus-proxy")
+deploy_extra+=(--executable "$appdir/usr/bin/bwrap" --executable "$appdir/usr/bin/bwrap.real" --executable "$appdir/usr/bin/xdg-dbus-proxy")
 export APPIMAGE_EXTRACT_AND_RUN=1 DEPLOY_GTK_VERSION=4
 "$tool" --appdir "$appdir" --executable "$appdir/usr/bin/luma-mail" "${deploy_extra[@]}" --desktop-file "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop" --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg" --plugin gtk
 python3 packaging/relocate-webkit.py "$appdir" "$webkit_dir"
@@ -84,6 +85,7 @@ sed -i '/^export GDK_BACKEND=x11 /d; /^export GTK_THEME=/d' "$hook"
 cat >> "$hook" <<'EOF'
 # Use the bundled ABI-compatible settings module to read the host dconf daemon.
 export GIO_MODULE_DIR="$APPDIR/usr/lib/gio/modules"
+export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export GIO_EXTRA_MODULES="$APPDIR/usr/lib/gio/modules${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}"
 export GTK_EXE_PREFIX="$APPDIR/usr"
 export GST_PLUGIN_SYSTEM_PATH_1_0="$APPDIR/usr/lib/gstreamer-1.0"

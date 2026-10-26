@@ -18,7 +18,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.2.0 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.0-dev.1)
+[Download the 0.2.1 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.1-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
@@ -26,6 +26,8 @@ The 0.2.0 mail experience and validation are described in
 [PR #1](https://github.com/SleepyZzed/luma-mail/pull/1) and
 [the verification record](docs/verification.md). Native and packaged HTML/media,
 composer navigation, notification transport and system cursor checks passed.
+The 0.2.1 packaging correction addresses HTML-message crashes on systems without
+the CI host's WebKit installation; see [PR #2](https://github.com/SleepyZzed/luma-mail/pull/2).
 
 Release builds use the maintainer's bundled Google app registration with
 **Sign in with Google**. The older 0.1.1 binary still has the removed JSON import flow.

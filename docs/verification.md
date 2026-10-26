@@ -251,3 +251,20 @@ The release's native and AppImage newsletter snapshots also match the inspected
 PNG digest above. Source archives, checksums and native dependency source links
 accompany the AppImage. Post-publication documentation updates do not change
 the tagged application sources or binary.
+
+## AppImage missing-system-WebKit regression — 26 October 2026
+
+A target Linux report exposed a packaging gap in 0.2.0: its helpers could fall
+back to the CI host's WebKit libraries, while relocated relative bubblewrap bind
+destinations depended on Ubuntu's directory layout. On CachyOS, the helper failed
+to load `libwebkitgtk-6.0.so.4`, then the D-Bus proxy aborted with a read-only bind
+destination. Plain text avoided the HTML engine and remained usable.
+
+[Run 40305224654](https://github.com/SleepyZzed/luma-mail/actions/runs/40305224654)
+reproduced the published image's failure with the runner's WebKit/JSC libraries
+and helper directory hidden. Three sandbox-launcher tests passed. The corrected
+AppImage passed X11 HTML/media without system WebKit and completed Wayland HTML
+and media diagnostics too. That run failed during test-runtime cleanup of the
+document portal's FUSE mount; the fixture now detaches its own mount before
+cleanup. Final 0.2.1 publication requires the complete gates, including a
+read-only extracted tree. This is not evidence of actual FUSE/target-GPU testing.
