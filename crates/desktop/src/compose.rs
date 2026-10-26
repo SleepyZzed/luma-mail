@@ -2665,7 +2665,6 @@ fn persist(e: &Rc<Editor>, send: bool) {
         move |_, (result, persisted, uncertain)| {
             let succeeded_send = send && result.is_ok();
             if succeeded_send {
-                history::verify(&editor);
                 editor.sent.set(true);
                 editor.closing.set(true);
                 editor.pending_send.set(false);
