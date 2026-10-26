@@ -1,15 +1,18 @@
-Luma Mail 0.2.2 early access — HTML layout and theme fixes
+Luma Mail 0.3 early access — a cleaner interface and font-aware composer
 
-- Newsletter tables keep complete words in narrow columns, preserve box sizing
-  and no longer repeat the hidden HTML title above the message.
-- Neutral HTML surfaces and text follow the active system/Luma/Noctalia palette.
-  Original colours restores the sender’s palette for an individual message.
-  Brand button colours and image pixels retain their colours.
-- Inline images fit within the reader width and 480 pixels of height. Attachment
-  cards still provide larger previews and saving.
-- Theme/colour changes reuse bounded prepared images in memory, without fetching
-  them again. External images still require the explicit Load images action.
-- Preserves 0.2.1’s sandboxed AppImage WebKit fix and online-first storage model.
+- Frameless main window for Hyprland/tiling desktops. Refresh, Undo and Select
+  move beside the mailbox title; Settings and the app menu stay in the sidebar.
+  Optional window decorations, Close window and Quit remain available.
+- Interface scaling from 75–200%, with Ctrl++/Ctrl+- and Ctrl+0 reset. Text,
+  app controls and HTML previews scale without changing sent email font sizes.
+- Refined easing/fades for mail arrivals, opening messages and composer changes.
+  Reduced motion and desktop animation preferences are respected. No idle loops.
+- Installed-system-font chooser, including installed Microsoft families; 8–72 pt
+  sizes, selection/further-typing support and Reset font. No font downloads/copies.
+- New Luma rich drafts reopen visually with supported fonts, lists and links.
+  Complex, third-party and older HTML retains source mode to prevent silent loss.
+- Density/scale changes update the visible UI without mailbox reloads. Existing
+  cache budgets, Gmail-only drafts and on-demand attachment rules remain.
 
 Quit the previous version from its tray menu before launching the replacement.
 Accounts and settings stay in their normal locations. All 0.2 mail features remain:

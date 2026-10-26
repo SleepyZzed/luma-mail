@@ -13,6 +13,8 @@ use std::{
     rc::Rc,
     time::Duration,
 };
+#[path = "compose_fonts.rs"]
+mod fonts;
 #[path = "compose_recipients.rs"]
 mod recipients;
 
@@ -62,6 +64,11 @@ pub(crate) struct Editor {
     local_closed: std::sync::Arc<std::sync::atomic::AtomicBool>,
     automatic_links: RefCell<Vec<gtk::TextTag>>,
     links_pending: Cell<bool>,
+    font_family: gtk::FontDialogButton,
+    font_size: gtk::DropDown,
+    typing_font: RefCell<(Option<String>, Option<u16>)>,
+    font_sync: Cell<bool>,
+    font_inserting: Cell<bool>,
 }
 impl Editor {
     fn parent(&self) -> gtk::Window {
@@ -288,6 +295,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                     !e.automatic_links.borrow().is_empty(),
                     "typed links are highlighted"
                 );
+                fonts::verify(&e);
                 e.expand.emit_clicked();
                 assert_eq!(e.placement.get(), 2, "Restore opens compact composer");
                 finish(&e);
@@ -350,7 +358,8 @@ fn pop_out(e: &Rc<Editor>) {
     }
     detach(e);
     e.placement.set(2);
-    e.header.set_show_end_title_buttons(true);
+    e.header
+        .set_show_end_title_buttons(e.state.settings.borrow().window_chrome);
     e.root.remove_css_class("inline-composer");
     e.window.set_content(Some(&e.root));
     e.state.editor.borrow_mut().take();
@@ -716,10 +725,15 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         s.info("Connect a Google account before composing.");
         return;
     }
+    let rich = c
+        .html
+        .then(|| luma_core::rich_draft::parse(&c.text))
+        .flatten();
     let window = adw::Window::builder()
         .transient_for(&s.window)
         .application(&s.app)
         .title("Compose · Luma Mail")
+        .decorated(s.settings.borrow().window_chrome)
         .default_width(760)
         .default_height(720)
         .build();
@@ -793,16 +807,26 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             .build(),
     );
     form.append(&fields);
-    let format = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-    format.add_css_class("compose-toolbar");
-    form.append(&format);
+    let format = gtk::FlowBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .min_children_per_line(1)
+        .max_children_per_line(2)
+        .column_spacing(4)
+        .row_spacing(4)
+        .build();
+    format.set_halign(gtk::Align::Start);
+    let format_bar = vbox(0);
+    format_bar.add_css_class("compose-toolbar");
+    format_bar.append(&format);
+    form.append(&format_bar);
     let text = gtk::TextView::builder()
         .wrap_mode(gtk::WrapMode::WordChar)
         .vexpand(true)
         .accepts_tab(true)
         .build();
     text.buffer().set_enable_undo(true);
-    text.buffer().set_text(&c.text);
+    text.buffer()
+        .set_text(rich.as_ref().map(|r| r.text.as_str()).unwrap_or(&c.text));
     for (name, property) in [
         ("strong", "weight"),
         ("em", "style"),
@@ -826,14 +850,14 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             .build(),
     );
     let html = gtk::CheckButton::with_label("Edit HTML source");
-    html.set_active(c.html);
+    html.set_active(c.html && rich.is_none());
     html.set_tooltip_text(Some(
         "Advanced: edit the original HTML instead of formatted text",
     ));
     let advanced = gtk::Expander::builder()
         .label("Advanced")
         .child(&html)
-        .expanded(c.html)
+        .expanded(c.html && rich.is_none())
         .build();
     advanced.add_css_class("compose-advanced");
     form.append(&advanced);
@@ -876,7 +900,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     form.append(&bar);
     let send_reveal = gtk::Revealer::builder()
         .transition_type(gtk::RevealerTransitionType::SlideUp)
-        .transition_duration(220)
+        .transition_duration(crate::presentation::duration(s, 260))
         .reveal_child(true)
         .vexpand(true)
         .child(&form)
@@ -893,6 +917,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     template.retained.clear();
     template.attachments.clear();
     template.drive_files.clear();
+    let (font_family, font_size) = fonts::controls();
     let e = Rc::new(Editor {
         state: s.clone(),
         window,
@@ -939,7 +964,16 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         local_closed: Default::default(),
         automatic_links: RefCell::new(Vec::new()),
         links_pending: Cell::new(false),
+        font_family,
+        font_size,
+        typing_font: RefCell::new((None, None)),
+        font_sync: Cell::new(false),
+        font_inserting: Cell::new(false),
     });
+    s.compose_editors
+        .borrow_mut()
+        .retain(|e| e.strong_count() > 0);
+    s.compose_editors.borrow_mut().push(Rc::downgrade(&e));
     {
         let flag = e.upload_cancel.clone();
         e.cancel_upload
@@ -967,6 +1001,34 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             }
         });
     }
+    if let Some(rich) = rich {
+        let b = e.text.buffer();
+        for span in rich.spans {
+            let tag = if let Some(family) = span.tag.strip_prefix("font:family:") {
+                Some(fonts::family_tag(&b, family))
+            } else if let Some(size) = span
+                .tag
+                .strip_prefix("font:size:")
+                .and_then(|v| v.parse().ok())
+            {
+                Some(fonts::size_tag(&e, size))
+            } else if let Some(link) = span.tag.strip_prefix("link:") {
+                Some(link_tag(&b, link))
+            } else {
+                b.tag_table().lookup(&span.tag)
+            };
+            if let Some(tag) = tag {
+                b.apply_tag(
+                    &tag,
+                    &b.iter_at_offset(span.start),
+                    &b.iter_at_offset(span.end),
+                );
+            }
+        }
+    }
+    fonts::install(&e, &format);
+    let styling = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    format.insert(&styling, -1);
     for (icon, title, tag) in [
         ("format-text-bold-symbolic", "Bold", "strong"),
         ("format-text-italic-symbolic", "Italic", "em"),
@@ -975,7 +1037,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     ] {
         let b = ui::button(icon, title);
         b.add_css_class("flat");
-        format.append(&b);
+        styling.append(&b);
         let weak = Rc::downgrade(&e);
         b.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
@@ -985,7 +1047,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     }
     let list = ui::button("view-list-symbolic", "Toggle bullet list");
     list.add_css_class("flat");
-    format.append(&list);
+    styling.append(&list);
     let weak = Rc::downgrade(&e);
     list.connect_clicked(move |_| {
         if let Some(e) = weak.upgrade() {
@@ -1000,7 +1062,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     });
     let link = ui::button("insert-link-symbolic", "Insert link");
     link.add_css_class("flat");
-    format.append(&link);
+    styling.append(&link);
     let weak = Rc::downgrade(&e);
     link.connect_clicked(move |_| {
         if let Some(e) = weak.upgrade() {
@@ -1651,7 +1713,11 @@ fn formatting(iter: &gtk::TextIter) -> Vec<String> {
         .tags()
         .iter()
         .filter_map(|tag| tag.name().map(|n| n.to_string()))
-        .filter(|n| matches!(n.as_str(), "strong" | "em" | "u" | "s") || n.starts_with("link:"))
+        .filter(|n| {
+            matches!(n.as_str(), "strong" | "em" | "u" | "s")
+                || n.starts_with("link:")
+                || n.starts_with("font:")
+        })
         .collect();
     names.sort();
     names
@@ -1674,7 +1740,7 @@ fn has_formatting(buffer: &gtk::TextBuffer) -> bool {
     false
 }
 fn formatted_html(buffer: &gtk::TextBuffer) -> String {
-    let mut output = String::from("<div style=\"white-space:pre-wrap\">");
+    let mut output = String::from("<div data-luma-editor=\"1\" style=\"white-space:pre-wrap\">");
     let mut depth = 0;
     for n in 0..buffer.line_count() {
         let start = buffer.iter_at_line(n).unwrap_or_else(|| buffer.end_iter());
@@ -1709,7 +1775,7 @@ fn formatted_html(buffer: &gtk::TextBuffer) -> String {
             }
             output.push_str(&formatted_range(buffer, start.offset(), end.offset()));
             if n + 1 < buffer.line_count() {
-                output.push_str("<br>\n");
+                output.push_str("<br>");
             }
         }
     }
@@ -1730,12 +1796,20 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
             for tag in previous.iter().rev() {
                 output.push_str(&format!(
                     "</{}>",
-                    if tag.starts_with("link:") { "a" } else { tag }
+                    if tag.starts_with("link:") {
+                        "a"
+                    } else if tag.starts_with("font:") {
+                        "span"
+                    } else {
+                        tag
+                    }
                 ));
             }
             for tag in &tags {
                 if let Some(url) = tag.strip_prefix("link:") {
                     output.push_str(&format!("<a href=\"{}\">", escape(url)));
+                } else if let Some(font) = fonts::open(tag) {
+                    output.push_str(&font);
                 } else {
                     output.push_str(&format!("<{tag}>"));
                 }
@@ -1744,7 +1818,7 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
         }
         let ch = iter.char();
         if ch == '\n' {
-            output.push_str("<br>\n");
+            output.push_str("<br>");
         } else {
             output.push_str(&escape(&ch.to_string()));
         }
@@ -1753,7 +1827,13 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
     for tag in previous.iter().rev() {
         output.push_str(&format!(
             "</{}>",
-            if tag.starts_with("link:") { "a" } else { tag }
+            if tag.starts_with("link:") {
+                "a"
+            } else if tag.starts_with("font:") {
+                "span"
+            } else {
+                tag
+            }
         ));
     }
     output
@@ -2142,13 +2222,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
                         editor.closing.set(true);
                         editor.send_reveal.set_reveal_child(false);
                         editor.state.toast("Sent · Confirmed by Gmail");
-                        let delay = if gtk::Settings::default()
-                            .is_some_and(|s| s.is_gtk_enable_animations())
-                        {
-                            220
-                        } else {
-                            0
-                        };
+                        let delay = crate::presentation::duration(&editor.state, 280) as u64;
                         let sent = editor.clone();
                         glib::timeout_add_local_once(Duration::from_millis(delay), move || {
                             finish(&sent);
@@ -2518,4 +2592,18 @@ pub fn find_draft(s: &Rc<State>, message: &str) {
         },
         |s, d| open(&s, None, Some(d)),
     );
+}
+
+pub(crate) fn rescale(s: &Rc<State>) {
+    s.compose_editors
+        .borrow_mut()
+        .retain(|e| e.strong_count() > 0);
+    for e in s
+        .compose_editors
+        .borrow()
+        .iter()
+        .filter_map(|e| e.upgrade())
+    {
+        fonts::rescale(&e);
+    }
 }

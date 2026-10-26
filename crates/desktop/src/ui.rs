@@ -54,6 +54,7 @@ pub struct State {
     pub reader: gtk::Box,
     pub compose_stack: gtk::Stack,
     pub(crate) editor: RefCell<Option<Rc<crate::compose::Editor>>>,
+    pub(crate) compose_editors: RefCell<Vec<std::rc::Weak<crate::compose::Editor>>>,
     pub reply_slot: RefCell<glib::WeakRef<gtk::Box>>,
     pub title: gtk::Label,
     pub more: gtk::Button,
@@ -78,6 +79,7 @@ pub struct State {
     body_requests: RefCell<HashMap<ThreadKey, (u64, tokio::task::AbortHandle)>>,
     body_serial: Cell<u64>,
     pub theme_provider: gtk::CssProvider,
+    pub style_provider: gtk::CssProvider,
     pub(crate) html_refresh: RefCell<Vec<std::rc::Weak<dyn Fn()>>>,
     pub(crate) html_refresh_pending: Cell<bool>,
     theme_monitor: RefCell<Option<gio::FileMonitor>>,
@@ -250,33 +252,25 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("Luma Mail")
+        .decorated(settings.window_chrome)
         .default_width(settings.window_width)
         .default_height(settings.window_height)
         .build();
     let root = vbox(0);
-    let header = adw::HeaderBar::new();
-    header.set_title_widget(Some(&adw::WindowTitle::new("Luma", "Online-first mail")));
     let refresh = button(
         "view-refresh-symbolic",
         "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
     );
     let prefs = button("emblem-system-symbolic", "Settings");
-    header.pack_start(&refresh);
     let undo_button = button(
         "edit-undo-symbolic",
         "Undo the last confirmed mail operation",
     );
     undo_button.set_sensitive(false);
-    header.pack_start(&undo_button);
     let select = gtk::ToggleButton::builder()
         .icon_name("object-select-symbolic")
         .tooltip_text("Select conversations for bulk actions")
         .build();
-    header.pack_start(&select);
-    header.pack_end(&prefs);
-    let quit_button = button("application-exit-symbolic", "Quit Luma completely");
-    header.pack_end(&quit_button);
-    root.append(&header);
     let sidebar = vbox(8);
     sidebar.add_css_class("luma-sidebar");
     margins(&sidebar, 16);
@@ -285,12 +279,52 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .child(&sidebar)
         .build();
     ss.set_size_request(100, -1);
+    let nav = vbox(0);
+    nav.add_css_class("sidebar-shell");
+    ss.set_vexpand(true);
+    nav.append(&ss);
+    let footer = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    footer.add_css_class("sidebar-footer");
+    let footer_name = label("Luma", "heading");
+    footer_name.set_hexpand(true);
+    footer.append(&footer_name);
+    prefs.add_css_class("flat");
+    footer.append(&prefs);
+    let menu = gio::Menu::new();
+    for (name, action) in [
+        ("Settings", "settings"),
+        ("Larger interface", "scale-up"),
+        ("Smaller interface", "scale-down"),
+        ("Reset interface size", "scale-reset"),
+        ("Close window", "close"),
+        ("Quit Luma", "quit"),
+    ] {
+        menu.append(Some(name), Some(&format!("win.{action}")));
+    }
+    let app_menu = gtk::MenuButton::builder()
+        .icon_name("open-menu-symbolic")
+        .tooltip_text("Luma menu · Interface size, close and quit")
+        .menu_model(&menu)
+        .build();
+    app_menu.add_css_class("flat");
+    footer.append(&app_menu);
+    nav.append(&footer);
     let center = vbox(0);
     center.set_size_request(200, -1);
     let heading = vbox(8);
     margins(&heading, 16);
     let title = label("Unified Inbox", "title-2");
-    heading.append(&title);
+    let title_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    title.set_hexpand(true);
+    title.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    title_row.append(&title);
+    for control in [&refresh, &undo_button] {
+        control.add_css_class("flat");
+        title_row.append(control);
+    }
+    select.add_css_class("flat");
+    title_row.append(&select);
+    heading.append(&title_row);
     let search = gtk::SearchEntry::builder()
         .placeholder_text("Search Gmail · from: has:attachment …")
         .hexpand(true)
@@ -305,7 +339,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     search_bar.append(&search);
     search_bar.append(&search_options);
     heading.prepend(&search_bar);
-    heading.reorder_child_after(&search_bar, Some(&title));
+    heading.reorder_child_after(&search_bar, Some(&title_row));
     center.append(&heading);
     let page_activity = gtk::ProgressBar::new();
     page_activity.add_css_class("mail-loading");
@@ -343,7 +377,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .build();
     let outer = gtk::Paned::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .start_child(&ss)
+        .start_child(&nav)
         .end_child(&inner)
         .position(settings.sidebar_width)
         .resize_start_child(false)
@@ -356,11 +390,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         "dim-label",
     );
     margins(&status, 10);
-    status.set_wrap(true);
+    status.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    status.add_css_class("app-status");
     root.append(&status);
     let toasts = adw::ToastOverlay::new();
     let compose_stack = gtk::Stack::new();
-    compose_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
+    compose_stack.set_transition_type(gtk::StackTransitionType::SlideLeftRight);
     compose_stack.set_transition_duration(160);
     compose_stack.add_named(&root, Some("mail"));
     toasts.set_child(Some(&compose_stack));
@@ -382,6 +417,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         changing_selection: Cell::new(false),
         compose_stack,
         editor: RefCell::new(None),
+        compose_editors: RefCell::new(Vec::new()),
         reply_slot: RefCell::new(glib::WeakRef::new()),
         attachment_window: RefCell::new(glib::WeakRef::new()),
         mutation_serial: Cell::new(0),
@@ -416,6 +452,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         body_requests: RefCell::new(HashMap::new()),
         body_serial: Cell::new(0),
         theme_provider: gtk::CssProvider::new(),
+        style_provider: css,
         html_refresh: RefCell::new(Vec::new()),
         html_refresh_pending: Cell::new(false),
         theme_monitor: RefCell::new(None),
@@ -443,6 +480,7 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     self::sidebar(&s);
     empty_reader(&s);
     apply_theme(&s);
+    crate::presentation::apply(&s);
     {
         let weak = Rc::downgrade(&s);
         adw::StyleManager::default().connect_dark_notify(move |_| {
@@ -562,10 +600,6 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     install_shortcuts(&s);
     {
         let s = s.clone();
-        quit_button.connect_clicked(move |_| crate::tray::quit(&s));
-    }
-    {
-        let s = s.clone();
         s.clone()
             .undo_button
             .connect_clicked(move |_| undo_last(&s));
@@ -617,6 +651,11 @@ fn empty_reader(s: &State) {
 }
 pub fn sidebar(s: &Rc<State>) {
     clear(&s.sidebar);
+    let brand = vbox(2);
+    brand.add_css_class("sidebar-brand");
+    brand.append(&label("Luma", "title-1"));
+    brand.append(&label("Online-first mail", "caption"));
+    s.sidebar.append(&brand);
     let compose = gtk::Button::new();
     compose.set_child(Some(
         &adw::ButtonContent::builder()
@@ -654,7 +693,10 @@ pub fn sidebar(s: &Rc<State>) {
         let b = gtk::Button::new();
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         content.append(&gtk::Image::from_icon_name(icon));
-        content.append(&label(name, ""));
+        let name_label = label(name, "");
+        name_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        name_label.set_hexpand(true);
+        content.append(&name_label);
         b.set_child(Some(&content));
         if *s.folder.borrow() == folder && s.filter.borrow().is_none() {
             b.add_css_class("active-folder");
@@ -689,7 +731,16 @@ pub fn sidebar(s: &Rc<State>) {
         account.append(&text);
         let unread = s.unread.borrow().get(&a.id).copied().unwrap_or(0);
         if unread > 0 {
-            account.append(&label(&unread.to_string(), "thread-count"));
+            let count = label(
+                &if unread > 999 {
+                    "999+".into()
+                } else {
+                    unread.to_string()
+                },
+                "thread-count",
+            );
+            count.set_tooltip_text(Some(&format!("{unread} unread messages")));
+            account.append(&count);
         }
         b.set_child(Some(&account));
         b.add_css_class("flat");
@@ -710,13 +761,6 @@ pub fn sidebar(s: &Rc<State>) {
     {
         let s = s.clone();
         add.connect_clicked(move |_| add_account(&s, false, None));
-    }
-    let setup = gtk::Button::with_label("Settings");
-    setup.add_css_class("flat");
-    s.sidebar.append(&setup);
-    {
-        let s = s.clone();
-        setup.connect_clicked(move |_| crate::settings::open(&s));
     }
     if let Some(id) = s.filter.borrow().clone()
         && let Some(labels) = s.labels_cache.borrow().get(&id).cloned()
@@ -748,6 +792,9 @@ pub fn load_labels(s: &Rc<State>, account: &str) {
             sidebar(&s);
         }
     });
+}
+pub fn refresh_density(s: &Rc<State>) {
+    rows::restyle(s);
 }
 pub fn reload(s: &Rc<State>) {
     reload_view(s, false);
@@ -1462,6 +1509,7 @@ fn load_message(s: &Rc<State>, body: &gtk::Box, message: Message, reading: u64) 
                 let id = message.id.clone();
                 b.connect_clicked(move |_| crate::compose::find_draft(&s, &id));
             }
+            crate::presentation::enter(&s, &target);
             s.info("Message opened");
             if message.has("UNREAD") {
                 mark_opened_read(&s, &completed_key.account, &message);
@@ -1833,6 +1881,33 @@ fn watch_theme(s: &Rc<State>) {
     }
 }
 fn install_shortcuts(s: &Rc<State>) {
+    for (name, accels) in [
+        ("settings", vec!["<Primary>comma"]),
+        ("quit", vec!["<Primary>q"]),
+        ("close", vec!["<Primary>w"]),
+        ("scale-up", vec!["<Primary>plus", "<Primary>equal"]),
+        ("scale-down", vec!["<Primary>minus"]),
+        ("scale-reset", vec!["<Primary>0"]),
+    ] {
+        let action = gio::SimpleAction::new(name, None);
+        let state = s.clone();
+        action.connect_activate(move |_, _| match name {
+            "settings" => crate::settings::open(&state),
+            "quit" => crate::tray::quit(&state),
+            "close" => {
+                state.window.close();
+            }
+            "scale-up" => crate::presentation::change_scale(&state, 1),
+            "scale-down" => crate::presentation::change_scale(&state, -1),
+            _ => {
+                state.settings.borrow_mut().ui_scale_percent = 100;
+                state.save();
+                crate::presentation::apply(&state);
+            }
+        });
+        s.window.add_action(&action);
+        s.app.set_accels_for_action(&format!("win.{name}"), &accels);
+    }
     for index in 0..9 {
         let action = gio::SimpleAction::new(&format!("account-{}", index + 1), None);
         let state = s.clone();

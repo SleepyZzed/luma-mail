@@ -84,7 +84,10 @@ pub fn needs_layout(html: &str) -> bool {
                 ) || tag.attrs.iter().any(|a| {
                     a.name.local == html5ever::local_name!("bgcolor")
                         || (a.name.local == html5ever::local_name!("style")
-                            && a.value.to_ascii_lowercase().contains("background"))
+                            && (a.value.to_ascii_lowercase().contains("background")
+                                || (tag.name == html5ever::local_name!("span")
+                                    && (a.value.contains("font-family")
+                                        || a.value.contains("font-size")))))
                 }))
             {
                 self.0.set(true);

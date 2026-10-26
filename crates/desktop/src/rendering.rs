@@ -47,7 +47,7 @@ struct Document {
     images: HashMap<String, String>,
     original: bool,
     revision: u64,
-    rendered: Option<(Option<html_mail::Appearance>, u64)>,
+    rendered: Option<(Option<html_mail::Appearance>, u64, u16)>,
 }
 impl Document {
     fn merge(&mut self, images: HashMap<String, String>) {
@@ -71,7 +71,7 @@ fn html_controls(
     message: &Message,
     account: &str,
     html: String,
-    apply: impl Fn(String) + 'static,
+    apply: impl Fn(String, f64) + 'static,
 ) -> Rc<RefCell<Document>> {
     let document = Rc::new(RefCell::new(Document {
         html,
@@ -86,16 +86,19 @@ fn html_controls(
         if let Some(s) = weak.upgrade() {
             let mut model = model.borrow_mut();
             let colours = (!model.original).then(|| appearance(&s));
-            let key = (colours, model.revision);
+            let key = (
+                colours,
+                model.revision,
+                s.settings.borrow().ui_scale_percent,
+            );
             if model.rendered == Some(key) {
                 return;
             }
             model.rendered = Some(key);
-            apply(html_mail::styled_document(
-                &model.html,
-                &model.images,
-                colours,
-            ));
+            apply(
+                html_mail::styled_document(&model.html, &model.images, colours),
+                crate::presentation::scale(&s),
+            );
         }
     });
     s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
@@ -483,7 +486,7 @@ mod linux {
             None::<&gio::Cancellable>,
             move |result| {
                 if let (Some(view), Ok(value)) = (weak.upgrade(), result) {
-                    let height = value.to_double();
+                    let height = value.to_double() * view.zoom_level();
                     if height.is_finite() {
                         view.set_height_request(height.clamp(48., 60000.) as i32);
                     }
@@ -512,8 +515,9 @@ mod linux {
             &Message::default(),
             "",
             html.into(),
-            move |page| {
+            move |page, zoom| {
                 if let Some(view) = weak.upgrade() {
+                    view.set_zoom_level(zoom);
                     view.load_html(&page, Some("about:blank"));
                 }
             },
@@ -584,9 +588,19 @@ mod linux {
                             s.settings.borrow_mut().theme = "dark".into();
                             ui::apply_theme(&s);
                         }
+                        3 => {
+                            s.settings.borrow_mut().ui_scale_percent=125;
+                            crate::presentation::apply(&s);
+                        }
+                        4 => {
+                            assert!((next_view.zoom_level()-1.25).abs()<0.01);
+                            s.settings.borrow_mut().ui_scale_percent=100;
+                            crate::presentation::apply(&s);
+                        }
                         _ => {
+                            assert!((next_view.zoom_level()-1.).abs()<0.01);
                             next_view.set_widget_name("html-diagnostic-passed");
-                            println!("PASS actual WebKit table sizing, title removal, inline image bounds, dark/light theme updates and Original colours; inert sender content");
+                            println!("PASS actual WebKit table sizing, title removal, inline image bounds, dark/light theme updates, Original colours and UI zoom; inert sender content");
                         }
                     }
                 };
@@ -683,8 +697,9 @@ mod linux {
             message,
             account,
             html,
-            move |page| {
+            move |page, zoom| {
                 if let Some(view) = weak.upgrade() {
+                    view.set_zoom_level(zoom);
                     view.load_html(&page, Some("about:blank"));
                 }
             },

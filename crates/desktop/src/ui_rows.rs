@@ -156,7 +156,7 @@ fn content(s: &Rc<State>, item: &Conversation) -> gtk::Box {
 fn make(s: &Rc<State>, item: &Conversation) -> MailRow {
     let reveal = gtk::Revealer::builder()
         .transition_type(gtk::RevealerTransitionType::SlideDown)
-        .transition_duration(220)
+        .transition_duration(crate::presentation::duration(s, 260))
         .reveal_child(false)
         .child(&content(s, item))
         .build();
@@ -194,11 +194,16 @@ fn make(s: &Rc<State>, item: &Conversation) -> MailRow {
     });
     row.add_controller(keyboard);
     let weak = reveal.downgrade();
+    let state = Rc::downgrade(s);
     row.connect_map(move |_| {
         let weak = weak.clone();
+        let state = state.clone();
         glib::idle_add_local_once(move || {
             if let Some(reveal) = weak.upgrade() {
                 reveal.set_reveal_child(true);
+                if let Some(state) = state.upgrade() {
+                    crate::presentation::enter(&state, &reveal);
+                }
             }
         });
     });
@@ -258,15 +263,18 @@ pub(super) fn reconcile(s: &Rc<State>, items: Vec<Conversation>, more: bool) {
             widget.row.set_selectable(false);
             widget.reveal.set_reveal_child(false);
             let weak = Rc::downgrade(s);
-            glib::timeout_add_local_once(Duration::from_millis(230), move || {
-                if let Some(s) = weak.upgrade()
-                    && widget.row.parent().is_some()
-                {
-                    s.changing_selection.set(true);
-                    s.list.remove(&widget.row);
-                    s.changing_selection.set(false);
-                }
-            });
+            glib::timeout_add_local_once(
+                Duration::from_millis(crate::presentation::duration(s, 280) as u64),
+                move || {
+                    if let Some(s) = weak.upgrade()
+                        && widget.row.parent().is_some()
+                    {
+                        s.changing_selection.set(true);
+                        s.list.remove(&widget.row);
+                        s.changing_selection.set(false);
+                    }
+                },
+            );
         }
     }
     for item in &items {
@@ -318,15 +326,18 @@ pub(super) fn apply(s: &Rc<State>, update: Update) {
             widget.row.set_sensitive(false);
             widget.reveal.set_reveal_child(false);
             let weak = Rc::downgrade(s);
-            glib::timeout_add_local_once(Duration::from_millis(230), move || {
-                if let Some(s) = weak.upgrade()
-                    && widget.row.parent().is_some()
-                {
-                    s.changing_selection.set(true);
-                    s.list.remove(&widget.row);
-                    s.changing_selection.set(false);
-                }
-            });
+            glib::timeout_add_local_once(
+                Duration::from_millis(crate::presentation::duration(s, 280) as u64),
+                move || {
+                    if let Some(s) = weak.upgrade()
+                        && widget.row.parent().is_some()
+                    {
+                        s.changing_selection.set(true);
+                        s.list.remove(&widget.row);
+                        s.changing_selection.set(false);
+                    }
+                },
+            );
         }
         if s.selected.borrow().as_ref() == Some(&update.key) {
             crate::compose::park_inline(s);
@@ -625,4 +636,12 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
     pop.set_child(Some(&box_));
     pop.connect_closed(|p| p.unparent());
     pop.popup();
+}
+
+pub(super) fn restyle(s: &Rc<State>) {
+    for item in s.rows.borrow().iter() {
+        if let Some(widget) = s.row_widgets.borrow().get(&item.key) {
+            widget.reveal.set_child(Some(&content(s, item)));
+        }
+    }
 }

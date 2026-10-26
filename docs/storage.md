@@ -119,3 +119,15 @@ Optional recent recipients retain at most 100 addresses across accounts in a
 64 KiB configuration file, expire after 90 days, and are cleared on disconnect or
 on request. They are learned only after successful sends in Luma, not by scanning
 Sent, contacts or historical mail. Prefix matching happens in memory while typing.
+
+
+## Interface scaling and composer fonts
+
+Appearance adds only small numeric/boolean preferences to settings.json. Scaling,
+density and animation changes do not fetch mailbox pages. Font lists use installed
+system metadata; Luma does not download, copy or embed font files. Outgoing font
+family/size spans are part of the Gmail draft/message, not a local font database.
+Visual draft restoration is bounded to 2 MiB source, 512 KiB text, 4096 spans and
+32 markup levels, and runs in memory without a browser or local draft store.
+Unsupported markup stays intact in source mode. GTK/font libraries can use normal
+system font metadata caches; these contain no mail or attachment content.

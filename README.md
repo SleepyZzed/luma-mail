@@ -18,7 +18,7 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.2.2 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.2.2-dev.1)
+[Download the 0.3 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.3.0-dev.1)
 and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
 publishing it. See [AppImage packaging](docs/appimage.md).
 
@@ -61,6 +61,27 @@ Periodic polling defaults to 60 seconds and is configurable. Quiet history check
 insert new conversations and update unread replies in place, without a loading
 bar, replacing loaded pages or reopening the reader. Gmail push is not
 claimed. No always-running daemon or autostart entry is installed.
+
+## Interface and fonts
+
+The main window is frameless by default for tiling desktops such as Hyprland.
+Refresh, Undo and Select sit beside the mailbox title. Settings and the app menu
+stay at the bottom of the sidebar; the menu includes Close window and Quit.
+Optional window decorations are under Settings → Appearance.
+
+Interface size offers 75–200%, independently of compositor/monitor scaling.
+Ctrl++ / Ctrl+- step through sizes; Ctrl+0 resets to 100%. Compact density updates
+visible rows without fetching Gmail. Reduced motion disables mail/composer
+transitions; desktop animation preferences are respected too.
+
+The composer font picker lists installed system families, including Microsoft
+fonts when installed. Select text to change its family/size, or choose a font for
+further typing. Interface scaling changes its on-screen appearance without
+changing the size sent in the email. Fonts are not downloaded, copied, embedded
+or bundled. Recipients need the same family or their mail client uses a fallback.
+Luma 0.3's own rich drafts reopen visually with supported fonts, lists and links;
+complex, third-party and older HTML drafts retain source mode to avoid data loss.
+Drafts stay in Gmail. See [the v1 roadmap](docs/roadmap.md).
 
 ## Daily-use controls
 

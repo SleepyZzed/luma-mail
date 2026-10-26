@@ -10,6 +10,7 @@ mod google;
 mod media;
 mod message_images;
 mod notifications;
+mod presentation;
 mod rendering;
 mod search;
 mod sender_controls;

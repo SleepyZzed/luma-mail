@@ -34,6 +34,9 @@ pub struct Settings {
     pub clear_cache_on_exit: bool,
     pub theme: String,
     pub compact: bool,
+    pub ui_scale_percent: u16,
+    pub reduced_motion: bool,
+    pub window_chrome: bool,
     pub poll_seconds: u64,
     #[serde(default)]
     pub poll_version: u8,
@@ -60,6 +63,9 @@ impl Default for Settings {
             clear_cache_on_exit: false,
             theme: "system".into(),
             compact: false,
+            ui_scale_percent: 100,
+            reduced_motion: false,
+            window_chrome: false,
             poll_seconds: 60,
             poll_version: 1,
             notification_privacy: false,
@@ -110,6 +116,7 @@ impl Paths {
                     settings.poll_seconds = 60;
                 }
                 settings.poll_version = 1;
+                settings.ui_scale_percent = settings.ui_scale_percent.clamp(75, 200);
                 Ok(settings)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
