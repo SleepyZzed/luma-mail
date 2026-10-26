@@ -107,6 +107,17 @@ compliance with the Google API Services User Data Policy. A security assessment
 may be required depending on how restricted data is handled. Local test success
 does not establish Google approval.
 
+## Optional saved-contact photos
+
+Account settings offers saved-contact profile photos through the People API and
+`https://www.googleapis.com/auth/contacts.readonly`. It is requested only when
+enabled, alongside existing Gmail/Drive/filter permissions. Search projects only
+email addresses and photo URLs, matches exact sender addresses, and runs for visible
+avatars. It does not sync or store an address book. Google-hosted photo downloads
+carry no Gmail/People bearer token, cookie or referrer. Other senders use initials.
+The maintainer must enable People API and include the implemented optional scope
+and demonstration in verification. See storage.md for memory/rate limits.
+
 ## Public sign-in and costs
 
 The test-user list has been removed by publishing the Google registration for

@@ -12,7 +12,11 @@ use luma_core::{
 use std::rc::Rc;
 
 pub fn show(s: &Rc<State>) {
-    s.window.set_title(Some("Luma Mail · Synthetic preview"));
+    s.window.set_title(Some(concat!(
+        "Luma Mail ",
+        env!("CARGO_PKG_VERSION"),
+        " · Synthetic preview"
+    )));
     assert!(
         s.clients.borrow().is_empty(),
         "Use a fresh isolated test root"
@@ -26,6 +30,7 @@ pub fn show(s: &Rc<State>) {
         signature: String::new(),
         drive_enabled: false,
         sender_controls: false,
+        contact_photos: false,
         blocked_senders: vec![],
     };
     s.settings.borrow_mut().accounts.push(account);
@@ -86,6 +91,7 @@ pub fn show(s: &Rc<State>) {
                     date: chrono::Utc::now().timestamp_millis() - i as i64 * 3600000,
                     unread: *unread,
                     starred: false,
+                    important: false,
                     attachments: *attached,
                     count: 1,
                 },

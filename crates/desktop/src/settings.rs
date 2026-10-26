@@ -130,6 +130,36 @@ pub fn open(s: &Rc<State>) {
                 s.save_debounced();
             });
         }
+        let photos = adw::SwitchRow::builder().title("Saved-contact profile photos").subtitle("Optional read-only Google Contacts permission. Visible senders only; small photos stay in memory. Unmatched senders keep initials.").active(account.contact_photos).build();
+        g.add(&photos);
+        {
+            let state = s.clone();
+            let account = account.clone();
+            photos.connect_active_notify(move |row| {
+                let current = state.settings.borrow().accounts.iter().find(|a| a.id == account.id).is_some_and(|a| a.contact_photos);
+                if current == row.is_active() { return; }
+                if !row.is_active() {
+                    if let Some(a) = state.settings.borrow_mut().accounts.iter_mut().find(|a| a.id == account.id) { a.contact_photos = false; }
+                    state.photos.clear();
+                    state.save();
+                    return;
+                }
+                row.set_active(false);
+                let dialog = adw::AlertDialog::builder().heading("Allow saved-contact photos?").body("Google will ask for read-only access to your Contacts alongside Luma's existing permissions. Luma searches only visible senders for a matching photo. It does not synchronize or save your address book, upload it elsewhere, or look up arbitrary senders on third-party services.").build();
+                dialog.add_responses(&[("cancel", "Cancel"), ("allow", "Continue to Google")]);
+                let state = state.clone();
+                let account = account.clone();
+                let row = row.downgrade();
+                glib::MainContext::default().spawn_local(async move {
+                    if dialog.choose_future(Some(&state.window)).await == "allow" {
+                        crate::signin::contact_photos(&state, &account, move |s, _| {
+                            if let Some(row) = row.upgrade() { row.set_active(true); }
+                            crate::contact_photos::queue(&s);
+                        });
+                    }
+                });
+            });
+        }
         for (title, mode) in [
             ("Use as default sender", 0),
             ("Move account up", 1),

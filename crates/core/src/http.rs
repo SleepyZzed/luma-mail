@@ -56,6 +56,26 @@ impl UploadProgress {
 }
 
 impl Http {
+    /// Public image transport uses the same bounded connection pool, without OAuth headers.
+    pub async fn public_get(&self, url: &str) -> Result<HttpResponse> {
+        let permit = self
+            .permits
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("HTTP semaphore");
+        let response = self.client.get(url).send().await?;
+        if !response.status().is_success() {
+            return Err(Error::Api {
+                status: response.status().as_u16(),
+                reason: "Contact photo unavailable".into(),
+            });
+        }
+        Ok(HttpResponse {
+            response,
+            permit: Some(permit),
+        })
+    }
     pub fn new() -> Result<Self> {
         let _ = rustls::crypto::ring::default_provider().install_default();
         Ok(Self {

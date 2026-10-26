@@ -21,6 +21,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 pub const GMAIL_SCOPE: &str = "https://www.googleapis.com/auth/gmail.modify";
 pub const SETTINGS_SCOPE: &str = "https://www.googleapis.com/auth/gmail.settings.basic";
 pub const DRIVE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
+pub const CONTACTS_SCOPE: &str = "https://www.googleapis.com/auth/contacts.readonly";
 
 #[derive(Clone)]
 pub struct ClientConfig {
@@ -193,6 +194,7 @@ pub struct Authorization {
     pub url: Url,
     drive: bool,
     settings: bool,
+    photos: bool,
 }
 
 impl Authorization {
@@ -203,6 +205,14 @@ impl Authorization {
         client: &ClientConfig,
         drive: bool,
         settings: bool,
+    ) -> Result<Self> {
+        Self::begin_with_photos(client, drive, settings, false).await
+    }
+    pub async fn begin_with_photos(
+        client: &ClientConfig,
+        drive: bool,
+        settings: bool,
+        photos: bool,
     ) -> Result<Self> {
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await?;
         let redirect = format!("http://127.0.0.1:{}", listener.local_addr()?.port());
@@ -218,6 +228,10 @@ impl Authorization {
         if settings {
             scope.push(' ');
             scope.push_str(SETTINGS_SCOPE);
+        }
+        if photos {
+            scope.push(' ');
+            scope.push_str(CONTACTS_SCOPE);
         }
         url.query_pairs_mut().extend_pairs([
             ("client_id", client.client_id.as_str()),
@@ -239,6 +253,7 @@ impl Authorization {
             url,
             drive,
             settings,
+            photos,
         })
     }
     pub async fn complete(mut self, http: &Http, client: &ClientConfig) -> Result<TokenResponse> {
@@ -293,6 +308,7 @@ impl Authorization {
         if !token.scope.split_whitespace().any(|s| s == GMAIL_SCOPE)
             || (self.drive && !token.scope.split_whitespace().any(|s| s == DRIVE_SCOPE))
             || (self.settings && !token.scope.split_whitespace().any(|s| s == SETTINGS_SCOPE))
+            || (self.photos && !token.scope.split_whitespace().any(|s| s == CONTACTS_SCOPE))
         {
             return Err(Error::Invalid(
                 "Required permissions were not granted by Google".into(),

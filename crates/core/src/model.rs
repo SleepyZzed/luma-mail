@@ -122,6 +122,7 @@ pub struct Conversation {
     pub date: i64,
     pub unread: bool,
     pub starred: bool,
+    pub important: bool,
     pub attachments: bool,
     pub count: usize,
 }
@@ -140,6 +141,7 @@ impl Conversation {
             date: latest.date(),
             unread: thread.messages.iter().any(|m| m.has("UNREAD")),
             starred: thread.messages.iter().any(|m| m.has("STARRED")),
+            important: thread.messages.iter().any(|m| m.has("IMPORTANT")),
             attachments: thread
                 .messages
                 .iter()

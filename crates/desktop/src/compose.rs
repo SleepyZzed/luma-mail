@@ -13,8 +13,12 @@ use std::{
     rc::Rc,
     time::Duration,
 };
+#[path = "compose_clipboard.rs"]
+mod clipboard;
 #[path = "compose_fonts.rs"]
 mod fonts;
+#[path = "compose_motion.rs"]
+mod motion;
 #[path = "compose_recipients.rs"]
 mod recipients;
 
@@ -24,6 +28,10 @@ pub(crate) struct Editor {
     root: gtk::Box,
     header: adw::HeaderBar,
     placement: Cell<u8>,
+    motion_busy: Cell<bool>,
+    detached_expanded: Cell<bool>,
+    clipboard_busy: Cell<bool>,
+    popout: gtk::Button,
     inline_origin: glib::WeakRef<gtk::Box>,
     close_after_save: Cell<bool>,
     from: gtk::DropDown,
@@ -48,6 +56,8 @@ pub(crate) struct Editor {
     saved: Cell<u64>,
     busy: Cell<bool>,
     uncertain: Cell<bool>,
+    conflict: Cell<bool>,
+    conflict_bar: gtk::Box,
     status: gtk::Label,
     progress: gtk::ProgressBar,
     send_reveal: gtk::Revealer,
@@ -55,6 +65,7 @@ pub(crate) struct Editor {
     save: gtk::Button,
     debounce: RefCell<Option<glib::SourceId>>,
     closing: Cell<bool>,
+    dismiss_started: Cell<bool>,
     expand: gtk::Button,
     local_id: RefCell<String>,
     local_debounce: RefCell<Option<glib::SourceId>>,
@@ -131,36 +142,43 @@ fn focus_tab(e: &Editor, key: gtk::gdk::Key, mods: gtk::gdk::ModifierType) -> bo
     false
 }
 fn expand_editor(e: &Rc<Editor>) {
-    if e.expand.icon_name().as_deref() == Some("view-restore-symbolic") {
-        e.parent().unfullscreen();
-        e.expand.set_icon_name("view-fullscreen-symbolic");
-        e.expand.set_tooltip_text(Some("Expand composer"));
-        if let Some(slot) = e
-            .inline_origin
-            .upgrade()
-            .filter(|slot| slot.root().is_some())
-        {
-            detach(e);
-            e.placement.set(1);
-            e.header.set_show_end_title_buttons(false);
-            e.root.add_css_class("inline-composer");
-            slot.append(&e.root);
-            e.state.compose_stack.set_visible_child_name("mail");
-            *e.state.editor.borrow_mut() = Some(e.clone());
-            e.window.set_visible(false);
-        } else {
-            pop_out(e);
-            e.window.unmaximize();
-            e.window.set_default_size(760, 640);
+    if e.motion_busy.get() || e.closing.get() {
+        return;
+    }
+    match e.placement.get() {
+        0 => motion::relocate(e, || {
+            if let Some(slot) = e
+                .inline_origin
+                .upgrade()
+                .filter(|slot| slot.root().is_some())
+            {
+                detach(e);
+                e.placement.set(1);
+                motion::reset_layout(e);
+                e.root.add_css_class("inline-composer");
+                e.text.set_height_request(200);
+                slot.append(&e.root);
+                e.state
+                    .compose_stack
+                    .set_visible_child_full("mail", gtk::StackTransitionType::None);
+            } else {
+                motion::compact(e);
+            }
+            motion::controls(e);
+        }),
+        2 => {
+            let expanded = !e.detached_expanded.get();
+            e.detached_expanded.set(expanded);
+            if expanded {
+                e.window.maximize();
+            } else {
+                e.window.unmaximize();
+                e.window.set_default_size(760, 640);
+            }
+            motion::controls(e);
+            crate::presentation::enter(&e.state, &e.root);
         }
-        focus_message(e);
-    } else {
-        if e.placement.get() == 1 {
-            show_full(e);
-        }
-        e.parent().fullscreen();
-        e.expand.set_icon_name("view-restore-symbolic");
-        e.expand.set_tooltip_text(Some("Restore composer size"));
+        _ => show_full(e),
     }
 }
 #[cfg(debug_assertions)]
@@ -176,6 +194,7 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
     let state = s.clone();
     let mut stage = 0;
     let mut ticks = 0;
+    let mut pasted_body = None;
     glib::timeout_add_local(Duration::from_millis(150), move || {
         ticks += 1;
         assert!(ticks < 80, "composer diagnostics timed out");
@@ -279,17 +298,21 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
             }
             1 => {
                 let e = current.unwrap();
-                if e.links_pending.get() {
+                if e.links_pending.get() || e.motion_busy.get() {
                     return glib::ControlFlow::Continue;
                 }
                 assert_eq!(
-                    e.expand.icon_name().as_deref(),
-                    Some("view-restore-symbolic")
+                    e.placement.get(),
+                    3,
+                    "Restore uses an in-app compact composer"
                 );
-                #[cfg(target_os = "windows")]
                 assert!(
-                    e.parent().is_fullscreen(),
-                    "Windows acknowledges composer fullscreen"
+                    !state.window.is_fullscreen(),
+                    "Compose must not change the desktop fullscreen state"
+                );
+                assert!(
+                    e.root.width() < state.window.width(),
+                    "compact composer width is bounded"
                 );
                 assert!(
                     !e.automatic_links.borrow().is_empty(),
@@ -297,12 +320,96 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                 );
                 fonts::verify(&e);
                 e.expand.emit_clicked();
-                assert_eq!(e.placement.get(), 2, "Restore opens compact composer");
-                finish(&e);
                 stage = 2;
-                println!("PASS Expand and automatic blue link tags");
+                println!("PASS compact Restore and automatic blue link tags");
             }
-            2 if original.closing.get() => {
+            2 if !original.motion_busy.get() => {
+                assert_eq!(original.placement.get(), 0);
+                assert_eq!(
+                    state.compose_stack.visible_child_name().as_deref(),
+                    Some("compose")
+                );
+                if std::env::args().any(|a| a == "--clipboard-diagnostics") {
+                    let png = glib::base64_decode(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGNwW3XJbdUlBggFAC8WBwmmUSZGAAAAAElFTkSuQmCC",
+                    );
+                    let clipboard = original.text.clipboard();
+                    clipboard
+                        .set_content(Some(&gtk::gdk::ContentProvider::for_bytes(
+                            "image/png",
+                            &glib::Bytes::from_owned(png),
+                        )))
+                        .unwrap();
+                    pasted_body = Some(
+                        original
+                            .text
+                            .buffer()
+                            .text(
+                                &original.text.buffer().start_iter(),
+                                &original.text.buffer().end_iter(),
+                                false,
+                            )
+                            .to_string(),
+                    );
+                    original.text.emit_by_name::<()>("paste-clipboard", &[]);
+                    stage = 3;
+                } else {
+                    stage = 4;
+                }
+            }
+            3 if !original.clipboard_busy.get() => {
+                assert_eq!(original.retained.borrow().len(), 1);
+                assert_eq!(original.retained.borrow()[0].mime_type, "image/png");
+                assert!(original.retained.borrow()[0].content_id.is_none());
+                assert_eq!(
+                    original
+                        .text
+                        .buffer()
+                        .text(
+                            &original.text.buffer().start_iter(),
+                            &original.text.buffer().end_iter(),
+                            false
+                        )
+                        .as_str(),
+                    pasted_body.as_deref().unwrap()
+                );
+                println!(
+                    "PASS actual GTK image clipboard paste creates an in-memory attachment without replacing text"
+                );
+                stage = 4;
+            }
+            4 => {
+                original.conflict.set(true);
+                original.conflict_bar.set_visible(true);
+                *original.draft.borrow_mut() = Some(Draft {
+                    id: "newer-gmail-draft".into(),
+                    message: Message::default(),
+                });
+                save_conflict_copy(&original);
+                assert!(original.draft.borrow().is_none() && !original.conflict.get());
+                assert!(!original.conflict_bar.is_visible());
+                finish(&original);
+                if state.compose_stack.is_transition_running() {
+                    assert!(
+                        original.root.parent().is_some(),
+                        "outgoing composer stays alive for Back"
+                    );
+                }
+                stage = 5;
+            }
+            5 if state.editor.borrow().is_none() => {
+                assert!(original.root.parent().is_none());
+                assert!(
+                    state.motion_layer.first_child().is_none(),
+                    "animation snapshot released"
+                );
+                assert_eq!(
+                    state.compose_stack.visible_child_name().as_deref(),
+                    Some("mail")
+                );
+                println!(
+                    "PASS animated compact/full-page round trip and Back cleanup without desktop fullscreen changes"
+                );
                 assert!(state.local_compose.drafts().unwrap().is_empty());
                 println!("PASS normal composition creates no local draft files; Gmail owns drafts");
                 state.app.quit();
@@ -319,12 +426,17 @@ fn detach(e: &Editor) {
     } else if let Some(parent) = e.root.parent() {
         if let Some(stack) = parent.downcast_ref::<gtk::Stack>() {
             stack.remove(&e.root);
+        } else if let Some(overlay) = parent.downcast_ref::<gtk::Overlay>() {
+            overlay.remove_overlay(&e.root);
         } else if let Some(box_) = parent.downcast_ref::<gtk::Box>() {
             box_.remove(&e.root);
         }
     }
 }
 fn show_full(e: &Rc<Editor>) {
+    if e.motion_busy.get() || e.closing.get() {
+        return;
+    }
     if let Some(current) = e.state.editor.borrow().as_ref()
         && !Rc::ptr_eq(current, e)
     {
@@ -332,25 +444,32 @@ fn show_full(e: &Rc<Editor>) {
             .set_text("Another draft is open in the main window. Finish or pop it out first.");
         return;
     }
-    let detached = e.placement.get() == 2;
-    detach(e);
-    e.placement.set(0);
-    e.header.set_show_end_title_buttons(false);
-    e.root.remove_css_class("inline-composer");
-    e.state.compose_stack.add_named(&e.root, Some("compose"));
-    e.state.compose_stack.set_visible_child_name("compose");
-    *e.state.editor.borrow_mut() = Some(e.clone());
-    if detached {
-        e.window.set_visible(false);
-    }
-    e.state.window.present();
-    focus_message(e);
+    motion::relocate(e, || {
+        let detached = e.placement.get() == 2;
+        detach(e);
+        e.placement.set(0);
+        motion::reset_layout(e);
+        e.header.set_show_end_title_buttons(false);
+        e.state.compose_stack.add_named(&e.root, Some("compose"));
+        e.state.compose_stack.set_visible_child_full(
+            "compose",
+            if e.motion_busy.get() {
+                gtk::StackTransitionType::None
+            } else {
+                gtk::StackTransitionType::SlideLeft
+            },
+        );
+        *e.state.editor.borrow_mut() = Some(e.clone());
+        if detached {
+            e.window.set_visible(false);
+        }
+        motion::controls(e);
+        e.state.window.present();
+    });
 }
 fn pop_out(e: &Rc<Editor>) {
-    if e.expand.icon_name().as_deref() == Some("view-restore-symbolic") {
-        e.parent().unfullscreen();
-        e.expand.set_icon_name("view-fullscreen-symbolic");
-        e.expand.set_tooltip_text(Some("Expand composer"));
+    if e.motion_busy.get() || e.closing.get() {
+        return;
     }
     if e.placement.get() == 2 {
         e.window.present();
@@ -358,13 +477,17 @@ fn pop_out(e: &Rc<Editor>) {
     }
     detach(e);
     e.placement.set(2);
+    e.detached_expanded.set(false);
+    motion::reset_layout(e);
     e.header
         .set_show_end_title_buttons(e.state.settings.borrow().window_chrome);
     e.root.remove_css_class("inline-composer");
     e.window.set_content(Some(&e.root));
     e.state.editor.borrow_mut().take();
     e.state.compose_stack.set_visible_child_name("mail");
+    motion::controls(e);
     e.window.present();
+    crate::presentation::enter(&e.state, &e.root);
     focus_message(e);
 }
 pub fn park_inline(s: &Rc<State>) {
@@ -380,6 +503,9 @@ pub fn park_inline(s: &Rc<State>) {
     }
 }
 fn finish(e: &Rc<Editor>) {
+    if e.dismiss_started.replace(true) {
+        return;
+    }
     e.closing.set(true);
     e.local_closed
         .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -389,11 +515,9 @@ fn finish(e: &Rc<Editor>) {
     if let Some(timer) = e.local_debounce.borrow_mut().take() {
         timer.remove();
     }
-    if e.parent().is_fullscreen()
-        && e.expand.icon_name().as_deref() == Some("view-restore-symbolic")
-    {
-        e.parent().unfullscreen();
-    }
+    motion::dismiss(e);
+}
+fn release_editor(e: &Rc<Editor>) {
     detach(e);
     let owns = e
         .state
@@ -403,7 +527,9 @@ fn finish(e: &Rc<Editor>) {
         .is_some_and(|current| Rc::ptr_eq(current, e));
     if owns {
         e.state.editor.borrow_mut().take();
-        e.state.compose_stack.set_visible_child_name("mail");
+        if e.state.compose_stack.visible_child_name().as_deref() == Some("compose") {
+            e.state.compose_stack.set_visible_child_name("mail");
+        }
     }
     e.window.destroy();
 }
@@ -418,6 +544,28 @@ fn request_close(e: &Rc<Editor>) -> glib::Propagation {
     if e.busy.get() {
         e.status.set_text("Finishing the current Gmail request…");
         e.close_after_save.set(true);
+        return glib::Propagation::Stop;
+    }
+    if e.conflict.get() {
+        let dialog = adw::AlertDialog::builder().heading("Keep both draft versions?").body("Gmail has a newer version. Your unsaved edits are still here. Save them as a separate Gmail draft, or close this editor and keep Gmail's version.").build();
+        dialog.add_responses(&[
+            ("cancel", "Keep editing"),
+            ("copy", "Save separate draft"),
+            ("close", "Close my unsaved version"),
+        ]);
+        dialog.set_response_appearance("close", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        let editor = e.clone();
+        glib::MainContext::default().spawn_local(async move {
+            match dialog.choose_future(Some(&editor.parent())).await.as_str() {
+                "copy" => {
+                    save_conflict_copy(&editor);
+                    editor.close_after_save.set(true);
+                }
+                "close" => finish(&editor),
+                _ => (),
+            }
+        });
         return glib::Propagation::Stop;
     }
     if e.uncertain.get() {
@@ -653,6 +801,9 @@ pub(crate) fn verify_formatting() {
 }
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
+    let reduced = s.settings.borrow().reduced_motion;
+    s.settings.borrow_mut().reduced_motion = true;
+    crate::presentation::apply(s);
     let account = luma_core::config::Account {
         id: "composer-fixture".into(),
         email: "fixture@example.invalid".into(),
@@ -662,6 +813,7 @@ pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
         signature: String::new(),
         drive_enabled: false,
         sender_controls: false,
+        contact_photos: false,
         blocked_senders: vec![],
     };
     s.settings.borrow_mut().accounts.push(account);
@@ -704,6 +856,8 @@ pub(crate) fn verify_host_lifecycle(s: &Rc<State>) {
         .borrow_mut()
         .accounts
         .retain(|a| a.id != "composer-fixture");
+    s.settings.borrow_mut().reduced_motion = reduced;
+    crate::presentation::apply(s);
 }
 fn make(s: &Rc<State>, c: Compose, draft: Option<Draft>) {
     make_at(s, c, draft, None);
@@ -743,6 +897,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         .build();
     window.add_css_class("compose-window");
     let root = vbox(0);
+    root.add_css_class("compose-scene");
     let header = adw::HeaderBar::new();
     header.set_show_end_title_buttons(false);
     header.set_show_start_title_buttons(false);
@@ -757,6 +912,19 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     save.add_css_class("flat");
     header.pack_end(&save);
     root.append(&header);
+    let conflict_bar = vbox(6);
+    conflict_bar.add_css_class("draft-conflict");
+    ui::margins(&conflict_bar, 12);
+    let notice = label(
+        "This draft changed in Gmail. Your unsaved text is kept here. Save a separate draft to preserve both versions.",
+        "",
+    );
+    notice.set_wrap(true);
+    conflict_bar.append(&notice);
+    let save_copy = gtk::Button::with_label("Save my version as a separate Gmail draft");
+    conflict_bar.append(&save_copy);
+    conflict_bar.set_visible(false);
+    root.append(&conflict_bar);
     let form = vbox(0);
     form.set_vexpand(true);
     let fields = vbox(2);
@@ -928,6 +1096,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         root,
         header,
         placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
+        motion_busy: Cell::new(false),
+        detached_expanded: Cell::new(false),
+        clipboard_busy: Cell::new(false),
+        popout: popout.clone(),
         inline_origin: slot.as_ref().map(|s| s.downgrade()).unwrap_or_default(),
         close_after_save: Cell::new(false),
         from,
@@ -952,6 +1124,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         saved: Cell::new(0),
         busy: Cell::new(false),
         uncertain: Cell::new(false),
+        conflict: Cell::new(false),
+        conflict_bar,
         status,
         progress,
         send_reveal,
@@ -959,6 +1133,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         save,
         debounce: RefCell::new(None),
         closing: Cell::new(false),
+        dismiss_started: Cell::new(false),
         expand: expand.clone(),
         local_id: RefCell::new(luma_core::composer::new_id()),
         local_debounce: RefCell::new(None),
@@ -995,7 +1170,11 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let weak = Rc::downgrade(&e);
         popout.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
-                pop_out(&e);
+                if e.placement.get() == 2 {
+                    show_full(&e);
+                } else {
+                    pop_out(&e);
+                }
             }
         });
         let weak = Rc::downgrade(&e);
@@ -1204,7 +1383,17 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let weak = Rc::downgrade(&e);
         e.save.connect_clicked(move |_| {
             if let Some(e) = weak.upgrade() {
-                persist(&e, false);
+                if e.conflict.get() {
+                    save_conflict_copy(&e);
+                } else {
+                    persist(&e, false);
+                }
+            }
+        });
+        let weak = Rc::downgrade(&e);
+        save_copy.connect_clicked(move |_| {
+            if let Some(e) = weak.upgrade() {
+                save_conflict_copy(&e);
             }
         });
     }
@@ -1297,6 +1486,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         e.text.set_height_request(200);
         s.window.present();
         focus_message(&e);
+        motion::controls(&e);
     } else {
         show_full(&e);
     }
@@ -1318,6 +1508,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         },
     );
     recipients::install(&e);
+    clipboard::install(&e);
     if is_new
         && (!e.template.text.is_empty()
             || !e.template.to.is_empty()
@@ -1328,6 +1519,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
 }
 fn changed(e: &Rc<Editor>) {
     e.revision.set(e.revision.get() + 1);
+    if e.conflict.get() {
+        e.status.set_text("Draft changed in Gmail · Your version is kept here. Save a separate draft to continue.");
+        return;
+    }
     if let Some(timer) = e.local_debounce.borrow_mut().take() {
         timer.remove();
     }
@@ -2003,6 +2198,15 @@ fn snapshot_impl(e: &Editor, mime: bool) -> Result<Compose> {
     Ok(c)
 }
 fn persist(e: &Rc<Editor>, send: bool) {
+    if e.conflict.get() {
+        e.conflict_bar.set_visible(true);
+        return;
+    }
+    if e.clipboard_busy.get() {
+        e.status
+            .set_text("Wait for the pasted image to finish attaching.");
+        return;
+    }
     if e.busy.get() || e.uncertain.get() {
         return;
     }
@@ -2268,6 +2472,19 @@ fn persist(e: &Rc<Editor>, send: bool) {
                 }
                 Err(err) => {
                     editor.status.set_text(&err.to_string());
+                    if matches!(err, Error::DraftConflict) {
+                        editor.conflict.set(true);
+                        editor.conflict_bar.set_visible(true);
+                        editor.close_after_save.set(false);
+                        editor.send.set_sensitive(false);
+                        editor
+                            .save
+                            .set_tooltip_text(Some("Save my version as a separate Gmail draft"));
+                        if let Some(timer) = editor.debounce.borrow_mut().take() {
+                            timer.remove();
+                        }
+                        return;
+                    }
                     if uncertain {
                         // Google does not provide an idempotency key. An interrupted send may
                         // already have succeeded. Require reconciliation before another attempt.
@@ -2282,6 +2499,19 @@ fn persist(e: &Rc<Editor>, send: bool) {
             }
         },
     );
+}
+fn save_conflict_copy(e: &Rc<Editor>) {
+    if !e.conflict.get() || e.busy.get() || e.uncertain.get() {
+        return;
+    }
+    // Never overwrite/delete the newer Gmail draft, and never send automatically.
+    e.draft.borrow_mut().take();
+    e.conflict.set(false);
+    e.conflict_bar.set_visible(false);
+    e.close_after_save.set(false);
+    e.saved.set(0);
+    e.save.set_tooltip_text(Some("Save draft to Gmail"));
+    persist(e, false);
 }
 fn attach_files(e: &Rc<Editor>) {
     let dialog = gtk::FileDialog::builder()
@@ -2515,6 +2745,10 @@ fn render_files(e: &Rc<Editor>) {
     }
 }
 fn discard_editor(e: &Rc<Editor>) {
+    if e.conflict.get() {
+        request_close(e);
+        return;
+    }
     if e.busy.get() {
         return;
     }
@@ -2608,6 +2842,12 @@ pub(crate) fn rescale(s: &Rc<State>) {
         .iter()
         .filter_map(|e| e.upgrade())
     {
+        motion::resize(&e, s.window.width(), s.window.height());
         fonts::rescale(&e);
+    }
+}
+pub(crate) fn resize_compact(s: &Rc<State>, width: i32, height: i32) {
+    if let Some(e) = s.editor.borrow().as_ref() {
+        motion::resize(e, width, height);
     }
 }

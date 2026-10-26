@@ -59,6 +59,7 @@ fn content(s: &Rc<State>, item: &Conversation) -> gtk::Box {
         if s.settings.borrow().compact { 34 } else { 40 },
     );
     a.set_valign(gtk::Align::Start);
+    crate::contact_photos::register(s, &item.key.account, &item.sender, &a);
     row.append(&a);
     let text = vbox(4);
     text.set_hexpand(true);
@@ -541,6 +542,10 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
     }
     selection::update(s);
     let targets = selection::keys(s);
+    let all_important = !targets.is_empty()
+        && targets
+            .iter()
+            .all(|key| s.rows.borrow().iter().any(|r| &r.key == key && r.important));
     let pop = gtk::Popover::new();
     pop.set_has_arrow(false);
     pop.set_parent(row);
@@ -584,8 +589,16 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
         ),
         (
             "emblem-important-symbolic",
-            "Mark important",
-            MailAction::Important,
+            if all_important {
+                "Mark unimportant"
+            } else {
+                "Mark important"
+            },
+            if all_important {
+                MailAction::Unimportant
+            } else {
+                MailAction::Important
+            },
         ),
         (
             "user-trash-symbolic",
@@ -601,6 +614,9 @@ pub(super) fn menu(s: &Rc<State>, row: &gtk::ListBoxRow, target: &ThreadKey, x: 
             },
         ),
     ] {
+        if action == MailAction::Inbox && *s.folder.borrow() == Folder::Inbox {
+            continue;
+        }
         let b = gtk::Button::new();
         b.add_css_class("flat");
         b.set_child(Some(

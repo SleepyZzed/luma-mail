@@ -157,7 +157,7 @@ pub fn diagnostic(s: &Rc<State>) {
                     println!(
                         "PASS fixed Luma/Compose and Settings/menu with independently scrolling folders/accounts at 100% and 150%"
                     );
-                    state.app.quit();
+                    crate::ui::verify_navigation(&state);
                     return gtk::glib::ControlFlow::Break;
                 }
             }

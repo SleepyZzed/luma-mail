@@ -1017,6 +1017,31 @@ async fn draft_conflict_prevents_overwrite() {
         gmail(&server).save_draft(Some(&d), b"mail", None).await,
         Err(Error::DraftConflict)
     ));
+    Mock::given(method("POST"))
+        .and(path("/drafts"))
+        .and(body_json(
+            json!({"message":{"raw":URL_SAFE_NO_PAD.encode(b"my unsaved version")}}),
+        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"id":"separate","message":{"id":"copy"}})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let separate = gmail(&server)
+        .save_draft(None, b"my unsaved version", None)
+        .await
+        .unwrap();
+    assert_eq!(separate.id, "separate");
+    assert!(
+        server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .all(|r| r.method != "PUT" && r.method != "DELETE")
+    );
 }
 #[tokio::test]
 async fn draft_create_contains_thread_and_encoded_mime() {
@@ -1251,6 +1276,7 @@ impl MailProvider for FakeProvider {
                     date: *date,
                     unread: false,
                     starred: false,
+                    important: false,
                     attachments: false,
                     count: 1,
                 })
@@ -1366,4 +1392,93 @@ fn appearance_preferences_upgrade_without_new_retention_or_unsafe_scaling() {
     assert!(!settings.window_chrome);
     paths.save(&settings).unwrap();
     assert!(!paths.cache.exists());
+}
+
+#[tokio::test]
+async fn contact_photo_scope_is_opt_in_and_preserves_existing_permissions() {
+    let basic = Authorization::begin(&config(), false).await.unwrap();
+    assert!(
+        !basic
+            .url
+            .query_pairs()
+            .any(|(k, v)| k == "scope" && v.contains(auth::CONTACTS_SCOPE))
+    );
+    let photos = Authorization::begin_with_photos(&config(), true, true, true)
+        .await
+        .unwrap();
+    let scope = photos
+        .url
+        .query_pairs()
+        .find(|(k, _)| k == "scope")
+        .unwrap()
+        .1
+        .into_owned();
+    for required in [
+        GMAIL_SCOPE,
+        DRIVE_SCOPE,
+        SETTINGS_SCOPE,
+        auth::CONTACTS_SCOPE,
+    ] {
+        assert!(scope.split_whitespace().any(|s| s == required));
+    }
+}
+#[tokio::test]
+async fn contact_photo_search_is_on_demand_projected_and_warms_only_once() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/people:searchContacts"))
+        .and(query_param("query", ""))
+        .and(query_param("readMask", "emailAddresses,photos"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"results":[]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/people:searchContacts"))
+        .and(query_param("query", "sender@example.invalid"))
+        .and(query_param("pageSize", "10"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"results":[]})))
+        .expect(2)
+        .mount(&server)
+        .await;
+    let mut photos = crate::contact_photos::Photos::new(Arc::new(gmail(&server)));
+    photos.test_endpoint(format!("{}/people:searchContacts", server.uri()));
+    assert!(
+        photos
+            .get("sender@example.invalid")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        photos
+            .get("sender@example.invalid")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(server.received_requests().await.unwrap().len(), 3);
+}
+#[tokio::test]
+async fn public_contact_photo_transport_does_not_forward_authorization_or_cookies() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/photo"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"fixture"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let response = Http::new()
+        .unwrap()
+        .public_get(&format!("{}/photo", server.uri()))
+        .await
+        .unwrap();
+    assert_eq!(
+        crate::http::bounded_bytes(response, 32).await.unwrap(),
+        b"fixture"
+    );
+    let requests = server.received_requests().await.unwrap();
+    assert!(!requests[0].headers.contains_key("authorization"));
+    assert!(!requests[0].headers.contains_key("cookie"));
+    assert!(!requests[0].headers.contains_key("referer"));
 }

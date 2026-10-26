@@ -51,7 +51,9 @@ async fn main() -> Result<()> {
         Some("connect") => {
             let drive = args.iter().any(|a| a == "--drive");
             let filters = args.iter().any(|a| a == "--filters");
-            let authorization = Authorization::begin_with_settings(&config, drive, filters).await?;
+            let photos = args.iter().any(|a| a == "--photos");
+            let authorization =
+                Authorization::begin_with_photos(&config, drive, filters, photos).await?;
             println!("BROWSER_URL={}", authorization.url);
             std::io::stdout().flush()?;
             let token = authorization.complete(&http, &config).await?;
@@ -79,6 +81,7 @@ async fn main() -> Result<()> {
             if let Some(account) = settings.accounts.iter_mut().find(|a| a.id == id) {
                 account.drive_enabled = drive;
                 account.sender_controls = filters;
+                account.contact_photos = photos;
             } else {
                 settings.accounts.push(Account {
                     id: id.clone(),
@@ -89,6 +92,7 @@ async fn main() -> Result<()> {
                     signature: String::new(),
                     drive_enabled: drive,
                     sender_controls: filters,
+                    contact_photos: photos,
                     blocked_senders: vec![],
                 });
             }
@@ -104,7 +108,8 @@ async fn main() -> Result<()> {
                 "PASS real Google consent, OS vault storage, fresh refresh-token exchange and Gmail profile"
             );
         }
-        Some("check") | Some("exercise") | Some("filters") | Some("inspect-html") => {
+        Some("check") | Some("exercise") | Some("filters") | Some("inspect-html")
+        | Some("photos") => {
             let account = settings
                 .accounts
                 .last()
@@ -117,6 +122,24 @@ async fn main() -> Result<()> {
             println!("Checking fresh OAuth refresh and profile…");
             if gmail.profile().await?.email_address != account.email {
                 return Err(Error::Invalid("Connected account identity mismatch".into()));
+            }
+            if args[1] == "photos" {
+                if !account.contact_photos {
+                    return Err(Error::Invalid(
+                        "Grant the optional Contacts permission first".into(),
+                    ));
+                }
+                let photo = luma_core::contact_photos::Photos::new(Arc::new(gmail))
+                    .get(&account.email)
+                    .await?;
+                let photo = photo.ok_or_else(|| {
+                    Error::Invalid("The disposable self-contact photo is not available yet".into())
+                })?;
+                println!(
+                    "PASS real saved-contact lookup and public photo fetch/decode: {}x{}, no contact/photo disk mirror",
+                    photo.width, photo.height
+                );
+                return Ok(());
             }
             if args[1] == "inspect-html" {
                 let query = args.get(2).ok_or_else(|| {

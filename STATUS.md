@@ -1,11 +1,17 @@
 # Implementation and verification status
 
-0.3.1 is **early access**. It does not complete the original brief. Google sign-in
+0.4.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Formal verification is not submitted: homepage ownership propagation
 and the final review video are still gates.
 
 ## Implemented and exercised
+
+- Animated composer Back/compact/full-page transitions without main-window fullscreen changes.
+- Explicit per-account folders, stable sidebar geometry and right-click Gmail label deletion.
+- Image clipboard attachments without a disk spool; separate Gmail draft conflict recovery.
+- Optional on-demand saved-contact photos with read-only permission and bounded RAM.
+  Live Contacts/consent and the final 0.4 Linux package checks are still being recorded.
 
 - Frameless tiling layout, 75–200% app scaling, optional decorations, reduced
   motion, installed-font composition and visual restoration of new Luma rich drafts.
@@ -49,11 +55,11 @@ executed results rather than assuming runtime success from compilation.
 - User-tested automatic Drive upload works; recipient access, cancellation and
   partial-sharing recovery still need formal acceptance.
   Existing authorized file IDs work; Google Picker remains absent.
-- Recipient chips, real contact photos (current avatars use initials),
+- Recipient chips, arbitrary sender photos beyond saved Google contacts,
   send-as aliases, richer lists and inline-image insertion in compose.
   Luma 0.3-generated rich drafts reopen visually; complex/older/third-party HTML
   remains in source mode. General visual HTML re-editing is incomplete.
-- Draft conflict reconciliation, editing attachments over 16 MiB combined, save-all,
+- General conflict comparison/merging, editing attachments over 16 MiB combined, save-all,
   whole-conversation forwarding and persistent sender remote-image preferences.
 - View preferences/search highlighting, accents, optional autostart/sound,
   keyboard/accessibility/HiDPI audit, native Arch acceptance and sustained profiling.

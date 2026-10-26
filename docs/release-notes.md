@@ -1,26 +1,26 @@
-Luma Mail 0.3.1 early access — a cleaner interface and font-aware composer
+Luma Mail 0.4.0 early access — composer motion, account folders and contact photos
 
-- Frameless main window for Hyprland/tiling desktops. Refresh, Undo and Select
-  move beside the mailbox title; Settings and the app menu stay in the sidebar.
-  Optional window decorations, Close window and Quit remain available.
-- Luma and Compose stay fixed above the scrolling folder/account list; the
-  Settings/app-menu footer stays fixed below it.
-- Ctrl+click toggles emails, Shift+click selects a range and Select offers Select
-  all loaded/Clear/count and bulk actions. Right-click actions use the selection.
-  Incompatible actions (reply/forward, draft editing, sender blocking and label
-  administration) are hidden and guarded when multiple emails are selected.
-- Interface scaling from 75–200%, with Ctrl++/Ctrl+- and Ctrl+0 reset. Text,
-  app controls and HTML previews scale without changing sent email font sizes.
-- Refined easing/fades for mail arrivals, opening messages and composer changes.
-  Reduced motion and desktop animation preferences are respected. No idle loops.
-- Installed-system-font chooser, including installed Microsoft families; 8–72 pt
-  sizes, selection/further-typing support and Reset font. No font downloads/copies.
-- New Luma rich drafts reopen visually with supported fonts, lists and links.
-  Complex, third-party and older HTML retains source mode to prevent silent loss.
-- HTML height measurements reject results from an older zoom/layout.
-- Appearance changes avoid rebuilding existing message rows.
-- Density/scale changes update the visible UI without mailbox reloads. Existing
-  cache budgets, Gmail-only drafts and on-demand attachment rules remain.
+- Full-page Back keeps the outgoing composer alive for the return animation.
+  Restore uses a compact composer inside the app; expanding/contracting animates
+  its bounds without changing the main window’s fullscreen state. Pop-out remains
+  separate, with a return-to-main control. Reduced motion is respected.
+- Per-account Inbox, All Mail, unread/starred, Sent, Drafts, Archive, Junk/Spam and
+  Trash appear below the selected account. The heading includes its email address.
+  Long names/labels and account changes do not shift the sidebar out of view.
+- Right-click a user label to delete it in Gmail, after confirmation. Messages stay.
+- Move to Inbox is hidden/guarded in Inbox; Important toggles to Unimportant when
+  all selected conversations are important, with consistent mixed-selection rules.
+- Paste an image into compose to attach it with a preview. Images stay in memory,
+  with existing decoder/MIME limits; no clipboard temp files or attachment archive.
+- Draft conflicts preserve edits and offer a separate Gmail draft, keeping the
+  newer server version. Sending remains blocked until the conflict is resolved.
+- Optional saved-contact profile photos use read-only Google Contacts permission.
+  Only visible senders are searched: two jobs, twelve new lookups/minute, 128 small
+  decoded photos in RAM and ten-minute expiry. There is no address-book sync or
+  disk photo cache. Google does not expose every photo Gmail itself can display;
+  unmatched/unavailable senders retain initials. Enable it in Account settings.
+- All 0.3 interface scaling, installed-font composition, rich draft restoration,
+  pinned sidebar and safe Ctrl/Shift/Select-all behavior remains.
 
 Quit the previous version from its tray menu before launching the replacement.
 Accounts and settings stay in their normal locations. All 0.2 mail features remain:
@@ -56,6 +56,5 @@ bundle larger; mailbox storage remains bounded. GitHub provides source archives.
 
 One authorized real account passed browser consent, Windows vault/token refresh,
 synthetic self-mail operations and Gmail filter creation/removal. Two-account Linux/
-Noctalia, Drive recipient access and sustained mailbox checks remain. Real contact
-photos and full HTML draft visual re-editing are incomplete. See STATUS and the
+Noctalia, Drive recipient access and sustained mailbox checks remain. Saved-contact photos are optional; arbitrary sender photos and general HTML draft visual re-editing remain incomplete. See STATUS and the
 release checklist. Notifications use configurable polling, not Gmail push.
