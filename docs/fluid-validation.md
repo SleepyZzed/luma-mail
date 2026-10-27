@@ -60,3 +60,9 @@ The raw frame intervals describe this display/run only. They are not a universal
 result for unfinished HTML/compose/provider functionality. Re-run the complete
 process-tree and disk audits after parity is implemented. No current resource
 claim replaces the documented outstanding Linux RAM targets.
+
+The first Linux CI scene/spring run also passed at commit `061284a6`. Windows CI
+exposed two test assumptions about desktop width; the assertions now derive the
+expected split/expanded bounds from the actual window, including the narrow
+reading mode. Diagnostics record window dimensions. This checks responsive
+behavior rather than requiring a particular runner monitor resolution.

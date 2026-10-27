@@ -18,6 +18,8 @@ QQuickItem *visualItem(QQuickItem *parent,const QString &name){
 }
 MotionSmoke::MotionSmoke(Bridge *bridge,QQuickWindow *window)
     : QObject(window),bridge(bridge),window(window) {
+    const int previewWidth=qEnvironmentVariableIntValue("LUMA_PREVIEW_WIDTH");
+    if(previewWidth>=760&&previewWidth<=3840)window->setWidth(previewWidth);
     connect(bridge,&Bridge::ready,this,[this]{if(!started){started=true;QTimer::singleShot(300,this,[this]{begin();});}});
     connect(bridge,&Bridge::received,this,[this](const QString &kind,const QVariantMap &){
         if(kind=="mutation")QTimer::singleShot(55,this,[this]{
@@ -57,13 +59,14 @@ void MotionSmoke::begin() {
         auto projected=visualItem(window->contentItem(),"projectedAvatar");
         auto actual=visualItem(window->contentItem(),"readerAvatar-0");
         check("avatar handoff matches reader geometry",projected&&actual&&QLineF(projected->mapToScene(QPointF()),actual->mapToScene(QPointF())).length()<1&&std::abs(projected->width()-actual->width())<.5);
-        check("compact inbox keeps readable avatars",inbox->width()>300&&inbox->width()<=450.5);
+        const qreal compact=window->width()<1000?0:qMin(qreal(450),(window->width()-navigation->width())*.4);
+        check("compact inbox keeps its responsive bounds",std::abs(inbox->width()-compact)<.5);
         bridge->closeReader();
         check("back reverses the shared projection",morph->property("active").toBool()&&!morph->property("opening").toBool());
     });
     QTimer::singleShot(2000,this,[this]{
         check("return spring reaches rest",!morph->property("active").toBool());
-        check("inbox expands after closing reader",inbox->width()>1000);
+        check("inbox expands after closing reader",std::abs(inbox->width()-(window->width()-navigation->width()))<.5);
         navigation->setProperty("accountOpen","preview");
         bridge->setView("inbox","preview");
     });
@@ -80,7 +83,8 @@ void MotionSmoke::begin() {
         check("reduced-motion preference reached the engine",bridge->settings().value("reduced_motion").toBool());
         open(2);
         check("reduced motion opens without projection",!morph->property("active").toBool());
-        check("reduced motion settles pane immediately",std::abs(inbox->width()-450)<.5);
+        const qreal compact=window->width()<1000?0:qMin(qreal(450),(window->width()-navigation->width())*.4);
+        check("reduced motion settles pane immediately",std::abs(inbox->width()-compact)<.5);
         QTimer::singleShot(200,this,[this]{
             check("received body belongs to selected reader",bridge->messages()->at(0).value("id")=="preview2"&&bridge->messages()->at(0).value("text").isValid());
             bridge->closeReader();
@@ -125,7 +129,7 @@ void MotionSmoke::begin() {
 void MotionSmoke::finish() {
     QJsonArray intervals;
     for(qsizetype i=1;i<frames.size();++i){auto interval=frames[i]-frames[i-1];if(interval>0&&interval<100)intervals.append(interval);}
-    QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks},{"frameIntervalsMs",intervals},{"windowExposed",window->isExposed()},{"elapsedMs",elapsed.isValid()?elapsed.elapsed():0},{"note","Observed frame delivery during this native smoke run; not a cross-platform frame-rate or resource guarantee."}};
+    QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks},{"frameIntervalsMs",intervals},{"windowExposed",window->isExposed()},{"windowWidth",window->width()},{"windowHeight",window->height()},{"elapsedMs",elapsed.isValid()?elapsed.elapsed():0},{"note","Observed frame delivery during this native smoke run; not a cross-platform frame-rate or resource guarantee."}};
     if(auto path=qEnvironmentVariable("LUMA_MOTION_REPORT");!path.isEmpty()){
         QSaveFile file(path);if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(report).toJson());file.commit();}
     }
