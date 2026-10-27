@@ -101,6 +101,19 @@ jobs:
           name: fluid-profile-linux
           path: fluid-profile-linux.json
           if-no-files-found: warn
+      - name: Native incremental inbox and received links
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_SYNC_REPORT: ${{ github.workspace }}/fluid-sync-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --sync-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-sync-linux
+          path: fluid-sync-linux.json
+          if-no-files-found: warn
   windows-scene:
     runs-on: windows-latest
     steps:
@@ -194,4 +207,20 @@ jobs:
           path: |
             fluid-profile-windows.json
             profile.stderr
+          if-no-files-found: warn
+      - name: Native incremental inbox and received links
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_SYNC_REPORT="$(cygpath -m "$PWD")/fluid-sync-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --sync-test >sync.stdout 2>sync.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-sync-windows
+          path: |
+            fluid-sync-windows.json
+            sync.stderr
           if-no-files-found: warn

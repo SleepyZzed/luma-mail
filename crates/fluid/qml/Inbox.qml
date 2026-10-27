@@ -11,7 +11,7 @@ Item {
         Text {textFormat:Text.PlainText;id:eyebrow;visible:Mail.preview;text:Mail.preview?"ISOLATED DESIGN PREVIEW":"";font.pixelSize:Theme.unit(9);font.letterSpacing:1.4;color:Theme.faint}
         Text {textFormat:Text.PlainText;y:Theme.unit(19);text:Mail.folder==="inbox"?"Your inbox":Theme.folderTitle(Mail.folder);font.pixelSize:Theme.unit(21);font.weight:Font.DemiBold;color:Theme.text}
         Row {anchors.right:parent.right;y:Theme.unit(23);spacing:Theme.unit(5)
-            FluidButton {glyph:"refresh";tip:"Refresh now";onClicked:Mail.setView(Mail.folder,Mail.account,Mail.search)}
+            FluidButton {glyph:"refresh";tint:Mail.sync.updatesAvailable?Theme.accent:Theme.muted;tip:Mail.sync.updatesAvailable?"Mailbox changes available · refresh now":"Refresh now · automatic checks run silently";onClicked:{Mail.send("pollNow");Mail.setView(Mail.folder,Mail.account,Mail.search)}}
             FluidButton {glyph:"check";tip:"Select conversations";onClicked:Mail.selectionMode(!Mail.selecting)}
         }
         Rectangle {
@@ -35,6 +35,8 @@ Item {
         addDisplaced:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
 
         removeDisplaced:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        move:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        moveDisplaced:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
         delegate:Item {
             id:row;required property var item;required property int index;objectName:"mailRow-"+item.key.id
             property bool selected: {let n=Mail.selectionCount;return Mail.isSelected(item)}
@@ -90,6 +92,7 @@ Item {
         const p=row.mapToItem(root.scene,0,0)
         Mail.selectRow(index,modifiers,p.x,p.y,row.width,row.height,row.projection())
     }
+    function revealIndex(index){list.positionViewAtIndex(index,ListView.Contain);list.forceLayout();Qt.callLater(()=>openIndex(index,0))}
     Popup {
         id:filters;x:header.x;y:header.y+Theme.unit(131);width:header.width;padding:Theme.unit(18)
         background:Rectangle{radius:Theme.unit(16);color:Theme.raised;border.width:1;border.color:Theme.outline}

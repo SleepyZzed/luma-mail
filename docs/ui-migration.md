@@ -79,12 +79,24 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   full measured newsletter height, approved-image path and bounded viewport
   surfaces. Settings/modal masking, resize and renderer release pass Windows
   synthetic checks. Private runtime cleanup protects live owners and recovers
-  stale sessions. Linux CI/live-account acceptance and final resource audits are
-  still required.
+  stale sessions. Linux and Windows migration CI passed at `d5362d3`; live-account
+  acceptance and final resource audits are still required.
+- Incremental sync: one sleeping scheduler preserves the existing polling
+  preference and core history cursor/dedup/burst limits. It fetches metadata for
+  affected conversations and merges rows/reader headers without a view reset or
+  automatic loading bar. Manual writes/read receipts guard reconciliation races.
+  New replies remain unread and wait for explicit body opening. Windows native
+  checks cover reader preservation, row movement, moved selection anchors and
+  safe received-link Ctrl clicks. The native model keeps its 1,000-row limit and
+  uses direct key lookup. Noctalia watches both file replacement and in-place edits.
+- System notifications: Linux calls the Freedesktop notification daemon directly
+  over D-Bus; it has no in-app balloon fallback. Windows uses its native tray
+  notification transport. Privacy, per-account notification and tray preferences
+  are wired. Linux daemon transport has an isolated private-bus CI test; desktop
+  notification activation/live acceptance is still required.
 - Pending: three-way conflict-resolution UI, attachment previews/media, full
   visual signature editing, mailto and remaining rich-text keyboard flows,
-  received plain-text links, remaining
-  search/label/settings/context/keyboard flows, background poller/OS notifications,
+  remaining search/label/settings/context/keyboard flows,
   lifecycle reclamation, two-account acceptance, Linux packaging and resource
   audits. The preview has incomplete controls and must not replace 0.9 yet.
 

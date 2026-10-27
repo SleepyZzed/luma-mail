@@ -65,7 +65,7 @@ links, Unicode legacy formatting, bounded undo and blocked resource loading.
 27 October 2026, Windows, Qt 6.12/UCRT64: CMake release build and the spring suite
 passed. The real native-window motion and composer suites passed on synthetic
 data. Core tests: 126 passed and one isolated OS-vault test intentionally ignored;
-engine tests: 19 unit tests and seven real-pipe tests passed. Strict Clippy is a
+engine tests: 23 unit tests and seven real-pipe tests passed. Strict Clippy is a
 separate required check. Exact run details are in the diagnostic JSON artifact.
 
 The raw frame intervals describe this display/run only. They are not a universal
@@ -110,3 +110,14 @@ outside the workspace could not be removed because automatic approval rejected
 that deletion; it was left intact. The replacement runtime has finite cleanup
 and stale-session recovery, with successful native cleanup checks. No final
 whole-application RAM/CPU/storage claim is made from these fixture tests.
+
+At `d5362d3`, Linux Qt 6.8 and Windows Qt 6.12 native migration checks passed in
+[run 40592681875](https://github.com/SleepyZzed/luma-mail/actions/runs/40592681875),
+including the photo/HTML adapters. The next checkpoint adds `--sync-test` with
+`LUMA_SYNC_REPORT`: twelve native checks exercise incremental row movement,
+unchanged reader content, selection-anchor tracking, unread/collapsed incoming
+replies and exactly one Ctrl-click link launch. The URL launcher is intercepted
+inside the test process; it never opens a real browser. The incremental event
+fixture is separate from core's real HTTP history/burst tests. Linux CTest also
+runs a fake notification daemon inside `dbus-run-session`, validating actual
+D-Bus transport and thread activation without contacting the user's daemon.

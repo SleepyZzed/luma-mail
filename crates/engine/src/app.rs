@@ -41,6 +41,7 @@ pub struct App {
     pub reading: AtomicU64,
     pub mutation: tokio::sync::Mutex<()>,
     pub mutation_serial: AtomicU64,
+    pub read_revision: AtomicU64,
     pub undo: Mutex<Vec<crate::mail::Undo>>,
     pub preview: bool,
     pub auth_busy: Arc<AtomicBool>,
@@ -50,6 +51,7 @@ pub struct App {
     pub photos: Arc<crate::photos::Service>,
     pub reader_assets: Mutex<crate::reader::Assets>,
     pub render_lock: tokio::sync::Mutex<()>,
+    pub sync: Arc<crate::sync::Service>,
     pub quit_pending: AtomicBool,
     jobs: Mutex<HashMap<u64, (String, tokio::task::AbortHandle)>>,
     slots: Arc<tokio::sync::Semaphore>,
@@ -131,6 +133,7 @@ impl App {
             reading: AtomicU64::new(0),
             mutation: tokio::sync::Mutex::new(()),
             mutation_serial: AtomicU64::new(0),
+            read_revision: AtomicU64::new(0),
             undo: Mutex::new(vec![]),
             preview,
             auth_busy: Arc::new(AtomicBool::new(false)),
@@ -140,12 +143,14 @@ impl App {
             photos: Arc::new(crate::photos::Service::default()),
             reader_assets: Mutex::new(crate::reader::Assets::default()),
             render_lock: tokio::sync::Mutex::new(()),
+            sync: Arc::new(crate::sync::Service::default()),
             quit_pending: AtomicBool::new(false),
             jobs: Mutex::new(HashMap::new()),
             slots: Arc::new(tokio::sync::Semaphore::new(32)),
         });
         app.rebuild_clients()?;
         crate::photos::Service::start(&app);
+        crate::sync::Service::start(&app);
         Ok(app)
     }
     pub fn rebuild_clients(&self) -> Result<()> {
@@ -154,6 +159,9 @@ impl App {
         let mut clients = self.clients.lock().unwrap();
         clients.clear();
         if settings.accounts.is_empty() || self.preview {
+            drop(clients);
+            drop(settings);
+            self.sync.reconfigure();
             return Ok(());
         }
         let config = crate::registration::client_config()?;
@@ -169,6 +177,9 @@ impl App {
                 Arc::new(Gmail::new(a.id.clone(), self.http.clone(), tokens)),
             );
         }
+        drop(clients);
+        drop(settings);
+        self.sync.reconfigure();
         Ok(())
     }
     pub fn client(&self, account: &str) -> Result<Arc<Gmail>> {
@@ -271,6 +282,14 @@ impl App {
                     "select" => crate::mail::open(&owner, &command).await,
                     "message" => crate::mail::body(&owner, &command).await,
                     "renderMessage" => crate::reader::render(&owner, &command).await,
+                    "pollNow" => {
+                        owner.sync.check();
+                        owner
+                            .events
+                            .emit(id, "syncRequested", json!({"silent":true}))
+                            .await;
+                        Ok(())
+                    }
                     "mutate" => crate::mail::mutate(&owner, &command).await,
                     "undo" => crate::mail::undo(&owner, command.id).await,
                     "authStart" => crate::accounts::auth(&owner, &command).await,
@@ -338,6 +357,9 @@ impl App {
                 }
             }
             .await;
+            if matches!(command.action.as_str(), "mutate" | "undo") {
+                owner.sync.reconcile();
+            }
             if let Err(e) = result {
                 owner.events.error(id, &e.to_string()).await;
             }
@@ -361,6 +383,7 @@ impl App {
         }
     }
     pub async fn shutdown(&self) {
+        self.sync.stop();
         self.photos.stop();
         for (_, (_, handle)) in self.jobs.lock().unwrap().drain() {
             handle.abort()

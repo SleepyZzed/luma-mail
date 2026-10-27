@@ -55,6 +55,7 @@ ApplicationWindow {
     }
     Connections {
         target:Mail
+        function onOpenRowRequested(index){inbox.revealIndex(index)}
         function onProjectRow(row,x,y,w,h){morph.place(row,Qt.rect(x,y,w,h),scene.projectionSpec(),true)}
         function onReturnRow(row){const target=inbox.projectionTarget(row.key,scene.width-scene.railGoal);if(target)morph.place(row,target,scene.projectionSpec(),false)}
         function onReaderChanged(){

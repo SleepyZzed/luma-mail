@@ -3,6 +3,9 @@
 #include "profiles.h"
 #include "reader_profile.h"
 #include "runtime_cleanup.h"
+#ifdef Q_OS_LINUX
+#include "notifications_linux.h"
+#endif
 #ifdef LUMA_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #endif
@@ -20,6 +23,7 @@
 void startComposerSmoke(Bridge*,QQuickWindow*);
 void startProfileSmoke(Bridge*,QQuickWindow*);
 void startHtmlSmoke(Bridge*,QQuickWindow*);
+void startSyncSmoke(Bridge*,QQuickWindow*);
 
 int main(int argc,char**argv){
     QCoreApplication::setAttribute(Qt::AA_DisableShaderDiskCache);
@@ -31,6 +35,7 @@ int main(int argc,char**argv){
     qputenv("QML_DISABLE_DISK_CACHE","1");
     QQuickStyle::setStyle("Basic");
     QApplication app(argc,argv);app.setApplicationName("Luma Mail");app.setOrganizationName("Luma Mail");app.setApplicationVersion("0.10.0");
+    app.setDesktopFileName("io.github.lumamail.Luma");
     app.setStyle("Fusion");app.setWindowIcon(QIcon(":/brand/io.github.lumamail.Luma.svg"));
     ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
@@ -54,10 +59,20 @@ int main(int argc,char**argv){
     if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--photo-test"))startProfileSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--html-test"))startHtmlSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
     QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",window,[window]{window->show();window->raise();window->requestActivate();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
     QObject::connect(&tray,&QSystemTrayIcon::activated,window,[window](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick){window->show();window->raise();window->requestActivate();}});tray.show();
     engine.rootContext()->setContextProperty("trayAvailable",QSystemTrayIcon::isSystemTrayAvailable());
-    QObject::connect(&bridge,&Bridge::notification,&tray,[&tray](QVariantMap n){tray.showMessage(n["title"].toString(),n["body"].toString());});
+#ifdef Q_OS_LINUX
+    LinuxNotifications notifications;
+    QObject::connect(&bridge,&Bridge::notification,&notifications,&LinuxNotifications::notify);
+    QObject::connect(&notifications,&LinuxNotifications::activated,&bridge,&Bridge::openThread);
+    QObject::connect(&notifications,&LinuxNotifications::status,&bridge,&Bridge::setNotificationStatus);
+#else
+    QVariantMap lastNotification;
+    QObject::connect(&bridge,&Bridge::notification,&tray,[&](QVariantMap n){if(!QSystemTrayIcon::isSystemTrayAvailable()||!QSystemTrayIcon::supportsMessages()){bridge.setNotificationStatus("Windows system notifications are unavailable.");return;}lastNotification=n;tray.showMessage(n["title"].toString(),n["body"].toString());bridge.setNotificationStatus(QString());});
+    QObject::connect(&tray,&QSystemTrayIcon::messageClicked,&bridge,[&]{bridge.openThread(lastNotification["account"].toString(),lastNotification["thread"].toString());});
+#endif
     QTimer::singleShot(0,&bridge,&Bridge::start);
     if(preview&&app.arguments().contains("--preview-reader")){
         QObject::connect(&bridge,&Bridge::ready,&app,[&]{if(app.arguments().contains("--preview-account")){if(auto nav=window->findChild<QQuickItem*>("navigation"))nav->setProperty("accountOpen","preview");bridge.setView("inbox","preview");}QTimer::singleShot(350,&app,[&]{auto list=window->findChild<QQuickItem*>("mailList");if(list&&bridge.inbox()->rowCount()>1){auto p=list->mapToScene(QPointF(0,73));bridge.selectRow(1,0,p.x(),p.y(),list->width(),68);}});});

@@ -73,9 +73,13 @@ Item {
                     Item {
                         width:parent.width;height:Theme.unit(62)
                         Avatar{objectName:"accountAvatar-"+accountCard.modelData.id;x:Theme.unit(10);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(32);height:width;sender:accountCard.modelData.name||accountCard.modelData.email;photoSender:accountCard.modelData.email;account:accountCard.modelData.id;active:accountCard.y+parent.height>scroll.contentY&&accountCard.y<scroll.contentY+scroll.height}
-                        Column {x:Theme.unit(53);anchors.verticalCenter:parent.verticalCenter;visible:!root.collapsed;width:parent.width-x-8;spacing:3
+                        Column {x:Theme.unit(53);anchors.verticalCenter:parent.verticalCenter;visible:!root.collapsed;width:parent.width-x-Theme.unit(28);spacing:3
                             Text {textFormat:Text.PlainText;text:accountCard.modelData.name||accountCard.modelData.email;color:Theme.text;font.pixelSize:Theme.unit(12);elide:Text.ElideRight;width:parent.width}
                             Text {textFormat:Text.PlainText;text:accountCard.modelData.email;color:Theme.faint;font.pixelSize:Theme.unit(10);elide:Text.ElideMiddle;width:parent.width}
+                        }
+                        Text{textFormat:Text.PlainText;anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);y:Theme.unit(39)
+                            text:{const count=Mail.sync.unread?.[accountCard.modelData.id]||0;return count>999?"999+":String(count)}
+                            visible:text!=="0"&&!root.collapsed;color:Theme.accent;font.pixelSize:Theme.unit(9)
                         }
                         Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:accountArrow.value;Motion{id:accountArrow;target:root.accountOpen===accountCard.modelData.id?90:0;enabled:Theme.motion}}
                         MouseArea{anchors.fill:parent;onClicked:{root.accountOpen=root.accountOpen===accountCard.modelData.id?"":accountCard.modelData.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.modelData.id)}}

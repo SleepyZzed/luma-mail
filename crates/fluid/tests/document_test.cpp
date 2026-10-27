@@ -1,10 +1,17 @@
 #include "rich_document.h"
+#include "read_document.h"
 #include <QtTest>
 #include <QTextBlock>
 #include <QTextList>
 class DocumentTest:public QObject {
     Q_OBJECT
 private slots:
+    void receivedLinksAreLiteralSafeAndSelectionCompatible(){
+        ReadDocument reader;const QString source=QString::fromUtf8("<b>literal</b> 🙂 https://example.com and mail@example.com");reader.setSource(source);
+        const auto start=source.indexOf("https://");reader.setSpans({QVariantMap{{"start",start},{"end",start+19},{"url","https://example.com"}},QVariantMap{{"start",0},{"end",3},{"url","file:///private"}}});reader.setLinkColour(QColor("#82b5ff"));
+        auto doc=reader.nativeDocument();QCOMPARE(doc->toPlainText(),source);QTextCursor cursor(doc);cursor.setPosition(start+2);QVERIFY(cursor.charFormat().isAnchor());QCOMPARE(cursor.charFormat().anchorHref(),QString("https://example.com"));QCOMPARE(cursor.charFormat().foreground().color(),QColor("#82b5ff"));
+        cursor.setPosition(2);QVERIFY(!cursor.charFormat().isAnchor());reader.setForeground(Qt::white);QCOMPARE(doc->toPlainText(),source);QVERIFY(!doc->resource(QTextDocument::ImageResource,QUrl("file:///private")).isValid());
+    }
     void selectionAndLogicalScaling(){
         RichDocument d;d.load({{"kind","plain"},{"text","Alpha beta"}});
         d.selection(0,5,5);d.toggle("bold");d.foreground(QColor("#123abc"));d.pointSize(14);

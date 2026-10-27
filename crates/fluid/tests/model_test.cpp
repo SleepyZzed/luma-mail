@@ -1,0 +1,26 @@
+#include "record_model.h"
+#include <QtTest>
+#include <QAbstractItemModelTester>
+class ModelTest:public QObject {
+    Q_OBJECT
+    static QJsonObject row(int id,int date){return {{"key",QJsonObject{{"account","a"},{"id",QString::number(id)}}},{"date",date},{"subject","Synthetic"}};}
+private slots:
+    void incomingRowsMoveAndStayWithinTheLoadedLimit(){
+        RecordModel model;QAbstractItemModelTester tester(&model,QAbstractItemModelTester::FailureReportingMode::Fatal);QJsonArray rows;for(int i=0;i<1000;++i)rows.append(row(i,1000-i));model.replace(rows);
+        auto key=RecordModel::key(row(500,0));model.update(row(500,2000),true);QCOMPARE(model.rowCount(),1000);QCOMPARE(model.indexFor(key),0);QCOMPARE(model.at(0)["key"].toMap()["id"].toString(),QString("500"));
+        model.update(row(1001,3000),true);QCOMPARE(model.rowCount(),1000);QCOMPARE(model.at(0)["key"].toMap()["id"].toString(),QString("1001"));QCOMPARE(model.indexFor(RecordModel::key(row(999,0))),-1);QCOMPARE(model.indexFor(key),1);
+        model.update(row(2000,-1),true);QCOMPARE(model.rowCount(),1000);QCOMPARE(model.indexFor(RecordModel::key(row(2000,0))),-1);
+    }
+    void replyHeadersPreserveOpenedBodies(){
+        RecordModel model;model.replace({QJsonObject{{"id","m1"},{"text","Opened body"},{"document","Private HTML"},{"unread",false}}});
+        model.mergeMessages({QJsonObject{{"id","m1"},{"starred",true}},QJsonObject{{"id","m2"},{"unread",true}}});
+        QCOMPARE(model.at(0)["text"].toString(),QString("Opened body"));QCOMPARE(model.at(0)["document"].toString(),QString("Private HTML"));QVERIFY(model.at(1)["arrived"].toBool());QVERIFY(model.at(1)["unread"].toBool());
+        model.patch("m2",{{"unread",false}});QVERIFY(!model.at(1)["unread"].toBool());
+    }
+    void readerPayloadsAreEvictedWithTheirLinkMetadata(){
+        RecordModel model;QJsonArray rows;for(int i=0;i<9;++i)rows.append(QJsonObject{{"id",QString::number(i)},{"text","Opened body"},{"links",QJsonArray{QJsonObject{{"url","https://example.com"}}}}});model.replace(rows);model.trimBodies("8");
+        QVERIFY(!model.at(0).contains("text"));QVERIFY(!model.at(0).contains("links"));QCOMPARE(model.at(8)["text"].toString(),QString("Opened body"));
+    }
+};
+QTEST_GUILESS_MAIN(ModelTest)
+#include "model_test.moc"

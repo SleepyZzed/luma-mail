@@ -19,6 +19,7 @@ pub struct Undo {
 }
 
 pub async fn change_view(app: &Arc<App>, c: &Command) -> Result<()> {
+    app.sync.acknowledge();
     let folder = app::folder(c.text("folder"))?;
     let accounts = c.data["accounts"].as_array().map(|a| {
         a.iter()
@@ -121,7 +122,12 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
             app.events.emit(c.id,"thread",json!({"key":key,"subject":row.subject,"messages":[{"id":key.id,"from":row.sender,"to":"alex@example.com","date":row.date,"subject":row.subject,"unread":row.unread,"starred":row.starred,"important":false,"attachments":[]}]})).await;
             let has_html =
                 key.id == "preview0" && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1");
-            app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":key.id,"text":format!("{}\n\n{}\n\nThis is a synthetic design preview. No Gmail account or local mailbox is used.",row.subject,row.snippet),"hasHtml":has_html,"externalImages":has_html,"attachments":[]})).await;
+            let text = format!(
+                "{}\n\n{}\n\nThis is a synthetic design preview. No Gmail account or local mailbox is used.\n\nhttps://example.com/review",
+                row.subject, row.snippet
+            );
+            let links = crate::reader::links(&text);
+            app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":key.id,"text":text,"links":links,"hasHtml":has_html,"externalImages":has_html,"attachments":[]})).await;
         }
         return Ok(());
     }
@@ -245,13 +251,16 @@ pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
     let external = luma_core::mail_images::sources(&message.payload)
         .iter()
         .any(|s| s.starts_with("https://"));
-    app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":message.id,"text":text,"hasHtml":html.is_some(),"attachments":attachments,"externalImages":external})).await;
+    let links = crate::reader::links(&text);
+    app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":message.id,"text":text,"links":links,"hasHtml":html.is_some(),"attachments":attachments,"externalImages":external})).await;
     if message.has("UNREAD") {
         let _lock = app.mutation.lock().await;
         if !app.protect_reader_write(c.id, reading, mutation_serial) {
             return Ok(());
         }
         client.act(&message.id, true, &MailAction::Read).await?;
+        app.read_revision.fetch_add(1, Ordering::SeqCst);
+        app.sync.reconcile();
         if app.reading.load(Ordering::SeqCst) != reading {
             return Ok(());
         }
@@ -280,6 +289,13 @@ pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
                 .emit(c.id, "rowChanged", json!({"row":row}))
                 .await;
         }
+        app.events
+            .emit(
+                c.id,
+                "messageState",
+                json!({"account":key.account,"reading":reading,"id":message.id,"unread":false}),
+            )
+            .await;
     }
     Ok(())
 }

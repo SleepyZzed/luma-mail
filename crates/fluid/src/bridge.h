@@ -1,4 +1,5 @@
 #pragma once
+#include "record_model.h"
 #include <QAbstractListModel>
 #include <QProcess>
 #include <QJsonObject>
@@ -14,26 +15,6 @@
 #include <memory>
 class ProfileImages;
 
-class RecordModel : public QAbstractListModel {
-    Q_OBJECT
-    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
-public:
-    explicit RecordModel(QObject *parent=nullptr):QAbstractListModel(parent){}
-    int rowCount(const QModelIndex &p={}) const override {return p.isValid()?0:rows.size();}
-    QVariant data(const QModelIndex &i,int role) const override;
-    QHash<int,QByteArray> roleNames() const override {return {{Qt::UserRole+1,"item"}};}
-    Q_INVOKABLE QVariantMap at(int i) const {return i>=0&&i<rows.size()?rows[i].toVariantMap():QVariantMap{};}
-    void replace(const QJsonArray &items);
-    void append(const QJsonArray &items);
-    void update(const QJsonObject &item,bool insert=false);
-    void removeKeys(const QJsonArray &keys);
-    void patch(const QString &id,const QJsonObject &values);
-    void trimBodies(const QString&keep);
-    static QString key(const QJsonObject &row);
-signals: void countChanged();
-private: QList<QJsonObject> rows;
-};
-
 class Bridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(RecordModel* inbox READ inbox CONSTANT)
@@ -42,6 +23,8 @@ class Bridge : public QObject {
     Q_PROPERTY(QVariantMap reader READ reader NOTIFY readerChanged)
     Q_PROPERTY(QVariantMap composer READ composer NOTIFY composerChanged)
     Q_PROPERTY(QVariantMap palette READ palette NOTIFY paletteChanged)
+    Q_PROPERTY(QVariantMap sync READ sync NOTIFY syncChanged)
+    Q_PROPERTY(QString notificationStatus READ notificationStatus NOTIFY notificationStatusChanged)
     Q_PROPERTY(QString folder READ folder NOTIFY viewChanged)
     Q_PROPERTY(QString account READ account NOTIFY viewChanged)
     Q_PROPERTY(QString search READ search NOTIFY viewChanged)
@@ -62,6 +45,9 @@ public:
     RecordModel* inbox(){return &m_inbox;} RecordModel* messages(){return &m_messages;}
     QVariantMap settings()const{return m_settings;} QVariantMap reader()const{return m_reader;} QVariantMap composer()const{return m_composer;}
     QVariantMap palette()const{return m_palette;}
+    QVariantMap sync()const{return m_sync;}
+    QString notificationStatus()const{return m_notificationStatus;}
+    void setNotificationStatus(const QString&value){if(m_notificationStatus==value)return;m_notificationStatus=value;emit notificationStatusChanged();}
     QString folder()const{return m_folder;} QString search()const{return m_search;}
     QString account()const{return m_account;}
     QString activity()const{return m_activity;} QString activityKind()const{return m_activityKind;} QString error()const{return m_error;}
@@ -76,6 +62,7 @@ public:
     Q_INVOKABLE void selectAll();
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void closeReader();
+    Q_INVOKABLE void openThread(const QString&account,const QString&thread);
     Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={});
     Q_INVOKABLE void requestCompose(const QString &mode="new",const QVariantMap &message={});
     Q_INVOKABLE void renderMessage(const QVariantMap&parameters);
@@ -93,8 +80,11 @@ public:
 signals:
     void settingsChanged(); void readerChanged(); void composerChanged(); void viewChanged();
     void paletteChanged();
+    void syncChanged();
+    void notificationStatusChanged();
     void activityChanged(); void errorChanged(); void selectionChanged();
     void projectRow(QVariantMap row,qreal x,qreal y,qreal width,qreal height);
+    void openRowRequested(int index);
     void returnRow(QVariantMap row);
     void composeRequested(QString mode); void notification(QVariantMap data);
     void composeFocused();void composeClosed();void composeCloseQuestion(QVariantMap data);
@@ -104,19 +94,23 @@ signals:
     void received(QString event,QVariantMap data); void ready();
 private:
     friend class ComposerSmoke;
+    friend class SyncSmoke;
     void consume(); void receive(const QJsonObject &event);
     void systemPalette();
+    void pruneSelection();
     void pumpClipboard();void resetClipboard(const QString&error=QString());
     void clipboardEvent(const QString&kind,const QJsonObject&data,quint64 id);
     void releaseProfileEntry(const QString&key);void resetProfiles();bool profileEvent(const QString&kind,const QJsonObject&data,quint64 id);
     bool eventFilter(QObject *object,QEvent *event) override;
     RecordModel m_inbox{this},m_messages{this}; QProcess process; QByteArray pending;
-    QVariantMap m_settings,m_reader,m_composer,m_palette; QString m_folder="inbox",m_account,m_search;
+    QVariantMap m_settings,m_reader,m_composer,m_palette,m_sync; QString m_folder="inbox",m_account,m_search;
     QVariantMap m_openedRow;
     QFileSystemWatcher paletteWatcher; QTimer *paletteDebounce=nullptr;
+    QString configRoot;
     QString m_activity="Connecting to your inbox",m_activityKind="loading",m_error;
+    QString m_notificationStatus;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
-    quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey;
+    quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey,anchorKey;
     QHash<QString,quint64> documentRequests;
     bool quitting=false,quitWaiting=false; int quitCode=0;
     QString clipboardSession,clipboardToken;QByteArray clipboardBytes;

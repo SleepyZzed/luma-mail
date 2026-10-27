@@ -13,6 +13,20 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 const IMAGE_BUDGET: usize = 4 * 1024 * 1024;
+pub fn links(text: &str) -> Vec<serde_json::Value> {
+    let mut byte = 0;
+    let mut utf16 = 0;
+    html_mail::links(text)
+        .into_iter()
+        .map(|(start, end, url)| {
+            utf16 += text[byte..start].encode_utf16().count();
+            let from = utf16;
+            utf16 += text[start..end].encode_utf16().count();
+            byte = end;
+            json!({"start":from,"end":utf16,"url":url})
+        })
+        .collect()
+}
 #[derive(Default)]
 pub struct Assets {
     pub reading: u64,
@@ -192,6 +206,21 @@ async fn image(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn received_links_use_native_utf16_offsets_and_safe_schemes() {
+        let text = "🙂 see https://example.com/é and person@example.com; file:///private";
+        let spans = links(text);
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0]["start"], 7);
+        let units: Vec<_> = text.encode_utf16().collect();
+        let range = spans[1]["start"].as_u64().unwrap() as usize
+            ..spans[1]["end"].as_u64().unwrap() as usize;
+        assert_eq!(
+            String::from_utf16(&units[range]).unwrap(),
+            "person@example.com"
+        );
+        assert_eq!(spans[1]["url"], "mailto:person@example.com");
+    }
     #[test]
     fn colour_channels_are_numeric_and_original_is_explicit() {
         let mut c = Command {

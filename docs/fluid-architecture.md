@@ -85,3 +85,19 @@ compiled QML and prebuilt shader bytecode ship inside the executable. This avoid
 introducing a second application cache outside the existing Rust mail budget.
 OS/graphics-driver storage and the complete renderer process tree still require the
 full final storage audit.
+
+The polling scheduler sleeps between checks at the existing configured interval
+(30..3600 seconds, normally 60). It reuses core's history baseline, bounded burst
+handling and 512-ID notification dedup. Four account jobs run at most in parallel;
+only changed conversation metadata is reconciled. A 128-key pending queue retries
+transient/racing updates without fetching full messages or replacing the view.
+Provider writes/read receipts and view generations guard stale metadata.
+Qt merges and moves individual rows with direct key lookup; incoming headers
+preserve already opened bodies and leave new replies collapsed/unread.
+
+Linux notifications use asynchronous `org.freedesktop.Notifications.Notify`
+calls, bounded callback metadata and daemon activation signals. Sender-controlled
+body text is escaped, privacy preferences apply before transport, and no Qt
+balloon fallback is invoked on Linux. Windows uses its native tray transport.
+Native plain readers format validated UTF-16 link spans in a resource-blocked
+text document, so ordinary linked text does not create another web renderer.

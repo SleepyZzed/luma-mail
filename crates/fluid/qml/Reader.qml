@@ -40,8 +40,9 @@ Item {
             Repeater {
                 model:Mail.messages
                 delegate:Column {
-                    id:message;required property var item;required property int index
-                    property bool expanded:index===Mail.messages.count-1
+                    id:message;objectName:"threadMessage-"+item.id;required property var item;required property int index
+                    property bool expanded:false
+                    Component.onCompleted:expanded=index===Mail.messages.count-1&&!item.arrived
                     property bool originalColours:false
                     property bool hasHtml:item.hasHtml||false
                     function render(external=false){
@@ -63,6 +64,7 @@ Item {
                             Text {textFormat:Text.PlainText;text:"to "+(message.item.to||"");color:Theme.faint;font.pixelSize:Theme.unit(10);width:parent.width;elide:Text.ElideRight}
                         }
                         Text {textFormat:Text.PlainText;anchors.right:parent.right;anchors.top:parent.top;anchors.topMargin:Theme.unit(9);text:Theme.date(message.item.date||0);color:Theme.faint;font.pixelSize:Theme.unit(9)}
+                        Rectangle{width:Theme.unit(6);height:width;radius:width/2;color:Theme.accent;visible:message.item.unread||false;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(11)}
                         MouseArea{anchors.fill:parent;onClicked:{message.expanded=!message.expanded;if(message.expanded&&!message.item.text)Mail.send("message",{account:Mail.reader.key.account,id:message.item.id})}}
                     }
                     Item {
@@ -92,8 +94,11 @@ Item {
                                 Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active}
                             }
                             TextArea {
+                                id:plainText;objectName:"readBody-"+message.item.id
                                 visible:!message.hasHtml;height:visible?implicitHeight:0
-                                width:parent.width;text:message.item.text||"Opening message…";readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText
+                                width:parent.width;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText
+                                ReadDocument{document:plainText.textDocument;source:message.hasHtml?"":message.item.text||"Opening message…";spans:message.item.links||[];foreground:Theme.text;linkColour:Theme.link;family:Theme.family;pixelSize:Theme.unit(13)}
+                                onLinkActivated:link=>Mail.openLink(link)
                                 color:Theme.text;selectionColor:Theme.selected;font.family:Theme.family;font.pixelSize:Theme.unit(13);padding:0;background:Item{}
                             }
                             Text{textFormat:Text.PlainText;width:parent.width;visible:(message.item.failedImages||0)>0;text:"Some images could not be previewed within the image size and privacy limits.";wrapMode:Text.Wrap;color:Theme.muted;font.pixelSize:Theme.unit(11)}

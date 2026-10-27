@@ -29,7 +29,8 @@ Item {
                         Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideMiddle;text:accountSettings.modelData.email;color:Theme.muted;font.pixelSize:Theme.unit(11)}
                     }
                 }
-                Row{spacing:Theme.unit(8)
+                Flow{width:parent.width;spacing:Theme.unit(8)
+                    FluidCheck{text:"Notifications";checked:accountSettings.modelData.notifications||false;onToggled:Mail.send("accountUpdate",{account:accountSettings.modelData.id,notifications:checked})}
                     FluidCheck{text:"Contact photos";checked:accountSettings.modelData.contact_photos||false;onToggled:{if(checked)Mail.send("authStart",{account:accountSettings.modelData.id,photos:true});else Mail.send("accountUpdate",{account:accountSettings.modelData.id,contact_photos:false})}}
                     FluidButton{text:"Reconnect";tip:"Reconnect this Google account and its enabled features";onClicked:Mail.send("authStart",{account:accountSettings.modelData.id})}
                 }
@@ -48,6 +49,17 @@ Item {
                 FluidCombo{width:parent.width-Theme.unit(155);model:["System","Light","Dark","Noctalia"];currentIndex:["system","light","dark","noctalia"].indexOf(Mail.settings.theme||"system");onActivated:Mail.send("settingsUpdate",{theme:["system","light","dark","noctalia"][currentIndex]})}
             }
             FluidCheck{text:"Reduce motion";checked:Mail.settings.reduced_motion||false;onToggled:Mail.send("settingsUpdate",{reduced_motion:checked})}
+            Text{textFormat:Text.PlainText;text:"SYNC & DESKTOP";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
+            Row{width:parent.width;spacing:Theme.unit(15)
+                Text{textFormat:Text.PlainText;width:Theme.unit(140);text:"Check for new mail";color:Theme.text;font.pixelSize:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter}
+                FluidCombo{width:parent.width-Theme.unit(155);model:["Every 30 seconds","Every minute","Every 90 seconds","Every 2 minutes","Every 5 minutes"];currentIndex:[30,60,90,120,300].indexOf(Mail.settings.poll_seconds||60);onActivated:Mail.send("settingsUpdate",{poll_seconds:[30,60,90,120,300][currentIndex]})}
+            }
+            Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"Automatic checks fetch change metadata silently. New mail appears without resetting the list or reader. Bodies and attachments still load only when opened.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+            FluidCheck{text:"Hide sender and subject in system notifications";checked:Mail.settings.notification_privacy||false;onToggled:Mail.send("settingsUpdate",{notification_privacy:checked})}
+            FluidCheck{text:"Keep running in the tray when closed";checked:Mail.settings.close_to_tray!==false;onToggled:Mail.send("settingsUpdate",{close_to_tray:checked})}
+            Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:Mail.notificationStatus;visible:text!=="";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+            Text{textFormat:Text.PlainText;text:Mail.sync.lastChecked?"Last checked: "+new Date(Mail.sync.lastChecked*1000).toLocaleTimeString():"";visible:text!=="";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+            Repeater{model:Mail.sync.errors||[];delegate:Text{required property var modelData;textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:modelData.message;color:Theme.muted;font.pixelSize:Theme.unit(11)}}
             Text{textFormat:Text.PlainText;text:"COMPOSING";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
             Row{width:parent.width;spacing:Theme.unit(15)
                 Text{textFormat:Text.PlainText;width:Theme.unit(140);text:"On composer close";color:Theme.text;font.pixelSize:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter}

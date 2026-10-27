@@ -10,6 +10,7 @@ mod photos;
 mod protocol;
 mod reader;
 mod resident;
+mod sync;
 use luma_core::registration;
 
 use luma_core::Result;

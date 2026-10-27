@@ -6,6 +6,7 @@
 #include <QUrl>
 #include <QTimer>
 #include <QDir>
+#include <QFileInfo>
 #include <QApplication>
 #include <QStyleHints>
 #include <QPalette>
@@ -19,24 +20,12 @@
 #include <windows.h>
 #endif
 
-QVariant RecordModel::data(const QModelIndex&i,int role)const{return i.isValid()&&i.row()<rows.size()&&role==Qt::UserRole+1?QVariant(rows[i.row()].toVariantMap()):QVariant{};}
-QString RecordModel::key(const QJsonObject&r){auto k=r["key"].toObject();return k.isEmpty()?r["id"].toString():k["account"].toString()+QChar(0)+k["id"].toString();}
-void RecordModel::replace(const QJsonArray&a){beginResetModel();rows.clear();for(auto v:a){if(rows.size()==1000)break;rows.append(v.toObject());}endResetModel();emit countChanged();}
-void RecordModel::append(const QJsonArray&a){QList<QJsonObject>fresh;QSet<QString>seen;for(auto&r:rows)seen.insert(key(r));for(auto v:a){auto r=v.toObject();auto k=key(r);if(!seen.contains(k)&&rows.size()+fresh.size()<1000){fresh.append(r);seen.insert(k);}}if(fresh.isEmpty())return;beginInsertRows({},rows.size(),rows.size()+fresh.size()-1);rows.append(fresh);endInsertRows();emit countChanged();}
-void RecordModel::update(const QJsonObject&r,bool insert){auto k=key(r);for(int i=0;i<rows.size();++i)if(key(rows[i])==k){rows[i]=r;emit dataChanged(index(i),index(i),{Qt::UserRole+1});return;}if(insert&&rows.size()<1000){int at=0;while(at<rows.size()&&rows[at]["date"].toInteger()>r["date"].toInteger())++at;beginInsertRows({},at,at);rows.insert(at,r);endInsertRows();emit countChanged();}}
-void RecordModel::removeKeys(const QJsonArray&a){QSet<QString>keys;for(auto k:a){QJsonObject r;r["key"]=k;keys.insert(key(r));}for(int i=rows.size()-1;i>=0;--i)if(keys.contains(key(rows[i]))){beginRemoveRows({},i,i);rows.removeAt(i);endRemoveRows();}emit countChanged();}
-void RecordModel::patch(const QString&id,const QJsonObject&v){for(int i=0;i<rows.size();++i)if(rows[i]["id"].toString()==id){for(auto it=v.begin();it!=v.end();++it)rows[i][it.key()]=it.value();emit dataChanged(index(i),index(i),{Qt::UserRole+1});return;}}
-void RecordModel::trimBodies(const QString&keep){
-    qint64 bytes=0;int count=0;for(const auto&r:rows){bytes+=(r["text"].toString().size()+r["document"].toString().size())*2;count+=r.contains("text");}
-    for(int i=0;i<rows.size()&&(bytes>16*1024*1024||count>8);++i){auto&r=rows[i];if(r["id"]==keep||!r.contains("text"))continue;bytes-=(r["text"].toString().size()+r["document"].toString().size())*2;--count;r.remove("text");r.remove("document");emit dataChanged(index(i),index(i),{Qt::UserRole+1});}
-}
-
 Bridge::Bridge(bool preview,QObject*p):QObject(p),m_preview(preview){
     systemPalette();
     paletteDebounce=new QTimer(this);paletteDebounce->setSingleShot(true);paletteDebounce->setInterval(120);
     connect(&paletteWatcher,&QFileSystemWatcher::directoryChanged,this,[this]{paletteDebounce->start();});
     connect(&paletteWatcher,&QFileSystemWatcher::fileChanged,this,[this]{paletteDebounce->start();});
-    connect(paletteDebounce,&QTimer::timeout,this,[this]{if(m_settings["theme"]=="noctalia")send("themeReload");});
+    connect(paletteDebounce,&QTimer::timeout,this,[this]{const auto file=configRoot+"/noctalia.toml";if(!configRoot.isEmpty()&&QFileInfo::exists(file)&&!paletteWatcher.files().contains(file))paletteWatcher.addPath(file);if(m_settings["theme"]=="noctalia")send("themeReload");});
     qApp->installEventFilter(this);
     connect(qApp->styleHints(),&QStyleHints::colorSchemeChanged,this,[this]{systemPalette();});
     connect(&process,&QProcess::readyReadStandardOutput,this,&Bridge::consume);
@@ -72,7 +61,7 @@ void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
     if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
     if(profileEvent(kind,d,quint64(id))){emit received(kind=="error"?"photoError":kind,d.toVariantMap());return;}
-    if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();auto path=d["configPath"].toString();if(QDir(path).exists())paletteWatcher.addPath(path);systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}
+    if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();configRoot=d["configPath"].toString();if(QDir(configRoot).exists()){paletteWatcher.addPath(configRoot);auto file=configRoot+"/noctalia.toml";if(QFileInfo::exists(file))paletteWatcher.addPath(file);}systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}
     else if(kind=="settings"){m_settings=d.toVariantMap();systemPalette();emit settingsChanged();}
     else if(kind=="theme"){if(d.contains("background")){m_palette=d.toVariantMap();emit paletteChanged();}else systemPalette();}
     else if(kind=="authUrl"){openLink(d["url"].toString());}
@@ -90,7 +79,11 @@ void Bridge::receive(const QJsonObject&e){
         if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest||d["account"].toString()!=key.value("account").toString()||documentRequests.value(message)!=quint64(id))return;
         m_messages.patch(message,{{"document",d["html"]},{"externalLoaded",d["externalLoaded"]},{"failedImages",d["failedImages"]},{"documentPending",false}});m_messages.trimBodies(message);
     }
-    else if(kind=="rowChanged"){m_inbox.update(d["row"].toObject(),d["insert"].toBool());}
+    else if(kind=="rowChanged"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.update(d["row"].toObject(),d["insert"].toBool());pruneSelection();}
+    else if(kind=="syncRemoved"){if(quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.removeKeys(d["keys"].toArray());pruneSelection();}
+    else if(kind=="threadUpdated"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest||d["key"].toObject()!=QJsonObject::fromVariantMap(m_reader.value("key").toMap()))return;m_messages.mergeMessages(d["messages"].toArray());}
+    else if(kind=="messageState"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest)return;m_messages.patch(d["id"].toString(),d);}
+    else if(kind=="sync"){m_sync=d.toVariantMap();emit syncChanged();}
     else if(kind=="mutation"){m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
     else if(kind=="activity"){m_activity=d["text"].toString();m_activityKind=d["kind"].toString();emit activityChanged();}
     else if(kind=="error"){quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
@@ -116,6 +109,7 @@ void Bridge::setView(const QString&folder,const QString&account,const QString&qu
 void Bridge::selectRow(int row,int modifiers,qreal x,qreal y,qreal w,qreal h,const QVariantMap &projection){
     auto item=m_inbox.at(row);if(item.isEmpty())return;
     auto key=RecordModel::key(QJsonObject::fromVariantMap(item));
+    if(!anchorKey.isEmpty())anchor=m_inbox.indexFor(anchorKey);
     // Range selection takes priority after Ctrl-click has entered selection mode.
     if((modifiers&Qt::ShiftModifier)&&anchor>=0){
         m_selecting=true;
@@ -125,9 +119,9 @@ void Bridge::selectRow(int row,int modifiers,qreal x,qreal y,qreal w,qreal h,con
     }
     if((modifiers&Qt::ControlModifier)||m_selecting){
         m_selecting=true;if(m_selection.contains(key))m_selection.remove(key);else m_selection.insert(key);
-        anchor=row;emit selectionChanged();return;
+        anchor=row;anchorKey=key;emit selectionChanged();return;
     }
-    anchor=row;m_selection.clear();m_selecting=false;emit selectionChanged();
+    anchor=row;anchorKey=key;m_selection.clear();m_selecting=false;emit selectionChanged();
     if(openedKey==key&&m_readerOpen)return;
     openedKey=key;m_readerOpen=true;
     item["_projection"]=projection;m_openedRow=item;
@@ -140,7 +134,9 @@ bool Bridge::isSelected(const QVariantMap&r)const{return m_selection.contains(Re
 void Bridge::selectionMode(bool on){m_selecting=on;if(!on)m_selection.clear();emit selectionChanged();}
 void Bridge::selectAll(){m_selecting=true;for(int i=0;i<m_inbox.rowCount();++i)m_selection.insert(RecordModel::key(QJsonObject::fromVariantMap(m_inbox.at(i))));emit selectionChanged();}
 void Bridge::clearSelection(){m_selection.clear();m_selecting=false;emit selectionChanged();}
+void Bridge::pruneSelection(){if(m_selection.removeIf([this](const QString&key){return m_inbox.indexFor(key)<0;}))emit selectionChanged();}
 void Bridge::closeReader(){if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();m_messages.replace({});documentRequests.clear();m_reader.clear();emit readerChanged();send("releaseReader");}
+void Bridge::openThread(const QString&account,const QString&thread){if(account.isEmpty()||thread.isEmpty())return;clearSelection();const auto key=account+QChar(0)+thread;const auto index=m_inbox.indexFor(key);emit showRequested();if(index>=0){emit openRowRequested(index);return;}m_readerOpen=true;openedKey=key;m_reader={{"key",QVariantMap{{"account",account},{"id",thread}}},{"subject","Opening email"}};m_messages.replace({});documentRequests.clear();emit readerChanged();readerRequest=send("select",{{"account",account},{"id",thread}});}
 void Bridge::mutate(const QString&a,const QVariantMap&r){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a}});}
 void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}
 void Bridge::renderMessage(const QVariantMap&parameters){const auto message=parameters.value("id").toString();documentRequests[message]=send("renderMessage",parameters);m_messages.patch(message,{{"documentPending",true}});}

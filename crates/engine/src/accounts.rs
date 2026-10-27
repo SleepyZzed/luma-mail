@@ -66,6 +66,9 @@ pub async fn update(app: &App, c: &Command) -> Result<()> {
     }
     app.recent.configure(false, settings.recent_recipients);
     *app.settings.lock().unwrap() = settings;
+    if changes.contains_key("poll_seconds") {
+        app.sync.settings_changed();
+    }
     publish(app, c.id).await;
     if changes.contains_key("theme") {
         theme(app, c.id).await?;
