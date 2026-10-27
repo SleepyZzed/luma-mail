@@ -1,5 +1,5 @@
 pkgname=luma-mail
-pkgver=0.8.0
+pkgver=0.9.0
 pkgrel=1
 _commit=e7673436fc1a8c9c579396b684b48917d98dc81a
 _srcdir="luma-mail-$_commit"

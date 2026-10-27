@@ -1,4 +1,4 @@
-name: Linux build and AppImage
+name: Linux and Windows build
 on:
   push:
     branches: [main]
@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.8.0-dev.1
+        default: v0.9.0-dev.1
       reproduce_legacy:
         description: Reproduce the reported 0.2.0 missing-system-WebKit crash
         type: boolean
@@ -166,9 +166,12 @@ jobs:
           name: luma-mail-linux-x86_64
           path: dist/*
           if-no-files-found: error
+  windows:
+    uses: ./.github/workflows/windows.yml
+    secrets: inherit
   publish:
     if: github.event_name == 'workflow_dispatch' && inputs.publish
-    needs: build
+    needs: [build, windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -178,6 +181,10 @@ jobs:
         with:
           name: luma-mail-linux-x86_64
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: luma-mail-windows-x86_64
+          path: windows-dist
       - name: Publish checked development build
         env:
           GH_TOKEN: ${{ github.token }}
@@ -185,4 +192,4 @@ jobs:
           RELEASE_COMMIT: ${{ github.sha }}
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9][A-Za-z0-9._-]*$ ]]
-          gh release create "$RELEASE_TAG" dist/* --target "$RELEASE_COMMIT" --title "Luma Mail $RELEASE_TAG (development preview)" --notes-file docs/release-notes.md --prerelease
+          gh release create "$RELEASE_TAG" dist/* windows-dist/*.zip windows-dist/*.sha256 windows-dist/*.storage.json --target "$RELEASE_COMMIT" --title "Luma Mail $RELEASE_TAG (development preview)" --notes-file docs/release-notes.md --prerelease

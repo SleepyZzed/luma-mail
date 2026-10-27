@@ -67,3 +67,12 @@ pub fn from_bytes(bytes: Vec<u8>) -> luma_core::Result<gtk::MediaFile> {
     media.add_weak_ref_notify_local(move || drop(file));
     Ok(media)
 }
+
+#[cfg(target_os = "windows")]
+pub fn from_bytes(bytes: Vec<u8>) -> luma_core::Result<gtk::MediaFile> {
+    // Windows bundles GTK 4.24+, whose GStreamer backend supports seekable
+    // GInputStream directly. No temporary attachment or browser copy is written.
+    let bytes = gtk::glib::Bytes::from_owned(bytes);
+    let stream = gtk::gio::MemoryInputStream::from_bytes(&bytes);
+    Ok(gtk::MediaFile::for_input_stream(&stream))
+}

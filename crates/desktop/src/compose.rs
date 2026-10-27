@@ -19,6 +19,8 @@ mod clipboard;
 mod close_policy;
 #[path = "compose_conflict.rs"]
 mod draft_conflict;
+#[path = "compose_find.rs"]
+mod find;
 #[path = "compose_fonts.rs"]
 mod fonts;
 #[path = "compose_history.rs"]
@@ -31,6 +33,10 @@ mod motion;
 mod recipients;
 #[path = "compose_signature.rs"]
 mod signature;
+#[path = "compose_source.rs"]
+mod source;
+#[path = "compose_styles.rs"]
+mod styles;
 
 pub(crate) struct Editor {
     state: Rc<State>,
@@ -49,6 +55,9 @@ pub(crate) struct Editor {
     placement: Cell<u8>,
     motion_busy: Cell<bool>,
     history: history::History,
+    styling: styles::Styles,
+    find: RefCell<Option<Rc<find::Find>>>,
+    lifetime: RefCell<Option<Rc<Editor>>>,
     detached_expanded: Cell<bool>,
     clipboard_busy: Cell<bool>,
     popout: gtk::Button,
@@ -374,6 +383,9 @@ pub(crate) fn diagnostic(s: &Rc<State>) {
                 );
                 verify_toolbar(&e);
                 fonts::verify(&e);
+                styles::verify(&e);
+                find::verify(&e);
+                source::verify(&e);
                 e.expand.emit_clicked();
                 stage = 2;
                 println!("PASS compact Restore and automatic blue link tags");
@@ -624,7 +636,9 @@ fn pop_out(e: &Rc<Editor>) {
     e.detached_expanded.set(false);
     motion::reset_layout(e);
     e.header
-        .set_show_end_title_buttons(e.state.settings.borrow().window_chrome);
+        .set_show_end_title_buttons(crate::presentation::window_chrome(
+            e.state.settings.borrow().window_chrome,
+        ));
     e.root.remove_css_class("inline-composer");
     e.window.set_content(Some(&e.root));
     e.state.editor.borrow_mut().take();
@@ -665,6 +679,8 @@ fn finish(e: &Rc<Editor>) {
 }
 fn release_editor(e: &Rc<Editor>) {
     crate::resources::trim();
+    gtk::prelude::GtkWindowExt::set_focus(&e.parent(), None::<&gtk::Widget>);
+    e.text.reset_im_context();
     detach(e);
     let owns = e
         .state
@@ -678,6 +694,18 @@ fn release_editor(e: &Rc<Editor>) {
             .compose_stack
             .set_visible_child_full("mail", gtk::StackTransitionType::None);
     }
+    for field in [&e.to, &e.cc, &e.bcc] {
+        let mut child = field.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            if widget.is::<gtk::Popover>() {
+                widget.unparent();
+            }
+        }
+    }
+    // Inline/compact editors may never realize their auxiliary window. Release
+    // the explicit owner now; waiting for its dispose signal creates a cycle.
+    e.lifetime.borrow_mut().take();
     e.window.destroy();
 }
 fn request_close(e: &Rc<Editor>) -> glib::Propagation {
@@ -1199,7 +1227,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let inline_save = ui::button("luma-save-symbolic", "Save reply to Gmail");
     let inline_expand = ui::button("luma-expand-symbolic", "Expand reply");
     let inline_popout = ui::button("luma-popout-symbolic", "Pop out reply");
-    let inline_close = ui::button("luma-close-symbolic", "Save reply and close");
+    let inline_close = ui::button("luma-close-symbolic", "Close reply");
     for button in [&inline_save, &inline_expand, &inline_popout, &inline_close] {
         button.add_css_class("flat");
         inline_header.append(button);
@@ -1450,6 +1478,9 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
         motion_busy: Cell::new(false),
         history: Default::default(),
+        styling: Default::default(),
+        find: Default::default(),
+        lifetime: Default::default(),
         detached_expanded: Cell::new(false),
         clipboard_busy: Cell::new(false),
         popout: popout.clone(),
@@ -1580,19 +1611,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     if let Some(rich) = rich {
         let b = e.text.buffer();
         for span in rich.spans {
-            let tag = if let Some(family) = span.tag.strip_prefix("font:family:") {
-                Some(fonts::family_tag(&b, family))
-            } else if let Some(size) = span
-                .tag
-                .strip_prefix("font:size:")
-                .and_then(|v| v.parse().ok())
-            {
-                Some(fonts::size_tag(&e, size))
-            } else if let Some(link) = span.tag.strip_prefix("link:") {
-                Some(link_tag(&b, link))
-            } else {
-                b.tag_table().lookup(&span.tag)
-            };
+            let tag = styles::resolve(&e, &span.tag);
             if let Some(tag) = tag {
                 b.apply_tag(
                     &tag,
@@ -1661,6 +1680,8 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             insert_link(&e);
         }
     });
+    styles::install(&e, &styling);
+    find::install(&e, &styling);
     let keyboard = gtk::EventControllerKey::new();
     keyboard.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = Rc::downgrade(&e);
@@ -1672,6 +1693,10 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
             return glib::Propagation::Stop;
         }
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) {
+            if matches!(key, gtk::gdk::Key::f | gtk::gdk::Key::h) {
+                find::open(&e, key == gtk::gdk::Key::h);
+                return glib::Propagation::Stop;
+            }
             if key == gtk::gdk::Key::Return {
                 persist(&e, true);
                 return glib::Propagation::Stop;
@@ -1764,26 +1789,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         let weak = Rc::downgrade(&e);
         e.html.connect_toggled(move |mode| {
             if let Some(e) = weak.upgrade() {
-                if e.history.restoring.get() {
-                    return;
-                }
-                history::checkpoint_mode(&e, !mode.is_active());
-                let buffer = e.text.buffer();
-                if mode.is_active() {
-                    let source = formatted_html(&buffer);
-                    buffer.set_text(&source);
-                } else {
-                    let source = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                    match luma_core::composer::html_text(&source) {
-                        Ok(text) => buffer.set_text(&text),
-                        Err(error) => {
-                            e.status.set_text(&error.to_string());
-                            return;
-                        }
-                    }
-                }
-                changed(&e);
-                history::checkpoint(&e);
+                source::changed_mode(&e, mode.is_active());
             }
         });
     }
@@ -1891,9 +1897,12 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         e.from.set_sensitive(false);
     }
     {
-        let lifetime = RefCell::new(Some(e.clone()));
+        *e.lifetime.borrow_mut() = Some(e.clone());
+        let weak = Rc::downgrade(&e);
         e.window.connect_destroy(move |_| {
-            lifetime.borrow_mut().take();
+            if let Some(e) = weak.upgrade() {
+                e.lifetime.borrow_mut().take();
+            }
         });
     }
     *s.editor.borrow_mut() = Some(e.clone());
@@ -2308,29 +2317,9 @@ fn restore_local_ready(
     }
 }
 fn format_selection(e: &Rc<Editor>, tag: &str) {
-    if e.html.is_active() {
-        e.status
-            .set_text("Switch off HTML source to use visual formatting.");
-        return;
-    }
-    let buffer = e.text.buffer();
-    history::checkpoint(e);
-    if let Some((a, z)) = buffer.selection_bounds() {
-        if let Some(format) = buffer.tag_table().lookup(tag) {
-            if a.has_tag(&format) {
-                buffer.remove_tag(&format, &a, &z);
-            } else {
-                buffer.apply_tag(&format, &a, &z);
-            }
-            changed(e);
-            history::checkpoint(e);
-        }
-    } else {
-        e.status
-            .set_text("Select some text, then apply formatting.");
-    }
-    e.text.grab_focus();
+    styles::toggle(e, tag);
 }
+
 fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -2346,6 +2335,7 @@ fn formatting(iter: &gtk::TextIter) -> Vec<String> {
             matches!(n.as_str(), "strong" | "em" | "u" | "s")
                 || n.starts_with("link:")
                 || n.starts_with("font:")
+                || n.starts_with("style:")
         })
         .collect();
     names.sort();
@@ -2361,7 +2351,12 @@ fn has_formatting(buffer: &gtk::TextBuffer) -> bool {
     }
     let mut iter = buffer.start_iter();
     while !iter.is_end() {
-        if !formatting(&iter).is_empty() {
+        if !formatting(&iter).is_empty()
+            || iter
+                .tags()
+                .iter()
+                .any(|t| t.name().is_some_and(|n| n.starts_with("paragraph:")))
+        {
             return true;
         }
         iter.forward_char();
@@ -2397,16 +2392,24 @@ fn formatted_html(buffer: &gtk::TextBuffer) -> String {
             } else {
                 output.push_str("<li>");
             }
-            output.push_str(&formatted_range(
-                buffer,
-                start.offset() + marker.chars,
-                end.offset(),
+            output.push_str(&luma_core::rich_style::paragraph(
+                start
+                    .tags()
+                    .iter()
+                    .filter_map(|t| t.name().map(|n| n.to_string())),
+                &formatted_range(buffer, start.offset() + marker.chars, end.offset()),
             ));
         } else {
             while let Some(kind) = stack.pop() {
                 output.push_str(&format!("</li></{}>", kind.tag()));
             }
-            output.push_str(&formatted_range(buffer, start.offset(), end.offset()));
+            output.push_str(&luma_core::rich_style::paragraph(
+                start
+                    .tags()
+                    .iter()
+                    .filter_map(|t| t.name().map(|n| n.to_string())),
+                &formatted_range(buffer, start.offset(), end.offset()),
+            ));
             if n + 1 < buffer.line_count() {
                 output.push_str("<br>");
             }
@@ -2430,7 +2433,7 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
                     "</{}>",
                     if tag.starts_with("link:") {
                         "a"
-                    } else if tag.starts_with("font:") {
+                    } else if tag.starts_with("font:") || tag.starts_with("style:") {
                         "span"
                     } else {
                         tag
@@ -2440,7 +2443,9 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
             for tag in &tags {
                 if let Some(url) = tag.strip_prefix("link:") {
                     output.push_str(&format!("<a href=\"{}\">", escape(url)));
-                } else if let Some(font) = fonts::open(tag) {
+                } else if let Some(font) =
+                    fonts::open(tag).or_else(|| luma_core::rich_style::open(tag))
+                {
                     output.push_str(&font);
                 } else {
                     output.push_str(&format!("<{tag}>"));
@@ -2463,7 +2468,7 @@ fn formatted_range(buffer: &gtk::TextBuffer, begin: i32, end: i32) -> String {
             "</{}>",
             if tag.starts_with("link:") {
                 "a"
-            } else if tag.starts_with("font:") {
+            } else if tag.starts_with("font:") || tag.starts_with("style:") {
                 "span"
             } else {
                 tag
@@ -3351,6 +3356,7 @@ pub(crate) fn rescale(s: &Rc<State>) {
     {
         motion::resize(&e, s.window.width(), s.window.height());
         fonts::rescale(&e);
+        styles::rescale(&e);
     }
 }
 pub(crate) fn resize_compact(s: &Rc<State>, width: i32, height: i32) {

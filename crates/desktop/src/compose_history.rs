@@ -10,13 +10,20 @@ struct Entry {
     cursor: i32,
     anchor: i32,
     font: (Option<String>, Option<u16>),
+    styles: Vec<String>,
 }
 impl Entry {
     fn bytes(&self) -> usize {
-        self.body.capacity() + self.font.0.as_ref().map_or(0, String::capacity) + 128
+        self.body.capacity()
+            + self.font.0.as_ref().map_or(0, String::capacity)
+            + self.styles.iter().map(String::capacity).sum::<usize>()
+            + 128
     }
     fn same_document(&self, other: &Self) -> bool {
-        self.body == other.body && self.source == other.source && self.font == other.font
+        self.body == other.body
+            && self.source == other.source
+            && self.font == other.font
+            && self.styles == other.styles
     }
 }
 #[derive(Default)]
@@ -58,6 +65,7 @@ fn take(e: &Editor, source: bool) -> Option<Entry> {
         cursor,
         anchor,
         font: e.typing_font.borrow().clone(),
+        styles: e.styling.typing.borrow().clone(),
     })
 }
 fn trim(history: &History) {
@@ -152,19 +160,7 @@ fn restore(e: &Editor, entry: &Entry) {
     } else if let Some(rich) = luma_core::rich_draft::parse(&entry.body) {
         buffer.set_text(&rich.text);
         for span in rich.spans {
-            let tag = if let Some(family) = span.tag.strip_prefix("font:family:") {
-                Some(fonts::family_tag(&buffer, family))
-            } else if let Some(size) = span
-                .tag
-                .strip_prefix("font:size:")
-                .and_then(|v| v.parse().ok())
-            {
-                Some(fonts::size_tag(e, size))
-            } else if let Some(url) = span.tag.strip_prefix("link:") {
-                Some(link_tag(&buffer, url))
-            } else {
-                buffer.tag_table().lookup(&span.tag)
-            };
+            let tag = styles::resolve(e, &span.tag);
             if let Some(tag) = tag {
                 buffer.apply_tag(
                     &tag,
@@ -180,6 +176,8 @@ fn restore(e: &Editor, entry: &Entry) {
         &buffer.iter_at_offset(entry.anchor.clamp(0, end)),
     );
     *e.typing_font.borrow_mut() = entry.font.clone();
+    *e.styling.typing.borrow_mut() = entry.styles.clone();
+    styles::sync(e);
     fonts::sync_controls(e);
     e.history.restoring.set(false);
 }
@@ -399,6 +397,7 @@ mod tests {
             cursor: 0,
             anchor: 0,
             font: (None, None),
+            styles: Vec::new(),
         };
         *history.current.borrow_mut() = Some(entry.clone());
         history

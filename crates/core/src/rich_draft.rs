@@ -138,6 +138,14 @@ impl TokenSink for Sink {
                         {
                             tags.push(format!("font:size:{size}"));
                         }
+                        for attribute in &tag.attrs {
+                            if let Some(style) = crate::rich_style::from_attribute(
+                                &attribute.name.local,
+                                &attribute.value,
+                            ) {
+                                tags.push(style);
+                            }
+                        }
                         if tags.is_empty() {
                             p.valid = false;
                         }

@@ -217,7 +217,7 @@ pub fn show(s: &Rc<State>) {
         crate::signatures::close_diagnostic(s);
         return;
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     if std::env::args().any(|a| a == "--signature-diagnostics") {
         crate::signatures::diagnostic(s);
         return;

@@ -1,7 +1,7 @@
 # Road to 1.0
 
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
-0.8 is an early-access milestone, not a completed 1.0 release.
+0.9 is an early-access milestone, not a completed 1.0 release.
 
 ## This milestone
 
@@ -66,7 +66,26 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Draft signatures stay separate from authored text/quote and are not duplicated.
 - Bounded ephemeral editing and previews; no new persistent signature/image store.
 
-## Next implementation priorities
+## 0.9 cross-platform editing milestone
+
+- Windows x64 portable package, native tray/notification transport and keyring,
+  title-bar controls, visual signatures and memory-only media playback.
+- One initial Google consent flow with selectable optional features, actual-scope
+  enablement and Gmail-only fallback after optional permission denials.
+- Native composer colours/highlights, custom colours, alignment, line spacing,
+  indent, superscript/subscript, code, bounded find/replace and source preservation.
+- Complete closed-composer release, keyboard/popover teardown and event-driven
+  Windows HTML layout/IPC. No new mailbox, attachment, signature or draft store.
+
+## Next build — custom interface replacement
+
+The user has requested replacing the GTK frontend after 0.9, with a distinctive
+shared interface, fluid morphing transitions and a right-side sliding composer.
+Keep the Rust engine and all existing functionality, Linux priority, Noctalia v5
+colour integration, Windows title-bar controls and the same resource/storage
+constraints. See ui-redesign.md. No framework migration is part of 0.9.
+
+## Remaining 1.0 implementation priorities
 
 1. Attribute remaining RAM/CPU to individual processes and renderer allocations;
    measure longer settled HTML phases and real GPU frame timing. The default

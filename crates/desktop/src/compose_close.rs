@@ -114,6 +114,9 @@ pub(super) fn verify(s: &Rc<State>) {
         dialog.emit_by_name::<()>("response", &[&"close"]);
         glib::timeout_future(Duration::from_millis(40)).await;
         assert!(e.closing.get() && e.draft.borrow().is_none());
+        let weak=Rc::downgrade(&e);let root=e.root.downgrade();drop(e);
+        glib::timeout_future(Duration::from_millis(150)).await;
+        assert!(weak.upgrade().is_none()&&root.upgrade().is_none(),"Closed inline/compact composer must release its owner and widget tree");
         state.settings.borrow_mut().draft_mode = previous;
         state.settings.borrow_mut().reduced_motion = reduced;
         println!("PASS Ask/Keep editing/Close without saving, duplicate-close guard, Manual and incomplete On-close policies; no automatic Gmail/local drafts");

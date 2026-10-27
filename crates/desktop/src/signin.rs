@@ -22,13 +22,25 @@ struct SignIn {
     url: RefCell<Option<String>>,
     task: RefCell<Option<tokio::task::AbortHandle>>,
     active: Cell<bool>,
-    drive: bool,
-    filters: bool,
-    photos: bool,
+    permissions: [gtk::CheckButton; 3],
     ready: RefCell<Option<Ready>>,
     expected: Option<String>,
 }
-type Ready = Box<dyn FnOnce(Rc<State>, String)>;
+enum Feature {
+    Drive,
+    Settings,
+    Photos,
+}
+impl Feature {
+    fn granted(&self, p: luma_core::auth::Permissions) -> bool {
+        match self {
+            Self::Drive => p.drive,
+            Self::Settings => p.settings,
+            Self::Photos => p.photos,
+        }
+    }
+}
+type Ready = (Feature, Box<dyn FnOnce(Rc<State>, String)>);
 
 pub fn open(s: &Rc<State>, drive: bool, expected: Option<String>) {
     #[cfg(debug_assertions)]
@@ -60,7 +72,7 @@ pub fn sender_controls(
         Some(account.email.clone()),
         true,
         account.contact_photos,
-        Some(Box::new(ready)),
+        Some((Feature::Settings, Box::new(ready))),
         s.client_config(),
     );
 }
@@ -76,7 +88,7 @@ pub fn contact_photos(
         Some(account.email.clone()),
         account.sender_controls,
         true,
-        Some(Box::new(ready)),
+        Some((Feature::Photos, Box::new(ready))),
         s.client_config(),
     );
 }
@@ -91,7 +103,7 @@ pub fn drive_files(
         Some(account.email.clone()),
         account.sender_controls,
         account.contact_photos,
-        Some(Box::new(ready)),
+        Some((Feature::Drive, Box::new(ready))),
         s.client_config(),
     );
 }
@@ -132,7 +144,7 @@ fn open_with_config(
         .transient_for(&s.window)
         .title("Sign in with Google")
         .default_width(560)
-        .default_height(420)
+        .default_height(590)
         .build();
     let root = ui::vbox(12);
     root.append(&adw::HeaderBar::new());
@@ -145,6 +157,30 @@ fn open_with_config(
     );
     intro.set_wrap(true);
     content.append(&intro);
+    let optional = ui::vbox(6);
+    optional.append(&ui::label(
+        "Optional features · one Google consent screen",
+        "heading",
+    ));
+    let permissions = [
+        gtk::CheckButton::with_label("Drive attachments · upload large files and share links"),
+        gtk::CheckButton::with_label(
+            "Sender controls and online signatures · manage Gmail settings",
+        ),
+        gtk::CheckButton::with_label("Contact photos · read Google Contacts"),
+    ];
+    let new_account = expected.is_none();
+    for (check, requested) in permissions.iter().zip([drive, filters, photos]) {
+        check.set_active(new_account || requested);
+        optional.append(check);
+    }
+    let hint = ui::label(
+        "Gmail is required. You can skip optional features here or on Google's consent screen and connect them later in Settings.",
+        "caption",
+    );
+    hint.set_wrap(true);
+    optional.append(&hint);
+    content.append(&optional);
     let status = ui::label("", "");
     status.set_wrap(true);
     status.set_selectable(true);
@@ -170,9 +206,7 @@ fn open_with_config(
         url: RefCell::new(None),
         task: RefCell::new(None),
         active: Cell::new(false),
-        drive,
-        filters,
-        photos,
+        permissions,
         ready: RefCell::new(ready),
         expected,
     });
@@ -216,13 +250,21 @@ fn open_with_config(
     }
     {
         let lifetime = RefCell::new(Some(flow.clone()));
-        flow.window.connect_destroy(move |_| {
+        flow.window.connect_unrealize(move |_| {
             lifetime.borrow_mut().take();
         });
     }
     flow.window.present();
     match config {
-        Ok(config) => begin(&flow, config),
+        Ok(config) => {
+            if flow.expected.is_some() {
+                begin(&flow, config);
+            } else {
+                flow.browser.set_sensitive(true);
+                flow.status
+                    .set_text("Choose optional features, then continue to Google once.");
+            }
+        }
         Err(error) => flow.status.set_text(&error.to_string()),
     }
 }
@@ -235,9 +277,10 @@ fn begin(flow: &Rc<SignIn>, config: ClientConfig) {
     flow.spinner.start();
     flow.status.set_text("Preparing secure Google sign-in…");
     let c = config.clone();
-    let drive = flow.drive;
-    let filters = flow.filters;
-    let photos = flow.photos;
+    let [drive, filters, photos] = flow.permissions.each_ref().map(|check| check.is_active());
+    for check in &flow.permissions {
+        check.set_sensitive(false);
+    }
     let weak = Rc::downgrade(flow);
     let task = ui::async_work(
         &flow.state,
@@ -285,6 +328,7 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
         async move {
             Ok(async {
         let token = auth.complete(&http, &config).await?;
+        let permissions=token.permissions()?;
         let profile = Gmail::profile_with_token(&http, &token.access_token).await?;
         if expected.is_some_and(|email| !profile.email_address.eq_ignore_ascii_case(&email)) {
             return Err(Error::Invalid("Sign in with the same Google account when reconnecting".into()));
@@ -300,20 +344,20 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                 return Err(Error::Invalid("Google did not return a refresh token for Luma's app registration. Revoke the previous Luma grant in Google Account permissions and reconnect.".into()));
             }
         }
-        Ok::<_, Error>((id, profile.email_address))
+        Ok::<_, Error>((id, profile.email_address,permissions))
     }.await)
         },
         move |s, result| {
             let Some(flow) = weak.upgrade() else { return };
             flow.task.borrow_mut().take();
             match result {
-                Ok((id, email)) => {
+                Ok((id, email, permissions)) => {
                     let mut settings = s.settings.borrow_mut();
                     if let Some(account) = settings.accounts.iter_mut().find(|a| a.id == id) {
                         account.enabled = true;
-                        account.drive_enabled = flow.drive;
-                        account.sender_controls = flow.filters;
-                        account.contact_photos = flow.photos;
+                        account.drive_enabled = permissions.drive;
+                        account.sender_controls = permissions.settings;
+                        account.contact_photos = permissions.photos;
                     } else {
                         settings.accounts.push(Account {
                             id: id.clone(),
@@ -322,9 +366,9 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                             enabled: true,
                             notifications: true,
                             signature: String::new(),
-                            drive_enabled: flow.drive,
-                            sender_controls: flow.filters,
-                            contact_photos: flow.photos,
+                            drive_enabled: permissions.drive,
+                            sender_controls: permissions.settings,
+                            contact_photos: permissions.photos,
                             blocked_senders: vec![],
                         });
                     }
@@ -340,7 +384,15 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
                     ui::sidebar(&s);
                     ui::reload(&s);
                     flow.window.close();
-                    if let Some(ready) = flow.ready.borrow_mut().take() {
+                    let requested = flow.permissions.each_ref().map(|c| c.is_active());
+                    let granted = [permissions.drive, permissions.settings, permissions.photos];
+                    let all = requested.iter().zip(granted).all(|(r, g)| !*r || g);
+                    if !all {
+                        s.info("Gmail is connected. Some optional features were skipped; connect them later in Settings.");
+                    }
+                    if let Some((feature, ready)) = flow.ready.borrow_mut().take()
+                        && feature.granted(permissions)
+                    {
                         ready(s, id);
                     }
                 }
@@ -354,6 +406,9 @@ fn wait_for_consent(flow: &Rc<SignIn>, auth: Authorization, config: ClientConfig
 
 fn failed(flow: &SignIn, error: &Error) {
     flow.active.set(false);
+    for check in &flow.permissions {
+        check.set_sensitive(true);
+    }
     flow.spinner.stop();
     flow.browser
         .set_sensitive(flow.state.client_config().is_ok());

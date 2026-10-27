@@ -1,3 +1,7 @@
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
 mod attachments;
 mod compose;
 mod compose_lists;
@@ -25,9 +29,21 @@ mod ui;
 #[cfg(debug_assertions)]
 mod verification;
 mod virtual_inbox;
+#[cfg(target_os = "windows")]
+mod windows_platform;
+#[cfg(target_os = "windows")]
+mod windows_surface;
 use adw::prelude::*;
 use gtk::{gio, glib};
 fn main() -> glib::ExitCode {
+    #[cfg(target_os = "windows")]
+    let _session = match windows_platform::configure() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Cannot prepare private Windows runtime: {e}");
+            return glib::ExitCode::FAILURE;
+        }
+    };
     #[cfg(target_os = "linux")]
     if let Err(error) = media::configure() {
         eprintln!("Cannot prepare private media runtime: {error}");
@@ -45,6 +61,11 @@ fn main() -> glib::ExitCode {
         .application_id("io.github.lumamail.Luma")
         .flags(flags)
         .build();
+    app.connect_shutdown(|app| {
+        for window in app.windows() {
+            window.destroy();
+        }
+    });
     app.connect_activate(|app| {
         if let Some(window) = app.active_window() {
             window.present();

@@ -1,10 +1,13 @@
-Luma Mail 0.8 early access — online rich signatures and explicit drafting
+Luma Mail 0.9 early access — Windows parity, richer composition and one Google consent flow
 
-- Restore individually wrapped rich formatting controls, including bullets/numbering, in compact and inline composers.
-- Settings → Storage → Drafts offers Ask on close (default), Save on close only with a valid recipient and authored body, or Manual Save only. Typing/attaching do not start background saves.
-- Settings → Accounts → Rich signature opens the Linux visual editor: installed fonts, sizing, colours, highlighting, bold/italic/underline/strikeout, lists, indentation, alignment, line spacing, links, tables, pictures and undo/redo.
-- Save the primary address's signature online in Gmail, with optional basic-settings consent and a fresh server-change check. This updates Gmail web's signature too. Alias signatures can be read; Gmail's named-signature library is not exposed by this integration.
-- Local signature pictures require explicit confirmation for a public, unlisted, read-only optimized Drive copy, with progress and Cancel. Public HTTPS picture URLs also work. Preview/editing stays bounded in RAM; no local image/signature archive.
-- Signatures stay separate from authored text and quoted history, preserve draft versions and do not multiply on repeated saves. Provider-neutral HTML/storage interfaces leave room for future providers; Gmail is the implemented provider today.
+- Linux remains primary. Windows x64 gets a portable ZIP with the runtime DLL closure, star icon, native Explorer tray, Windows shell notifications, Credential Manager, visual online signatures and in-memory media previews. Windows keeps a title bar with minimise/maximise/close; Linux keeps its compositor-managed layout.
+- Choose Gmail and optional Contacts, limited Drive and basic Gmail settings together when connecting an account. Granted permissions determine which features are enabled; skipping an optional permission no longer rejects Gmail sign-in. Connect skipped features later in Settings.
+- Compose with text colours, highlighting/custom colours, paragraph alignment, line spacing/indent, superscript/subscript and monospace, alongside the restored bold/italic/underline, fonts, links and bullet/numbered lists. Formatting survives new Luma Gmail drafts and bounded undo/redo.
+- Find/replace in the composer (Ctrl+F / Ctrl+H), including case and whole-word matching, Unicode offsets and one-step replacement undo. Search only runs while its bar is open.
+- Source/visual switching preserves supported rich formatting and asks before flattening unsupported HTML.
+- Release closed compact/inline composers and recipient popovers completely. Clear keyboard focus before teardown. Windows HTML uses resize/scroll/load events instead of permanent frame and 60 ms polling callbacks, and hides underneath Settings.
+- Shared visual signatures now include bounded formatting history without storing image previews in every history entry; no local signature archive.
 
-See docs/signatures.md for usage, image privacy and API limitations. Quit the previous version through its tray menu before launching this build. Google verification and target Linux/two-account/long-soak acceptance remain outstanding. The RAM goals in docs/performance.md are not claimed achieved. This is early access.
+Extract the entire Windows ZIP and run luma-mail.exe. It needs the official Microsoft Edge WebView2 Evergreen Runtime (already on most current Windows systems); START-HERE.txt links the official installer. No Rust/MSYS2 installation is needed. The Windows binary is unsigned; release checksums are supplied.
+
+Quit the previous build through its tray menu before launching this one. Google review, two-account target Linux acceptance, long-soak testing and the RAM targets remain release gates; this is not 1.0. The custom replacement for the GTK interface is queued for the next build, with existing functionality and the online-first storage rules preserved.

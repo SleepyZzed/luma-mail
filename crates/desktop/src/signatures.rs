@@ -135,7 +135,7 @@ fn loaded(
     intro.set_wrap(true);
     ui::margins(&intro, 12);
     root.append(&intro);
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
         let note = ui::label(
             "Windows development preview edits HTML source. The Linux build provides the visual rich-text editor.",
@@ -814,10 +814,10 @@ fn save(e: &Rc<Editor>) {
     });
 }
 
-#[cfg(all(debug_assertions, target_os = "linux"))]
+#[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
 #[path = "signatures_diagnostic.rs"]
 mod diagnostic;
-#[cfg(all(debug_assertions, target_os = "linux"))]
+#[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
 pub fn diagnostic(s: &Rc<State>) {
     diagnostic::start(s);
 }

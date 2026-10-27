@@ -276,6 +276,14 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
         .default_height(settings.window_height)
         .build();
     let root = vbox(0);
+    #[cfg(target_os = "windows")]
+    {
+        let caption = adw::HeaderBar::new();
+        caption.set_title_widget(Some(&label("Luma Mail", "heading")));
+        caption.set_decoration_layout(Some(":minimize,maximize,close"));
+        caption.add_css_class("windows-titlebar");
+        root.append(&caption);
+    }
     let refresh = button(
         "luma-refresh-symbolic",
         "Refresh now: fetch Gmail and check for new mail (Ctrl+R)",
@@ -745,12 +753,12 @@ pub fn create(app: &adw::Application, mailto: Option<String>) {
     }
     s.window.present();
     idle_reclaim(&s);
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     if std::env::args().any(|a| a == "--performance-diagnostics") {
         crate::resources::diagnostic(&s);
         return;
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     if std::env::args().any(|a| a == "--render-diagnostics") {
         assert!(
             std::env::var_os("LUMA_TEST_ROOT").is_some() && s.clients.borrow().is_empty(),
@@ -1464,7 +1472,7 @@ fn idle_reclaim(s: &Rc<State>) {
         }
     });
 }
-#[cfg(any(debug_assertions, target_os = "linux"))]
+#[cfg(any(debug_assertions, target_os = "linux", target_os = "windows"))]
 pub fn resource_rows(s: &Rc<State>, count: usize) {
     assert!(s.clients.borrow().is_empty() && std::env::var_os("LUMA_TEST_ROOT").is_some());
     rows::clear_rows(s);
@@ -1487,7 +1495,7 @@ pub fn resource_rows(s: &Rc<State>, count: usize) {
         .collect();
     rows::display(s, items, false);
 }
-#[cfg(any(debug_assertions, target_os = "linux"))]
+#[cfg(any(debug_assertions, target_os = "linux", target_os = "windows"))]
 pub fn resource_scroll(s: &State, bottom: bool) {
     let a = s.list_scroll.vadjustment();
     a.set_value(if bottom {

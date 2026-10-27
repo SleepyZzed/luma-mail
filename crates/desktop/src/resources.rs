@@ -23,7 +23,7 @@ pub fn trim() {
     });
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 pub fn diagnostic(s: &std::rc::Rc<crate::ui::State>) {
     use adw::prelude::*;
     assert!(std::env::var_os("LUMA_TEST_ROOT").is_some() && s.clients.borrow().is_empty());

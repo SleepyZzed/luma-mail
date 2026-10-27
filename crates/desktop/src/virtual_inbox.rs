@@ -470,7 +470,7 @@ impl Inbox {
             }
         });
     }
-    #[cfg(any(debug_assertions, target_os = "linux"))]
+    #[cfg(any(debug_assertions, target_os = "linux", target_os = "windows"))]
     pub fn bound_count(&self) -> usize {
         self.inner
             .rows()

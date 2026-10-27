@@ -136,7 +136,7 @@ pub(super) fn install(e: &Rc<Editor>, toolbar: &gtk::FlowBox) {
         .buffer()
         .connect_local("insert-text", true, move |values| {
             if let Some(e) = weak.upgrade() {
-                if !e.html.is_active() {
+                if !e.html.is_active() && !e.history.restoring.get() {
                     let end = values[1]
                         .get::<gtk::TextIter>()
                         .expect("insert-text iterator");

@@ -384,12 +384,12 @@ pub fn open(s: &Rc<State>, name: &str, mime: &str, bytes: u64, source: Source) {
                     }
                 }
                 Ok(Preview::Media(bytes)) => {
-                    #[cfg(not(target_os = "linux"))]
+                    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
                     {
                         drop(bytes);
                         body.append(&label("Media playback is available in the Linux build. Save the file to play it on this Windows test host.", "caption"));
                     }
-                    #[cfg(target_os = "linux")]
+                    #[cfg(any(target_os = "linux", target_os = "windows"))]
                     {
                         let media = match crate::media::from_bytes(bytes) {
                             Ok(media) => media,

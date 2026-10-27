@@ -283,10 +283,12 @@ pub fn open(s: &Rc<State>) {
     let chrome = adw::SwitchRow::builder()
         .title("Window decorations")
         .subtitle(
-            "Optional Windows frame; Linux resizing and borders are managed by the compositor",
+            "Windows keeps its title bar; Linux borders and resizing are managed by the compositor",
         )
-        .active(s.settings.borrow().window_chrome)
-        .sensitive(!cfg!(target_os = "linux"))
+        .active(crate::presentation::window_chrome(
+            s.settings.borrow().window_chrome,
+        ))
+        .sensitive(!cfg!(any(target_os = "linux", target_os = "windows")))
         .build();
     g.add(&chrome);
     let state = s.clone();
