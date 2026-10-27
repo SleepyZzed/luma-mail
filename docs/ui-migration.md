@@ -1,0 +1,66 @@
+# Fluid frontend migration
+
+The 0.9 release is the preserved reference. The replacement uses a custom Qt
+Quick scene graph and QML, with the existing Rust provider/cache/security engine.
+The frontend communicates with one private Rust child through anonymous pipes;
+credentials never enter the UI, and no network listener or disk mailbox is added.
+GTK is removed from distribution only after the parity gates below pass.
+
+## Existing wiring to preserve
+
+| Existing view/callbacks | Existing backend | Replacement ownership |
+| --- | --- | --- |
+| ui_navigation / folder/account disclosure / account shortcuts | UnifiedPager, Gmail::list, Settings accounts | Rust view generation + QML Sidebar |
+| ui_rows / virtual_inbox / Ctrl/Shift/select-all / context menu | Conversation, ThreadKey, bounded loaded selection | QAbstractListModel + Rust selection/action guards |
+| ui_actions::perform / undo / per-message actions | act_confirmed, MailAction::undo_for, matches_view, matching_label | Serialized Rust mutation service + row reflow events |
+| ui::open_thread / expanded message / retry | thread_metadata, message, Cache | Generation-checked Rust reader + morph projection |
+| rendering / message_images / attachments | html_mail, mail_images, preview, attachment_save | Off-record reader, RAM image/media sources, explicit downloads |
+| compose::open / mailto / reply / forward / identities | Compose, send_as, rich_draft, composer::mime | Qt rich document + Rust compose sessions |
+| compose::persist / draft reopen / conflict / discard | edit_draft, save_draft, send_draft, draft_merge, discard_thread_drafts | Per-session Rust save/send lock, revision and uncertain-send guards |
+| compose_close / compose_history / recipients / source / find | DraftMode, local_compose recent recipients, text_search | Bounded native document history + close policy + Rust suggestions |
+| compose_clipboard / attach / progress / cancel | clipboard_image, compose_drive, drive | In-memory inputs, existing upload/share pipeline |
+| signatures / signature_rich | SignatureStore, signature_images, signatures | Rich editor and online signature transport; explicit public-upload consent |
+| signin / reconnect / optional scope buttons | Authorization, TokenManager, SystemVault, returned Permissions | Rust OAuth lifecycle + one native consent dialog |
+| settings / account CRUD / cache controls / sender_controls | Paths, Settings, Cache, sender_rules | Rust settings commands + custom Settings sheet |
+| contact_photos | Photos::get/own, existing bounded lookup rules | Visible-row lookup queue + bounded RAM image provider |
+| notifications / tray / desktop / theme monitor | Monitor, Settings, Palette | Rust poll scheduler + native Qt OS adapters and file events |
+| resources / close-to-tray / keyboard / scaling | Existing bounded pages, cache policy and close policy | Event-driven lifetime/reclamation; finite springs and reduced motion |
+
+No list action fetches full bodies. Page size remains 25 and loaded records stay
+capped at 1,000. The existing Cache implementation, allocation accounting, TTL,
+LRU, zero-budget removal and per-account controls remain authoritative. Drafts
+stay in Gmail; optional recent recipients keep their existing 100/64-KiB/90-day
+bounds. Reader content, document history, image sources and pipe queues are
+bounded in RAM. No renderer disk cache, email archive, index or autosave is added.
+
+## Acceptance gates
+
+Track each group through implemented, native-tested, live-accepted and packaged
+states. A mapped command or a visible button is not parity. Exercise every group
+above, rapid retargeting, failure/rollback, two-account routing, native rich-text
+keyboard semantics, HTML privacy, actual tray/notification transport and zero
+cache before removing the reference UI. Measure the entire process tree and
+installed/runtime bytes; spring support is not a 60-fps performance guarantee.
+
+## Current checkpoint: fluid foundation (not a release)
+
+- Implemented: private Rust engine, existing registration/vault/core services,
+  bounded list/page requests, generation-checked reader, confirmed mail actions
+  and undo routes, account/settings/OAuth/label commands, unchanged disk cache.
+- Native scene: custom vector controls, Noctalia/system palette, pinned rail,
+  collapsed unified folders, account disclosure, recycled compact rows, selection,
+  row-to-reader projection and reverse, adaptive panes, composer bounds morph,
+  compact/fullscreen interruptions, close slide, inline geometry, settings sheet.
+- Validation: real native-window synthetic tests exercise the projection and its
+  handoff, rapid retargeting, pane recovery, selection, reduced motion and composer
+  geometry. Rust core/protocol/cache tests remain separate from live acceptance.
+- Pending: the full composer session/save/send/close-policy/conflict service,
+  selection-aware rich documents and signatures, attachments/Drive/media,
+  supported contact-photo lookup, HTML adapters/privacy/image choices, remaining
+  search/label/settings/context/keyboard flows, background poller/OS notifications,
+  lifecycle reclamation, two-account acceptance, Linux packaging and resource
+  audits. The preview has incomplete controls and must not replace 0.9 yet.
+
+See [fluid-validation.md](fluid-validation.md) for reproducible checks. Keep the
+reference target until the pending groups have real functional parity; passing
+motion checks alone never authorizes removing a working feature.

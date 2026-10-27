@@ -2178,6 +2178,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "luma-engine"
+version = "0.9.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "futures-util",
+ "luma-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "luma-mail"
 version = "0.9.0"
 dependencies = [

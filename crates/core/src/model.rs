@@ -113,7 +113,7 @@ pub struct Thread {
     pub messages: Vec<Message>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Conversation {
     pub key: ThreadKey,
     pub subject: String,

@@ -21,6 +21,7 @@ pub mod pagination;
 pub mod preview;
 pub mod provider;
 mod rate;
+pub mod registration;
 pub mod rich_draft;
 pub mod rich_style;
 pub mod search;

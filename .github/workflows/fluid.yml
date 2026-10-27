@@ -1,0 +1,101 @@
+name: Fluid migration checks
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/fluid/**'
+      - 'crates/engine/**'
+      - 'crates/core/**'
+      - 'data/**'
+      - 'Cargo.*'
+      - '.github/workflows/fluid.yml'
+  push:
+    branches: ['ui/fluid-morph']
+permissions:
+  contents: read
+concurrency:
+  group: fluid-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  engine:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - run: cargo test --locked -p luma-core -p luma-engine
+      - run: cargo clippy --locked -p luma-engine --all-targets -- -D warnings
+  linux-scene:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libdbus-1-dev libgl1 libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 xvfb
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          modules: 'qtmultimedia qtshadertools'
+          cache: true
+      - run: cargo build --locked -p luma-engine
+      - run: cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-fluid --parallel 2
+      - run: ctest --test-dir build-fluid --output-on-failure
+      - name: Native synthetic scene and real pipe test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_MOTION_REPORT: ${{ github.workspace }}/fluid-motion-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --motion-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-motion-linux
+          path: fluid-motion-linux.json
+          if-no-files-found: warn
+  windows-scene:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-declarative
+            mingw-w64-ucrt-x86_64-qt6-svg
+            mingw-w64-ucrt-x86_64-qt6-multimedia
+            mingw-w64-ucrt-x86_64-qt6-shadertools
+      - run: cargo build --locked -p luma-engine
+      - shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-fluid --parallel 2
+          ctest --test-dir build-fluid --output-on-failure
+      - name: Native synthetic scene and real pipe test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_MOTION_REPORT="$(cygpath -m "$PWD")/fluid-motion-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --motion-test >fluid.stdout 2>fluid.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-motion-windows
+          path: |
+            fluid-motion-windows.json
+            fluid.stderr
+          if-no-files-found: warn

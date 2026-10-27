@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
-require-google-client = []
+require-google-client = ["luma-core/require-google-client"]
 
 [dependencies]
 luma-core = { path = "../core" }
