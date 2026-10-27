@@ -9,6 +9,12 @@ decision and Google's final response remain gates.
 
 ## Implemented and exercised
 
+The published 0.9 Linux/Windows release and both platform gates pass on
+`65c67d1eac7f897eda14442bb4ccea0031daf171`; downloaded binary checksums and whole-app
+storage/process-tree measurements are recorded in docs/verification.md. Linux
+RAM goals and real desktop/live-account acceptance remain open. The custom GTK
+replacement is queued for the next build in docs/ui-redesign.md.
+
 - Shared native composer colours/highlights, paragraph alignment/spacing/indent,
   scripts/code, bounded Unicode find/replace and source/visual preservation.
 - A single initial Google consent flow for selected optional features. Actual

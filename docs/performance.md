@@ -147,3 +147,45 @@ geometry now use channel/load/resize/scroll/dialog events, without a permanent
 frame callback or 60 ms polling timer. Signature histories share image previews
 and bound text snapshots. These are implementation improvements; the earlier
 process-tree RAM figures are not relabelled as 0.9 measurements.
+
+## 0.9 release measurements
+
+[Release run 40529376447](https://github.com/SleepyZzed/luma-mail/actions/runs/40529376447)
+passes both complete process-tree audits on the exact published build. Linux uses
+the default renderer with software graphics, no live network/mailbox and the
+same synthetic fixtures as earlier runs:
+
+| Phase | Linux settled mean PSS MiB | Settled mean CPU, one core |
+| --- | ---: | ---: |
+| Fresh | 266.56 | 0% |
+| 1,000 metadata records | 282.87 | 0% |
+| Scrolled list | 282.84 | 0.20% |
+| One HTML view | 524.96 | 5.22% |
+| Three HTML views | 634.46 | 15.74% |
+| Reader released | 311.79 | 0% |
+| Reclaimed background | 309.25 | 0% |
+
+PSS is complete for every phase. The three-view PSS peak is 643.40 MiB; raw
+startup/transition CPU peaks are retained in the published performance.json.
+The RAM goals remain unmet. These short settled intervals do not prove zero
+CPU during real background Gmail polling or several-hour desktop use.
+
+Windows reports private working set, private commit and summed working set for
+Luma plus recursively found renderer/helper children, not Linux PSS. Its hosted
+Server last samples are 17.53 MiB fresh, 37.17 MiB with 1,000 records, 104.32 MiB
+with one HTML view, 140.23 MiB with three and 38.94 MiB reclaimed. Renderer phases
+contain seven/nine processes, returning to one after release. Settled last
+samples report 0% CPU; the first fresh sample has no prior CPU delta. These are
+last observations rather than phase means, and are not representative guarantees.
+
+On the physical Windows laptop, a local 0.9 candidate's PowerShell 5 audit
+measures 92.56 MiB fresh, 104.20 MiB with 1,000 rows, 202.11 MiB for one HTML view,
+243.16 MiB for three, and 97.36 MiB reclaimed. The local signature/HTML/audio/tray
+checks and relocated package also pass. Fonts, graphics and OS/runtime differences
+matter: neither the smaller Server figures nor private working set should be used
+as a claim that the Linux or all-use 200-MiB target is solved.
+
+The observer's PowerShell 5 JSON bug is fixed: phase strings no longer carry
+file-provider object graphs into serialization. Its complete report is about
+12 KiB, rather than an out-of-memory failure. Post-exit zero-memory samples are
+excluded. Zero-cache checks create no retained mail/draft/attachment store.

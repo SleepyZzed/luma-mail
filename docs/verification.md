@@ -1,5 +1,70 @@
 # Verification log
 
+## Final 0.9 cross-platform release, 27 October 2026
+
+[Release run 40529376447](https://github.com/SleepyZzed/luma-mail/actions/runs/40529376447)
+passed both platform gates and publication on
+`65c67d1eac7f897eda14442bb4ccea0031daf171`.
+[v0.9.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.9.0-dev.1)
+contains the Linux AppImage, Windows ZIP, checksums, runtime/source inventories
+and audit evidence. [PR #11](https://github.com/SleepyZzed/luma-mail/pull/11)
+is merged. Downloaded binaries match their separate checksum files and GitHub
+asset digests:
+
+| Download | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Linux AppImage | 158,026,232 | `0f9afb69ae8dd295469e7a45118fdf7cc01c553982bed05bf3d2d3af49d93b5e` |
+| Windows ZIP | 84,533,785 | `44591c7f14953e82aa7f19a0322341355b7bd476e567a31c6e495375f504bfb6` |
+
+PKGBUILD pins functional source `f7ab8c858b1a4cba56bd1395e916d5af605a1c45`.
+Its downloaded archive is 712,743 bytes with SHA-256
+`f72f3a7f490dab0252852a737b03f8e52aad19b331b6f87bf91d91bb8dbc86af`;
+all 204 functional files matched before the pin-only commit.
+
+- Both platforms pass strict formatting/Clippy, 121 core and eight desktop tests.
+  The isolated real Windows Credential Manager store/read/remove test also passes
+  locally; normal CI does not exercise the user's real account vault.
+- Native colour/highlight/paragraph/font typing, rich draft/source round trips,
+  Unicode find/replace/undo, keyboard navigation, inline replies, close policies,
+  complete editor/widget release, fixed navigation and virtual-list checks pass.
+- Linux native/bundled X11/Wayland HTML/media, hidden host WebKit, read-only
+  AppImage, desktop cursor, signature actions and sandbox-launcher checks pass.
+  The downloaded signature capture was inspected; its SHA-256 is
+  `06381cdf8bbb8a74b1abe210303638a0aa821e797fadaec4e017e47d273f8a8e`.
+- Windows native composition/navigation/list/signature/HTML/media/tray tests and
+  the relocated package without MSYS2 on PATH pass. The hosted Server lacks an
+  audio device, so CI uses silent video; audio decoding passes on the laptop.
+  CI requires tray registration/update and activation/hide/restore, explicitly
+  reporting its unavailable visible rectangle. The strict visible-rectangle
+  test passes locally. Notification API dispatch does not prove visual delivery.
+- The PowerShell 5 observer now copies phase text without Get-Content's provider
+  metadata before JSON serialization. Its previous out-of-memory failure was in
+  the report writer. The repaired full audit passes locally and in release CI.
+- Zero-cache checks retain no mail-body, attachment, image or local draft files.
+  Read-only Wayland configuration is 36 logical bytes; its runtime/cache contain
+  no files. Signature runtime metadata is 1,686,421 logical / 2,416,640 allocated
+  bytes; its cache has zero files, with one empty fixture-created directory.
+- Extracted Linux installation: 498,009,716 logical / 512,020,480 allocated bytes.
+  Windows installation: 221,237,727 logical bytes, 172 DLLs and 103 recorded MSYS2
+  source packages. Installed libraries and temporary runtime metadata are separate
+  from the enforced content-cache budget. No development toolchain is shipped.
+
+Complete Linux process-tree PSS means are 266.56 MiB fresh, 282.87 MiB with 1,000
+records, 524.96 MiB for one HTML view, 634.46 MiB for three and 309.25 MiB reclaimed.
+Settled fresh/final CPU means are 0%; short HTML intervals average 5.22%/15.74% of
+one core. Windows CI last phase samples are 17.53/37.17/104.32/140.23/38.94 MiB
+private working set for those phases, including renderer children. A physical
+Windows candidate measures about 93–104 MiB for idle/list use, 202/243 MiB for
+one/three HTML views and 97 MiB after reclamation. Metrics/environments differ;
+see performance.md. The Linux RAM targets remain unmet, and short synthetic runs
+do not establish real GPU, live sync or sustained mailbox performance.
+
+Fresh combined-consent denial/reconnect, two-account target Linux acceptance,
+real Windows notification delivery, remaining feature gaps and Google approval
+remain open. No real account signature or public signature-picture upload was
+changed in this batch. The GTK replacement remains queued for the next build.
+Documentation-only follow-ups do not change the tagged binaries.
+
 ## Final 0.8 release, 27 October 2026
 
 [Release run 40425766520](https://github.com/SleepyZzed/luma-mail/actions/runs/40425766520)
