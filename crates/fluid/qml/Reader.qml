@@ -76,6 +76,14 @@ Item {
                             opacity:Math.max(0,Math.min(1,reveal.value))
                             y:(1-reveal.value)*Theme.unit(18)
                             Rectangle{width:parent.width;height:1;color:Theme.outline;opacity:.6}
+                            Row{visible:(message.item.attachments?.length||0)>0;spacing:Theme.unit(10)
+                                Text{textFormat:Text.PlainText;anchors.verticalCenter:parent.verticalCenter;text:(message.item.attachments?.length||0)+" attachment(s)";color:Theme.muted;font.pixelSize:Theme.unit(10)}
+                                FluidButton{text:"Save all…";glyph:"download";visible:(message.item.attachments?.length||0)>1;enabled:!AttachmentViewer.downloading;onClicked:{const sources=message.item.attachments.map(a=>({account:Mail.reader.key.account,id:message.item.id,part:a.part}));AttachmentViewer.saveMany(sources)}}
+                            }
+                            Flickable{width:parent.width;height:message.item.attachments?.length?Theme.unit(74):0;visible:height>0;contentWidth:attachmentStrip.width;clip:true;boundsBehavior:Flickable.StopAtBounds
+                                Row{id:attachmentStrip;spacing:Theme.unit(10);Repeater{model:message.item.attachments||[];delegate:AttachmentTile{required property var modelData;attachment:modelData;owner:({account:Mail.reader.key?.account||"",id:message.item.id})}}}
+                                ScrollBar.horizontal:ScrollBar{implicitHeight:3}
+                            }
                             Row{width:parent.width;spacing:Theme.unit(10);visible:message.hasHtml
                                 FluidButton{text:message.originalColours?"Use theme colours":"Original colours";enabled:!message.item.documentPending;onClicked:message.originalColours=!message.originalColours}
                                 FluidButton{text:message.item.externalLoaded?"Images requested":"Load images";visible:message.item.externalImages||false;enabled:!message.item.documentPending&&!message.item.externalLoaded;tip:"Contact this message’s image servers. This may tell the sender you opened it.";onClicked:message.render(true)}

@@ -169,6 +169,12 @@ pub fn message_header(m: &Message) -> Value {
         .payload
         .attachments()
         .iter()
+        .filter(|p| {
+            p.header("Content-ID").is_empty()
+                || p.header("Content-Disposition")
+                    .to_ascii_lowercase()
+                    .starts_with("attachment")
+        })
         .map(|p| json!({"name":p.filename,"mime":p.mime_type,"size":p.body.size,"part":p.part_id}))
         .collect();
     json!({"id":m.id,"from":m.payload.header("From"),"to":m.payload.header("To"),"cc":m.payload.header("Cc"),"date":m.date(),"subject":m.payload.header("Subject"),"unread":m.has("UNREAD"),"starred":m.has("STARRED"),"important":m.has("IMPORTANT"),"draft":m.has("DRAFT"),"attachments":attachments})

@@ -357,3 +357,146 @@ fn html_documents_preserve_layout_theme_and_privacy_without_mail_files() {
     assert!(!c.root.path().join("cache/bodies").exists());
     assert!(!c.root.path().join("config/composer").exists());
 }
+#[test]
+fn attachment_previews_and_media_chunks_are_memory_only_and_generation_checked() {
+    use base64::Engine;
+    let mut c = Client::new();
+    c.until("ready");
+    c.until("rows");
+    let inputs = c.root.path().join("inputs");
+    std::fs::create_dir(&inputs).unwrap();
+    let note = inputs.join("notes.txt");
+    std::fs::write(&note, b"Plain attachment preview").unwrap();
+    let wav = inputs.join("tone.wav");
+    let samples = 320000u32;
+    let mut sound = b"RIFF".to_vec();
+    sound.extend_from_slice(&(samples + 36).to_le_bytes());
+    sound.extend_from_slice(b"WAVEfmt ");
+    sound.extend_from_slice(&16u32.to_le_bytes());
+    sound.extend_from_slice(&1u16.to_le_bytes());
+    sound.extend_from_slice(&1u16.to_le_bytes());
+    sound.extend_from_slice(&8000u32.to_le_bytes());
+    sound.extend_from_slice(&8000u32.to_le_bytes());
+    sound.extend_from_slice(&1u16.to_le_bytes());
+    sound.extend_from_slice(&8u16.to_le_bytes());
+    sound.extend_from_slice(b"data");
+    sound.extend_from_slice(&samples.to_le_bytes());
+    sound.resize(samples as usize + 44, 128);
+    std::fs::write(&wav, &sound).unwrap();
+    let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+P//PwAF/wL+Xg47rQAAAABJRU5ErkJggg==").unwrap();
+    let image = inputs.join("image.png");
+    std::fs::write(&image, png).unwrap();
+    c.send(1, "composeStart", json!({"mode":"new","account":"preview"}));
+    let session = c.until("composeOpened")["session"].clone();
+    c.send(
+        2,
+        "composeAttach",
+        json!({"session":session,"paths":[note,wav,image]}),
+    );
+    let state = loop {
+        let state = c.until("compose");
+        if state["attachments"]
+            .as_array()
+            .is_some_and(|a| a.len() == 3)
+        {
+            break state;
+        }
+    };
+    let generation = state["attachmentGeneration"].clone();
+    let attachment = state["attachments"][0]["id"].clone();
+    let media = state["attachments"][1]["id"].clone();
+    c.send(30,"attachmentThumbnail",json!({"session":session,"generation":generation,"attachment":state["attachments"][2]["id"],"token":"thumb1"}));
+    let thumbnail = c.until("attachmentThumbnail");
+    assert_eq!(thumbnail["width"], 1);
+    assert_eq!(thumbnail["height"], 1);
+    assert_eq!(
+        base64::engine::general_purpose::STANDARD
+            .decode(thumbnail["rgba"].as_str().unwrap())
+            .unwrap()
+            .len(),
+        4
+    );
+    c.send(
+        3,
+        "attachmentPreview",
+        json!({"session":session,"generation":generation,"attachment":attachment,"token":"text1"}),
+    );
+    let preview = c.until("attachmentPreview");
+    assert_eq!(preview["kind"], "Text");
+    assert_eq!(preview["text"], "Plain attachment preview");
+    c.send(
+        4,
+        "attachmentPreview",
+        json!({"session":session,"generation":generation,"attachment":media,"token":"media1"}),
+    );
+    let preview = c.until("attachmentPreview");
+    assert_eq!(preview["kind"], "Audio");
+    assert_eq!(preview["size"], sound.len());
+    let mut received = Vec::new();
+    let mut id = 5;
+    while received.len() < sound.len() {
+        c.send(
+            id,
+            "attachmentRead",
+            json!({"token":"media1","offset":received.len()}),
+        );
+        let chunk = c.until("attachmentChunk");
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(chunk["data"].as_str().unwrap())
+            .unwrap();
+        assert!(bytes.len() <= 256 * 1024);
+        received.extend_from_slice(&bytes);
+        assert_eq!(chunk["done"], received.len());
+        id += 1;
+    }
+    assert_eq!(received, sound);
+    c.send(id, "attachmentRelease", json!({"token":"media1"}));
+    id += 1;
+    c.send(id, "attachmentRead", json!({"token":"media1","offset":0}));
+    let error = c.events.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(error["event"], "error");
+    id += 1;
+    c.send(
+        id,
+        "attachmentPreview",
+        json!({"session":session,"generation":0,"attachment":attachment,"token":"stale1"}),
+    );
+    let error = c.events.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(error["event"], "error");
+    assert!(
+        error["data"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("changed")
+    );
+    id += 1;
+    let exports = c.root.path().join("exports");
+    std::fs::create_dir(&exports).unwrap();
+    c.send(id,"attachmentSave",json!({"session":session,"generation":generation,"attachment":attachment,"directory":exports}));
+    c.until("attachmentSaved");
+    assert_eq!(
+        std::fs::read(exports.join("notes.txt")).unwrap(),
+        b"Plain attachment preview"
+    );
+    id += 1;
+    c.send(
+        id,
+        "attachmentSaveAll",
+        json!({"token":"batch1","directory":exports,"attachments":[
+            {"session":session,"generation":generation,"attachment":attachment},
+            {"session":session,"generation":generation,"attachment":attachment}
+        ]}),
+    );
+    let saved = c.until("attachmentSaveFinished");
+    assert_eq!(saved["saved"], 2);
+    assert_eq!(saved["cancelled"], false);
+    assert!(saved["errors"].as_array().unwrap().is_empty());
+    for name in ["notes.txt", "notes (1).txt", "notes (2).txt"] {
+        assert_eq!(
+            std::fs::read(exports.join(name)).unwrap(),
+            b"Plain attachment preview"
+        );
+    }
+    assert!(!c.root.path().join("cache/bodies").exists());
+    assert!(!c.root.path().join("config/composer").exists());
+}

@@ -6,22 +6,22 @@ Rectangle {
     property string account:""
     property string photoSender:sender
     property bool active:true
+    readonly property bool displayActive:active&&visible&&Mail.windowVisible
     property bool ready:false
     property string watchedKey:""
     property string profileSource:""
     implicitWidth:Theme.unit(40);implicitHeight:implicitWidth;radius:width/2;color:Theme.avatarColor(sender)
     function subscribe(){
         if(!ready)return
-        const wanted=active&&visible&&account&&photoSender&&!photo?account+"\u0000"+photoSender:""
+        const wanted=displayActive&&account&&photoSender&&!photo?account+"\u0000"+photoSender:""
         if(wanted&&wanted===watchedKey){profileSource=Mail.profileSource(watchedKey);return}
         if(watchedKey)Mail.releaseProfile(watchedKey)
         watchedKey="";profileSource=""
-        if(active&&visible&&account&&photoSender&&!photo){watchedKey=Mail.watchProfile(account,photoSender);profileSource=Mail.profileSource(watchedKey)}
+        if(displayActive&&account&&photoSender&&!photo){watchedKey=Mail.watchProfile(account,photoSender);profileSource=Mail.profileSource(watchedKey)}
     }
     onAccountChanged:if(ready)Qt.callLater(subscribe)
     onPhotoSenderChanged:if(ready)Qt.callLater(subscribe)
-    onActiveChanged:if(ready)Qt.callLater(subscribe)
-    onVisibleChanged:if(ready)Qt.callLater(subscribe)
+    onDisplayActiveChanged:if(ready)Qt.callLater(subscribe)
     onPhotoChanged:if(ready)Qt.callLater(subscribe)
     Component.onCompleted:{ready=true;subscribe()}
     Component.onDestruction:{ready=false;if(watchedKey)Mail.releaseProfile(watchedKey)}

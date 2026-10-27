@@ -65,7 +65,7 @@ links, Unicode legacy formatting, bounded undo and blocked resource loading.
 27 October 2026, Windows, Qt 6.12/UCRT64: CMake release build and the spring suite
 passed. The real native-window motion and composer suites passed on synthetic
 data. Core tests: 126 passed and one isolated OS-vault test intentionally ignored;
-engine tests: 23 unit tests and seven real-pipe tests passed. Strict Clippy is a
+engine tests at the attachment checkpoint: 24 unit tests and eight real-pipe tests passed. Strict Clippy is a
 separate required check. Exact run details are in the diagnostic JSON artifact.
 
 The raw frame intervals describe this display/run only. They are not a universal
@@ -94,7 +94,7 @@ is written. Optional recipient metadata is tested separately. This does not
 replace the final installed-app/process-tree audit.
 
 The photo/HTML checkpoint adds native `--photo-test` (five checks) and
-`--html-test` (eight checks), using `LUMA_PREVIEW_PHOTOS=1` or
+`--html-test` (ten checks including hide/restore), using `LUMA_PREVIEW_PHOTOS=1` or
 `LUMA_PREVIEW_HTML=1` and `LUMA_PROFILE_REPORT` / `LUMA_HTML_REPORT` JSON paths.
 On Windows, set `LUMA_WEBVIEW` to the built `luma_webview.dll`; its adjacent
 `WebView2Loader.dll` must be present. `cargo build -p luma-webview` builds this
@@ -121,3 +121,24 @@ inside the test process; it never opens a real browser. The incremental event
 fixture is separate from core's real HTTP history/burst tests. Linux CTest also
 runs a fake notification daemon inside `dbus-run-session`, validating actual
 D-Bus transport and thread activation without contacting the user's daemon.
+
+
+The attachment checkpoint adds `--design-preview --attachment-test` with
+`LUMA_ATTACHMENT_REPORT`. Its fourteen native checks exercise visible composer
+thumbnails, the 1.5-MiB pixel bound, card-to-preview bounds morph, plain-text
+previews, chunked audio seek/playback, decoded video frames, close-time resource
+release and no local mail/draft cache. WAV and MPEG-4 fixtures are synthetic;
+only their explicit source files are written inside the isolated input folder.
+Linux CI supplies a null audio sink so playback is tested without speakers.
+The real-pipe integration check also exports a duplicate filename twice and
+verifies the original plus both collision-safe copies. The core export test
+covers cancellation and path sanitization. A cancelled pending download is
+cooperative; normal quit waits for partial-output cleanup.
+
+All six Windows native suites pass at this checkpoint: motion 32, composer 28,
+photos five, HTML ten, incremental sync twelve and attachments fourteen checks.
+The motion suite now explicitly rejects a hidden/unexposed test window; such a
+window cannot provide frame/geometry evidence. Five local CTest suites and
+strict Rust Clippy pass. Updated Linux/Windows CI and live acceptance remain
+separate gates. Neither the codec nor renderer memory totals are established by
+functional fixture checks.

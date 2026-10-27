@@ -52,6 +52,7 @@ pub struct App {
     pub reader_assets: Mutex<crate::reader::Assets>,
     pub render_lock: tokio::sync::Mutex<()>,
     pub sync: Arc<crate::sync::Service>,
+    pub attachment_preview: Arc<crate::attachment_preview::Service>,
     pub quit_pending: AtomicBool,
     jobs: Mutex<HashMap<u64, (String, tokio::task::AbortHandle)>>,
     slots: Arc<tokio::sync::Semaphore>,
@@ -144,6 +145,7 @@ impl App {
             reader_assets: Mutex::new(crate::reader::Assets::default()),
             render_lock: tokio::sync::Mutex::new(()),
             sync: Arc::new(crate::sync::Service::default()),
+            attachment_preview: Arc::new(crate::attachment_preview::Service::default()),
             quit_pending: AtomicBool::new(false),
             jobs: Mutex::new(HashMap::new()),
             slots: Arc::new(tokio::sync::Semaphore::new(32)),
@@ -201,6 +203,26 @@ impl App {
         }
     }
     pub fn dispatch(self: Arc<Self>, command: Command) {
+        if command.action == "attachmentSaveCancel" {
+            self.attachment_preview.cancel_save(command.text("token"));
+            return;
+        }
+        if command.action == "attachmentRelease" {
+            if self.attachment_preview.release(command.text("token")) {
+                let mut jobs = self.jobs.lock().unwrap();
+                let old: Vec<_> = jobs
+                    .iter()
+                    .filter(|(_, (kind, _))| kind == "attachmentPreview")
+                    .map(|(id, _)| *id)
+                    .collect();
+                for id in old {
+                    if let Some((_, task)) = jobs.remove(&id) {
+                        task.abort();
+                    }
+                }
+            }
+            return;
+        }
         if command.action == "cancel" {
             let request = command.data["request"].as_u64().unwrap_or(0);
             let mut jobs = self.jobs.lock().unwrap();
@@ -208,7 +230,7 @@ impl App {
             let cancellable = jobs.get(&request).is_some_and(|(kind, _)| {
                 matches!(
                     kind.as_str(),
-                    "view" | "page" | "select" | "message" | "authStart"
+                    "view" | "page" | "select" | "message" | "authStart" | "attachmentThumbnail"
                 )
             });
             if cancellable && let Some((_, job)) = jobs.remove(&request) {
@@ -231,6 +253,18 @@ impl App {
             }
         };
         let id = command.id;
+        let save_prepared = (command.action == "attachmentSaveAll").then(|| {
+            crate::attachment_preview::token(&command)
+                .and_then(|token| self.attachment_preview.begin_save(token))
+        });
+        let preview_epoch = if command.action == "attachmentPreview" {
+            Some(
+                crate::attachment_preview::token(&command)
+                    .map(|token| self.attachment_preview.begin(token)),
+            )
+        } else {
+            None
+        };
         // Form revisions and write intents are accepted in pipe order, before
         // spawning asynchronous work. A delayed update cannot overtake Send.
         let compose_prepared = command
@@ -240,6 +274,18 @@ impl App {
         let owner = self.clone();
         let action = command.action.clone();
         let mut jobs = self.jobs.lock().unwrap();
+        if action == "attachmentPreview" {
+            let old: Vec<_> = jobs
+                .iter()
+                .filter(|(_, (kind, _))| kind == "attachmentPreview")
+                .map(|(id, _)| *id)
+                .collect();
+            for id in old {
+                if let Some((_, task)) = jobs.remove(&id) {
+                    task.abort();
+                }
+            }
+        }
         if matches!(action.as_str(), "view" | "select" | "releaseReader") {
             let cancel: Vec<_> = jobs
                 .iter()
@@ -289,6 +335,23 @@ impl App {
                             .emit(id, "syncRequested", json!({"silent":true}))
                             .await;
                         Ok(())
+                    }
+                    "attachmentPreview" => {
+                        crate::attachment_preview::open(&owner, &command, preview_epoch.unwrap()?)
+                            .await
+                    }
+                    "attachmentRead" => owner.attachment_preview.read(&owner, &command).await,
+                    "attachmentSave" => crate::attachment_preview::save(&owner, &command).await,
+                    "attachmentSaveAll" => {
+                        crate::attachment_preview::save_all(
+                            &owner,
+                            &command,
+                            save_prepared.unwrap()?,
+                        )
+                        .await
+                    }
+                    "attachmentThumbnail" => {
+                        crate::attachment_preview::thumbnail(&owner, &command).await
                     }
                     "mutate" => crate::mail::mutate(&owner, &command).await,
                     "undo" => crate::mail::undo(&owner, command.id).await,
@@ -383,11 +446,28 @@ impl App {
         }
     }
     pub async fn shutdown(&self) {
+        self.attachment_preview.begin("");
+        self.attachment_preview.cancel_saves();
         self.sync.stop();
         self.photos.stop();
-        for (_, (_, handle)) in self.jobs.lock().unwrap().drain() {
-            handle.abort()
-        }
+        let downloads: Vec<_> = self
+            .jobs
+            .lock()
+            .unwrap()
+            .drain()
+            .filter_map(|(_, (kind, handle))| {
+                if kind == "attachmentSaveAll" {
+                    Some(handle)
+                } else {
+                    handle.abort();
+                    None
+                }
+            })
+            .collect();
+        // Cooperative export cancellation finishes cleanup of a partial file.
+        // The current network read is interruptible; the safe write is not aborted.
+        drop(downloads);
+        self.attachment_preview.wait_saves().await;
         if self.settings.lock().unwrap().clear_cache_on_exit {
             let _ = self.cache.lock().unwrap().clear();
         }

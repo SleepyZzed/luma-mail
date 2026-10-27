@@ -3,6 +3,7 @@
 #include "profiles.h"
 #include "reader_profile.h"
 #include "runtime_cleanup.h"
+#include "attachment_preview.h"
 #ifdef Q_OS_LINUX
 #include "notifications_linux.h"
 #endif
@@ -24,6 +25,7 @@ void startComposerSmoke(Bridge*,QQuickWindow*);
 void startProfileSmoke(Bridge*,QQuickWindow*);
 void startHtmlSmoke(Bridge*,QQuickWindow*);
 void startSyncSmoke(Bridge*,QQuickWindow*);
+void startAttachmentSmoke(Bridge*,AttachmentPreview*,QQuickWindow*);
 
 int main(int argc,char**argv){
     QCoreApplication::setAttribute(Qt::AA_DisableShaderDiskCache);
@@ -40,7 +42,10 @@ int main(int argc,char**argv){
     ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
     QTemporaryDir isolated;if(preview&&qEnvironmentVariableIsEmpty("LUMA_TEST_ROOT"))qputenv("LUMA_TEST_ROOT",isolated.path().toUtf8());
-    Bridge bridge(preview);QQmlApplicationEngine engine;
+    Bridge bridge(preview);AttachmentPreview attachmentPreview(&bridge);bridge.setAttachmentPreview(&attachmentPreview);QQmlApplicationEngine engine;
+    QObject::connect(&app,&QCoreApplication::aboutToQuit,&attachmentPreview,&AttachmentPreview::close);
+    engine.addImageProvider("attachment",new PreviewImageProvider(attachmentPreview.pixels()));
+    engine.rootContext()->setContextProperty("AttachmentViewer",&attachmentPreview);
 #ifdef LUMA_WEBENGINE
     engine.rootContext()->setContextProperty("ReaderProfile",createReaderProfile(&engine));
 #endif
@@ -55,11 +60,14 @@ int main(int argc,char**argv){
     );
     engine.loadFromModule("Luma.Fluid","Main");if(engine.rootObjects().isEmpty())return 1;
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+    auto visibility=[&]{const bool shown=window->isVisible()&&window->visibility()!=QWindow::Minimized;bridge.setWindowVisible(shown);if(!shown&&attachmentPreview.kind()=="Video")attachmentPreview.pause();};
+    visibility();QObject::connect(window,&QWindow::visibleChanged,&bridge,visibility);QObject::connect(window,&QWindow::visibilityChanged,&bridge,visibility);
     if(preview&&app.arguments().contains("--motion-test"))new MotionSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--photo-test"))startProfileSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--html-test"))startHtmlSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--attachment-test"))startAttachmentSmoke(&bridge,&attachmentPreview,window);
     QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",window,[window]{window->show();window->raise();window->requestActivate();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
     QObject::connect(&tray,&QSystemTrayIcon::activated,window,[window](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick){window->show();window->raise();window->requestActivate();}});tray.show();
     engine.rootContext()->setContextProperty("trayAvailable",QSystemTrayIcon::isSystemTrayAvailable());

@@ -14,6 +14,7 @@
 #include <atomic>
 #include <memory>
 class ProfileImages;
+class AttachmentPreview;
 
 class Bridge : public QObject {
     Q_OBJECT
@@ -37,11 +38,13 @@ class Bridge : public QObject {
     Q_PROPERTY(int selectionCount READ selectionCount NOTIFY selectionChanged)
     Q_PROPERTY(bool selecting READ selecting NOTIFY selectionChanged)
     Q_PROPERTY(bool preview READ preview CONSTANT)
+    Q_PROPERTY(bool windowVisible READ windowVisible NOTIFY windowVisibleChanged)
     Q_PROPERTY(bool clipboardBusy READ clipboardBusy NOTIFY clipboardChanged)
 public:
     explicit Bridge(bool preview,QObject *parent=nullptr);
     void start();
     void setProfileImages(ProfileImages*images){profileImages=images;profileClock.start();}
+    void setAttachmentPreview(AttachmentPreview*preview){attachmentPreview=preview;}
     RecordModel* inbox(){return &m_inbox;} RecordModel* messages(){return &m_messages;}
     QVariantMap settings()const{return m_settings;} QVariantMap reader()const{return m_reader;} QVariantMap composer()const{return m_composer;}
     QVariantMap palette()const{return m_palette;}
@@ -54,6 +57,8 @@ public:
     bool readerOpen()const{return m_readerOpen;} bool more()const{return m_more;} bool canUndo()const{return m_canUndo;}
     int selectionCount()const{return m_selection.size();} bool selecting()const{return m_selecting;} bool preview()const{return m_preview;}
     bool clipboardBusy()const{return !clipboardToken.isEmpty();}
+    bool windowVisible()const{return m_windowVisible;}
+    void setWindowVisible(bool value){if(m_windowVisible==value)return;m_windowVisible=value;emit windowVisibleChanged();}
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
     Q_INVOKABLE void setView(const QString &folder,const QString &account=QString(),const QString &search=QString());
     Q_INVOKABLE void selectRow(int row,int modifiers,qreal x,qreal y,qreal width,qreal height,const QVariantMap &projection={});
@@ -82,6 +87,7 @@ signals:
     void paletteChanged();
     void syncChanged();
     void notificationStatusChanged();
+    void windowVisibleChanged();
     void activityChanged(); void errorChanged(); void selectionChanged();
     void projectRow(QVariantMap row,qreal x,qreal y,qreal width,qreal height);
     void openRowRequested(int index);
@@ -109,6 +115,7 @@ private:
     QString configRoot;
     QString m_activity="Connecting to your inbox",m_activityKind="loading",m_error;
     QString m_notificationStatus;
+    bool m_windowVisible=true;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey,anchorKey;
     QHash<QString,quint64> documentRequests;
@@ -121,4 +128,5 @@ private:
     struct Profile{QString account,sender,token,source,note;int refs=0;bool pending=false;quint64 request=0;qint64 touched=0,expires=0;};
     QHash<QString,Profile> profiles;QHash<QString,QString> profileTokens;QHash<quint64,QString> profileRequests;
     ProfileImages*profileImages=nullptr;QElapsedTimer profileClock;qint64 profileSerial=0;
+    AttachmentPreview*attachmentPreview=nullptr;
 };

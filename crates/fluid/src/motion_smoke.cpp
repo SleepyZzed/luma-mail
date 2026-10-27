@@ -38,6 +38,8 @@ void MotionSmoke::open(int index,int modifiers) {
 }
 void MotionSmoke::begin() {
     elapsed.start();
+    check("native animation test has an exposed window",window->isExposed());
+    if(!window->isExposed()){finish();return;}
     navigation=window->findChild<QQuickItem*>("navigation");
     inbox=window->findChild<QQuickItem*>("inboxPane");
     morph=window->findChild<QQuickItem*>("rowMorph");

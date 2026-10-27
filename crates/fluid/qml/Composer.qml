@@ -44,7 +44,7 @@ Item {
     readonly property bool moving:horizontal.running||vertical.running||breadth.running||depth.running
     readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
     visible:shown||moving;clip:true;z:70
-    readonly property bool modalOpen:closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible
+    readonly property bool modalOpen:AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
     Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&!drag.active}
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&!drag.active}
@@ -58,7 +58,7 @@ Item {
     }
     Item {
         id:header;width:parent.width;height:Theme.unit(52)
-        Text{textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending · waiting for Gmail…":root.phase==="sent"?"Sent · confirmed by Gmail":root.state.mode==="draft"?"Gmail draft":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
+        Text{textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending Â· waiting for Gmailâ€¦":root.phase==="sent"?"Sent Â· confirmed by Gmail":root.state.mode==="draft"?"Gmail draft":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
         Row{anchors.right:parent.right;anchors.rightMargin:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;visible:!root.statusMode
             FluidButton{glyph:root.expanded?"minimize":"maximize";tip:root.expanded?"Restore composer":"Expand composer";onClicked:root.toggleExpanded()}
             FluidButton{glyph:"close";tip:"Close composer";onClicked:root.requestClose()}
@@ -91,16 +91,16 @@ Item {
         Rectangle{height:1;width:parent.width;color:Theme.outline}
         Flickable{width:parent.width;height:Theme.unit(38);contentWidth:tools.width;clip:true;boundsBehavior:Flickable.StopAtBounds;enabled:!root.locked
             Row{id:tools;spacing:Theme.unit(1);height:parent.height
-                FluidButton{glyph:"bold";tip:"Bold · Ctrl+B";tint:rich.bold?Theme.accent:Theme.text;onClicked:rich.toggle("bold")}
-                FluidButton{glyph:"italic";tip:"Italic · Ctrl+I";tint:rich.italic?Theme.accent:Theme.text;onClicked:rich.toggle("italic")}
-                FluidButton{glyph:"underline";tip:"Underline · Ctrl+U";tint:rich.underline?Theme.accent:Theme.text;onClicked:rich.toggle("underline")}
-                FluidButton{text:"•";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
+                FluidButton{glyph:"bold";tip:"Bold Â· Ctrl+B";tint:rich.bold?Theme.accent:Theme.text;onClicked:rich.toggle("bold")}
+                FluidButton{glyph:"italic";tip:"Italic Â· Ctrl+I";tint:rich.italic?Theme.accent:Theme.text;onClicked:rich.toggle("italic")}
+                FluidButton{glyph:"underline";tip:"Underline Â· Ctrl+U";tint:rich.underline?Theme.accent:Theme.text;onClicked:rich.toggle("underline")}
+                FluidButton{text:"â€¢";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
                 FluidButton{text:"1.";tip:"Numbered paragraphs";onClicked:rich.list(true)}
-                FluidButton{glyph:"link";tip:"Insert hyperlink · Ctrl+K";onClicked:linkDialog.open()}
+                FluidButton{glyph:"link";tip:"Insert hyperlink Â· Ctrl+K";onClicked:linkDialog.open()}
                 FluidButton{glyph:"attachment";tip:"Attach files";enabled:root.attachmentEditable;onClicked:Mail.attachFiles()}
                 FluidButton{text:"A";tip:"Font colour";onClicked:Mail.chooseColour(false)}
-                FluidButton{text:"▰";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
-                FluidButton{text:"···";tip:"More formatting";onClicked:formatMenu.open()}
+                FluidButton{text:"â–°";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
+                FluidButton{text:"Â·Â·Â·";tip:"More formatting";onClicked:formatMenu.open()}
                 FluidCombo{width:Theme.unit(126);model:rich.fonts;displayText:rich.fontFamily;onActivated:rich.family(currentText)}
                 FluidCombo{width:Theme.unit(65);model:[8,9,10,11,12,14,16,18,24,32,48,72];currentIndex:3;displayText:Math.round(rich.fontPointSize)+" pt";onActivated:rich.pointSize(Number(currentText))}
             }
@@ -110,15 +110,9 @@ Item {
             Text{textFormat:Text.PlainText;width:parent.width-Theme.unit(135);anchors.verticalCenter:parent.verticalCenter;text:"Original HTML is preserved. Convert to edit.";color:Theme.muted;font.pixelSize:Theme.unit(10);elide:Text.ElideRight}
             FluidButton{text:"Convert to edit";onClicked:Mail.send("composeConvert",{session:root.loadedSession,text:rich.html()})}
         }
-        Flickable{width:parent.width;height:root.state.attachments?.length?Theme.unit(59):0;contentWidth:attachmentCards.width;clip:true
+        Flickable{width:parent.width;height:root.state.attachments?.length?Theme.unit(74):0;contentWidth:attachmentCards.width;clip:true
             Row{id:attachmentCards;spacing:Theme.unit(8)
-                Repeater{model:root.state.attachments||[]
-                    Rectangle{required property var modelData;height:Theme.unit(51);width:Theme.unit(210);radius:Theme.unit(10);color:Theme.surface;border.width:1;border.color:Theme.outline
-                        Text{textFormat:Text.PlainText;x:Theme.unit(10);y:Theme.unit(8);width:parent.width-Theme.unit(48);text:modelData.name;color:Theme.text;elide:Text.ElideMiddle;font.pixelSize:Theme.unit(11)}
-                        Text{textFormat:Text.PlainText;x:Theme.unit(10);y:Theme.unit(29);text:modelData.kind==="drive"?"Private Drive file":Math.ceil(modelData.size/1024)+" KB";color:Theme.muted;font.pixelSize:Theme.unit(9)}
-                        FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"close";tip:"Remove attachment";enabled:root.attachmentEditable;onClicked:Mail.send("composeRemoveAttachment",{session:root.loadedSession,attachment:modelData.id,generation:root.state.attachmentGeneration})}
-                    }
-                }
+                Repeater{model:root.state.attachments||[];delegate:AttachmentTile{required property var modelData;attachment:modelData;owner:({session:root.loadedSession,generation:root.state.attachmentGeneration});removable:root.attachmentEditable;onRemoveRequested:Mail.send("composeRemoveAttachment",{session:root.loadedSession,attachment:modelData.id,generation:root.state.attachmentGeneration})}}
             }
             ScrollBar.horizontal:ScrollBar{implicitHeight:3}
         }
@@ -127,7 +121,7 @@ Item {
         id:bodyScroll;x:Theme.unit(22);y:fields.y+fields.height;width:parent.width-2*x;height:Math.max(0,historyToggles.y-y-Theme.unit(7));clip:true;contentWidth:width;contentHeight:body.height;visible:!root.statusMode
         TextArea{
             id:body;objectName:"composeBody";width:bodyScroll.width;height:Math.max(bodyScroll.height,contentHeight+Theme.unit(12));padding:0;color:Theme.text
-            placeholderText:"A little space for your thoughts…";placeholderTextColor:Theme.faint;textFormat:TextEdit.RichText;wrapMode:TextEdit.Wrap;selectByMouse:true;persistentSelection:true;selectionColor:Theme.selected;selectedTextColor:Theme.text;background:Item{} readOnly:root.locked
+            placeholderText:"A little space for your thoughtsâ€¦";placeholderTextColor:Theme.faint;textFormat:TextEdit.RichText;wrapMode:TextEdit.Wrap;selectByMouse:true;persistentSelection:true;selectionColor:Theme.selected;selectedTextColor:Theme.text;background:Item{} readOnly:root.locked
             onSelectionStartChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
             onSelectionEndChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
             onCursorPositionChanged:{rich.selection(selectionStart,selectionEnd,cursorPosition);if(cursorRectangle.y<bodyScroll.contentY)bodyScroll.contentY=cursorRectangle.y;else if(cursorRectangle.y+cursorRectangle.height>bodyScroll.contentY+bodyScroll.height)bodyScroll.contentY=Math.max(0,cursorRectangle.y+cursorRectangle.height-bodyScroll.height)}
@@ -161,12 +155,12 @@ Item {
         id:footer;x:Theme.unit(18);y:parent.height-Theme.unit(65);width:parent.width-2*x;height:Theme.unit(55);visible:!root.statusMode
         ProgressBar{width:parent.width;height:Theme.unit(3);visible:root.busy;from:0;to:Math.max(1,root.state.progress?.total||0);value:root.state.progress?.done||0;indeterminate:root.busy&&!(root.state.progress?.total>0)}
         Row{y:Theme.unit(12);spacing:Theme.unit(5)
-            FluidButton{text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send · Ctrl+Enter";onClicked:root.submit("composeSend")}
+            FluidButton{text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send Â· Ctrl+Enter";onClicked:root.submit("composeSend")}
             FluidButton{glyph:"save";tip:"Save to Gmail drafts";enabled:!!root.loadedSession&&!root.busy&&!root.state.locked&&root.state.state!=="conflict";onClicked:root.submit("composeSave")}
             FluidButton{text:root.inputBusy?"Cancel image":"Cancel upload";visible:root.inputBusy||root.state.state==="uploading";onClicked:root.inputBusy?Mail.cancelClipboard():Mail.send("composeCancelUpload",{session:root.loadedSession})}
             FluidButton{text:"Save separate copy";visible:root.state.state==="conflict";onClicked:{root.sync();Mail.send("composeSaveCopy",{session:root.loadedSession})}}
         }
-        Text{textFormat:Text.PlainText;anchors.right:parent.right;y:Theme.unit(24);width:Math.max(0,parent.width-Theme.unit(240));text:root.localError||(root.inputBusy?"Preparing clipboard image…":root.state.status)||"Changes stay in memory until saved";color:Theme.muted;elide:Text.ElideRight;font.pixelSize:Theme.unit(9);horizontalAlignment:Text.AlignRight}
+        Text{textFormat:Text.PlainText;anchors.right:parent.right;y:Theme.unit(24);width:Math.max(0,parent.width-Theme.unit(240));text:root.localError||(root.inputBusy?"Preparing clipboard imageâ€¦":root.state.status)||"Changes stay in memory until saved";color:Theme.muted;elide:Text.ElideRight;font.pixelSize:Theme.unit(9);horizontalAlignment:Text.AlignRight}
     }
     Menu{id:formatMenu
         MenuItem{text:"Strikethrough";onTriggered:rich.toggle("strike")}
@@ -187,7 +181,7 @@ Item {
     Dialog{id:linkDialog;title:"Insert hyperlink";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(420,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:12
             TextField{id:linkLabel;width:parent.width;placeholderText:"Text to display"}
-            TextField{id:linkUrl;width:parent.width;placeholderText:"https://…"}
+            TextField{id:linkUrl;width:parent.width;placeholderText:"https://â€¦"}
         }
         onOpened:{linkLabel.text=body.selectedText;linkUrl.text="";linkUrl.forceActiveFocus()}
         onAccepted:rich.link(linkUrl.text,linkLabel.text)
@@ -201,7 +195,7 @@ Item {
         }
         onOpened:findText.forceActiveFocus()
     }
-    Dialog{id:historyDialog;title:"Quoted history · read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(600,root.scene.width-50);height:Math.min(400,root.scene.height-70);standardButtons:Dialog.Close
+    Dialog{id:historyDialog;title:"Quoted history Â· read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(600,root.scene.width-50);height:Math.min(400,root.scene.height-70);standardButtons:Dialog.Close
         ScrollView{anchors.fill:parent;TextArea{text:root.state.quote||"";readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText}}
     }
     Dialog{id:closeDialog;property var question:({});title:question.uncertain?"Gmail confirmation is uncertain":question.conflict?"This draft changed in Gmail":"Save this draft to Gmail?";modal:true;closePolicy:Popup.NoAutoClose;anchors.centerIn:Overlay.overlay;width:Math.min(540,root.scene.width-40)
@@ -215,9 +209,9 @@ Item {
         }
     }
     Timer{id:inputDelay;interval:100;onTriggered:root.sync()}
-    Shortcut{sequence:"Ctrl+Return";enabled:root.shown&&!closeDialog.visible&&!linkDialog.visible&&!findDialog.visible;onActivated:root.submit("composeSend")}
-    Shortcut{sequence:"Ctrl+Enter";enabled:root.shown&&!closeDialog.visible&&!linkDialog.visible&&!findDialog.visible;onActivated:root.submit("composeSend")}
-    Shortcut{sequence:"Ctrl+S";enabled:root.shown&&!closeDialog.visible&&!linkDialog.visible&&!findDialog.visible;onActivated:root.submit("composeSave")}
+    Shortcut{sequence:"Ctrl+Return";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSend")}
+    Shortcut{sequence:"Ctrl+Enter";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSend")}
+    Shortcut{sequence:"Ctrl+S";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSave")}
     Timer{id:sentDelay;interval:1100;onTriggered:root.close()}
     Timer{id:releaseDelay;interval:800;onTriggered:if(!root.shown){root.formLoading=true;to.clear();cc.clear();bcc.clear();subject.clear();rich.load({kind:"plain",text:""});root.loadedSession="";root.formLoading=false}}
     function schedule(){if(!formLoading&&shown&&loadedSession)inputDelay.restart()}

@@ -31,12 +31,12 @@ Item {
     ListView {
         id:list;objectName:"mailList";x:Theme.unit(12);y:header.y+header.height+Theme.unit(14);width:parent.width-2*x;height:parent.height-y-Theme.unit(62);model:Mail.inbox;clip:true;spacing:Theme.unit(5);cacheBuffer:Theme.unit(350);reuseItems:true;boundsBehavior:Flickable.StopAtBounds
         ScrollBar.vertical:ScrollBar{implicitWidth:5;policy:ScrollBar.AsNeeded}
-        add:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
-        addDisplaced:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        add:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        addDisplaced:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
 
-        removeDisplaced:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
-        move:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
-        moveDisplaced:Transition {SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        removeDisplaced:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        move:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
+        moveDisplaced:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
         delegate:Item {
             id:row;required property var item;required property int index;objectName:"mailRow-"+item.key.id
             property bool selected: {let n=Mail.selectionCount;return Mail.isSelected(item)}

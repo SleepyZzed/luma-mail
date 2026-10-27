@@ -34,8 +34,10 @@ public:
                 );window->findChild<QQuickItem*>("settingsPanel")->setProperty("opened",false);stage=2;});
             }else if(stage==2&&surface&&!surface->property("paused").toBool()){
                 stage=3;window->setWidth(window->width()-140);
-                QTimer::singleShot(900,this,[this]{auto s=find(window->contentItem(),"mailHtml-preview0");check("width changes remeasure and retain the reader",s&&s->implicitHeight()>600);mail->closeReader();stage=4;});
-            }else if(stage==4&&!surface){check("closing the reader releases its renderer",true);check("HTML viewing creates no mailbox or draft cache",!QFileInfo::exists(qEnvironmentVariable("LUMA_TEST_ROOT")+"/cache/bodies")&&!QFileInfo::exists(qEnvironmentVariable("LUMA_TEST_ROOT")+"/config/composer"));finish();}
+                QTimer::singleShot(900,this,[this]{auto s=find(window->contentItem(),"mailHtml-preview0");check("width changes remeasure and retain the reader",s&&s->implicitHeight()>600);window->hide();stage=4;});
+            }else if(stage==4&&!surface){stage=5;check("hiding the window releases the HTML renderer",true);window->show();
+            }else if(stage==5&&surface&&surface->implicitHeight()>600){stage=6;check("showing the window restores the opened newsletter",true);mail->closeReader();
+            }else if(stage==6&&!surface){check("closing the reader releases its renderer",true);check("HTML viewing creates no mailbox or draft cache",!QFileInfo::exists(qEnvironmentVariable("LUMA_TEST_ROOT")+"/cache/bodies")&&!QFileInfo::exists(qEnvironmentVariable("LUMA_TEST_ROOT")+"/config/composer"));finish();}
         });poll.start();
     }
 };

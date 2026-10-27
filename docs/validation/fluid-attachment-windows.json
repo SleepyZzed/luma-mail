@@ -1,0 +1,63 @@
+{
+  "checks": [
+    {
+      "check": "image preview uses the native RAM provider",
+      "passed": true
+    },
+    {
+      "check": "visible compose attachment shows its RAM thumbnail",
+      "passed": true
+    },
+    {
+      "check": "thumbnail pixels stay inside the 1.5 MiB budget",
+      "passed": true
+    },
+    {
+      "check": "attachment card morph reaches its expanded bounds",
+      "passed": true
+    },
+    {
+      "check": "closing releases decoded preview pixels",
+      "passed": true
+    },
+    {
+      "check": "document text is displayed without extraction",
+      "passed": true
+    },
+    {
+      "check": "chunked audio loads directly from a memory device",
+      "passed": true
+    },
+    {
+      "check": "media supports seeking",
+      "passed": true
+    },
+    {
+      "check": "playback starts without a temporary media file",
+      "passed": true
+    },
+    {
+      "check": "close releases the player and media buffer",
+      "passed": true
+    },
+    {
+      "check": "video opens from the same bounded RAM path",
+      "passed": true
+    },
+    {
+      "check": "video frames reach the native video sink",
+      "passed": true
+    },
+    {
+      "check": "hiding the window releases thumbnails and the last video frame",
+      "passed": true
+    },
+    {
+      "check": "previewing creates no mail cache or local draft",
+      "passed": true
+    }
+  ],
+  "note": "Only explicit synthetic input fixtures are written. No mail cache, spool or local draft is created.",
+  "passed": true,
+  "syntheticData": true
+}

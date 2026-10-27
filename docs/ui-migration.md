@@ -94,7 +94,17 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   notification transport. Privacy, per-account notification and tray preferences
   are wired. Linux daemon transport has an isolated private-bus CI test; desktop
   notification activation/live acceptance is still required.
-- Pending: three-way conflict-resolution UI, attachment previews/media, full
+- Attachment checkpoint: received/compose cards, visible-only 128×96 image
+  thumbnails (32 images/1.5 MiB pixels maximum), a single explicit RAM preview
+  and native audio/video playback. DOCX text is read without extraction. Media
+  input is capped at 24 MiB and transferred in acknowledged 256-KiB chunks;
+  closing releases the player, video frame, image and transfer buffer. Save all
+  exports sequentially only to a user-selected folder, with progress, cooperative
+  cancellation and collision-safe filenames. Input/preview/export callbacks
+  never save a draft or populate an attachment disk cache. Hiding/minimizing the
+  window stops springs/photo work and unloads newsletter renderers; showing it
+  restores the existing opened content. Final process-tree profiling is pending.
+- Pending: three-way conflict-resolution UI, full
   visual signature editing, mailto and remaining rich-text keyboard flows,
   remaining search/label/settings/context/keyboard flows,
   lifecycle reclamation, two-account acceptance, Linux packaging and resource

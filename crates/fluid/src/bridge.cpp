@@ -1,4 +1,5 @@
 #include "bridge.h"
+#include "attachment_preview.h"
 #include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -59,6 +60,7 @@ quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!
 void Bridge::consume(){pending+=process.readAllStandardOutput();while(true){auto n=pending.indexOf('\n');if(n<0)break;if(n>16*1024*1024){process.kill();pending.clear();return;}auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}if(pending.size()>16*1024*1024){process.kill();pending.clear();}}
 void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
+    if(attachmentPreview&&attachmentPreview->consume(kind,d,quint64(id))){emit received(kind=="error"?"attachmentError":kind,QVariantMap{{"token",d["token"].toString()}});return;}
     if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
     if(profileEvent(kind,d,quint64(id))){emit received(kind=="error"?"photoError":kind,d.toVariantMap());return;}
     if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();configRoot=d["configPath"].toString();if(QDir(configRoot).exists()){paletteWatcher.addPath(configRoot);auto file=configRoot+"/noctalia.toml";if(QFileInfo::exists(file))paletteWatcher.addPath(file);}systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}

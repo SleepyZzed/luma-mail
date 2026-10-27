@@ -22,7 +22,7 @@ QtObject {
     readonly property color selected:mix(surface,accent,dark?.19:.12)
     readonly property color link: "#82b5ff"
     readonly property real scale: Math.max(.75,Math.min(2,(Mail.settings.ui_scale_percent || 100)/100))
-    readonly property bool motion: !(Mail.settings.reduced_motion || false)
+    readonly property bool motion: Mail.windowVisible&&!(Mail.settings.reduced_motion || false)
     readonly property string family: Qt.application.font.family
     function mix(a,b,t){return Qt.rgba(a.r+(b.r-a.r)*t,a.g+(b.g-a.g)*t,a.b+(b.b-a.b)*t,a.a+(b.a-a.a)*t)}
     function unit(n) {return n*scale}

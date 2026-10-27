@@ -2,6 +2,8 @@
 //! socket, mailbox database, web server or plaintext token hand-off is introduced.
 mod accounts;
 mod app;
+mod attachment_preview;
+mod attachment_source;
 mod clipboard;
 mod compose;
 mod compose_commands;

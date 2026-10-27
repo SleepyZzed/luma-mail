@@ -47,7 +47,7 @@ void HtmlSurface::ancestors(){
         connections.append(connect(p,&QQuickItem::xChanged,this,&HtmlSurface::updateSurface));connections.append(connect(p,&QQuickItem::yChanged,this,&HtmlSurface::updateSurface));
         connections.append(connect(p,&QQuickItem::widthChanged,this,&HtmlSurface::updateSurface));connections.append(connect(p,&QQuickItem::heightChanged,this,&HtmlSurface::updateSurface));connections.append(connect(p,&QQuickItem::visibleChanged,this,&HtmlSurface::updateSurface));
     }
-    if(window()){connections.append(connect(window(),&QWindow::visibleChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::screenChanged,this,&HtmlSurface::updateSurface));}
+    if(window()){connections.append(connect(window(),&QWindow::visibleChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::visibilityChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::screenChanged,this,&HtmlSurface::updateSurface));}
 }
 void HtmlSurface::release(){debounce.stop();ready=false;
 #ifdef Q_OS_WIN
@@ -59,6 +59,7 @@ void HtmlSurface::updateSurface(){
     if(!complete||!window())return;
     auto bounds=mapRectToScene(boundingRect());auto clip=bounds.intersected(QRectF(QPointF(),window()->size()));
     for(auto p=parentItem();p;p=p->parentItem())if(p->clip())clip=clip.intersected(p->mapRectToScene(p->boundingRect()));
+    if(!isVisible()||!window()->isVisible()||window()->visibility()==QWindow::Minimized||clip.isEmpty())clip={};
     const auto nextTop=std::max(qreal(0),clip.y()-bounds.y()),nextSpan=std::max(qreal(0),clip.height());
     if(top!=nextTop||span!=nextSpan){top=nextTop;span=nextSpan;emit viewportChanged();}
 #ifdef Q_OS_WIN

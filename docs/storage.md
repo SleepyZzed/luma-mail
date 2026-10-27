@@ -276,3 +276,31 @@ in memory; zero-cache acceptance rejects any retained file under the mail cache
 and any local composer archive. Interrupted sessions may leave disposable runtime
 metadata. Distribution/installed bytes and temporary metadata are reported apart
 from mail cache allocation. There is no new persistent mail or contact store.
+
+
+## Fluid attachment migration
+
+Attachment cards request automatic image thumbnails only while visible, up to
+8 MiB of encoded source each. One shared decoder permit covers thumbnails and
+explicit image previews, including cancelled blocking decodes. The native RAM
+thumbnail LRU holds at most 32 images of 128×96 RGBA (1.5 MiB pixels); its metadata
+is limited to 64 entries and its network/read queue to two outstanding commands.
+Offscreen requests cancel. Hiding/minimizing releases unreferenced thumbnails.
+
+An explicit preview accepts at most 24 MiB. Images shrink to 1280×960; DOCX text
+is parsed with the existing XML/archive bounds without extraction. Audio/video
+input uses a QBuffer with acknowledged 256-KiB pipe chunks, with no temporary
+media file. One engine media offer expires after 30 seconds if unclaimed; close
+releases it immediately. The native player/last video frame/buffer are released
+on close. This budget does not include codec allocations or GPU surfaces; the
+whole-process resource acceptance remains mandatory.
+
+Save/Save all writes only to an explicitly chosen existing destination folder.
+The batch holds bounded source descriptors and reads/writes one attachment at a
+time, up to 26 MiB each; it never predownloads a mailbox. Captured source pointers
+survive navigation, and filename collisions create a distinct safe filename.
+Cancel interrupts a pending read; an active file write unwinds normally and
+removes partial output. Normal shutdown waits for that cleanup. User exports
+are separate from Luma's cache and are never silently deleted by cache cleanup.
+The existing optional cache budget, TTL, LRU, per-account and exit settings are
+unchanged. No new body archive, local draft, attachment spool or index is added.

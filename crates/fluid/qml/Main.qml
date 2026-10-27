@@ -28,14 +28,16 @@ ApplicationWindow {
         Reader {
             id:reader;x:inbox.x+inbox.width;width:Math.max(0,scene.width-x);height:parent.height-Theme.unit(44);layoutWidth:scene.readerGoalWidth;projected:morph.active;inlineComposer:composer;visible:width>1
             onReplyAt:(mode,message)=>Mail.requestCompose(mode,message)
-            nativeBlocked:settings.visible||context.visible||errorToast.visible||composer.modalOpen
-            nativeMasks:composer.shown&&!composer.inlineMode?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]
+            nativeBlocked:settings.visible||context.visible||errorToast.visible||composer.modalOpen||attachmentPane.shown
+            nativeMasks:(composer.shown&&!composer.inlineMode?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]).concat(downloadPill.visible?[Qt.rect(downloadPill.x,downloadPill.y,downloadPill.width,downloadPill.height)]:[])
         }
         ActivityPill{x:rail.width+Theme.unit(28);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(13)}
         FluidButton{anchors.right:parent.right;anchors.rightMargin:Theme.unit(20);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(9);text:"Undo";glyph:"undo";visible:Mail.canUndo;onClicked:Mail.send("undo")}
         RowMorph{id:morph}
         Composer{id:composer;scene:scene;shown:false}
         SettingsSheet{id:settings;anchors.fill:parent;onCloseRequested:opened=false}
+        AttachmentPane{id:attachmentPane;anchors.fill:parent}
+        DownloadPill{id:downloadPill;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:Theme.unit(18)}
         Rectangle {
             id:errorToast;anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(58);width:Math.min(Theme.unit(600),parent.width-Theme.unit(64));height:message.implicitHeight+Theme.unit(30);radius:Theme.unit(16);color:Theme.raised;border.width:1;border.color:Theme.accent;visible:Mail.error!=="";z:200
             Text {textFormat:Text.PlainText;id:message;x:Theme.unit(16);y:Theme.unit(15);width:parent.width-Theme.unit(65);text:Mail.error;wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(12)}
@@ -74,7 +76,7 @@ ApplicationWindow {
         function onComposeFocused(){composer.focusEditor();if(composer.inlineMode)reader.dockInline(composer)}
         function onShowRequested(){window.show();window.raise();window.requestActivate()}
     }
-    Shortcut{sequence:"Ctrl+N";onActivated:Mail.requestCompose("new")}
-    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen;onActivated:{if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
-    Shortcut{sequence:"Ctrl+R";onActivated:Mail.setView(Mail.folder,Mail.account,Mail.search)}
+    Shortcut{sequence:"Ctrl+N";enabled:!attachmentPane.shown;onActivated:Mail.requestCompose("new")}
+    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen;onActivated:{if(attachmentPane.shown)attachmentPane.close();else if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
+    Shortcut{sequence:"Ctrl+R";enabled:!attachmentPane.shown;onActivated:Mail.setView(Mail.folder,Mail.account,Mail.search)}
 }
