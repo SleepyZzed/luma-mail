@@ -10,6 +10,7 @@ require-google-client = ["luma-core/require-google-client"]
 
 [dependencies]
 luma-core = { path = "../core" }
+async-trait.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 serde.workspace = true
 serde_json.workspace = true

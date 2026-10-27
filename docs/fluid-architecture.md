@@ -22,6 +22,16 @@ The planned Windows adapter retains the already-used WebView2 engine through a s
 native host, because the MinGW Qt distribution does not include Qt WebEngine.
 The browser is created only for real HTML layouts. Plain mail uses native text.
 Native rich composition will use Qt text documents instead of a per-composer browser.
+The native rich document is now wired to RAM-only Rust composer sessions. It
+blocks all text-document network/file resource loading, caps authored input at
+1 MiB/250,000 native characters and undo snapshots at 64/1 MiB. Retained MIME
+attachments keep the existing 16-MiB limit. File attachments stream through the
+existing private Drive path. Clipboard-image and media adapters remain pending;
+the preview rejects image paste instead of silently sending a broken resource.
+Quoted history and online signatures are separate from authored reply text and
+round-trip in Gmail's MIME draft, without local sidecars. Save/send operations
+serialize, reuse one draft ID and do not retry uncertain writes. Quitting uses
+the same close policy and waits for writes; only then may the host stop the child.
 These adapters are parity work still to implement; the current preview displays
 plain text and does not substitute it for HTML in a release.
 

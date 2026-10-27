@@ -58,6 +58,19 @@ jobs:
           name: fluid-motion-linux
           path: fluid-motion-linux.json
           if-no-files-found: warn
+      - name: Native composer and real pipe test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_COMPOSER_REPORT: ${{ github.workspace }}/fluid-composer-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --composer-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-composer-linux
+          path: fluid-composer-linux.json
+          if-no-files-found: warn
   windows-scene:
     runs-on: windows-latest
     steps:
@@ -98,4 +111,20 @@ jobs:
           path: |
             fluid-motion-windows.json
             fluid.stderr
+          if-no-files-found: warn
+      - name: Native composer and real pipe test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_COMPOSER_REPORT="$(cygpath -m "$PWD")/fluid-composer-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --composer-test >composer.stdout 2>composer.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-composer-windows
+          path: |
+            fluid-composer-windows.json
+            composer.stderr
           if-no-files-found: warn

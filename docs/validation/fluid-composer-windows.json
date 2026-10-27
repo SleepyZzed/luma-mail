@@ -1,0 +1,74 @@
+{
+    "checks": [
+        {
+            "check": "engine session loads the native form",
+            "passed": true
+        },
+        {
+            "check": "new compose focuses To",
+            "passed": true
+        },
+        {
+            "check": "Tab skips formatting controls to Subject",
+            "passed": true
+        },
+        {
+            "check": "Tab from Subject enters body",
+            "passed": true
+        },
+        {
+            "check": "Shift Tab returns to Subject",
+            "passed": true
+        },
+        {
+            "check": "selected formatting produces rich outgoing markup",
+            "passed": true
+        },
+        {
+            "check": "close asks before any Gmail draft write",
+            "passed": true
+        },
+        {
+            "check": "repeated compose focuses the same session",
+            "passed": true
+        },
+        {
+            "check": "quit uses the same draft close policy",
+            "passed": true
+        },
+        {
+            "check": "keep editing cancels quit",
+            "passed": true
+        },
+        {
+            "check": "manual close clears engine content",
+            "passed": true
+        },
+        {
+            "check": "close clears the native rich document",
+            "passed": true
+        },
+        {
+            "check": "reply has read-only history outside the editor",
+            "passed": true
+        },
+        {
+            "check": "reply docks inside the reading thread",
+            "passed": true
+        },
+        {
+            "check": "reply focuses authored body",
+            "passed": true
+        },
+        {
+            "check": "repeated reply never maximizes or creates a draft",
+            "passed": true
+        },
+        {
+            "check": "inline close collapses and releases the surface",
+            "passed": true
+        }
+    ],
+    "passed": true,
+    "syntheticData": true
+}

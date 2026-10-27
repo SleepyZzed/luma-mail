@@ -3,6 +3,7 @@ pub mod attachment_save;
 pub mod auth;
 pub mod cache;
 pub mod clipboard_image;
+pub mod compose_document;
 pub mod compose_drive;
 pub mod composer;
 pub mod config;

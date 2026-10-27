@@ -11,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QIcon>
+void startComposerSmoke(Bridge*,QQuickWindow*);
 
 int main(int argc,char**argv){
     QCoreApplication::setAttribute(Qt::AA_DisableShaderDiskCache);
@@ -33,6 +34,7 @@ int main(int argc,char**argv){
     engine.loadFromModule("Luma.Fluid","Main");if(engine.rootObjects().isEmpty())return 1;
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     if(preview&&app.arguments().contains("--motion-test"))new MotionSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
     QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",window,[window]{window->show();window->raise();window->requestActivate();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
     QObject::connect(&tray,&QSystemTrayIcon::activated,window,[window](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick){window->show();window->raise();window->requestActivate();}});tray.show();
     engine.rootContext()->setContextProperty("trayAvailable",QSystemTrayIcon::isSystemTrayAvailable());

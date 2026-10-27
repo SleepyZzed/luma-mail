@@ -2,6 +2,8 @@
 //! socket, mailbox database, web server or plaintext token hand-off is introduced.
 mod accounts;
 mod app;
+mod compose;
+mod compose_commands;
 mod mail;
 mod protocol;
 mod resident;

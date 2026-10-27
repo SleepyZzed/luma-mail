@@ -45,6 +45,9 @@ pub struct App {
     pub preview: bool,
     pub auth_busy: Arc<AtomicBool>,
     pub recent: luma_core::local_compose::Store,
+    pub composer: Mutex<Option<Arc<crate::compose::Session>>>,
+    pub compose_start: tokio::sync::Mutex<()>,
+    pub quit_pending: AtomicBool,
     jobs: Mutex<HashMap<u64, (String, tokio::task::AbortHandle)>>,
     slots: Arc<tokio::sync::Semaphore>,
 }
@@ -115,6 +118,9 @@ impl App {
             preview,
             auth_busy: Arc::new(AtomicBool::new(false)),
             recent,
+            composer: Mutex::new(None),
+            compose_start: tokio::sync::Mutex::new(()),
+            quit_pending: AtomicBool::new(false),
             jobs: Mutex::new(HashMap::new()),
             slots: Arc::new(tokio::sync::Semaphore::new(32)),
         });
@@ -192,6 +198,12 @@ impl App {
             }
         };
         let id = command.id;
+        // Form revisions and write intents are accepted in pipe order, before
+        // spawning asynchronous work. A delayed update cannot overtake Send.
+        let compose_prepared = command
+            .action
+            .starts_with("compose")
+            .then(|| crate::compose_commands::prepare(&self, &command));
         let owner = self.clone();
         let action = command.action.clone();
         let mut jobs = self.jobs.lock().unwrap();
@@ -220,6 +232,9 @@ impl App {
         let task = tokio::spawn(async move {
             let _permit = permit;
             let result = async {
+                if let Some(prepared) = compose_prepared {
+                    return crate::compose_commands::run(&owner, &command, prepared?).await;
+                }
                 match command.action.as_str() {
                     "boot" => {
                         owner.boot().await;

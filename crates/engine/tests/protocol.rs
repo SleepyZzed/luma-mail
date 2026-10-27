@@ -139,3 +139,43 @@ fn a_large_or_unterminated_pipe_frame_is_rejected_before_json_allocation() {
     }
     assert!(!c.root.path().join("cache/bodies").exists());
 }
+
+#[test]
+fn composer_input_and_close_use_ram_only_and_quit_can_be_cancelled() {
+    let mut c = Client::new();
+    c.until("ready");
+    c.until("rows");
+    c.send(1, "composeStart", json!({"mode":"new","account":"preview"}));
+    let opened = c.until("composeOpened");
+    let session = opened["session"].clone();
+    assert_eq!(opened["document"]["text"], "");
+    c.send(
+        2,
+        "composeUpdate",
+        json!({"session":session,"to":"person@example.com","text":"RAM only","html":false}),
+    );
+    assert_eq!(c.until("compose")["revision"], 1);
+    c.send(3, "composeStart", json!({"mode":"reply"}));
+    assert_eq!(c.until("composeFocus")["session"], session);
+    c.send(4, "composePrepareQuit", json!({}));
+    let q = c.until("composeCloseQuestion");
+    c.send(
+        5,
+        "composeCloseAnswer",
+        json!({"session":session,"revision":q["revision"],"answer":"keep"}),
+    );
+    c.until("quitCancelled");
+    c.until("compose");
+    c.send(6, "settingsUpdate", json!({"draft_mode":"manual"}));
+    c.until("settings");
+    c.send(7, "composeClose", json!({"session":session}));
+    c.until("composeClosed");
+    c.send(8, "composeStart", json!({"mode":"new"}));
+    let fresh = c.until("composeOpened");
+    assert_ne!(fresh["session"], session);
+    assert_eq!(fresh["document"]["text"], "");
+    c.send(9, "composePrepareQuit", json!({}));
+    c.until("quitReady");
+    assert!(!c.root.path().join("config/compose").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
+}

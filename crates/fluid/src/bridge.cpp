@@ -11,6 +11,10 @@
 #include <QPalette>
 #include <QColor>
 #include <QEvent>
+#include <QFileDialog>
+#include <QColorDialog>
+#include <QClipboard>
+#include <QMimeData>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -77,8 +81,22 @@ void Bridge::receive(const QJsonObject&e){
     else if(kind=="rowChanged"){m_inbox.update(d["row"].toObject(),d["insert"].toBool());}
     else if(kind=="mutation"){m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
     else if(kind=="activity"){m_activity=d["text"].toString();m_activityKind=d["kind"].toString();emit activityChanged();}
-    else if(kind=="error"){m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
-    else if(kind=="compose"){m_composer=d.toVariantMap();emit composerChanged();}
+    else if(kind=="error"){quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
+    else if(kind=="composeOpened"){m_composer=d.toVariantMap();emit composerChanged();emit composeRequested(d["mode"].toString());}
+    else if(kind=="compose"||kind=="composeClosed"){
+        if(d["session"].toString()!=m_composer.value("session").toString())return;
+        m_composer.remove("document");
+        if(kind=="composeClosed"||d["state"].toString()=="sent")m_composer.clear();
+        for(auto i=d.begin();i!=d.end();++i)m_composer[i.key()]=i.value().toVariant();
+        emit composerChanged();if(kind=="composeClosed")emit composeClosed();
+    }
+    else if(kind=="composeFocus"){if(d["session"].toString()==m_composer.value("session").toString())emit composeFocused();}
+    else if(kind=="composeCloseQuestion"){if(d["session"].toString()==m_composer.value("session").toString()){emit showRequested();emit composeCloseQuestion(d.toVariantMap());}}
+    else if(kind=="quitCancelled"){quitWaiting=false;}
+    else if(kind=="quitReady"){
+        if(!quitWaiting)return;quitting=true;send("quit");process.closeWriteChannel();
+        QTimer::singleShot(5000,this,[this]{if(process.state()!=QProcess::NotRunning)process.kill();});
+    }
     else if(kind=="notification"){emit notification(d.toVariantMap());}
     emit received(kind,d.toVariantMap());
 }
@@ -112,11 +130,25 @@ void Bridge::selectAll(){m_selecting=true;for(int i=0;i<m_inbox.rowCount();++i)m
 void Bridge::clearSelection(){m_selection.clear();m_selecting=false;emit selectionChanged();}
 void Bridge::closeReader(){if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();emit readerChanged();send("releaseReader");}
 void Bridge::mutate(const QString&a,const QVariantMap&r){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a}});}
-void Bridge::requestCompose(const QString&mode,const QVariantMap&m){emit composeRequested(mode);send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]}});}
+void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}
 void Bridge::openLink(const QString&raw){QUrl u(raw);if(u.isValid()&&(u.scheme()=="https"||u.scheme()=="http"||u.scheme()=="mailto"))QDesktopServices::openUrl(u);}
 void Bridge::quit(int exitCode){
-    if(quitting)return;quitting=true;quitCode=exitCode;
+    if(quitting||quitWaiting)return;quitWaiting=true;quitCode=exitCode;
     if(process.state()==QProcess::NotRunning){QCoreApplication::exit(exitCode);return;}
-    send("quit");process.closeWriteChannel();
-    QTimer::singleShot(5000,this,[this]{if(process.state()!=QProcess::NotRunning)process.kill();});
+    emit flushComposer();send("composePrepareQuit");
+}
+void Bridge::attachFiles(){
+    const auto session=m_composer.value("session").toString();if(session.isEmpty())return;
+    auto dialog=new QFileDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Attach files");dialog->setFileMode(QFileDialog::ExistingFiles);dialog->setWindowModality(Qt::ApplicationModal);
+    connect(dialog,&QFileDialog::filesSelected,this,[this,session](const QStringList&files){if(m_composer.value("session")==session&&m_composer.value("state")!="closed"&&m_composer.value("state")!="sent")send("composeAttach",{{"session",session},{"paths",files}});});dialog->open();
+}
+void Bridge::chooseColour(bool background){
+    const auto session=m_composer.value("session").toString();auto dialog=new QColorDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowModality(Qt::ApplicationModal);
+    connect(dialog,&QColorDialog::colorSelected,this,[this,session,background](const QColor&colour){if(m_composer.value("session")==session)emit colourChosen(colour.name(),background);});dialog->open();
+}
+bool Bridge::interceptImagePaste(){
+    // The native attachment pipe is not yet ported. Prevent Qt from inserting
+    // an image resource that has no corresponding outgoing MIME attachment.
+    const auto mime=qApp->clipboard()->mimeData();if(!mime||!mime->hasImage())return false;
+    m_error="Clipboard image attachment is still being ported in this migration preview. Use Attach files for now; the 0.9 release retains image paste.";emit errorChanged();return true;
 }

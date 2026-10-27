@@ -73,6 +73,9 @@ pub async fn update(app: &App, c: &Command) -> Result<()> {
     Ok(())
 }
 pub async fn account_update(app: &App, c: &Command) -> Result<()> {
+    if c.data["enabled"] == false {
+        ensure_composer_closed(app, c.text("account"))?;
+    }
     let mut settings = app.settings.lock().unwrap().clone();
     let account = settings
         .accounts
@@ -145,6 +148,7 @@ pub async fn reorder(app: &App, c: &Command) -> Result<()> {
 pub async fn remove(app: &App, c: &Command) -> Result<()> {
     let _lock = app.mutation.lock().await;
     let id = c.text("account");
+    ensure_composer_closed(app, id)?;
     let mut settings = app.settings.lock().unwrap().clone();
     if !settings.accounts.iter().any(|a| a.id == id) {
         return Err(Error::Invalid("Account no longer exists".into()));
@@ -173,6 +177,22 @@ pub async fn remove(app: &App, c: &Command) -> Result<()> {
         app.rebuild_clients()?;
     }
     publish(app, c.id).await;
+    Ok(())
+}
+fn ensure_composer_closed(app: &App, account: &str) -> Result<()> {
+    if let Some(s) = app.composer.lock().unwrap().as_ref() {
+        let d = s.data.lock().unwrap();
+        if d.form.account.as_deref() == Some(account)
+            && !matches!(
+                d.phase,
+                crate::compose::Phase::Sent | crate::compose::Phase::Closed
+            )
+        {
+            return Err(Error::Invalid(
+                "Save or close the open composer before disabling or removing this account".into(),
+            ));
+        }
+    }
     Ok(())
 }
 pub async fn auth(app: &Arc<App>, c: &Command) -> Result<()> {

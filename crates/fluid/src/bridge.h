@@ -69,6 +69,9 @@ public:
     Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={});
     Q_INVOKABLE void requestCompose(const QString &mode="new",const QVariantMap &message={});
     Q_INVOKABLE void openLink(const QString &url);
+    Q_INVOKABLE void attachFiles();
+    Q_INVOKABLE void chooseColour(bool background=false);
+    Q_INVOKABLE bool interceptImagePaste();
     Q_INVOKABLE void clearError(){m_error.clear();emit errorChanged();}
     Q_INVOKABLE void quit(int exitCode=0);
 signals:
@@ -78,6 +81,8 @@ signals:
     void projectRow(QVariantMap row,qreal x,qreal y,qreal width,qreal height);
     void returnRow(QVariantMap row);
     void composeRequested(QString mode); void notification(QVariantMap data);
+    void composeFocused();void composeClosed();void composeCloseQuestion(QVariantMap data);
+    void flushComposer();void colourChosen(QString colour,bool background);void showRequested();
     void received(QString event,QVariantMap data); void ready();
 private:
     void consume(); void receive(const QJsonObject &event);
@@ -90,5 +95,5 @@ private:
     QString m_activity="Connecting to your inbox",m_activityKind="loading",m_error;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey;
-    bool quitting=false; int quitCode=0;
+    bool quitting=false,quitWaiting=false; int quitCode=0;
 };

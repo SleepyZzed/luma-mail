@@ -54,8 +54,17 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
 - Validation: real native-window synthetic tests exercise the projection and its
   handoff, rapid retargeting, pane recovery, selection, reduced motion and composer
   geometry. Rust core/protocol/cache tests remain separate from live acceptance.
-- Pending: the full composer session/save/send/close-policy/conflict service,
-  selection-aware rich documents and signatures, attachments/Drive/media,
+- Composer checkpoint: RAM-only sessions, serialized Gmail saves/sending,
+  revision/conflict/uncertain-delivery guards, existing-draft reopen, explicit
+  conversion of unsupported HTML, verified sender choices, online signature
+  inclusion, close-time draft policy and quit coordination. Native rich text has
+  selection-aware fonts/colours/lists/links, bounded undo and find/replace. Replies
+  keep quoted history outside authored input; file attachments and private Drive
+  upload/progress use the existing core. Input/attachment events never autosave.
+  These paths have synthetic native/transport tests, not live Gmail acceptance.
+- Pending: composer account switching, three-way conflict-resolution UI,
+  clipboard-image pipe, attachment previews/media, full visual signature editing,
+  recipient suggestions UI, mailto and remaining rich-text keyboard flows,
   supported contact-photo lookup, HTML adapters/privacy/image choices, remaining
   search/label/settings/context/keyboard flows, background poller/OS notifications,
   lifecycle reclamation, two-account acceptance, Linux packaging and resource

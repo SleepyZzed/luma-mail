@@ -13,7 +13,10 @@ The published 0.9 Linux/Windows release and both platform gates pass on
 `65c67d1eac7f897eda14442bb4ccea0031daf171`; downloaded binary checksums and whole-app
 storage/process-tree measurements are recorded in docs/verification.md. Linux
 RAM goals and real desktop/live-account acceptance remain open. The custom GTK
-replacement is queued for the next build in docs/ui-redesign.md.
+replacement is in progress on `ui/fluid-morph` (draft PR #12). The custom Qt
+scene and Rust engine now include the first functional rich composer/draft
+checkpoint; parity, live acceptance, packaging and resource audits remain open.
+See docs/ui-migration.md for the current port and pending groups.
 
 - Shared native composer colours/highlights, paragraph alignment/spacing/indent,
   scripts/code, bounded Unicode find/replace and source/visual preservation.
