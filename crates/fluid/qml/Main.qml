@@ -36,7 +36,7 @@ ApplicationWindow {
         SettingsSheet{id:settings;anchors.fill:parent;onCloseRequested:opened=false}
         Rectangle {
             id:errorToast;anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(58);width:Math.min(Theme.unit(600),parent.width-Theme.unit(64));height:message.implicitHeight+Theme.unit(30);radius:Theme.unit(16);color:Theme.raised;border.width:1;border.color:Theme.accent;visible:Mail.error!=="";z:200
-            Text{id:message;x:Theme.unit(16);y:Theme.unit(15);width:parent.width-Theme.unit(65);text:Mail.error;wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(12)}
+            Text {textFormat:Text.PlainText;id:message;x:Theme.unit(16);y:Theme.unit(15);width:parent.width-Theme.unit(65);text:Mail.error;wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(12)}
             FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"close";onClicked:Mail.clearError()}
         }
         Menu {

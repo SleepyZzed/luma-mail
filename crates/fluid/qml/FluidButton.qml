@@ -22,7 +22,7 @@ AbstractButton {
     contentItem: Row {
         id:contentRow;spacing:Theme.unit(9);anchors.centerIn:parent
         Icon {name:control.glyph;color:control.tint;visible:control.glyph!=="";anchors.verticalCenter:parent.verticalCenter}
-        Text {text:control.text;color:control.enabled?control.tint:Theme.faint;font.family:Theme.family;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold;anchors.verticalCenter:parent.verticalCenter;visible:text!==""}
+        Text {textFormat:Text.PlainText;text:control.text;color:control.enabled?control.tint:Theme.faint;font.family:Theme.family;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold;anchors.verticalCenter:parent.verticalCenter;visible:text!==""}
     }
     ToolTip.visible:hovered&&tip!=="";ToolTip.text:tip;ToolTip.delay:550
     Accessible.name:tip||text

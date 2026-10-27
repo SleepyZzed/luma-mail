@@ -67,7 +67,7 @@ Item {
         sender: root.row.sender || ""
         photo: root.row.photo || ""
     }
-    Text {
+    Text {textFormat:Text.PlainText;
         x: root.mix(root.source.sender.x, root.destination.sender.x)
         y: root.mix(root.source.sender.y, root.destination.sender.y)
         width: Math.max(0, parent.width - x - Theme.unit(20))
@@ -77,7 +77,7 @@ Item {
         color: Theme.text
         elide: Text.ElideRight
     }
-    Text {
+    Text {textFormat:Text.PlainText;
         x: root.mix(root.source.subject.x, 0)
         y: root.mix(root.source.subject.y, 0)
         width: Math.max(0, parent.width - x - Theme.unit(20))
@@ -89,7 +89,7 @@ Item {
         wrapMode: root.progress > .65 ? Text.Wrap : Text.NoWrap
         elide: Text.ElideRight
     }
-    Text {
+    Text {textFormat:Text.PlainText;
         x: root.source.snippet.x
         y: root.source.snippet.y
         width: Math.max(0, parent.width - x - Theme.unit(20))

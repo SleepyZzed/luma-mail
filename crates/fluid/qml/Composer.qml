@@ -37,7 +37,7 @@ Item {
         id:canvas;width:root.editorWidth;height:root.editorHeight
     Item {
         id:header;width:root.width;height:Theme.unit(55)
-        Text{x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending your message…":root.phase==="sent"?"Sent. A little less on your mind.":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
+        Text {textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending your message…":root.phase==="sent"?"Sent. A little less on your mind.":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
         Row {anchors.right:parent.right;anchors.rightMargin:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;visible:root.phase==="editing"
             FluidButton{glyph:root.expanded?"minimize":"maximize";tip:root.expanded?"Restore composer":"Expand composer";onClicked:root.toggleExpanded()}
             FluidButton{glyph:"close";tip:"Close composer";onClicked:root.dismissRequested()}
@@ -51,7 +51,7 @@ Item {
     Column {
         id:fields;x:Theme.unit(22);y:header.height;width:parent.width-2*x;spacing:0;visible:root.phase==="editing"
         Row {width:parent.width;height:Theme.unit(39)
-            Text{width:Theme.unit(38);anchors.verticalCenter:parent.verticalCenter;text:"To";font.pixelSize:Theme.unit(11);color:Theme.faint}
+            Text {textFormat:Text.PlainText;width:Theme.unit(38);anchors.verticalCenter:parent.verticalCenter;text:"To";font.pixelSize:Theme.unit(11);color:Theme.faint}
             TextField{id:to;objectName:"composeTo";width:parent.width-Theme.unit(108);height:parent.height;color:Theme.text;placeholderText:"Recipients";placeholderTextColor:Theme.faint;selectByMouse:true;font.pixelSize:Theme.unit(12);background:Item{} KeyNavigation.tab:subject;onTextEdited:root.sync()}
             FluidButton{text:"Cc";onClicked:cc.visible=!cc.visible}
             FluidButton{text:"Bcc";onClicked:bcc.visible=!bcc.visible}

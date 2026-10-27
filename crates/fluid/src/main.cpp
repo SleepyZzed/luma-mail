@@ -13,6 +13,7 @@
 #include <QIcon>
 
 int main(int argc,char**argv){
+    QCoreApplication::setAttribute(Qt::AA_DisableShaderDiskCache);
     qputenv("QT_QUICK_CONTROLS_STYLE","Basic");
     qputenv("QML_DISABLE_DISK_CACHE","1");
     QQuickStyle::setStyle("Basic");

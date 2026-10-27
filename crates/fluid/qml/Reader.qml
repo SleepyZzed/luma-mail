@@ -26,7 +26,7 @@ Item {
             id:thread;width:scroll.width;spacing:Theme.unit(26)
             Item {
                 width:parent.width;height:subject.implicitHeight+Theme.unit(66);opacity:root.projected?0:1
-                Text {id:subject;width:parent.width-Theme.unit(20);text:Mail.reader.subject||"";wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(25);font.weight:Font.DemiBold;lineHeight:1.2}
+                Text {textFormat:Text.PlainText;id:subject;objectName:"readerSubject";width:parent.width-Theme.unit(20);text:Mail.reader.subject||"";wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(25);font.weight:Font.DemiBold;lineHeight:1.2}
                 Row {y:subject.height+Theme.unit(17);spacing:Theme.unit(6);visible:Mail.selectionCount<=1
                     FluidButton {glyph:"back";tip:"Back to inbox";onClicked:Mail.closeReader()}
                     FluidButton {glyph:"archive";tip:"Archive conversation";onClicked:Mail.mutate("archive")}
@@ -45,10 +45,10 @@ Item {
                         width:parent.width;height:Theme.unit(53);opacity:root.projected&&message.index===0?0:1
                         Avatar {id:sender;objectName:"readerAvatar-"+message.index;sender:message.item.from||"";width:Theme.unit(38);height:width;y:Theme.unit(5)}
                         Column {x:Theme.unit(52);anchors.verticalCenter:parent.verticalCenter;width:parent.width-x-Theme.unit(80);spacing:Theme.unit(5)
-                            Text{text:(message.item.from||"").replace(/<.*>/g,"").trim();color:Theme.text;font.pixelSize:Theme.unit(12);font.weight:Font.DemiBold;width:parent.width;elide:Text.ElideRight}
-                            Text{text:"to "+(message.item.to||"");color:Theme.faint;font.pixelSize:Theme.unit(10);width:parent.width;elide:Text.ElideRight}
+                            Text {textFormat:Text.PlainText;text:(message.item.from||"").replace(/<.*>/g,"").trim();color:Theme.text;font.pixelSize:Theme.unit(12);font.weight:Font.DemiBold;width:parent.width;elide:Text.ElideRight}
+                            Text {textFormat:Text.PlainText;text:"to "+(message.item.to||"");color:Theme.faint;font.pixelSize:Theme.unit(10);width:parent.width;elide:Text.ElideRight}
                         }
-                        Text{anchors.right:parent.right;anchors.top:parent.top;anchors.topMargin:Theme.unit(9);text:Theme.date(message.item.date||0);color:Theme.faint;font.pixelSize:Theme.unit(9)}
+                        Text {textFormat:Text.PlainText;anchors.right:parent.right;anchors.top:parent.top;anchors.topMargin:Theme.unit(9);text:Theme.date(message.item.date||0);color:Theme.faint;font.pixelSize:Theme.unit(9)}
                         MouseArea{anchors.fill:parent;onClicked:{message.expanded=!message.expanded;if(message.expanded&&!message.item.text)Mail.send("message",{account:Mail.reader.key.account,id:message.item.id})}}
                     }
                     Item {

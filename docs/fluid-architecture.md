@@ -43,3 +43,11 @@ It uses LRU eviction, shares attachment payloads through Arc, does not retain a
 message larger than that budget, and clears on changing/closing the reader.
 The frontend/HTML/media lifetime budgets must be audited separately once those
 adapters are wired; this is not a total process-memory claim.
+
+Header, sender, subject, snippet and status labels explicitly use plain-text
+rendering. Only the dedicated message renderer may interpret sanitized HTML.
+Qt's QML disk cache and automatic shader disk cache are disabled before startup;
+compiled QML and prebuilt shader bytecode ship inside the executable. This avoids
+introducing a second application cache outside the existing Rust mail budget.
+OS/graphics-driver storage and the unfinished HTML adapters still require the
+full final storage audit.

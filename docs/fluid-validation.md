@@ -66,3 +66,9 @@ exposed two test assumptions about desktop width; the assertions now derive the
 expected split/expanded bounds from the actual window, including the narrow
 reading mode. Diagnostics record window dimensions. This checks responsive
 behavior rather than requiring a particular runner monitor resolution.
+
+At `5f4dadb7`, the Linux and Windows native scene jobs, spring tests and engine
+checks passed in [run 40551772145](https://github.com/SleepyZzed/luma-mail/actions/runs/40551772145).
+The next check also verifies literal header rendering; the shell explicitly
+turns off Qt's QML/shader disk caches. These safeguards do not change the Rust
+mail-cache preference or its budget.

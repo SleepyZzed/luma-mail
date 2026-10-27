@@ -8,8 +8,8 @@ Item {
     clip:true
     Item {
         id:header;x:Theme.unit(28);y:Theme.unit(21);width:parent.width-2*x;height:Theme.unit(116)
-        Text {id:eyebrow;visible:Mail.preview;text:Mail.preview?"ISOLATED DESIGN PREVIEW":"";font.pixelSize:Theme.unit(9);font.letterSpacing:1.4;color:Theme.faint}
-        Text {y:Theme.unit(19);text:Mail.folder==="inbox"?"Your inbox":Theme.folderTitle(Mail.folder);font.pixelSize:Theme.unit(21);font.weight:Font.DemiBold;color:Theme.text}
+        Text {textFormat:Text.PlainText;id:eyebrow;visible:Mail.preview;text:Mail.preview?"ISOLATED DESIGN PREVIEW":"";font.pixelSize:Theme.unit(9);font.letterSpacing:1.4;color:Theme.faint}
+        Text {textFormat:Text.PlainText;y:Theme.unit(19);text:Mail.folder==="inbox"?"Your inbox":Theme.folderTitle(Mail.folder);font.pixelSize:Theme.unit(21);font.weight:Font.DemiBold;color:Theme.text}
         Row {anchors.right:parent.right;y:Theme.unit(23);spacing:Theme.unit(5)
             FluidButton {glyph:"refresh";tip:"Refresh now";onClicked:Mail.setView(Mail.folder,Mail.account,Mail.search)}
             FluidButton {glyph:"check";tip:"Select conversations";onClicked:Mail.selectionMode(!Mail.selecting)}
@@ -20,7 +20,7 @@ Item {
             TextField {id:search;anchors.fill:parent;leftPadding:Theme.unit(41);rightPadding:Theme.unit(43);placeholderText:"Search your mail";font.pixelSize:Theme.unit(12);color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;background:Item{} text:Mail.search;onAccepted:Mail.setView(Mail.folder,Mail.account,text)}
             FluidButton {anchors.right:parent.right;anchors.rightMargin:5;anchors.verticalCenter:parent.verticalCenter;glyph:"filter";tip:"Search options";onClicked:filters.open()}
         }
-        Text {y:Theme.unit(107);text:Mail.selecting?Mail.selectionCount+" selected":Mail.inbox.count+" conversations · online first";font.pixelSize:Theme.unit(10);color:Theme.faint}
+        Text {textFormat:Text.PlainText;y:Theme.unit(107);text:Mail.selecting?Mail.selectionCount+" selected":Mail.inbox.count+" conversations · online first";font.pixelSize:Theme.unit(10);color:Theme.faint}
         Row {anchors.right:parent.right;y:Theme.unit(98);visible:Mail.selecting
             FluidButton{text:"Select all";onClicked:Mail.selectAll()}
             FluidButton{glyph:"archive";tip:"Archive selection";enabled:Mail.selectionCount>0;onClicked:Mail.mutate("archive")}
@@ -56,11 +56,11 @@ Item {
             Rectangle{x:Theme.unit(14);y:Theme.unit(12);width:Theme.unit(5);height:width;radius:width/2;color:Theme.accent;visible:row.item.unread}
             Column {x:Theme.unit(60);y:Theme.unit(10);width:row.width-x-Theme.unit(21);spacing:Theme.unit(3)
                 Row {width:parent.width
-                    Text {id:senderText;width:parent.width-Theme.unit(65);text:row.item.sender.replace(/<.*>/g,"").trim();font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Medium;color:Theme.text;elide:Text.ElideRight}
-                    Text {width:Theme.unit(65);horizontalAlignment:Text.AlignRight;text:Theme.date(row.item.date);font.pixelSize:Theme.unit(9);color:row.item.unread?Theme.accent:Theme.faint}
+                    Text {textFormat:Text.PlainText;id:senderText;width:parent.width-Theme.unit(65);text:row.item.sender.replace(/<.*>/g,"").trim();font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Medium;color:Theme.text;elide:Text.ElideRight}
+                    Text {textFormat:Text.PlainText;width:Theme.unit(65);horizontalAlignment:Text.AlignRight;text:Theme.date(row.item.date);font.pixelSize:Theme.unit(9);color:row.item.unread?Theme.accent:Theme.faint}
                 }
-                Text {id:subjectText;width:parent.width;text:row.item.subject||"(No subject)";font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Normal;color:row.item.unread?Theme.text:Theme.muted;elide:Text.ElideRight}
-                Text {id:snippetText;width:parent.width;text:row.item.snippet;font.pixelSize:Theme.unit(10);color:Theme.faint;elide:Text.ElideRight}
+                Text {textFormat:Text.PlainText;id:subjectText;width:parent.width;text:row.item.subject||"(No subject)";font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Normal;color:row.item.unread?Theme.text:Theme.muted;elide:Text.ElideRight}
+                Text {textFormat:Text.PlainText;id:snippetText;width:parent.width;text:row.item.snippet;font.pixelSize:Theme.unit(10);color:Theme.faint;elide:Text.ElideRight}
             }
             MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:(mouse)=>{let p=row.mapToItem(root.scene,0,0);if(mouse.button===Qt.RightButton)root.contextRequested(row.item,p.x+mouse.x,p.y+mouse.y);else Mail.selectRow(row.index,mouse.modifiers,p.x,p.y,row.width,row.height,row.projection())}}
             Row {x:row.width-width-Theme.unit(12)+(1-rowHover.value)*Theme.unit(12);y:Theme.unit(29);spacing:Theme.unit(1);opacity:Math.max(0,Math.min(1,rowHover.value));enabled:hover.hovered;visible:!Mail.selecting
@@ -92,7 +92,7 @@ Item {
         id:filters;x:header.x;y:header.y+Theme.unit(131);width:header.width;padding:Theme.unit(18)
         background:Rectangle{radius:Theme.unit(16);color:Theme.raised;border.width:1;border.color:Theme.outline}
         Column{spacing:Theme.unit(12);width:parent.width
-            Text{text:"Search in Gmail";color:Theme.text;font.pixelSize:Theme.unit(14);font.weight:Font.DemiBold}
+            Text {textFormat:Text.PlainText;text:"Search in Gmail";color:Theme.text;font.pixelSize:Theme.unit(14);font.weight:Font.DemiBold}
             TextField{id:from;placeholderText:"From address";width:parent.width}
             TextField{id:subject;placeholderText:"Subject contains";width:parent.width}
             CheckBox{id:attachment;text:"Has attachments"}

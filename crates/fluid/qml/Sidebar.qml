@@ -27,7 +27,7 @@ Item {
     Item {
         id:fixedHeader;x:Theme.unit(22);y:Theme.unit(18);width:parent.width-2*x;height:Theme.unit(103)
         Image {id:logo;source:root.collapsed?"qrc:/brand/io.github.lumamail.Luma.svg":"qrc:/brand/luma-wordmark.png";width:root.collapsed?Theme.unit(32):Theme.unit(105);height:Theme.unit(36);fillMode:Image.PreserveAspectFit}
-        Text{x:root.collapsed?0:Theme.unit(1);y:Theme.unit(40);text:"Online-first mail";color:Theme.muted;font.pixelSize:Theme.unit(10);visible:!root.collapsed}
+        Text {textFormat:Text.PlainText;x:root.collapsed?0:Theme.unit(1);y:Theme.unit(40);text:"Online-first mail";color:Theme.muted;font.pixelSize:Theme.unit(10);visible:!root.collapsed}
         FluidButton {
             id:composeButton;y:Theme.unit(63);width:parent.width;height:Theme.unit(41);primary:true;glyph:"compose";text:root.collapsed?"":"Compose";tip:"New message · Ctrl+N"
             onClicked:{let p=mapToItem(null,0,0);root.composeAt(p.x,p.y,width,height)}
@@ -65,7 +65,7 @@ Item {
                 }
             }
             Item{width:1;height:Theme.unit(23)}
-            Text {x:Theme.unit(12);text:"YOUR ACCOUNTS";font.pixelSize:Theme.unit(9);font.letterSpacing:1.2;font.weight:Font.DemiBold;color:Theme.faint;visible:!root.collapsed}
+            Text {textFormat:Text.PlainText;x:Theme.unit(12);text:"YOUR ACCOUNTS";font.pixelSize:Theme.unit(9);font.letterSpacing:1.2;font.weight:Font.DemiBold;color:Theme.faint;visible:!root.collapsed}
             Repeater {
                 model:Mail.settings.accounts||[]
                 delegate:Column {
@@ -74,8 +74,8 @@ Item {
                         width:parent.width;height:Theme.unit(62)
                         Avatar{x:Theme.unit(10);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(32);height:width;sender:account.modelData.name||account.modelData.email}
                         Column {x:Theme.unit(53);anchors.verticalCenter:parent.verticalCenter;visible:!root.collapsed;width:parent.width-x-8;spacing:3
-                            Text {text:account.modelData.name||account.modelData.email;color:Theme.text;font.pixelSize:Theme.unit(12);elide:Text.ElideRight;width:parent.width}
-                            Text {text:account.modelData.email;color:Theme.faint;font.pixelSize:Theme.unit(10);elide:Text.ElideMiddle;width:parent.width}
+                            Text {textFormat:Text.PlainText;text:account.modelData.name||account.modelData.email;color:Theme.text;font.pixelSize:Theme.unit(12);elide:Text.ElideRight;width:parent.width}
+                            Text {textFormat:Text.PlainText;text:account.modelData.email;color:Theme.faint;font.pixelSize:Theme.unit(10);elide:Text.ElideMiddle;width:parent.width}
                         }
                         Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:accountArrow.value;Motion{id:accountArrow;target:root.accountOpen===account.modelData.id?90:0;enabled:Theme.motion}}
                         MouseArea{anchors.fill:parent;onClicked:{root.accountOpen=root.accountOpen===account.modelData.id?"":account.modelData.id;if(root.accountOpen!=="")Mail.setView("inbox",account.modelData.id)}}

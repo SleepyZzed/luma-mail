@@ -56,6 +56,8 @@ void MotionSmoke::begin() {
     QTimer::singleShot(1000,this,[this]{
         check("opening spring reaches rest",!morph->property("active").toBool()&&!morph->property("moving").toBool());
         check("reader shows latest selection",bridge->reader().value("key").toMap().value("id")=="preview3");
+        auto subject=visualItem(window->contentItem(),"readerSubject");
+        check("mail headers render as literal text",subject&&subject->property("textFormat").toInt()==int(Qt::PlainText));
         auto projected=visualItem(window->contentItem(),"projectedAvatar");
         auto actual=visualItem(window->contentItem(),"readerAvatar-0");
         check("avatar handoff matches reader geometry",projected&&actual&&QLineF(projected->mapToScene(QPointF()),actual->mapToScene(QPointF())).length()<1&&std::abs(projected->width()-actual->width())<.5);

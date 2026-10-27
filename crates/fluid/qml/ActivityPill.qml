@@ -9,5 +9,5 @@ Item {
     Rectangle {id:dot;x:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;width:Math.max(1,presence.value);height:width;radius:height/2;color:root.busy?Theme.accent:Theme.muted
         Motion{id:presence;target:Theme.unit(root.busy?8:5);enabled:Theme.motion}
     }
-    Text {id:caption;anchors.left:dot.right;anchors.leftMargin:Theme.unit(9);anchors.right:parent.right;anchors.rightMargin:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;text:root.label;elide:Text.ElideRight;color:Theme.muted;font.family:Theme.family;font.pixelSize:Theme.unit(10)}
+    Text {textFormat:Text.PlainText;id:caption;anchors.left:dot.right;anchors.leftMargin:Theme.unit(9);anchors.right:parent.right;anchors.rightMargin:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;text:root.label;elide:Text.ElideRight;color:Theme.muted;font.family:Theme.family;font.pixelSize:Theme.unit(10)}
 }
