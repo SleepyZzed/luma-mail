@@ -6,7 +6,9 @@ mod clipboard;
 mod compose;
 mod compose_commands;
 mod mail;
+mod photos;
 mod protocol;
+mod reader;
 mod resident;
 use luma_core::registration;
 

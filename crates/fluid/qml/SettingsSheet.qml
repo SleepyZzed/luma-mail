@@ -1,11 +1,13 @@
 import QtQuick
 import QtQuick.Controls
 Item {
-    id:root
+    id:root;objectName:"settingsPanel"
     property bool opened:false
     property real cacheBytes:-1
     property string notice:""
-    onOpenedChanged:if(opened){notice="";Mail.send("cacheUsage")}
+    property var photoStats:({})
+    function updatePhotoStats(){photoStats=Mail.profileStats()}
+    onOpenedChanged:if(opened){notice="";Mail.send("cacheUsage");updatePhotoStats()}
     signal closeRequested()
     visible:opened||panel.y<height;z:100
     Motion{id:backdrop;target:root.opened?.45:0;epsilon:.002;enabled:Theme.motion}
@@ -18,8 +20,26 @@ Item {
         ScrollView{id:settingsScroll;x:Theme.unit(30);y:Theme.unit(93);width:parent.width-2*x;height:parent.height-y-Theme.unit(24);contentWidth:availableWidth;clip:true
         Column{width:settingsScroll.availableWidth;spacing:Theme.unit(20)
             Text {textFormat:Text.PlainText;text:"ACCOUNTS";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
-            Repeater{model:Mail.settings.accounts||[];delegate:Row{required property var modelData;spacing:Theme.unit(14);Avatar{sender:modelData.name||modelData.email}Column{spacing:5;Text {textFormat:Text.PlainText;text:modelData.name||modelData.email;color:Theme.text;font.pixelSize:Theme.unit(13)}Text {textFormat:Text.PlainText;text:modelData.email;color:Theme.muted;font.pixelSize:Theme.unit(11)}}}}
+            Repeater{model:Mail.settings.accounts||[];delegate:Column{
+                id:accountSettings;required property var modelData;width:parent.width;spacing:Theme.unit(8)
+                Row{width:parent.width;spacing:Theme.unit(14)
+                    Avatar{sender:accountSettings.modelData.name||accountSettings.modelData.email;account:accountSettings.modelData.id;photoSender:accountSettings.modelData.email;active:root.opened}
+                    Column{width:parent.width-Theme.unit(54);spacing:5
+                        Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideRight;text:accountSettings.modelData.name||accountSettings.modelData.email;color:Theme.text;font.pixelSize:Theme.unit(13)}
+                        Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideMiddle;text:accountSettings.modelData.email;color:Theme.muted;font.pixelSize:Theme.unit(11)}
+                    }
+                }
+                Row{spacing:Theme.unit(8)
+                    FluidCheck{text:"Contact photos";checked:accountSettings.modelData.contact_photos||false;onToggled:{if(checked)Mail.send("authStart",{account:accountSettings.modelData.id,photos:true});else Mail.send("accountUpdate",{account:accountSettings.modelData.id,contact_photos:false})}}
+                    FluidButton{text:"Reconnect";tip:"Reconnect this Google account and its enabled features";onClicked:Mail.send("authStart",{account:accountSettings.modelData.id})}
+                }
+            }}
             FluidButton {text:"Sign in with Google";glyph:"add";primary:true;onClicked:Mail.send("authStart",{drive:true,settings:true,photos:true})}
+            Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"Photos come from Google Contacts and your connected accounts where Google exposes them. Gmail can display additional private profile pictures that other clients cannot retrieve; these senders keep their initials.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+            Row{spacing:Theme.unit(12)
+                FluidButton{text:"Retry visible photos";onClicked:{Mail.send("photosReset");root.notice="Retrying supported photos. The lookup rate limit still applies."}}
+                Text{textFormat:Text.PlainText;anchors.verticalCenter:parent.verticalCenter;text:(root.photoStats.images||0)+" photos · "+((root.photoStats.bytes||0)/1048576).toFixed(2)+" MiB RAM";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+            }
             Rectangle{width:parent.width;height:1;color:Theme.outline}
             Text {textFormat:Text.PlainText;text:"YOUR INTERFACE";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
             Row{width:parent.width;spacing:Theme.unit(20);Text {textFormat:Text.PlainText;text:"UI scale";color:Theme.text;font.pixelSize:Theme.unit(13);anchors.verticalCenter:parent.verticalCenter}Slider{from:75;to:200;stepSize:5;value:Mail.settings.ui_scale_percent||100;width:Theme.unit(250);onMoved:Mail.send("settingsUpdate",{ui_scale_percent:Math.round(value)})}Text {textFormat:Text.PlainText;text:Math.round(Mail.settings.ui_scale_percent||100)+"%";color:Theme.muted;anchors.verticalCenter:parent.verticalCenter}}
@@ -45,5 +65,5 @@ Item {
         }
         }
     }
-    Connections{target:Mail;function onReceived(event,data){if(event==="recentCleared")root.notice="Recent recipients cleared";else if(event==="cacheUsage")root.cacheBytes=data.bytes}}
+    Connections{target:Mail;function onReceived(event,data){if(event==="recentCleared")root.notice="Recent recipients cleared";else if(event==="cacheUsage")root.cacheBytes=data.bytes}function onProfileChanged(key){if(root.opened)root.updatePhotoStats()}function onProfilesReset(){if(root.opened)root.updatePhotoStats()}}
 }

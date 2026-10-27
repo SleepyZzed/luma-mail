@@ -130,11 +130,13 @@ impl Photos {
             let mut warm = self.warm.lock().await;
             if warm.is_none_or(|at| at.elapsed() > Duration::from_secs(300)) {
                 self.search("").await?;
-                // Google's search cache requires a warmup. This never blocks GTK.
-                tokio::time::sleep(Duration::from_secs(5)).await;
                 *warm = Some(Instant::now());
             }
         }
+        // Remember the successful warmup before sleeping. Scrolling an avatar
+        // away must not restart that request for the next visible sender.
+        let started = self.warm.lock().await.unwrap();
+        tokio::time::sleep(Duration::from_secs(5).saturating_sub(started.elapsed())).await;
         let Some(url) = photo_url(self.search(&email).await?, &email) else {
             return Ok(None);
         };
@@ -195,6 +197,56 @@ impl Photos {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn cancelling_a_visible_avatar_does_not_repeat_the_successful_warmup_request() {
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path, query_param},
+        };
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/people:searchContacts"))
+            .and(query_param("query", ""))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({"results":[]})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/people:searchContacts"))
+            .and(query_param("query", "sender@example.invalid"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({"results":[]})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let mut photos = Photos::new(Arc::new(crate::tests::gmail(&server)));
+        photos.test_endpoint(format!("{}/people:searchContacts", server.uri()));
+        let task = {
+            let photos = photos.clone();
+            tokio::spawn(async move { photos.get("sender@example.invalid").await })
+        };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if photos.warm.lock().await.is_some() {
+                break;
+            }
+            assert!(Instant::now() < deadline);
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        task.abort();
+        assert!(matches!(task.await,Err(e) if e.is_cancelled()));
+        assert!(
+            photos
+                .get("sender@example.invalid")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    }
     #[test]
     fn from_headers_resolve_to_the_same_address_as_google_contacts() {
         for sender in [

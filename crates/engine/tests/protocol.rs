@@ -17,10 +17,18 @@ impl Client {
         Self::configured(false)
     }
     fn configured(two_accounts: bool) -> Self {
+        Self::options(two_accounts, false)
+    }
+    fn options(two_accounts: bool, photos: bool) -> Self {
+        Self::features(two_accounts, photos, false)
+    }
+    fn features(two_accounts: bool, photos: bool, html: bool) -> Self {
         let root = tempfile::tempdir().unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_luma-engine"))
             .arg("--design-preview")
             .env("LUMA_TEST_ROOT", root.path())
+            .env("LUMA_PREVIEW_PHOTOS", if photos { "1" } else { "0" })
+            .env("LUMA_PREVIEW_HTML", if html { "1" } else { "0" })
             .env(
                 "LUMA_PREVIEW_TWO_ACCOUNTS",
                 if two_accounts { "1" } else { "0" },
@@ -286,4 +294,66 @@ fn account_switch_and_recent_recipients_are_account_scoped_and_respect_opt_out()
             .unwrap()
             .all(|e| e.unwrap().path().extension().is_none_or(|s| s != "draft"))
     );
+}
+#[test]
+fn photos_use_bounded_pixel_frames_without_a_disk_cache() {
+    use base64::Engine;
+    let mut c = Client::options(false, true);
+    c.until("ready");
+    c.until("rows");
+    c.send(
+        1,
+        "photoRequest",
+        json!({"account":"preview","sender":"Maya Chen <maya@example.com>","token":"photo1"}),
+    );
+    let photo = c.until("photo");
+    assert_eq!(photo["state"], "available");
+    assert_eq!(photo["requests"][0], "photo1");
+    assert_eq!(photo["width"], 96);
+    let pixels = base64::engine::general_purpose::STANDARD
+        .decode(photo["rgba"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(pixels.len(), 96 * 96 * 4);
+    c.send(2, "photosReset", json!({}));
+    c.until("photosReset");
+    assert!(!c.root.path().join("cache/bodies").exists());
+    assert!(!c.root.path().join("config/composer").exists());
+}
+#[test]
+fn html_documents_preserve_layout_theme_and_privacy_without_mail_files() {
+    let mut c = Client::features(false, false, true);
+    c.until("ready");
+    c.until("rows");
+    c.send(1, "select", json!({"account":"preview","id":"preview0"}));
+    c.until("thread");
+    assert_eq!(c.until("body")["hasHtml"], true);
+    let mut params = json!({"account":"preview","id":"preview0","background":[25,24,31],"foreground":[242,239,247],"dark":true});
+    c.send(2, "renderMessage", params.clone());
+    let doc = c.until("readerDocument");
+    let html = doc["html"].as_str().unwrap();
+    assert!(
+        html.contains("<table")
+            && html.contains("color-scheme:dark")
+            && html.contains("#19181f")
+            && html.contains("https://example.com/review")
+    );
+    assert!(
+        !html.contains("<script")
+            && !html.contains("<iframe")
+            && !html.contains("src=\"https://")
+            && !html.contains("Hidden title")
+    );
+    params["original"] = json!(true);
+    c.send(3, "renderMessage", params);
+    assert!(
+        c.until("readerDocument")["html"]
+            .as_str()
+            .unwrap()
+            .contains("color-scheme:light")
+    );
+    c.send(4, "releaseReader", json!({}));
+    c.send(5, "cacheUsage", json!({}));
+    c.until("cacheUsage");
+    assert!(!c.root.path().join("cache/bodies").exists());
+    assert!(!c.root.path().join("config/composer").exists());
 }

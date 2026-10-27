@@ -60,6 +60,7 @@ Item {
     }
     Avatar {
         objectName:"projectedAvatar"
+        account:root.row.key?.account||"";active:root.active
         x: root.mix(root.source.avatar.x, root.destination.avatar.x)
         y: root.mix(root.source.avatar.y, root.destination.avatar.y)
         width: root.mix(root.source.avatar.width, root.destination.avatar.width)

@@ -68,9 +68,22 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   queued-Send cancellation on paste failure, scrolling Settings, draft policies,
   recent-recipient opt-out/clear and appearance choices. Native tests seed only
   synthetic recipient metadata and do not modify the OS clipboard.
+- Supported photos: visible-avatar subscriptions, two cancellable lookup workers,
+  twelve lookups/minute, 64 queued requests and 128 decoded 96-pixel images
+  (4.5 MiB pixels maximum) in RAM. No address-book mirror or picture disk cache.
+  Settings exposes connection, opt-out and retry. Google Contacts and connected
+  own-account pictures are supported; arbitrary private Gmail pictures are not
+  exposed by Google's public APIs. Native synthetic display/reset tests pass;
+  real two-account acceptance remains pending.
+- HTML checkpoint: GTK-free WebView2/Qt WebEngine adapters, theme/original colours,
+  full measured newsletter height, approved-image path and bounded viewport
+  surfaces. Settings/modal masking, resize and renderer release pass Windows
+  synthetic checks. Private runtime cleanup protects live owners and recovers
+  stale sessions. Linux CI/live-account acceptance and final resource audits are
+  still required.
 - Pending: three-way conflict-resolution UI, attachment previews/media, full
   visual signature editing, mailto and remaining rich-text keyboard flows,
-  supported contact-photo lookup, HTML adapters/privacy/image choices, remaining
+  received plain-text links, remaining
   search/label/settings/context/keyboard flows, background poller/OS notifications,
   lifecycle reclamation, two-account acceptance, Linux packaging and resource
   audits. The preview has incomplete controls and must not replace 0.9 yet.

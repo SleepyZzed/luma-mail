@@ -64,8 +64,8 @@ links, Unicode legacy formatting, bounded undo and blocked resource loading.
 
 27 October 2026, Windows, Qt 6.12/UCRT64: CMake release build and the spring suite
 passed. The real native-window motion and composer suites passed on synthetic
-data. Core tests: 125 passed and one isolated OS-vault test intentionally ignored;
-engine tests: 17 unit tests and five real-pipe tests passed. Strict Clippy is a
+data. Core tests: 126 passed and one isolated OS-vault test intentionally ignored;
+engine tests: 19 unit tests and seven real-pipe tests passed. Strict Clippy is a
 separate required check. Exact run details are in the diagnostic JSON artifact.
 
 The raw frame intervals describe this display/run only. They are not a universal
@@ -92,3 +92,21 @@ before changes resumed. New draft/input operations create no local draft file;
 the real-pipe zero-cache checks verify no local draft file or body-cache directory
 is written. Optional recipient metadata is tested separately. This does not
 replace the final installed-app/process-tree audit.
+
+The photo/HTML checkpoint adds native `--photo-test` (five checks) and
+`--html-test` (eight checks), using `LUMA_PREVIEW_PHOTOS=1` or
+`LUMA_PREVIEW_HTML=1` and `LUMA_PROFILE_REPORT` / `LUMA_HTML_REPORT` JSON paths.
+On Windows, set `LUMA_WEBVIEW` to the built `luma_webview.dll`; its adjacent
+`WebView2Loader.dll` must be present. `cargo build -p luma-webview` builds this
+GTK-free adapter. Linux requires Qt WebEngine/Quick 6.8 or newer. The reader test
+uses only a synthetic newsletter and blocked example.invalid image; it does not
+contact a sender or send mail. All four native Windows scene suites pass after
+the avatar/reader wiring. CTest also covers image budgets and runtime ownership/
+cleanup; active-owner directories must survive stale-session recovery.
+
+The synthetic WebView2 audit recorded 808,765 bytes of temporary runtime metadata,
+63 files, zero History URL rows and no test-body marker. One earlier test folder
+outside the workspace could not be removed because automatic approval rejected
+that deletion; it was left intact. The replacement runtime has finite cleanup
+and stale-session recovery, with successful native cleanup checks. No final
+whole-application RAM/CPU/storage claim is made from these fixture tests.

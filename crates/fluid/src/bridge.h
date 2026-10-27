@@ -9,8 +9,10 @@
 #include <QTimer>
 #include <QPointer>
 #include <QMimeData>
+#include <QElapsedTimer>
 #include <atomic>
 #include <memory>
+class ProfileImages;
 
 class RecordModel : public QAbstractListModel {
     Q_OBJECT
@@ -26,6 +28,7 @@ public:
     void update(const QJsonObject &item,bool insert=false);
     void removeKeys(const QJsonArray &keys);
     void patch(const QString &id,const QJsonObject &values);
+    void trimBodies(const QString&keep);
     static QString key(const QJsonObject &row);
 signals: void countChanged();
 private: QList<QJsonObject> rows;
@@ -55,6 +58,7 @@ class Bridge : public QObject {
 public:
     explicit Bridge(bool preview,QObject *parent=nullptr);
     void start();
+    void setProfileImages(ProfileImages*images){profileImages=images;profileClock.start();}
     RecordModel* inbox(){return &m_inbox;} RecordModel* messages(){return &m_messages;}
     QVariantMap settings()const{return m_settings;} QVariantMap reader()const{return m_reader;} QVariantMap composer()const{return m_composer;}
     QVariantMap palette()const{return m_palette;}
@@ -74,11 +78,16 @@ public:
     Q_INVOKABLE void closeReader();
     Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={});
     Q_INVOKABLE void requestCompose(const QString &mode="new",const QVariantMap &message={});
+    Q_INVOKABLE void renderMessage(const QVariantMap&parameters);
     Q_INVOKABLE void openLink(const QString &url);
     Q_INVOKABLE void attachFiles();
     Q_INVOKABLE void chooseColour(bool background=false);
     Q_INVOKABLE bool interceptImagePaste();
     Q_INVOKABLE void cancelClipboard();
+    Q_INVOKABLE QString watchProfile(const QString&account,const QString&sender);
+    Q_INVOKABLE void releaseProfile(const QString&key);
+    Q_INVOKABLE QString profileSource(const QString&key)const;
+    Q_INVOKABLE QVariantMap profileStats()const;
     Q_INVOKABLE void clearError(){m_error.clear();emit errorChanged();}
     Q_INVOKABLE void quit(int exitCode=0);
 signals:
@@ -91,6 +100,7 @@ signals:
     void composeFocused();void composeClosed();void composeCloseQuestion(QVariantMap data);
     void flushComposer();void colourChosen(QString colour,bool background);void showRequested();
     void clipboardChanged();
+    void profileChanged(QString key);void profilesReset();
     void received(QString event,QVariantMap data); void ready();
 private:
     friend class ComposerSmoke;
@@ -98,6 +108,7 @@ private:
     void systemPalette();
     void pumpClipboard();void resetClipboard(const QString&error=QString());
     void clipboardEvent(const QString&kind,const QJsonObject&data,quint64 id);
+    void releaseProfileEntry(const QString&key);void resetProfiles();bool profileEvent(const QString&kind,const QJsonObject&data,quint64 id);
     bool eventFilter(QObject *object,QEvent *event) override;
     RecordModel m_inbox{this},m_messages{this}; QProcess process; QByteArray pending;
     QVariantMap m_settings,m_reader,m_composer,m_palette; QString m_folder="inbox",m_account,m_search;
@@ -106,10 +117,14 @@ private:
     QString m_activity="Connecting to your inbox",m_activityKind="loading",m_error;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey;
+    QHash<QString,quint64> documentRequests;
     bool quitting=false,quitWaiting=false; int quitCode=0;
     QString clipboardSession,clipboardToken;QByteArray clipboardBytes;
     quint64 clipboardRequest=0;qint64 clipboardOffset=0;
     bool clipboardReady=false,clipboardAcked=false,clipboardCancelled=false,clipboardBegan=false;
     bool clipboardEncoding=false;std::shared_ptr<std::atomic_bool> clipboardEncodingCancel;
     QPointer<QMimeData> clipboardFixture;
+    struct Profile{QString account,sender,token,source,note;int refs=0;bool pending=false;quint64 request=0;qint64 touched=0,expires=0;};
+    QHash<QString,Profile> profiles;QHash<QString,QString> profileTokens;QHash<quint64,QString> profileRequests;
+    ProfileImages*profileImages=nullptr;QElapsedTimer profileClock;qint64 profileSerial=0;
 };

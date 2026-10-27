@@ -28,6 +28,8 @@ ApplicationWindow {
         Reader {
             id:reader;x:inbox.x+inbox.width;width:Math.max(0,scene.width-x);height:parent.height-Theme.unit(44);layoutWidth:scene.readerGoalWidth;projected:morph.active;inlineComposer:composer;visible:width>1
             onReplyAt:(mode,message)=>Mail.requestCompose(mode,message)
+            nativeBlocked:settings.visible||context.visible||errorToast.visible||composer.modalOpen
+            nativeMasks:composer.shown&&!composer.inlineMode?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]
         }
         ActivityPill{x:rail.width+Theme.unit(28);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(13)}
         FluidButton{anchors.right:parent.right;anchors.rightMargin:Theme.unit(20);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(9);text:"Undo";glyph:"undo";visible:Mail.canUndo;onClicked:Mail.send("undo")}

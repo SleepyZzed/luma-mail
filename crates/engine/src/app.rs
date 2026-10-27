@@ -47,6 +47,9 @@ pub struct App {
     pub recent: luma_core::local_compose::Store,
     pub composer: Mutex<Option<Arc<crate::compose::Session>>>,
     pub compose_start: tokio::sync::Mutex<()>,
+    pub photos: Arc<crate::photos::Service>,
+    pub reader_assets: Mutex<crate::reader::Assets>,
+    pub render_lock: tokio::sync::Mutex<()>,
     pub quit_pending: AtomicBool,
     jobs: Mutex<HashMap<u64, (String, tokio::task::AbortHandle)>>,
     slots: Arc<tokio::sync::Semaphore>,
@@ -134,14 +137,19 @@ impl App {
             recent,
             composer: Mutex::new(None),
             compose_start: tokio::sync::Mutex::new(()),
+            photos: Arc::new(crate::photos::Service::default()),
+            reader_assets: Mutex::new(crate::reader::Assets::default()),
+            render_lock: tokio::sync::Mutex::new(()),
             quit_pending: AtomicBool::new(false),
             jobs: Mutex::new(HashMap::new()),
             slots: Arc::new(tokio::sync::Semaphore::new(32)),
         });
         app.rebuild_clients()?;
+        crate::photos::Service::start(&app);
         Ok(app)
     }
     pub fn rebuild_clients(&self) -> Result<()> {
+        self.photos.reset();
         let settings = self.settings.lock().unwrap();
         let mut clients = self.clients.lock().unwrap();
         clients.clear();
@@ -226,9 +234,12 @@ impl App {
                 .iter()
                 .filter(|(_, (kind, _))| {
                     if action == "view" {
-                        matches!(kind.as_str(), "view" | "page" | "select" | "message")
+                        matches!(
+                            kind.as_str(),
+                            "view" | "page" | "select" | "message" | "renderMessage"
+                        )
                     } else {
-                        matches!(kind.as_str(), "select" | "message")
+                        matches!(kind.as_str(), "select" | "message" | "renderMessage")
                     }
                 })
                 .map(|(id, _)| *id)
@@ -242,6 +253,7 @@ impl App {
                 self.generation.store(id, Ordering::SeqCst);
             }
             self.reading.store(id, Ordering::SeqCst);
+            self.reader_assets.lock().unwrap().clear();
         }
         let task = tokio::spawn(async move {
             let _permit = permit;
@@ -258,6 +270,7 @@ impl App {
                     "page" => crate::mail::page(&owner, command.id, false).await,
                     "select" => crate::mail::open(&owner, &command).await,
                     "message" => crate::mail::body(&owner, &command).await,
+                    "renderMessage" => crate::reader::render(&owner, &command).await,
                     "mutate" => crate::mail::mutate(&owner, &command).await,
                     "undo" => crate::mail::undo(&owner, command.id).await,
                     "authStart" => crate::accounts::auth(&owner, &command).await,
@@ -267,6 +280,16 @@ impl App {
                     "accountRemove" => crate::accounts::remove(&owner, &command).await,
                     "labels" => crate::accounts::labels(&owner, &command).await,
                     "themeReload" => crate::accounts::theme(&owner, command.id).await,
+                    "photoRequest" => owner.photos.request(&owner, &command).await,
+                    "photoCancel" => {
+                        owner.photos.cancel(command.text("token"));
+                        Ok(())
+                    }
+                    "photosReset" => {
+                        owner.photos.reset();
+                        owner.events.emit(id, "photosReset", json!({})).await;
+                        Ok(())
+                    }
                     "recentClear" => {
                         let store = owner.recent.clone();
                         tokio::task::spawn_blocking(move || store.clear_recent())
@@ -338,6 +361,7 @@ impl App {
         }
     }
     pub async fn shutdown(&self) {
+        self.photos.stop();
         for (_, (_, handle)) in self.jobs.lock().unwrap().drain() {
             handle.abort()
         }

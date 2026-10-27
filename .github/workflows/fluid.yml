@@ -5,6 +5,7 @@ on:
     paths:
       - 'crates/fluid/**'
       - 'crates/engine/**'
+      - 'crates/webview/**'
       - 'crates/core/**'
       - 'data/**'
       - 'Cargo.*'
@@ -38,12 +39,26 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
-          modules: 'qtmultimedia qtshadertools'
+          modules: 'qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning'
           cache: true
       - run: cargo build --locked -p luma-engine
       - run: cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build-fluid --parallel 2
       - run: ctest --test-dir build-fluid --output-on-failure
+      - name: Native private HTML reader test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_HTML_REPORT: ${{ github.workspace }}/fluid-html-linux.json
+          LUMA_PREVIEW_HTML: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --html-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-html-linux
+          path: fluid-html-linux.json
+          if-no-files-found: warn
       - name: Native synthetic scene and real pipe test
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
@@ -72,6 +87,20 @@ jobs:
           name: fluid-composer-linux
           path: fluid-composer-linux.json
           if-no-files-found: warn
+      - name: Native avatar RAM cache and real pipe test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_PROFILE_REPORT: ${{ github.workspace }}/fluid-profile-linux.json
+          LUMA_PREVIEW_PHOTOS: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --photo-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-profile-linux
+          path: fluid-profile-linux.json
+          if-no-files-found: warn
   windows-scene:
     runs-on: windows-latest
     steps:
@@ -90,7 +119,7 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-svg
             mingw-w64-ucrt-x86_64-qt6-multimedia
             mingw-w64-ucrt-x86_64-qt6-shadertools
-      - run: cargo build --locked -p luma-engine
+      - run: cargo build --locked -p luma-engine -p luma-webview
       - shell: msys2 {0}
         run: |
           set -euo pipefail
@@ -102,6 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_WEBVIEW="$(cygpath -m "$PWD")/target/debug/luma_webview.dll"
           export LUMA_MOTION_REPORT="$(cygpath -m "$PWD")/fluid-motion-windows.json"
           export QT_FORCE_STDERR_LOGGING=1
           timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --motion-test >fluid.stdout 2>fluid.stderr
@@ -112,6 +142,24 @@ jobs:
           path: |
             fluid-motion-windows.json
             fluid.stderr
+          if-no-files-found: warn
+      - name: Native private HTML reader test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_WEBVIEW="$(cygpath -m "$PWD")/target/debug/luma_webview.dll"
+          export LUMA_HTML_REPORT="$(cygpath -m "$PWD")/fluid-html-windows.json"
+          export LUMA_PREVIEW_HTML=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --html-test >html.stdout 2>html.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-html-windows
+          path: |
+            fluid-html-windows.json
+            html.stderr
           if-no-files-found: warn
       - name: Native composer and real pipe test
         shell: msys2 {0}
@@ -129,4 +177,21 @@ jobs:
           path: |
             fluid-composer-windows.json
             composer.stderr
+          if-no-files-found: warn
+      - name: Native avatar RAM cache and real pipe test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_PROFILE_REPORT="$(cygpath -m "$PWD")/fluid-profile-windows.json"
+          export LUMA_PREVIEW_PHOTOS=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --photo-test >profile.stdout 2>profile.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-profile-windows
+          path: |
+            fluid-profile-windows.json
+            profile.stderr
           if-no-files-found: warn

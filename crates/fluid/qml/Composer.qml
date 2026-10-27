@@ -44,6 +44,7 @@ Item {
     readonly property bool moving:horizontal.running||vertical.running||breadth.running||depth.running
     readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
     visible:shown||moving;clip:true;z:70
+    readonly property bool modalOpen:closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
     Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&!drag.active}
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&!drag.active}

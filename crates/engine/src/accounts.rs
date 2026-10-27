@@ -115,6 +115,8 @@ pub async fn account_update(app: &App, c: &Command) -> Result<()> {
     if !app.preview {
         app.rebuild_clients()?;
     }
+    app.photos.reset();
+    app.events.emit(c.id, "photosReset", json!({})).await;
     publish(app, c.id).await;
     Ok(())
 }
@@ -176,6 +178,8 @@ pub async fn remove(app: &App, c: &Command) -> Result<()> {
     if !app.preview {
         app.rebuild_clients()?;
     }
+    app.photos.reset();
+    app.events.emit(c.id, "photosReset", json!({})).await;
     publish(app, c.id).await;
     Ok(())
 }
@@ -286,6 +290,7 @@ pub async fn auth(app: &Arc<App>, c: &Command) -> Result<()> {
     app.paths.save(&settings)?;
     *app.settings.lock().unwrap() = settings;
     app.rebuild_clients()?;
+    app.events.emit(c.id, "photosReset", json!({})).await;
     publish(app, c.id).await;
     app.events
         .emit(c.id, "authComplete", json!({"account":id}))

@@ -42,17 +42,19 @@ Item {
             function box(item) {let p=item.mapToItem(row,0,0);return Qt.rect(p.x,p.y,item.width,item.height)}
             function projection() {return {avatar:box(avatar),sender:box(senderText),subject:box(subjectText),snippet:box(snippetText)}}
             property bool removing:false
+            property bool pooled:false
             width:list.width;height:Math.max(0,rowHeight.value);clip:true
             Motion{id:rowHeight;target:row.removing?0:Theme.unit(68);enabled:Theme.motion;onRunningChanged:if(!running&&row.removing)row.ListView.delayRemove=false}
             ListView.onRemove:{ListView.delayRemove=Theme.motion;row.removing=true}
-            ListView.onReused:row.removing=false
+            ListView.onPooled:row.pooled=true
+            ListView.onReused:{row.removing=false;row.pooled=false}
             Motion{id:rowHover;target:hover.hovered?1:0;epsilon:.002;enabled:Theme.motion}
             transform:Translate{y:-rowHover.value*Theme.unit(1)}
             Rectangle {anchors.fill:parent;anchors.margins:Theme.unit(2);radius:Theme.unit(17);color:row.selected||row.open?Theme.selected:Theme.hover;opacity:row.selected||row.open?1:Math.max(0,Math.min(1,rowHover.value))*.8
                 border.width:row.open?1:0;border.color:Qt.rgba(Theme.accent.r,Theme.accent.g,Theme.accent.b,.22)
             }
             HoverHandler{id:hover}
-            Avatar {id:avatar;x:Theme.unit(16);y:Theme.unit(12);sender:row.item.sender;width:Theme.unit(32);height:width}
+            Avatar {id:avatar;x:Theme.unit(16);y:Theme.unit(12);sender:row.item.sender;account:row.item.key.account;active:!row.pooled&&list.width>1&&row.y+row.height>list.contentY&&row.y<list.contentY+list.height;width:Theme.unit(32);height:width}
             Rectangle{x:Theme.unit(14);y:Theme.unit(12);width:Theme.unit(5);height:width;radius:width/2;color:Theme.accent;visible:row.item.unread}
             Column {x:Theme.unit(60);y:Theme.unit(10);width:row.width-x-Theme.unit(21);spacing:Theme.unit(3)
                 Row {width:parent.width

@@ -1,5 +1,11 @@
 #include "bridge.h"
 #include "motion_smoke.h"
+#include "profiles.h"
+#include "reader_profile.h"
+#include "runtime_cleanup.h"
+#ifdef LUMA_WEBENGINE
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#endif
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -12,17 +18,28 @@
 #include <QTimer>
 #include <QIcon>
 void startComposerSmoke(Bridge*,QQuickWindow*);
+void startProfileSmoke(Bridge*,QQuickWindow*);
+void startHtmlSmoke(Bridge*,QQuickWindow*);
 
 int main(int argc,char**argv){
     QCoreApplication::setAttribute(Qt::AA_DisableShaderDiskCache);
+#ifdef LUMA_WEBENGINE
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS",qgetenv("QTWEBENGINE_CHROMIUM_FLAGS")+" --disable-gpu-shader-disk-cache --disable-background-networking --disable-component-update --no-first-run");
+    QtWebEngineQuick::initialize();
+#endif
     qputenv("QT_QUICK_CONTROLS_STYLE","Basic");
     qputenv("QML_DISABLE_DISK_CACHE","1");
     QQuickStyle::setStyle("Basic");
     QApplication app(argc,argv);app.setApplicationName("Luma Mail");app.setOrganizationName("Luma Mail");app.setApplicationVersion("0.10.0");
     app.setStyle("Fusion");app.setWindowIcon(QIcon(":/brand/io.github.lumamail.Luma.svg"));
+    ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
     QTemporaryDir isolated;if(preview&&qEnvironmentVariableIsEmpty("LUMA_TEST_ROOT"))qputenv("LUMA_TEST_ROOT",isolated.path().toUtf8());
     Bridge bridge(preview);QQmlApplicationEngine engine;
+#ifdef LUMA_WEBENGINE
+    engine.rootContext()->setContextProperty("ReaderProfile",createReaderProfile(&engine));
+#endif
+    auto profiles=new ProfileImages;engine.addImageProvider("profiles",profiles);bridge.setProfileImages(profiles);
     engine.rootContext()->setContextProperty("Mail",&bridge);
     engine.rootContext()->setContextProperty("isWindows",
 #ifdef Q_OS_WIN
@@ -35,6 +52,8 @@ int main(int argc,char**argv){
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     if(preview&&app.arguments().contains("--motion-test"))new MotionSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--photo-test"))startProfileSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--html-test"))startHtmlSmoke(&bridge,window);
     QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",window,[window]{window->show();window->raise();window->requestActivate();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
     QObject::connect(&tray,&QSystemTrayIcon::activated,window,[window](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick){window->show();window->raise();window->requestActivate();}});tray.show();
     engine.rootContext()->setContextProperty("trayAvailable",QSystemTrayIcon::isSystemTrayAvailable());

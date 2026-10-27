@@ -26,6 +26,10 @@ void RecordModel::append(const QJsonArray&a){QList<QJsonObject>fresh;QSet<QStrin
 void RecordModel::update(const QJsonObject&r,bool insert){auto k=key(r);for(int i=0;i<rows.size();++i)if(key(rows[i])==k){rows[i]=r;emit dataChanged(index(i),index(i),{Qt::UserRole+1});return;}if(insert&&rows.size()<1000){int at=0;while(at<rows.size()&&rows[at]["date"].toInteger()>r["date"].toInteger())++at;beginInsertRows({},at,at);rows.insert(at,r);endInsertRows();emit countChanged();}}
 void RecordModel::removeKeys(const QJsonArray&a){QSet<QString>keys;for(auto k:a){QJsonObject r;r["key"]=k;keys.insert(key(r));}for(int i=rows.size()-1;i>=0;--i)if(keys.contains(key(rows[i]))){beginRemoveRows({},i,i);rows.removeAt(i);endRemoveRows();}emit countChanged();}
 void RecordModel::patch(const QString&id,const QJsonObject&v){for(int i=0;i<rows.size();++i)if(rows[i]["id"].toString()==id){for(auto it=v.begin();it!=v.end();++it)rows[i][it.key()]=it.value();emit dataChanged(index(i),index(i),{Qt::UserRole+1});return;}}
+void RecordModel::trimBodies(const QString&keep){
+    qint64 bytes=0;int count=0;for(const auto&r:rows){bytes+=(r["text"].toString().size()+r["document"].toString().size())*2;count+=r.contains("text");}
+    for(int i=0;i<rows.size()&&(bytes>16*1024*1024||count>8);++i){auto&r=rows[i];if(r["id"]==keep||!r.contains("text"))continue;bytes-=(r["text"].toString().size()+r["document"].toString().size())*2;--count;r.remove("text");r.remove("document");emit dataChanged(index(i),index(i),{Qt::UserRole+1});}
+}
 
 Bridge::Bridge(bool preview,QObject*p):QObject(p),m_preview(preview){
     systemPalette();
@@ -63,21 +67,28 @@ void Bridge::start(){
     process.setProgram(binary);process.setArguments(m_preview?QStringList{"--design-preview"}:QStringList{});process.start();
 }
 quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!=QProcess::Running)return 0;auto id=++serial;QJsonObject c{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(c).toJson(QJsonDocument::Compact);if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}process.write(bytes+'\n');return id;}
-void Bridge::consume(){pending+=process.readAllStandardOutput();if(pending.size()>16*1024*1024){process.kill();return;}while(true){auto n=pending.indexOf('\n');if(n<0)break;auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}}
+void Bridge::consume(){pending+=process.readAllStandardOutput();while(true){auto n=pending.indexOf('\n');if(n<0)break;if(n>16*1024*1024){process.kill();pending.clear();return;}auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}if(pending.size()>16*1024*1024){process.kill();pending.clear();}}
 void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
     if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
+    if(profileEvent(kind,d,quint64(id))){emit received(kind=="error"?"photoError":kind,d.toVariantMap());return;}
     if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();auto path=d["configPath"].toString();if(QDir(path).exists())paletteWatcher.addPath(path);systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}
     else if(kind=="settings"){m_settings=d.toVariantMap();systemPalette();emit settingsChanged();}
     else if(kind=="theme"){if(d.contains("background")){m_palette=d.toVariantMap();emit paletteChanged();}else systemPalette();}
     else if(kind=="authUrl"){openLink(d["url"].toString());}
     else if(kind=="viewReset"){if(quint64(id)<viewRequest)return;m_inbox.replace({});m_messages.replace({});m_readerOpen=false;m_reader.clear();emit readerChanged();}
     else if(kind=="rows"){if(quint64(d["generation"].toInteger())<viewRequest)return;if(d["reset"].toBool())m_inbox.replace(d["items"].toArray());else m_inbox.append(d["items"].toArray());m_more=d["more"].toBool();m_activity="Your inbox, with room to breathe";m_activityKind="idle";emit activityChanged();emit viewChanged();}
-    else if(kind=="thread"){if(quint64(id)<readerRequest)return;m_reader=d.toVariantMap();m_messages.replace(d["messages"].toArray());emit readerChanged();}
+    else if(kind=="thread"){if(quint64(id)<readerRequest)return;documentRequests.clear();m_reader=d.toVariantMap();m_messages.replace(d["messages"].toArray());emit readerChanged();}
     else if(kind=="body"){
         const auto key=m_reader.value("key").toMap();
         if(!m_readerOpen || quint64(d["reading"].toInteger())!=readerRequest || d["account"].toString()!=key.value("account").toString())return;
         m_messages.patch(d["id"].toString(),d);
+        m_messages.trimBodies(d["id"].toString());
+    }
+    else if(kind=="readerDocument"){
+        const auto key=m_reader.value("key").toMap();const auto message=d["id"].toString();
+        if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest||d["account"].toString()!=key.value("account").toString()||documentRequests.value(message)!=quint64(id))return;
+        m_messages.patch(message,{{"document",d["html"]},{"externalLoaded",d["externalLoaded"]},{"failedImages",d["failedImages"]},{"documentPending",false}});m_messages.trimBodies(message);
     }
     else if(kind=="rowChanged"){m_inbox.update(d["row"].toObject(),d["insert"].toBool());}
     else if(kind=="mutation"){m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
@@ -129,9 +140,10 @@ bool Bridge::isSelected(const QVariantMap&r)const{return m_selection.contains(Re
 void Bridge::selectionMode(bool on){m_selecting=on;if(!on)m_selection.clear();emit selectionChanged();}
 void Bridge::selectAll(){m_selecting=true;for(int i=0;i<m_inbox.rowCount();++i)m_selection.insert(RecordModel::key(QJsonObject::fromVariantMap(m_inbox.at(i))));emit selectionChanged();}
 void Bridge::clearSelection(){m_selection.clear();m_selecting=false;emit selectionChanged();}
-void Bridge::closeReader(){if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();emit readerChanged();send("releaseReader");}
+void Bridge::closeReader(){if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();m_messages.replace({});documentRequests.clear();m_reader.clear();emit readerChanged();send("releaseReader");}
 void Bridge::mutate(const QString&a,const QVariantMap&r){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a}});}
 void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}
+void Bridge::renderMessage(const QVariantMap&parameters){const auto message=parameters.value("id").toString();documentRequests[message]=send("renderMessage",parameters);m_messages.patch(message,{{"documentPending",true}});}
 void Bridge::openLink(const QString&raw){QUrl u(raw);if(u.isValid()&&(u.scheme()=="https"||u.scheme()=="http"||u.scheme()=="mailto"))QDesktopServices::openUrl(u);}
 void Bridge::quit(int exitCode){
     if(quitting||quitWaiting)return;quitWaiting=true;quitCode=exitCode;

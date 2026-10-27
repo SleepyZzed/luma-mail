@@ -119,7 +119,9 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
             .cloned();
         if let Some(row) = row {
             app.events.emit(c.id,"thread",json!({"key":key,"subject":row.subject,"messages":[{"id":key.id,"from":row.sender,"to":"alex@example.com","date":row.date,"subject":row.subject,"unread":row.unread,"starred":row.starred,"important":false,"attachments":[]}]})).await;
-            app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":key.id,"text":format!("{}\n\n{}\n\nThis is a synthetic design preview. No Gmail account or local mailbox is used.",row.subject,row.snippet),"html":"","attachments":[]})).await;
+            let has_html =
+                key.id == "preview0" && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1");
+            app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":key.id,"text":format!("{}\n\n{}\n\nThis is a synthetic design preview. No Gmail account or local mailbox is used.",row.subject,row.snippet),"hasHtml":has_html,"externalImages":has_html,"attachments":[]})).await;
         }
         return Ok(());
     }
@@ -234,17 +236,16 @@ pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
     }
     let text = composer::readable(&message.payload)?;
     let html = html_mail::body(&message.payload)?.filter(|h| html_mail::needs_layout(h));
-    let document = html
-        .as_ref()
-        .map(|h| html_mail::document(h, HashMap::new()))
-        .unwrap_or_default();
     let attachments = message_header(&message)["attachments"].clone();
     // Bodies are retained only for the selected reader. No historical preload.
     {
         let mut v = app.view.lock().unwrap();
         v.bodies.insert(Arc::new(message.clone()));
     }
-    app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":message.id,"text":text,"html":document,"attachments":attachments,"externalImages":!luma_core::mail_images::sources(&message.payload).is_empty()})).await;
+    let external = luma_core::mail_images::sources(&message.payload)
+        .iter()
+        .any(|s| s.starts_with("https://"));
+    app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":message.id,"text":text,"hasHtml":html.is_some(),"attachments":attachments,"externalImages":external})).await;
     if message.has("UNREAD") {
         let _lock = app.mutation.lock().await;
         if !app.protect_reader_write(c.id, reading, mutation_serial) {

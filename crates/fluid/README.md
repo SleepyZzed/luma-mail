@@ -1,8 +1,9 @@
 # Luma Fluid (in progress)
 
 Custom Qt Quick frontend for the existing online-first Rust mail engine. This is
-not the released client yet: HTML, composition and several integration adapters
-are still being ported. Keep using the 0.9 release for normal mail.
+not the released client yet: rich composition, supported photos and private HTML
+reading are wired, while remaining integration/parity and resource gates are
+still in progress. Keep using the 0.9 release for normal mail.
 
 - [Wiring and parity gates](../../docs/ui-migration.md)
 - [Architecture/storage boundary](../../docs/fluid-architecture.md)

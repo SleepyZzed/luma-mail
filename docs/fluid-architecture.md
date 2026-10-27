@@ -16,12 +16,12 @@ Loaded conversation metadata remains capped at 1,000, rendered through a recycle
 QAbstractListModel/ListView. Removal follows server confirmation; state changes
 never replace the entire inbox after an individual operation.
 
-The planned Linux HTML adapter uses off-the-record Qt WebEngine, with memory cache and persistent
+The Linux HTML adapter uses off-the-record Qt WebEngine, with HTTP cache and persistent
 cookies/storage disabled and direct network/file/navigation requests blocked.
-The planned Windows adapter retains the already-used WebView2 engine through a small GTK-free Rust
+The Windows adapter retains the already-used WebView2 engine through a small GTK-free Rust
 native host, because the MinGW Qt distribution does not include Qt WebEngine.
 The browser is created only for real HTML layouts. Plain mail uses native text.
-Native rich composition will use Qt text documents instead of a per-composer browser.
+Native rich composition uses Qt text documents instead of a per-composer browser.
 The native rich document is now wired to RAM-only Rust composer sessions. It
 blocks all text-document network/file resource loading, caps authored input at
 1 MiB/250,000 native characters and undo snapshots at 64/1 MiB. Retained MIME
@@ -36,8 +36,28 @@ Quoted history and online signatures are separate from authored reply text and
 round-trip in Gmail's MIME draft, without local sidecars. Save/send operations
 serialize, reuse one draft ID and do not retry uncertain writes. Quitting uses
 the same close policy and waits for writes; only then may the host stop the child.
-These adapters are parity work still to implement; the current preview displays
-plain text and does not substitute it for HTML in a release.
+The HTML adapter preserves sanitized newsletter tables, full measured height,
+theme/original colour choices and explicitly approved external images. Width
+changes trigger finite measurement; there is no frame callback polling width.
+Only the visible vertical slice receives a compositor surface. Scrolling beyond
+an HTML body or closing the reader releases its renderer. Windows native child
+regions exclude the floating composer and hide for Settings/menus/modal editors.
+These paths have Windows native synthetic coverage; Linux CI and live acceptance
+are separate gates. Attachment previews/media remain pending.
+
+One message's inert PNG image map retains at most 4 MiB of encoded keys/data in
+RAM and clears on reader changes. The native message model retains at most eight
+opened bodies within a 16-MiB UTF-16 text/document budget (a current oversized
+body is bounded by the protocol). It drops older bodies and releases all bodies
+on reader close. Approved images are still anonymous, size-limited and decoded/
+re-encoded through core, with no direct renderer network or file access.
+
+WebView2 creates temporary runtime scaffolding even in private mode. It is kept
+in process-owned `luma-webview-*` temporary directories with active-owner locks,
+finite cleanup retries after renderer closure, final exit cleanup and stale-owner
+recovery after a crash. A synthetic audit found zero browsing-history entries
+and no test message content. This is not a mail cache; final installed-app and
+crash/long-duration resource audits remain required.
 
 The Rust Cache implementation and its on-disk envelope are retained verbatim.
 In particular, full messages with inline attachment data must not enter the body
@@ -63,5 +83,5 @@ rendering. Only the dedicated message renderer may interpret sanitized HTML.
 Qt's QML disk cache and automatic shader disk cache are disabled before startup;
 compiled QML and prebuilt shader bytecode ship inside the executable. This avoids
 introducing a second application cache outside the existing Rust mail budget.
-OS/graphics-driver storage and the unfinished HTML adapters still require the
+OS/graphics-driver storage and the complete renderer process tree still require the
 full final storage audit.

@@ -3,6 +3,8 @@ import QtQuick.Controls
 Item {
     id:root;objectName:"readerPane"
     property bool projected:false
+    property bool nativeBlocked:false
+    property var nativeMasks:[]
     property Item inlineComposer
     property real layoutWidth:width
     property real lastLayoutWidth:600
@@ -40,10 +42,22 @@ Item {
                 delegate:Column {
                     id:message;required property var item;required property int index
                     property bool expanded:index===Mail.messages.count-1
+                    property bool originalColours:false
+                    property bool hasHtml:item.hasHtml||false
+                    function render(external=false){
+                        if(!hasHtml||!expanded||!Mail.readerOpen)return
+                        function rgb(c){return [Math.round(c.r*255),Math.round(c.g*255),Math.round(c.b*255)]}
+                        Mail.renderMessage({account:Mail.reader.key.account,id:item.id,original:originalColours,external:external,background:rgb(Theme.window),foreground:rgb(Theme.text),dark:Theme.dark})
+                    }
+                    onHasHtmlChanged:if(hasHtml)themeDelay.restart()
+                    onOriginalColoursChanged:themeDelay.restart()
+                    onExpandedChanged:if(expanded&&hasHtml)themeDelay.restart()
+                    Timer{id:themeDelay;interval:180;onTriggered:message.render()}
+                    Connections{target:Mail;function onPaletteChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}}
                     width:thread.width;spacing:Theme.unit(18)
                     Item {
                         width:parent.width;height:Theme.unit(53);opacity:root.projected&&message.index===0?0:1
-                        Avatar {id:sender;objectName:"readerAvatar-"+message.index;sender:message.item.from||"";width:Theme.unit(38);height:width;y:Theme.unit(5)}
+                        Avatar {id:sender;objectName:"readerAvatar-"+message.index;sender:message.item.from||"";account:Mail.reader.key?.account||"";active:Mail.readerOpen&&message.y+parent.height>scroll.contentY&&message.y<scroll.contentY+scroll.height;width:Theme.unit(38);height:width;y:Theme.unit(5)}
                         Column {x:Theme.unit(52);anchors.verticalCenter:parent.verticalCenter;width:parent.width-x-Theme.unit(80);spacing:Theme.unit(5)
                             Text {textFormat:Text.PlainText;text:(message.item.from||"").replace(/<.*>/g,"").trim();color:Theme.text;font.pixelSize:Theme.unit(12);font.weight:Font.DemiBold;width:parent.width;elide:Text.ElideRight}
                             Text {textFormat:Text.PlainText;text:"to "+(message.item.to||"");color:Theme.faint;font.pixelSize:Theme.unit(10);width:parent.width;elide:Text.ElideRight}
@@ -58,12 +72,31 @@ Item {
                             id:body;width:parent.width;spacing:Theme.unit(20)
                             Motion{id:reveal;target:root.projected||!Mail.readerOpen?0:1;epsilon:.002;enabled:Theme.motion}
                             opacity:Math.max(0,Math.min(1,reveal.value))
-                            transform:Translate{y:(1-reveal.value)*Theme.unit(18)}
+                            y:(1-reveal.value)*Theme.unit(18)
                             Rectangle{width:parent.width;height:1;color:Theme.outline;opacity:.6}
+                            Row{width:parent.width;spacing:Theme.unit(10);visible:message.hasHtml
+                                FluidButton{text:message.originalColours?"Use theme colours":"Original colours";enabled:!message.item.documentPending;onClicked:message.originalColours=!message.originalColours}
+                                FluidButton{text:message.item.externalLoaded?"Images requested":"Load images";visible:message.item.externalImages||false;enabled:!message.item.documentPending&&!message.item.externalLoaded;tip:"Contact this message’s image servers. This may tell the sender you opened it.";onClicked:message.render(true)}
+                            }
+                            Text{textFormat:Text.PlainText;width:parent.width;visible:message.hasHtml&&message.item.externalImages&&!message.item.externalLoaded;text:"External images are blocked for privacy.";wrapMode:Text.Wrap;color:Theme.faint;font.pixelSize:Theme.unit(10)}
+                            HtmlSurface{
+                                id:htmlHost;width:parent.width;implicitHeight:message.hasHtml?lastHeight:0;height:implicitHeight;visible:message.hasHtml
+                                property real lastHeight:Theme.unit(80)
+                                property bool inView:viewportHeight>0
+                                Loader{
+                                    id:htmlLoader;anchors.fill:parent;active:message.hasHtml&&message.expanded&&Mail.readerOpen&&!root.projected&&htmlHost.inView&&(message.item.document||"")!==""
+                                    source:isWindows?"WindowsReader.qml":"LinuxReader.qml"
+                                    onLoaded:{item.objectName="mailHtml-"+message.item.id;item.page=Qt.binding(()=>message.item.document||"");item.uiScale=Qt.binding(()=>Theme.scale);item.paused=Qt.binding(()=>root.nativeBlocked);item.masks=Qt.binding(()=>root.nativeMasks);htmlHost.lastHeight=item.implicitHeight}
+                                }
+                                Connections{target:htmlLoader.item;function onImplicitHeightChanged(){htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
+                                Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active}
+                            }
                             TextArea {
+                                visible:!message.hasHtml;height:visible?implicitHeight:0
                                 width:parent.width;text:message.item.text||"Opening message…";readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText
                                 color:Theme.text;selectionColor:Theme.selected;font.family:Theme.family;font.pixelSize:Theme.unit(13);padding:0;background:Item{}
                             }
+                            Text{textFormat:Text.PlainText;width:parent.width;visible:(message.item.failedImages||0)>0;text:"Some images could not be previewed within the image size and privacy limits.";wrapMode:Text.Wrap;color:Theme.muted;font.pixelSize:Theme.unit(11)}
                             Row {spacing:Theme.unit(8);visible:Mail.selectionCount<=1
                                 FluidButton {text:"Reply";glyph:"reply";quiet:false;onClicked:root.replyAt("reply",message.item)}
                                 FluidButton {text:"Reply all";glyph:"reply-all";onClicked:root.replyAt("replyAll",message.item)}

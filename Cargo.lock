@@ -2218,6 +2218,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "luma-webview"
+version = "0.9.0"
+dependencies = [
+ "raw-window-handle",
+ "serde_json",
+ "windows-sys 0.61.2",
+ "wry",
+]
+
+[[package]]
 name = "mailparse"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
