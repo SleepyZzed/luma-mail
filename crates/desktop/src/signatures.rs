@@ -154,7 +154,16 @@ fn loaded(
         .hexpand(true)
         .build();
     flow.add_css_class("compose-toolbar");
-    root.append(&flow);
+    root.append(
+        &gtk::ScrolledWindow::builder()
+            .child(&flow)
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .min_content_height(112)
+            .max_content_height(168)
+            .propagate_natural_height(true)
+            .build(),
+    );
     let initial =
         if signature.can_update && signature.html.is_empty() && !account.signature.is_empty() {
             format!(

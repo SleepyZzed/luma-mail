@@ -68,9 +68,13 @@ pub(super) fn start(s: &Rc<State>) {
         apply(&e,"fontSizePt","18");
         js(&e,"document.execCommand('insertText',false,'Signature size check');true").await;
         apply(&e,"insertTable","2x2");
-        let picture=serde_json::json!({"url":"https://example.com/logo.png","data":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==","width":100,"alt":"Synthetic logo"});
+        let picture=serde_json::json!({"url":"https://example.com/logo.png","data":luma_core::html_mail::image_data(include_bytes!("../../../data/luma-wordmark.png")).unwrap(),"width":100,"alt":"Synthetic logo"});
         apply(&e,"insertImage",&picture.to_string());
         js(&e,"true").await;
+        for _ in 0..30 {if js(&e,"Boolean(document.querySelector('#luma-signature img')?.naturalWidth)").await=="true"{break;}glib::timeout_future(Duration::from_millis(50)).await;}
+        assert_eq!(js(&e,"Boolean(document.querySelector('#luma-signature img')?.naturalWidth)").await,"true","Hosted picture preview must decode and display");
+        assert_eq!(js(&e,"document.getElementById('luma-signature').dispatchEvent(new InputEvent('beforeinput',{data:'x',inputType:'insertText',cancelable:true,bubbles:true}))").await,"true","Preview image data must not consume the signature text budget");
+        assert!(e.window.height()<=800,"Signature window should fit an ordinary desktop: {}",e.window.height());
         let html=snapshot(&e).await;
         assert!(html.contains("18pt")&&html.contains("Signature size check")&&html.contains("<table")&&html.contains("https://example.com/logo.png"),"Signature content lost: {html}");
         assert!(!html.contains("data:image")&&!html.contains("data-luma-source"));

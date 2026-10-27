@@ -7,6 +7,11 @@
     if(!element){element=document.createElement('p');element.id='luma-signature-notice';element.setAttribute('role','status');root.before(element);}
     element.textContent=text;
   };
+  const contentLength = () => {
+    const copy=root.cloneNode(true);
+    for(const image of copy.querySelectorAll('img')) {image.setAttribute('src',image.dataset.lumaSource||'');image.removeAttribute('data-luma-source');}
+    return copy.innerHTML.length;
+  };
   const saveRange = () => {
     const s = getSelection();
     if (s.rangeCount && root.contains(s.anchorNode)) range = s.getRangeAt(0).cloneRange();
@@ -19,10 +24,10 @@
       e.preventDefault();notice('Use Insert picture to upload and approve a hosted image copy.');return;
     }
     const text=data?.getData('text/html')||data?.getData('text/plain')||'';
-    if(root.innerHTML.length+text.length>65536){e.preventDefault();notice('Signatures are limited to 64 KiB.');}
+    if(contentLength()+text.length>65536){e.preventDefault();notice('Signatures are limited to 64 KiB.');}
   });
   root.addEventListener('drop',e=>{e.preventDefault();notice('Use Insert picture for files, or paste a bounded text selection.');});
-  root.addEventListener('beforeinput',e=>{if(e.data&&root.innerHTML.length+e.data.length>65536){e.preventDefault();notice('Signatures are limited to 64 KiB.');}});
+  root.addEventListener('beforeinput',e=>{if(e.data&&contentLength()+e.data.length>65536){e.preventDefault();notice('Signatures are limited to 64 KiB.');}});
   root.addEventListener('click', e => {
     picture = e.target.tagName === 'IMG' ? e.target : null;
     if (picture) { const r = document.createRange(); r.selectNode(picture); getSelection().removeAllRanges(); getSelection().addRange(r); saveRange(); }
