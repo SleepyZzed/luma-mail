@@ -6,7 +6,9 @@ async fn js(e: &Editor, code: &str) -> String {
     e.rich.eval(code.into(), move |result| {
         let _ = tx.send(result);
     });
-    rx.await.unwrap().unwrap()
+    rx.await
+        .unwrap()
+        .unwrap_or_else(|error| panic!("Signature script {code}: {error}"))
 }
 async fn snapshot(e: &Editor) -> String {
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -70,7 +72,7 @@ pub(super) fn start(s: &Rc<State>) {
         assert_eq!(js(&e,"(()=>{const r=document.createRange();r.selectNodeContents(document.getElementById('luma-signature').firstChild);getSelection().removeAllRanges();getSelection().addRange(r);return true;})()").await,"true");
         button(e.window.upcast_ref(),"Bold").unwrap().emit_clicked();
         js(&e,"true").await;
-        assert!(snapshot(&e).await.contains("font-weight")||snapshot(&e).await.contains("<b>"));
+        let bold=snapshot(&e).await;assert!(bold.contains("font-weight")||bold.contains("<b>"),"Bold failed: {bold}; {}",e.status.text());
         apply(&e,"fontName","Arial");
         apply(&e,"foreColor","#2456ab");
         apply(&e,"createLink","https://example.com/contact");
@@ -81,7 +83,10 @@ pub(super) fn start(s: &Rc<State>) {
         assert!(html.contains("<ul>")&&html.contains("https://example.com/contact")&&html.contains("Arial"),"Rich formatting lost: {html}");
         js(&e,"(()=>{const r=document.createRange();r.selectNodeContents(document.getElementById('luma-signature'));r.collapse(false);getSelection().removeAllRanges();getSelection().addRange(r);return true;})()").await;
         apply(&e,"fontSizePt","18");
-        js(&e,"document.execCommand('insertText',false,'Signature size check');true").await;
+        js(&e,"(()=>{document.execCommand('insertText',false,'Signature size check');return true;})()").await;
+        assert!(snapshot(&e).await.contains("18pt"),"Point-size typing must survive both rendering engines");
+        apply(&e,"undo","");js(&e,"true").await;assert!(!snapshot(&e).await.contains("Signature size check"));
+        apply(&e,"redo","");js(&e,"true").await;assert!(snapshot(&e).await.contains("Signature size check"));
         apply(&e,"insertTable","2x2");
         let picture=serde_json::json!({"url":"https://example.com/logo.png","data":luma_core::html_mail::image_data(include_bytes!("../../../data/luma-wordmark.png")).unwrap(),"width":100,"alt":"Synthetic logo"});
         apply(&e,"insertImage",&picture.to_string());
@@ -119,8 +124,8 @@ pub(super) fn start(s: &Rc<State>) {
         let weak=Rc::downgrade(&e);let view=e.rich.widget.downgrade();drop(e);
         glib::timeout_future(Duration::from_millis(600)).await;
         assert!(weak.upgrade().is_none(),"Closed signature editor must release its owner");
-        assert!(view.upgrade().is_none(),"Closed signature editor must release the actual WebKit widget");
-        println!("PASS actual Linux signature toolbar, font/colour/link/bullets/table/picture, bounded hosted-image snapshot, separate draft signature, close confirmation and renderer release; no account or upload");
+        assert!(view.upgrade().is_none(),"Closed signature editor must release the actual renderer widget");
+        println!("PASS native visual signature toolbar, font/colour/link/bullets/table/picture, bounded hosted-image snapshot, separate draft signature, close confirmation and renderer release; no account or upload");
         state.app.quit();
     });
 }

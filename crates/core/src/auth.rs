@@ -186,15 +186,32 @@ pub struct TokenResponse {
     pub scope: String,
 }
 
+/// Reflect granted scopes, never requested scopes. Optional denials leave mail usable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Permissions {
+    pub drive: bool,
+    pub settings: bool,
+    pub photos: bool,
+}
+impl TokenResponse {
+    pub fn permissions(&self) -> Result<Permissions> {
+        let granted = |scope| self.scope.split_whitespace().any(|s| s == scope);
+        if !granted(GMAIL_SCOPE) {
+            return Err(Error::Invalid("Gmail access is required to connect this account. Optional Contacts, Drive and sender controls can be skipped.".into()));
+        }
+        Ok(Permissions {
+            drive: granted(DRIVE_SCOPE),
+            settings: granted(SETTINGS_SCOPE),
+            photos: granted(CONTACTS_SCOPE),
+        })
+    }
+}
 pub struct Authorization {
     listener: TcpListener,
     verifier: String,
     state: String,
     redirect: String,
     pub url: Url,
-    drive: bool,
-    settings: bool,
-    photos: bool,
 }
 
 impl Authorization {
@@ -251,9 +268,6 @@ impl Authorization {
             state,
             redirect,
             url,
-            drive,
-            settings,
-            photos,
         })
     }
     pub async fn complete(mut self, http: &Http, client: &ClientConfig) -> Result<TokenResponse> {
@@ -305,15 +319,7 @@ impl Authorization {
             return Err(Error::Reauthenticate);
         }
         let token: TokenResponse = json(response).await?;
-        if !token.scope.split_whitespace().any(|s| s == GMAIL_SCOPE)
-            || (self.drive && !token.scope.split_whitespace().any(|s| s == DRIVE_SCOPE))
-            || (self.settings && !token.scope.split_whitespace().any(|s| s == SETTINGS_SCOPE))
-            || (self.photos && !token.scope.split_whitespace().any(|s| s == CONTACTS_SCOPE))
-        {
-            return Err(Error::Invalid(
-                "Required permissions were not granted by Google".into(),
-            ));
-        }
+        token.permissions()?;
         Ok(token)
     }
 }
@@ -425,5 +431,69 @@ impl TokenManager {
     #[cfg(test)]
     pub(crate) fn test_endpoint(&mut self, url: String) {
         self.endpoint = url;
+    }
+}
+
+#[cfg(test)]
+mod permission_tests {
+    use super::*;
+    #[test]
+    fn granular_optional_denials_and_missing_mail() {
+        for mask in 0..8 {
+            let scopes = [
+                GMAIL_SCOPE,
+                if mask & 1 != 0 { DRIVE_SCOPE } else { "" },
+                if mask & 2 != 0 { SETTINGS_SCOPE } else { "" },
+                if mask & 4 != 0 { CONTACTS_SCOPE } else { "" },
+            ]
+            .join(" ");
+            let token = TokenResponse {
+                access_token: "synthetic".into(),
+                refresh_token: None,
+                expires_in: 60,
+                scope: scopes,
+            };
+            assert_eq!(
+                token.permissions().unwrap(),
+                Permissions {
+                    drive: mask & 1 != 0,
+                    settings: mask & 2 != 0,
+                    photos: mask & 4 != 0
+                }
+            );
+        }
+        let token = TokenResponse {
+            access_token: "synthetic".into(),
+            refresh_token: None,
+            expires_in: 60,
+            scope: format!("{DRIVE_SCOPE} {CONTACTS_SCOPE}"),
+        };
+        assert!(token.permissions().is_err());
+    }
+    #[tokio::test]
+    async fn a_single_consent_url_can_request_all_existing_scopes() {
+        let flow = Authorization::begin_with_photos(
+            &ClientConfig::from_registration("test.apps.googleusercontent.com", "test").unwrap(),
+            true,
+            true,
+            true,
+        )
+        .await
+        .unwrap();
+        let scopes = flow
+            .url
+            .query_pairs()
+            .find(|(k, _)| k == "scope")
+            .unwrap()
+            .1
+            .into_owned();
+        for scope in [GMAIL_SCOPE, DRIVE_SCOPE, SETTINGS_SCOPE, CONTACTS_SCOPE] {
+            assert_eq!(scopes.split_whitespace().filter(|s| *s == scope).count(), 1);
+        }
+        assert!(
+            flow.url
+                .query_pairs()
+                .any(|(k, v)| k == "include_granted_scopes" && v == "true")
+        );
     }
 }

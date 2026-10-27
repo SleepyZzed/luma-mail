@@ -1,7 +1,7 @@
 # Online signatures
 
 Open **Settings → Accounts → an account → Rich signature**, or use the Edit
-button on the composer's Signature row. The Linux editor offers installed fonts,
+button on the composer's Signature row. Both desktop versions offer installed fonts,
 8–72 pt sizing, bold/italic/underline/strikeout, superscript/subscript, text and
 highlight colours, bullets/numbering, indentation, alignment, line spacing,
 hyperlinks, tables, pictures and undo/redo. Microsoft fonts appear when installed;
@@ -21,8 +21,9 @@ available alias signatures; it does not require domain-wide service-account
 access to edit aliases. A plain signature from an older Luma version is offered
 when Gmail has none, and its legacy setting is cleared after a successful online
 save. Arbitrary Outlook/Word RTF import and exact document layout parity are not
-claimed. Windows development builds expose HTML source; the shipping Linux build
-has the visual editor.
+claimed. Both desktop versions provide the visual editor; Linux uses ephemeral WebKit
+and Windows uses a short-lived private WebView2 surface. Editing history is
+bounded to 64 entries / 1 MiB of text snapshots, with shared image previews.
 
 ## Pictures
 

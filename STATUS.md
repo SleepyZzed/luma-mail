@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-0.8.0 is **early access**. It does not complete the original brief. Google sign-in
+0.9.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Branding and data-access verification were submitted on 26 October
 2026 with an English demo and the homepage ownership appeal. Google Auth Platform
@@ -9,7 +9,18 @@ decision and Google's final response remain gates.
 
 ## Implemented and exercised
 
-- Linux visual signatures with fonts, colours, lists, links, tables and hosted
+- Shared native composer colours/highlights, paragraph alignment/spacing/indent,
+  scripts/code, bounded Unicode find/replace and source/visual preservation.
+- A single initial Google consent flow for selected optional features. Actual
+  granted scopes enable each feature; optional denials keep Gmail connected.
+- Windows portable distribution with native Explorer tray, Windows notification
+  backend, Credential Manager, title-bar controls, private WebView2 HTML and
+  signature editing, and in-memory media decoding. The release workflow gates
+  publication on both Linux and Windows validation. See docs/windows.md.
+- Explicit closed-composer ownership release and focus/popover cleanup; Windows
+  renderer geometry/IPC wakes on events rather than a permanent frame/timer loop.
+
+- Linux and Windows visual signatures with fonts, colours, lists, links, tables and hosted
   pictures, backed online by Gmail primary Send-as settings. Provider-neutral
   storage interface; other providers and Gmail named-signature libraries are not
   implemented. Public local-picture Drive copies require explicit confirmation.

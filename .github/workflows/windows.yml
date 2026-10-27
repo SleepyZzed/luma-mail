@@ -1,0 +1,116 @@
+name: Windows x64 build
+on:
+  workflow_call:
+    secrets:
+      LUMA_GOOGLE_CLIENT_ID:
+        required: false
+      LUMA_GOOGLE_CLIENT_SECRET:
+        required: false
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      LUMA_GOOGLE_CLIENT_ID: ${{ secrets.LUMA_GOOGLE_CLIENT_ID }}
+      LUMA_GOOGLE_CLIENT_SECRET: ${{ secrets.LUMA_GOOGLE_CLIENT_SECRET }}
+      PYTHONUTF8: '1'
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-libadwaita
+            mingw-w64-ucrt-x86_64-gst-plugins-good
+            mingw-w64-ucrt-x86_64-gst-libav
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-librsvg
+            mingw-w64-ucrt-x86_64-python
+      - name: Record actual UCRT64 runtime path
+        run: printf 'LUMA_MSYS_PREFIX=%s\n' "$(cygpath -w /ucrt64)" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: rust-cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: windows-ucrt-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: windows-ucrt-${{ runner.os }}-
+      - name: Rust checks
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          cargo test --locked --workspace
+      - name: Registered release binary and native diagnostic build
+        run: |
+          cargo build --locked --release -p luma-mail --features require-google-client
+          cargo build --locked -p luma-mail
+          python packaging/webview2-loader.py --binary target/debug/luma-mail.exe
+          python packaging/webview2-loader.py --binary target/release/luma-mail.exe
+      - name: Ensure official WebView2 runtime
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $runtime=Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $runtime
+          $setup=Start-Process -FilePath $runtime -ArgumentList '/silent','/install' -PassThru -Wait -WindowStyle Hidden
+          if($setup.ExitCode -notin @(0,-2147219195)){Write-Host "WebView2 bootstrapper returned $($setup.ExitCode); native HTML acceptance below is authoritative."}
+      - name: Native Windows compose, navigation, HTML, signature and shell acceptance
+        shell: powershell
+        run: |
+          $env:PATH=(Join-Path $env:LUMA_MSYS_PREFIX 'bin')+';'+$env:PATH
+          # Hosted Server accepts icons but may not expose a visible tray rectangle.
+          # Registration/update, native events and hide/restore remain mandatory.
+          # A normal desktop run keeps the visible-rectangle assertion enabled.
+          $env:LUMA_ALLOW_UNPOSITIONED_TRAY='1'
+          & packaging/test-windows.ps1 -Binary target/debug/luma-mail.exe -Evidence dist/windows-native
+          Remove-Item Env:LUMA_ALLOW_UNPOSITIONED_TRAY
+      - name: Package replaceable runtime dependencies and licence/source inventory
+        run: |
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)"
+          python packaging/windows.py --prefix "$(cygpath -w /ucrt64)" --binary target/release/luma-mail.exe --output "dist/Luma-Mail-$version-windows-x86_64" --version "$version"
+      - name: Relocated package starts without MSYS2 on PATH
+        shell: powershell
+        run: |
+          $bundle=(Get-ChildItem dist -Directory -Filter 'Luma-Mail-*-windows-x86_64' | Select-Object -First 1).FullName
+          $env:PATH="$env:SystemRoot\System32;$env:SystemRoot"
+          & packaging/test-windows.ps1 -Binary (Join-Path $bundle 'luma-mail.exe') -Evidence dist/windows-package -Release
+      - name: Complete Windows process-tree RAM/CPU and zero-cache audit
+        shell: powershell
+        run: |
+          $bundle=(Get-ChildItem dist -Directory -Filter 'Luma-Mail-*-windows-x86_64' | Select-Object -First 1).FullName
+          $env:PATH="$env:SystemRoot\System32;$env:SystemRoot"
+          & packaging/test-windows-performance.ps1 -Binary (Join-Path $bundle 'luma-mail.exe') -Evidence dist/windows-performance
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: luma-mail-windows-x86_64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/*.storage.json
+            dist/windows-*/*.png
+            dist/windows-*/*.json
+            dist/windows-*/*.stdout
+            dist/windows-*/*.stderr
+          if-no-files-found: error
+      - name: Preserve Rust cache after native acceptance failures
+        if: always() && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: windows-ucrt-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}

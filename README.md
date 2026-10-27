@@ -20,9 +20,11 @@ Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
 [Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
 [Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
 [Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.8 early-access AppImage](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.8.0-dev.1)
-and its SHA-256 checksum. Linux CI builds and launch-checks the bundle before
-publishing it. See [AppImage packaging](docs/appimage.md).
+[Download the 0.9 early-access Linux AppImage or Windows x64 ZIP](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.9.0-dev.1)
+and its SHA-256 checksum. Release publication requires both platform build gates.
+Linux remains primary; both versions share the mail engine and features, with
+a Windows title bar and platform-specific rendering/tray/keyring backends. See
+[AppImage packaging](docs/appimage.md) and [Windows usage](docs/windows.md).
 
 The 0.2.0 mail experience and validation are described in
 [PR #1](https://github.com/SleepyZzed/luma-mail/pull/1) and
@@ -32,7 +34,9 @@ The 0.2.1 packaging correction addresses HTML-message crashes on systems without
 the CI host's WebKit installation; see [PR #2](https://github.com/SleepyZzed/luma-mail/pull/2).
 
 Release builds use the maintainer's bundled Google app registration with
-**Sign in with Google**. The older 0.1.1 binary still has the removed JSON import flow.
+**Sign in with Google**. Initial sign-in offers Gmail plus optional Contacts,
+limited Drive access and Gmail settings in one consent flow. Declined optional
+features stay disabled and can be connected later in Settings. The older 0.1.1 binary still has the removed JSON import flow.
 Luma's Desktop registration is provisioned and supplied through the release
 build. On 25 October 2026, the Google app was published as **External / In
 production / unverified**. There is **no per-address test list**. Google's

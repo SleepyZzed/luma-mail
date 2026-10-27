@@ -22,6 +22,7 @@ pub mod preview;
 pub mod provider;
 mod rate;
 pub mod rich_draft;
+pub mod rich_style;
 pub mod search;
 pub mod send_as;
 pub mod sender_rules;
@@ -73,3 +74,5 @@ mod error {
     }
     pub type Result<T> = std::result::Result<T, Error>;
 }
+
+pub mod text_search;

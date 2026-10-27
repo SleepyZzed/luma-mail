@@ -265,3 +265,14 @@ bounded worker permits; local pictures are re-encoded in memory to PNG at most
 persistent browser profile or font files are created. A signature saved as part
 of a Gmail draft/message follows normal on-demand body/cache rules. Legacy plain
 signature preferences are cleared after a successful online save. See signatures.md.
+
+## Windows 0.9
+
+The portable ZIP includes replaceable runtime dependencies, licences and their
+source inventory, not the development toolchain. Runtime browser/codec/font/image
+loader metadata uses a private TEMP session directory, separate from preferences
+and the enforced mail cache. Documents, signature previews and media input remain
+in memory; zero-cache acceptance rejects any retained file under the mail cache
+and any local composer archive. Interrupted sessions may leave disposable runtime
+metadata. Distribution/installed bytes and temporary metadata are reported apart
+from mail cache allocation. There is no new persistent mail or contact store.

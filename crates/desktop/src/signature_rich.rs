@@ -1,7 +1,7 @@
 //! A short-lived editing surface; never a persistent browser profile.
 use crate::ui::State;
 use adw::prelude::*;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 use gtk::glib;
 use luma_core::{Error, Result};
 use std::{cell::Cell, rc::Rc};
@@ -14,9 +14,11 @@ pub(crate) struct RichEditor {
     ready: Rc<Cell<bool>>,
     #[cfg(target_os = "linux")]
     view: webkit6::WebView,
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    view: crate::windows_surface::Surface,
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     source: gtk::TextView,
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     dirty: Rc<Cell<bool>>,
 }
 impl RichEditor {
@@ -81,6 +83,7 @@ impl RichEditor {
                     );
                 }
             });
+            s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
             s.html_refresh.borrow_mut().push(Rc::downgrade(&refresh));
             view.connect_map(move |_| refresh());
             Ok(Self {
@@ -89,7 +92,57 @@ impl RichEditor {
                 ready,
             })
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "windows")]
+        {
+            let colour = s.window.color().to_string();
+            let page = format!(
+                "<!doctype html><html><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'\"><style>body{{margin:0;padding:16px;background:transparent;color:{colour};font:16px/1.4 system-ui,sans-serif}}#luma-signature{{min-height:240px;outline:none;overflow-wrap:anywhere}}img{{max-width:100%;height:auto}}table{{max-width:100%}}a{{color:#4285f4}}</style></head><body><div id=\"luma-signature\" contenteditable=\"{editable}\" spellcheck=\"true\">{safe}</div></body></html>"
+            );
+            let view = crate::windows_surface::Surface::new(
+                crate::windows_platform::webview_runtime(),
+                page,
+                false,
+                |_| {},
+            );
+            view.zoom(crate::presentation::scale(s));
+            let ready = Rc::new(Cell::new(false));
+            let loaded = ready.clone();
+            let weak = Rc::downgrade(s);
+            let weak_view = view.weak();
+            let refresh: Rc<dyn Fn()> = Rc::new(move || {
+                if let (Some(s), Some(view)) = (weak.upgrade(), weak_view()) {
+                    view.zoom(crate::presentation::scale(&s));
+                    view.eval(
+                        format!(
+                            "document.body && (document.body.style.color={})",
+                            serde_json::to_string(&s.window.color().to_string()).unwrap()
+                        ),
+                        |_| {},
+                    );
+                }
+            });
+            s.html_refresh.borrow_mut().retain(|f| f.strong_count() > 0);
+            s.html_refresh.borrow_mut().push(Rc::downgrade(&refresh));
+            let on_map = refresh.clone();
+            view.area.connect_map(move |_| on_map());
+            view.set_on_load(move |view| {
+                refresh();
+                let ready = loaded.clone();
+                view.eval(
+                    format!(
+                        "(()=>{{ {};return Boolean(window.lumaSignature);}})()",
+                        include_str!("signature_editor.js")
+                    ),
+                    move |v| ready.set(v.is_ok_and(|v| v == "true")),
+                );
+            });
+            Ok(Self {
+                widget: view.area.clone().upcast(),
+                view,
+                ready,
+            })
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
             let _ = s;
             let source = gtk::TextView::builder()
@@ -133,6 +186,10 @@ impl RichEditor {
             },
         );
     }
+    #[cfg(target_os = "windows")]
+    pub(super) fn eval(&self, code: String, done: impl FnOnce(Result<String>) + 'static) {
+        self.view.eval(code, done);
+    }
     pub fn command(
         &self,
         command: &str,
@@ -144,7 +201,7 @@ impl RichEditor {
                 "The signature editor is still loading".into(),
             ));
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval(
             format!(
                 "window.lumaSignature.command({},{})",
@@ -163,7 +220,7 @@ impl RichEditor {
                 }))
             },
         );
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
             let b = self.source.buffer();
             let (mut a, mut z) = b.selection_bounds().unwrap_or_else(|| {
@@ -191,11 +248,11 @@ impl RichEditor {
         Ok(())
     }
     pub fn snapshot(&self, done: impl FnOnce(Result<String>) + 'static) {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval("window.lumaSignature.snapshot()".into(), move |result| {
             done(result.and_then(|html| luma_core::signatures::clean(&html)))
         });
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
             let b = self.source.buffer();
             done(luma_core::signatures::clean(&b.text(
@@ -206,21 +263,21 @@ impl RichEditor {
         }
     }
     pub fn dirty(&self, done: impl FnOnce(bool) + 'static) {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval("window.lumaSignature.dirty()".into(), move |v| {
             done(v.map(|s| s == "true").unwrap_or(true))
         });
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         done(self.dirty.get());
     }
     pub fn mark_saved(&self) {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval("window.lumaSignature.saved()".into(), |_| {});
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         self.dirty.set(false);
     }
     pub fn image(&self, url: &str, data: &str) {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval(
             format!(
                 "window.lumaSignature.image({},{})",
@@ -229,12 +286,12 @@ impl RichEditor {
             ),
             |_| {},
         );
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         let _ = (url, data);
     }
     pub fn replace(&self, html: &str) -> Result<()> {
         let html = luma_core::signatures::clean(html)?;
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval(
             format!(
                 "window.lumaSignature.replace({})",
@@ -242,7 +299,7 @@ impl RichEditor {
             ),
             |_| {},
         );
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
             self.source.buffer().set_text(&html);
             self.dirty.set(false);
@@ -250,7 +307,7 @@ impl RichEditor {
         Ok(())
     }
     pub fn images(&self, done: impl FnOnce(Vec<String>) + 'static) {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         self.eval(
             "JSON.stringify(window.lumaSignature.images())".into(),
             move |v| {
@@ -261,7 +318,7 @@ impl RichEditor {
                 )
             },
         );
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         done(Vec::new());
     }
 }

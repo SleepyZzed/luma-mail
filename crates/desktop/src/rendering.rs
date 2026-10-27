@@ -306,14 +306,27 @@ pub fn append(s: &Rc<State>, body: &gtk::Box, message: &Message, text: &str, acc
 #[cfg(target_os = "windows")]
 #[path = "rendering_windows.rs"]
 mod windows;
+#[cfg(target_os = "windows")]
+pub fn diagnostic(s: &Rc<State>) {
+    windows::diagnostic(s);
+}
 #[cfg(target_os = "linux")]
 pub fn diagnostic(s: &Rc<State>) {
     linux::diagnostic(s);
 }
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 pub fn performance_fixture(s: &Rc<State>, count: usize) {
     ui::clear(&s.reader);
     for _ in 0..count.min(3) {
+        #[cfg(target_os = "windows")]
+        windows::append(
+            s,
+            &s.reader,
+            &Message::default(),
+            "performance-fixture",
+            include_str!("../tests/fixtures/layout-mail.html").into(),
+        );
+        #[cfg(target_os = "linux")]
         linux::append(
             s,
             &s.reader,

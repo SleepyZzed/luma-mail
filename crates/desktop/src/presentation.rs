@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 pub const SCALES: [u16; 8] = [75, 85, 100, 110, 125, 150, 175, 200];
 pub fn window_chrome(preference: bool) -> bool {
-    preference && !cfg!(target_os = "linux")
+    cfg!(target_os = "windows") || (preference && !cfg!(target_os = "linux"))
 }
 pub fn configure_window(window: &impl IsA<gtk::Window>, preference: bool) {
     window.set_resizable(true);

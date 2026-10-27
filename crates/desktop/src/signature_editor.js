@@ -2,13 +2,45 @@
   const root = document.getElementById('luma-signature');
   if (!root) return false;
   let range = null, picture = null, dirty = false;
+  const cloneForHistory = (node = root) => {
+    if(node.nodeType!==Node.ELEMENT_NODE)return node.cloneNode(false);
+    const copy=node.tagName==='IMG'?document.createElement('img'):node.cloneNode(false);
+    if(node.tagName==='IMG')for(const attr of node.attributes)if(attr.name!=='src')copy.setAttribute(attr.name,attr.value);
+    for(const child of node.childNodes)copy.append(cloneForHistory(child));
+    return copy;
+  };
+  const previews = new Map();
+  let current = null, undo = [], redo = [], commanding = false;
+  const nodePath = node => {const path=[];while(node&&node!==root){const parent=node.parentNode;if(!parent)return null;path.unshift([...parent.childNodes].indexOf(node));node=parent;}return node===root?path:null;};
+  const capture = () => {
+    const copy=cloneForHistory();for(const image of copy.querySelectorAll('img'))image.removeAttribute('src');
+    const selection=getSelection();let caret=null;
+    if(selection.rangeCount&&root.contains(selection.anchorNode)&&root.contains(selection.focusNode))caret=[nodePath(selection.anchorNode),selection.anchorOffset,nodePath(selection.focusNode),selection.focusOffset];
+    return {html:copy.innerHTML,caret};
+  };
+  const trimHistory = () => {
+    while(undo.length>64||undo.reduce((n,s)=>n+s.html.length*2+128,0)>1048576)undo.shift();
+    const collect=()=>{const used=new Set([...root.querySelectorAll('img')].map(i=>i.dataset.lumaSource));for(const state of [...undo,...redo]){const copy=document.createElement('template');copy.innerHTML=state.html;for(const image of copy.content.querySelectorAll('img'))used.add(image.dataset.lumaSource);}for(const key of previews.keys())if(!used.has(key))previews.delete(key);};
+    collect();while([...previews.values()].reduce((n,s)=>n+s.length*2,0)>8388608&&undo.length){undo.shift();collect();}
+  };
+  const checkpoint = before => {const next=capture();if(before&&before.html!==next.html&&undo.at(-1)?.html!==before.html){undo.push(before);redo=[];dirty=true;}current=next;trimHistory();};
+  const restoreState = state => {
+    root.innerHTML=state.html;for(const image of root.querySelectorAll('img')){const data=previews.get(image.dataset.lumaSource);if(data)image.src=data;}
+    const locate=path=>{let node=root;for(const i of path||[])node=node?.childNodes[i];return node;};
+    root.focus({preventScroll:true});const selection=getSelection();selection.removeAllRanges();
+    if(state.caret){const [a,ao,z,zo]=state.caret;const first=locate(a),last=locate(z);if(first&&last){const limit=n=>n.nodeType===Node.TEXT_NODE?n.length:n.childNodes.length;selection.setBaseAndExtent(first,Math.min(ao,limit(first)),last,Math.min(zo,limit(last)));}}
+    range=selection.rangeCount?selection.getRangeAt(0).cloneRange():null;picture=null;dirty=true;current=capture();
+  };
+  const step = backwards => {const source=backwards?undo:redo,target=backwards?redo:undo;if(!source.length)return false;target.push(capture());restoreState(source.pop());return true;};
+  root.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['z','y'].includes(e.key.toLowerCase())){e.preventDefault();step(e.key.toLowerCase()==='z'&&!e.shiftKey);}});
+  root.addEventListener('beforeinput',e=>{if(['historyUndo','historyRedo'].includes(e.inputType)){e.preventDefault();step(e.inputType==='historyUndo');}else current=capture();});
   const notice = text => {
     let element=document.getElementById('luma-signature-notice');
     if(!element){element=document.createElement('p');element.id='luma-signature-notice';element.setAttribute('role','status');root.before(element);}
     element.textContent=text;
   };
   const contentLength = () => {
-    const copy=root.cloneNode(true);
+    const copy=cloneForHistory();
     for(const image of copy.querySelectorAll('img')) {image.setAttribute('src',image.dataset.lumaSource||'');image.removeAttribute('data-luma-source');}
     return copy.innerHTML.length;
   };
@@ -17,7 +49,7 @@
     if (s.rangeCount && root.contains(s.anchorNode)) range = s.getRangeAt(0).cloneRange();
   };
   document.addEventListener('selectionchange', saveRange);
-  root.addEventListener('input', () => { dirty = true; saveRange(); });
+  root.addEventListener('input', () => { dirty = true; saveRange(); if(!commanding)checkpoint(current); });
   root.addEventListener('paste', e => {
     const data=e.clipboardData;
     if(data?.files.length||[...(data?.items||[])].some(item=>item.kind==='file')) {
@@ -37,7 +69,10 @@
     image.removeAttribute('src');
   }
   const restore = () => {
-    root.focus();
+    saveRange();
+    const saved = range;
+    root.focus({preventScroll:true});
+    range = saved;
     if (!range || !root.contains(range.commonAncestorContainer)) {
       range = document.createRange(); range.selectNodeContents(root); range.collapse(false);
     }
@@ -45,15 +80,29 @@
   };
   const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   window.lumaSignature = {
-    command(name, value) {
+    command(name,value) {
+      if(name==='undo'||name==='redo')return step(name==='undo');
+      restore();const before=capture(),wasDirty=dirty;commanding=true;
+      try {
+        const result=this.edit(name,value);
+        if(contentLength()>65536){restoreState(before);dirty=wasDirty;throw new Error('Signatures are limited to 64 KiB.');}
+        if(result)checkpoint(before);return result;
+      } catch(error){restoreState(before);dirty=wasDirty;throw error;}
+      finally{commanding=false;trimHistory();}
+    },
+    edit(name, value) {
       restore();
       if (name === 'fontSizePt') {
         const size = Number(value); if (!(size >= 8 && size <= 72)) return false;
-        document.execCommand('insertHTML', false, `<span data-luma-font-size="1" style="font-size:${size}pt">${getSelection().rangeCount ? (()=>{const d=document.createElement('div');d.append(getSelection().getRangeAt(0).cloneContents());return d.innerHTML || '&#8203;';})() : '&#8203;'}</span>`);
-        const span=root.querySelector('[data-luma-font-size]');
-        if(span){span.removeAttribute('data-luma-font-size');const r=document.createRange();r.selectNodeContents(span);r.collapse(false);getSelection().removeAllRanges();getSelection().addRange(r);}
+        const selection=getSelection();const r=selection.getRangeAt(0);
+        const span=document.createElement('span');span.style.fontSize=`${size}pt`;span.append(r.extractContents());
+        if(!span.childNodes.length)span.append(document.createTextNode('​'));
+        r.insertNode(span);const last=span.lastChild;
+        if(last.nodeType===Node.TEXT_NODE){r.setStart(last,last.length);r.collapse(true);}else{r.selectNodeContents(span);r.collapse(false);}
+        selection.removeAllRanges();selection.addRange(r);
       } else if (name === 'insertImage') {
         const image = JSON.parse(value);
+        previews.set(image.url,image.data);
         if (root.querySelectorAll('img').length >= 8) throw new Error('A signature can contain at most eight pictures.');
         document.execCommand('insertHTML', false, `<img data-luma-source="${esc(image.url)}" src="${esc(image.data)}" width="${Number(image.width)||160}" style="max-width:100%;height:auto" alt="${esc(image.alt||'Signature picture')}">`);
       } else if (name === 'imageWidth') {
@@ -78,7 +127,7 @@
       dirty = true; saveRange(); return true;
     },
     snapshot() {
-      const copy = root.cloneNode(true);
+      const copy = cloneForHistory();
       for (const image of copy.querySelectorAll('img')) {
         const source = image.dataset.lumaSource;
         if (!source || !/^https:\/\//i.test(source)) throw new Error('Use Insert picture to add a hosted image before saving.');
@@ -88,11 +137,11 @@
       if (html.length > 65536) throw new Error('The signature exceeds 64 KiB.');
       return html;
     },
-    replace(html) { root.innerHTML=html;for(const image of root.querySelectorAll('img')) {image.dataset.lumaSource=image.getAttribute('src')||'';image.removeAttribute('src');}range=null;picture=null;dirty=false; },
+    replace(html) { root.innerHTML=html;for(const image of root.querySelectorAll('img')) {image.dataset.lumaSource=image.getAttribute('src')||'';image.removeAttribute('src');}range=null;picture=null;dirty=false;undo=[];redo=[];current=capture();trimHistory(); },
     images() { return [...root.querySelectorAll('img')].map(i=>i.dataset.lumaSource).filter(Boolean).slice(0,8); },
-    image(url, data) { for (const image of root.querySelectorAll('img')) if (image.dataset.lumaSource === url) image.src = data; },
+    image(url, data) {const images=[...root.querySelectorAll('img')].filter(i=>i.dataset.lumaSource===url);if(!images.length)return;previews.set(url,data);for(const image of images)image.src=data;trimHistory();},
     dirty() { return dirty; },
     saved() { dirty = false; }
   };
-  root.focus(); return true;
+  root.focus(); current=capture();return true;
 })()

@@ -45,7 +45,7 @@ pub fn quit(s: &Rc<State>) {
     s.app.quit();
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 pub fn start(s: &Rc<State>) {
     s.tray_available.set(false);
 }
@@ -169,3 +169,9 @@ mod linux {
 }
 #[cfg(target_os = "linux")]
 pub use linux::start;
+
+#[cfg(target_os = "windows")]
+#[path = "tray_windows.rs"]
+mod windows;
+#[cfg(target_os = "windows")]
+pub use windows::start;

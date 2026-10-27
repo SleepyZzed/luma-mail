@@ -136,3 +136,14 @@ eight hosted pictures; previews share bounded worker permits. No extra font or
 signature database, browser profile or image spool is introduced. The signature
 zero-cache report has no files; essential preferences and temporary session/
 codec/graphics metadata are reported separately in docs/verification.md.
+
+## 0.9 implementation changes
+
+Closed compact/inline composers explicitly release their owner, GTK tree and
+recipient popovers, including when their auxiliary window was never realized.
+Focus is cleared and the IM context reset before removing the editor. The native
+regression checks assert complete owner/widget release. Windows reader IPC and
+geometry now use channel/load/resize/scroll/dialog events, without a permanent
+frame callback or 60 ms polling timer. Signature histories share image previews
+and bound text snapshots. These are implementation improvements; the earlier
+process-tree RAM figures are not relabelled as 0.9 measurements.

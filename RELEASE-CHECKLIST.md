@@ -186,3 +186,25 @@ The remaining priorities and distribution gates are ordered in docs/roadmap.md.
 The signature feature does not mark the pending two-account Linux, long-soak,
 Google review or measured RAM/CPU gates complete. See docs/signatures.md and
 docs/performance.md for the exact feature and measurement boundaries.
+
+## 0.9 cross-platform editing batch
+
+- [x] Windows title-bar controls, native Explorer tray, OS notification transport,
+  Credential Manager and private HTML/signature rendering adapters.
+- [x] Relocatable Windows ZIP with runtime dependencies, licences/source inventory
+  and no development toolchain requirement; both platform gates precede publication.
+- [x] One initial Google flow for Gmail and selected optional feature permissions;
+  actual granted scopes determine feature availability without rejecting Gmail
+  when optional access is declined.
+- [x] Native rich colours/highlights, paragraph controls, scripts/code and bounded
+  Unicode find/replace, with formatting-preserving draft/undo/source round trips.
+- [x] Closed-composer owner/widget/focus/popover release and event-driven Windows
+  renderer geometry/IPC, without new persistent mail or draft storage.
+- [ ] Fresh live combined-consent denial/reconnect and Windows notification
+  appearance/click-to-open acceptance. Native dispatch is not visual delivery.
+- [ ] Complete the remaining original criteria, target Linux/two-account checks,
+  sustained profiling and Google approval before tagging 1.0.
+
+The GTK replacement is requested for the next build; its feature and resource
+parity gates are recorded in docs/ui-redesign.md. No framework migration is part
+of this release.
