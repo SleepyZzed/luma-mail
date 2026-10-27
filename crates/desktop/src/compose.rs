@@ -29,6 +29,8 @@ mod identity;
 mod motion;
 #[path = "compose_recipients.rs"]
 mod recipients;
+#[path = "compose_signature.rs"]
+mod signature;
 
 pub(crate) struct Editor {
     state: Rc<State>,
@@ -43,6 +45,7 @@ pub(crate) struct Editor {
     body_scroll: gtk::ScrolledWindow,
     quote: String,
     include_quote: gtk::CheckButton,
+    signature: signature::SignatureState,
     placement: Cell<u8>,
     motion_busy: Cell<bool>,
     history: history::History,
@@ -648,6 +651,7 @@ fn finish(e: &Rc<Editor>) {
         return;
     }
     e.closing.set(true);
+    signature::cancel(e);
     history::cancel_pending(e);
     e.local_closed
         .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -920,11 +924,7 @@ fn open_internal(
                 m.payload.header("From"),
                 excerpt.trim()
             );
-            let body = if a.signature.is_empty() {
-                String::new()
-            } else {
-                format!("\n\n{}", a.signature)
-            };
+            let body = String::new();
             c.text = luma_core::rich_draft::with_quote(
                 &format!(
                     "<div data-luma-editor=\"1\" style=\"white-space:pre-wrap\">{}</div>",
@@ -936,15 +936,14 @@ fn open_internal(
         } else {
             c.subject = format!("Fwd: {}", m.payload.header("Subject"));
             c.text = format!(
-                "{}\n\n---------- Forwarded message ----------\nFrom: {}\nSubject: {}\n\n{}",
-                a.signature,
+                "---------- Forwarded message ----------\nFrom: {}\nSubject: {}\n\n{}",
                 m.payload.header("From"),
                 m.payload.header("Subject"),
                 readable(&m.payload).unwrap_or_default()
             );
         }
     } else {
-        c.text = a.signature;
+        c.text = String::new();
     }
     c.account = Some(a.id);
     c.retained = retained;
@@ -1175,7 +1174,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     let header = adw::HeaderBar::new();
     header.set_show_end_title_buttons(false);
     header.set_show_start_title_buttons(false);
-    let back = ui::button("luma-back-symbolic", "Save draft and return to mail");
+    let back = ui::button("luma-back-symbolic", "Close composer and return to mail");
     header.pack_start(&back);
     let popout = ui::button("luma-popout-symbolic", "Pop out into a separate window");
     let expand = ui::button("luma-expand-symbolic", "Expand composer");
@@ -1325,6 +1324,14 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         .child(&text)
         .build();
     form.append(&body_scroll);
+    let signature = signature::SignatureState::new(
+        &rich
+            .as_ref()
+            .map(|r| r.signature.clone())
+            .unwrap_or_default(),
+        draft.is_some(),
+    );
+    form.append(&signature.root);
     let quote = rich.as_ref().map(|r| r.quote.clone()).unwrap_or_default();
     let include_quote = gtk::CheckButton::with_label("Include previous message when sending");
     include_quote.set_active(!quote.is_empty());
@@ -1439,6 +1446,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
         body_scroll,
         quote,
         include_quote,
+        signature,
         placement: Cell::new(if slot.is_some() { 1 } else { 0 }),
         motion_busy: Cell::new(false),
         history: Default::default(),
@@ -1923,6 +1931,7 @@ fn make_at(s: &Rc<State>, c: Compose, draft: Option<Draft>, slot: Option<gtk::Bo
     clipboard::install(&e);
     history::install(&e, &styling);
     identity::install(&e, &retry_senders);
+    signature::install(&e);
     motion::reveal_inline(&e);
     if let Ok(compose) = snapshot(&e) {
         *e.merge_base.borrow_mut() = luma_core::draft_merge::Fields::of(&compose);
@@ -2617,11 +2626,18 @@ fn snapshot_impl(e: &Editor, mime: bool) -> Result<Compose> {
     let b = e.text.buffer();
     c.text = b.text(&b.start_iter(), &b.end_iter(), false).into();
     c.html = e.html.is_active();
+    let signature = if mime { signature::selected(e)? } else { None };
     if mime
         && !c.html
-        && (has_formatting(&b) || (!e.quote.is_empty() && e.include_quote.is_active()))
+        && (has_formatting(&b)
+            || (!e.quote.is_empty() && e.include_quote.is_active())
+            || signature.is_some())
     {
         c.text = formatted_html(&b);
+        c.html = true;
+    }
+    if let Some(signature) = signature {
+        c.text = luma_core::signatures::append(&c.text, &signature)?;
         c.html = true;
     }
     if mime && e.include_quote.is_active() && !e.quote.is_empty() {
@@ -2669,6 +2685,7 @@ fn persist(e: &Rc<Editor>, send: bool) {
     let c = match snapshot(e) {
         Ok(c) => c,
         Err(err) => {
+            e.close_after_save.set(false);
             e.status.set_text(&err.to_string());
             return;
         }

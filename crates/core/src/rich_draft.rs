@@ -11,6 +11,7 @@ pub struct RichDraft {
     pub text: String,
     pub spans: Vec<Span>,
     pub quote: String,
+    pub signature: String,
 }
 pub struct Span {
     pub start: i32,
@@ -188,6 +189,7 @@ pub fn parse(html: &str) -> Option<RichDraft> {
     if html.len() > 2 * 1024 * 1024 || !html.starts_with("<div data-luma-editor=\"1\"") {
         return None;
     }
+    let (html, signature) = crate::signatures::split(html)?;
     let sink = RefCell::new(Parser {
         draft: RichDraft::default(),
         stack: vec![],
@@ -201,7 +203,8 @@ pub fn parse(html: &str) -> Option<RichDraft> {
     let tokenizer = Tokenizer::new(Sink(sink), Default::default());
     let _ = tokenizer.feed(&input);
     tokenizer.end();
-    let p = tokenizer.sink.0.into_inner();
+    let mut p = tokenizer.sink.0.into_inner();
+    p.draft.signature = signature;
     (p.valid && p.stack.is_empty()).then_some(p.draft)
 }
 /// Keep quoted history outside the editable reply, without a local sidecar.

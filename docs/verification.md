@@ -1,5 +1,47 @@
 # Verification log
 
+## 0.7.1 composer hotfix and 0.8 signature validation
+
+[Hotfix release run 40419941734](https://github.com/SleepyZzed/luma-mail/actions/runs/40419941734)
+passed all Linux/AppImage gates and published v0.7.1-dev.1 on exact head
+`5be7834b87ba33299c6fa8b587cee0820d9c53f7`. The downloaded 157,858,296-byte
+AppImage matches SHA256SUMS and GitHub's asset digest:
+`3aabda2f3f278150b45660254634a406ceaa1f34a31efb894832942e5d353e1e`.
+This restores the individually wrapped, visibly bounded toolbar, tests real
+Bold/Bullet/Numbered button actions and verifies Ask/Cancel/Close, duplicate-close
+protection, Manual and incomplete conditional Save-on-close without remote/local
+draft creation. A GTK4.12 width issue caught by CI was corrected before publishing.
+
+The 0.8 work passed Windows strict Clippy, 117 core and eight desktop tests,
+plus native compose, recipient/navigation/font/history/conflict, draft-policy,
+selection and 1,000-record virtual-list diagnostics. Core signature tests cover
+projected reads, signature-only PATCH, remote-change refusal, safe rich HTML,
+12 save/reopen cycles, separate MIME body/signature/quote and merge recognition.
+Mocked Drive tests cover optimized public-image upload/read-only link permission,
+invalid/cancelled sources and refusing an untrusted upload destination.
+
+The authorized real account passed `signature-read` and
+`signature-mail --allow-self-mail`: three draft reopen/save cycles, one delivered
+rich signature/table/link/public project-logo URL, removal of the sent Gmail
+draft and an unchanged actual account signature. The synthetic message was moved
+to Trash. No real signature setting was written and no public Drive copy was
+uploaded. Public-image permission writes remain mocked, not live acceptance.
+
+The actual Linux/WebKit formatting check caught a transient script-world bug;
+the editor now registers its isolated world for the view lifetime. Formatting,
+font/size/further typing, links, bullets, tables, public picture serialization and
+separate draft restoration subsequently passed. The close-cancel diagnostic
+uses the actual response buttons and waits for libadwaita dismissal; emitting a
+response signal alone does not reproduce the real button/close lifecycle.
+A real retention bug was caught before publication: the window's dispose signal
+could not release an editor that itself owned the window, and a second Close
+could target a still-closing dialog. Approved close now destroys the window and
+releases its owner on native unrealize. A Windows native test passed actual
+Keep editing/discard buttons and complete editor/widget release; the Linux gate
+also checks destruction of the actual WebKit widget. Signature toolbar height,
+real image decoding and continued typing with in-memory picture previews are
+checked explicitly. Final storage/package gates are recorded below when completed.
+
 ## Final 0.7 release, 26 October 2026
 
 [Release run 40409671509](https://github.com/SleepyZzed/luma-mail/actions/runs/40409671509)

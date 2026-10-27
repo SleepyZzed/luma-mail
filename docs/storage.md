@@ -109,7 +109,8 @@ first or remove them in Gmail Settings. These settings are outside the cache.
 
 ## Drafts and recipient suggestions
 
-Drafts autosave to Gmail. Automatic local draft copies are disabled, including
+Drafts save explicitly to Gmail or through the configured close policy. Typing
+and attaching files never start automatic saves. Automatic local draft copies are disabled, including
 when upgrading from a development build that enabled them. Existing unsent
 recovery files are preserved and shown only when present; saving that revision
 to Gmail or explicitly discarding it retires its local copy. They are never
@@ -150,7 +151,7 @@ widget references. No photo files, contacts index or body-cache entries are adde
 
 Pasted raster images are read in bounded chunks, validated on a worker, and kept
 as in-memory MIME attachments (16 MiB combined retained/pasted limit, at most 64
-retained/pasted files). They autosave with the Gmail draft. No temp-image spool is
+retained/pasted files). They are included when the Gmail draft is explicitly saved. No temp-image spool is
 created; local file attachments can use Drive for larger transfers. Composer
 movement retains one short-lived render snapshot in memory, released after its
 280 ms transition. It adds no persistent store or idle animation loop.
@@ -253,3 +254,14 @@ lookup-rate limits; it creates no file and adds no permission.
   the other messages in a thread.
 - Cross-account avatar reuse stays inside the existing 128-thumbnail RAM cap,
   two concurrent jobs and 12 scheduled lookups per minute.
+
+## Online signatures
+
+Gmail signature HTML is loaded on demand into RAM (64 KiB/eight images maximum),
+not synchronized to a local store or fetched by polling. Rich editing uses a
+short-lived view in the existing ephemeral renderer. Picture previews share
+bounded worker permits; local pictures are re-encoded in memory to PNG at most
+768×576/2 MiB before an explicitly approved public Drive upload. No image spool,
+persistent browser profile or font files are created. A signature saved as part
+of a Gmail draft/message follows normal on-demand body/cache rules. Legacy plain
+signature preferences are cleared after a successful online save. See signatures.md.

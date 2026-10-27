@@ -80,6 +80,21 @@ pub fn contact_photos(
         s.client_config(),
     );
 }
+pub fn drive_files(
+    s: &Rc<State>,
+    account: &Account,
+    ready: impl FnOnce(Rc<State>, String) + 'static,
+) {
+    open_with_config(
+        s,
+        true,
+        Some(account.email.clone()),
+        account.sender_controls,
+        account.contact_photos,
+        Some(Box::new(ready)),
+        s.client_config(),
+    );
+}
 
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn open_unconfigured(s: &Rc<State>) {

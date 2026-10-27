@@ -47,7 +47,7 @@ fn same(a: &Value, b: &Value) -> bool {
             .map(|s| (s.start, s.end, s.tag))
             .collect();
         spans.sort();
-        (r.text, r.quote, spans)
+        (r.text, r.quote, r.signature, spans)
     };
     spans(a) == spans(b)
 }
@@ -134,6 +134,19 @@ mod tests {
         assert_eq!(mine.subject, "My subject");
         assert_eq!(mine.to, "new@example.invalid");
         assert_eq!(mine.text, "Remote body");
+    }
+    #[test]
+    fn different_signatures_are_not_silently_merged_as_equal_bodies() {
+        let body = "<div data-luma-editor=\"1\">Same authored body</div>";
+        let a = Value {
+            text: crate::signatures::append(body, "Old signature").unwrap(),
+            html: true,
+        };
+        let b = Value {
+            text: crate::signatures::append(body, "New signature").unwrap(),
+            html: true,
+        };
+        assert!(!same(&a, &b));
     }
     #[test]
     fn rich_markup_is_preserved_and_equal_supported_formatting_is_not_a_conflict() {

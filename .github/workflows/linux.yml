@@ -12,7 +12,7 @@ on:
       tag:
         description: New release tag
         type: string
-        default: v0.7.1-dev.1
+        default: v0.8.0-dev.1
       reproduce_legacy:
         description: Reproduce the reported 0.2.0 missing-system-WebKit crash
         type: boolean
@@ -88,6 +88,29 @@ jobs:
           }
           PROFILE
           sudo apparmor_parser -r /etc/apparmor.d/luma-ci-bwrap
+      - name: Visual online signature editor and renderer release
+        run: |
+          root="$(mktemp -d)"
+          trap 'rm -rf -- "$root"' EXIT
+          mkdir -p "$root/runtime" "$root/cache" dist
+          chmod 700 "$root/runtime"
+          mkdir -p "$root/config"
+          printf '%s\n' '{"cache_mib":0,"accounts":[],"theme":"noctalia"}' > "$root/config/settings.json"
+          cat > "$root/config/noctalia.toml" <<'THEME'
+          mode = "dark"
+          background = "#21191F"
+          surface = "#281E25"
+          text = "#F2EDF1"
+          muted = "#ADA2AC"
+          accent = "#F2A4CF"
+          on_accent = "#321426"
+          outline = "#44353F"
+          hover = "#352631"
+          THEME
+          timeout 40s dbus-run-session -- xvfb-run -a env LUMA_TEST_ROOT="$root" XDG_RUNTIME_DIR="$root/runtime" XDG_CACHE_HOME="$root/cache" GDK_BACKEND=x11 GTK_A11Y=none LUMA_SIGNATURE_SCREENSHOT="$(pwd)/dist/native-ui-signature.png" target/debug/luma-mail --design-preview --signature-diagnostics
+          python3 packaging/audit-storage.py --tree signature_config "$root/config" --tree signature_cache "$root/cache" --tree signature_runtime "$root/runtime" --output dist/signature-editor-storage.json
+          test -z "$(find "$root/cache" -type f -print -quit)"
+          test ! -d "$root/config/compose"
       - name: Require app registration before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: cargo check --locked -p luma-mail --features require-google-client

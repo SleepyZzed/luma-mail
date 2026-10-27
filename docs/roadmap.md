@@ -1,7 +1,7 @@
 # Road to 1.0
 
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
-0.7 is an early-access milestone, not a completed 1.0 release.
+0.8 is an early-access milestone, not a completed 1.0 release.
 
 ## This milestone
 
@@ -31,7 +31,7 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 
 - Small inline replies and separate read-only quoted history.
 - Native-size slide/reveal composer transitions without glyph stretching.
-- Serialized attachment autosaves/send, terminal sent state and late callback guards.
+- Serialized explicit draft saves/send, terminal sent state and late callback guards.
 - Recipient chips, numbered lists and formatting-preserving bounded rich undo/redo.
 - Read-only conflict comparison and distinct identity for intentionally separate copies.
 - Visible-avatar lookup scheduling and own-account photo using existing Drive access.
@@ -54,6 +54,17 @@ The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 - Hidden reader/list reclamation and complete process-tree profiling; real
   sustained sync/desktop acceptance still required. See performance.md.
 - User-supplied Luma wordmark and a standalone SVG star mascot for the app.
+
+## 0.8 online signatures and draft policy
+
+- Visible, individually wrapped composer formatting controls on Linux.
+- Ask on close by default, conditional Save on close, or Manual Save only;
+  typing and attachment callbacks never start background saves.
+- Provider-neutral online signature model and Gmail primary Send-as editing.
+- Visual rich formatting, installed fonts, links, tables and hosted pictures;
+  public local-picture copies require confirmation, progress and cancellation.
+- Draft signatures stay separate from authored text/quote and are not duplicated.
+- Bounded ephemeral editing and previews; no new persistent signature/image store.
 
 ## Next implementation priorities
 

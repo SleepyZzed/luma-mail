@@ -25,6 +25,8 @@ pub mod rich_draft;
 pub mod search;
 pub mod send_as;
 pub mod sender_rules;
+pub mod signature_images;
+pub mod signatures;
 pub mod theme;
 
 pub use error::{Error, Result};

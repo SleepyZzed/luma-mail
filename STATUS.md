@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-0.7.0 is **early access**. It does not complete the original brief. Google sign-in
+0.8.0 is **early access**. It does not complete the original brief. Google sign-in
 has no per-address test list, but its unverified warning and lifetime 100-user
 cap remain. Branding and data-access verification were submitted on 26 October
 2026 with an English demo and the homepage ownership appeal. Google Auth Platform
@@ -8,6 +8,13 @@ confirms both are under review. Submission is not approval; any assessment
 decision and Google's final response remain gates.
 
 ## Implemented and exercised
+
+- Linux visual signatures with fonts, colours, lists, links, tables and hosted
+  pictures, backed online by Gmail primary Send-as settings. Provider-neutral
+  storage interface; other providers and Gmail named-signature libraries are not
+  implemented. Public local-picture Drive copies require explicit confirmation.
+- Discoverable wrapped formatting toolbar; Ask/conditional Save on close/Manual
+  draft modes. No typing or attachment autosaves. See docs/signatures.md.
 
 - Recycled GtkListView metadata/selection and direct row identity, with batched
   page insertion. The 1,000-row native test covers scrolling, offscreen actions,
@@ -33,8 +40,8 @@ decision and Google's final response remain gates.
   optionally included in the outgoing reply. Rich mail includes a plain-text alternative.
 - Slide-up opening and slide-down closing; expand/restore clips final-size content
   without stretching a compact screenshot. Reduced motion remains available.
-- Send waits for an active autosave/clipboard import. Autosaves reuse the same
-  Gmail draft; successful sending is terminal and cancels late autosave timers.
+- Send waits for an active explicit save/clipboard import. Saves reuse the same
+  Gmail draft; successful sending is terminal and cancels late save callbacks.
 - Removable recipient chips, recent completion, numbered/nested lists, and rich
   undo/redo preserving formatting, fonts and links in capped RAM only.
 - Read-only draft conflict comparison, with an explicit separate-copy option.

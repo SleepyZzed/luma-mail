@@ -1,7 +1,7 @@
 pkgname=luma-mail
-pkgver=0.7.1
+pkgver=0.8.0
 pkgrel=1
-_commit=b49e4b12129d98e89140be238feae42b68a81e2e
+_commit=e7673436fc1a8c9c579396b684b48917d98dc81a
 _srcdir="luma-mail-$_commit"
 pkgdesc='Online-first native Rust Gmail client (development release)'
 url='https://github.com/SleepyZzed/luma-mail'
@@ -11,7 +11,7 @@ depends=('gtk4>=4.12' 'libadwaita>=1.5' 'webkitgtk-6.0' 'gst-plugins-good' 'dbus
 makedepends=('rust' 'cargo' 'pkgconf')
 optdepends=('gnome-keyring: secure Google refresh-token storage' 'kwallet: alternative Secret Service backend' 'gst-libav: additional audio/video decoding')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/SleepyZzed/luma-mail/tar.gz/$_commit")
-sha256sums=('d1bca13138da29b6aff10dbc3562d4f1d24870cd20f309709a2539d02101260e')
+sha256sums=('e8d719d5e9b51714319b528c20ce63467b205b97e981c10003d348c83e99cdf6')
 
 prepare() {
   cd "$_srcdir"
