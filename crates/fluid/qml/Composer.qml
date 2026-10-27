@@ -44,7 +44,8 @@ Item {
     readonly property bool moving:horizontal.running||vertical.running||breadth.running||depth.running
     readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
     visible:shown||moving;clip:true;z:70
-    readonly property bool modalOpen:AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible
+    property bool externalModal:false
+    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
     Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&!drag.active}
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&!drag.active}
@@ -162,7 +163,7 @@ Item {
         }
         Text{textFormat:Text.PlainText;anchors.right:parent.right;y:Theme.unit(24);width:Math.max(0,parent.width-Theme.unit(240));text:root.localError||(root.inputBusy?"Preparing clipboard imageâ€¦":root.state.status)||"Changes stay in memory until saved";color:Theme.muted;elide:Text.ElideRight;font.pixelSize:Theme.unit(9);horizontalAlignment:Text.AlignRight}
     }
-    Menu{id:formatMenu
+    FluidMenu{id:formatMenu
         MenuItem{text:"Strikethrough";onTriggered:rich.toggle("strike")}
         MenuItem{text:"Superscript";onTriggered:rich.toggle("super")}
         MenuItem{text:"Subscript";onTriggered:rich.toggle("sub")}

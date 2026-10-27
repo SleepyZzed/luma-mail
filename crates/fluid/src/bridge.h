@@ -25,6 +25,7 @@ class Bridge : public QObject {
     Q_PROPERTY(QVariantMap composer READ composer NOTIFY composerChanged)
     Q_PROPERTY(QVariantMap palette READ palette NOTIFY paletteChanged)
     Q_PROPERTY(QVariantMap sync READ sync NOTIFY syncChanged)
+    Q_PROPERTY(QVariantMap labelSets READ labelSets NOTIFY labelsChanged)
     Q_PROPERTY(QString notificationStatus READ notificationStatus NOTIFY notificationStatusChanged)
     Q_PROPERTY(QString folder READ folder NOTIFY viewChanged)
     Q_PROPERTY(QString account READ account NOTIFY viewChanged)
@@ -49,6 +50,8 @@ public:
     QVariantMap settings()const{return m_settings;} QVariantMap reader()const{return m_reader;} QVariantMap composer()const{return m_composer;}
     QVariantMap palette()const{return m_palette;}
     QVariantMap sync()const{return m_sync;}
+    QVariantMap labelSets()const{return m_labels;}
+    Q_INVOKABLE void ensureLabels(const QString&account,bool force=false);
     QString notificationStatus()const{return m_notificationStatus;}
     void setNotificationStatus(const QString&value){if(m_notificationStatus==value)return;m_notificationStatus=value;emit notificationStatusChanged();}
     QString folder()const{return m_folder;} QString search()const{return m_search;}
@@ -66,9 +69,11 @@ public:
     Q_INVOKABLE void selectionMode(bool enabled);
     Q_INVOKABLE void selectAll();
     Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE QVariantMap actionState(const QVariantMap&row={})const;
+    Q_INVOKABLE void composeFor(const QString&mode,const QVariantMap&key);
     Q_INVOKABLE void closeReader();
     Q_INVOKABLE void openThread(const QString&account,const QString&thread);
-    Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={});
+    Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={},const QString&label=QString());
     Q_INVOKABLE void requestCompose(const QString &mode="new",const QVariantMap &message={});
     Q_INVOKABLE void renderMessage(const QVariantMap&parameters);
     Q_INVOKABLE void openLink(const QString &url);
@@ -86,6 +91,7 @@ signals:
     void settingsChanged(); void readerChanged(); void composerChanged(); void viewChanged();
     void paletteChanged();
     void syncChanged();
+    void labelsChanged();
     void notificationStatusChanged();
     void windowVisibleChanged();
     void activityChanged(); void errorChanged(); void selectionChanged();
@@ -99,6 +105,7 @@ signals:
     void profileChanged(QString key);void profilesReset();
     void received(QString event,QVariantMap data); void ready();
 private:
+    QVariantMap m_labels;QHash<QString,quint64>labelRequests;
     friend class ComposerSmoke;
     friend class SyncSmoke;
     void consume(); void receive(const QJsonObject &event);

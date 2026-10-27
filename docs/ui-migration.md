@@ -104,9 +104,23 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   never save a draft or populate an attachment disk cache. Hiding/minimizing the
   window stops springs/photo work and unloads newsletter renderers; showing it
   restores the existing opened content. Final process-tree profiling is pending.
+- Labels/actions checkpoint: on-demand account-scoped labels with recycled
+  navigation and picker rows, create/rename/delete confirmation and a shared
+  themed action menu. Bulk menus hide sender/reply actions, toggle stars and
+  importance from the actual selection, and omit Move to Inbox inside Inbox.
+  Dedicated draft deletion uses core's exact draft lookup/revision guards and
+  keeps sent/received messages. Existing server-side sender filters are wired
+  through confirmation, optional Google connection and Settings unblock controls.
+- Account/cache controls: enable/disable, default sender, rename/reorder/removal,
+  reconnect and optional feature connections; custom/zero cache, expiry, per-account
+  allocated usage/clear and exit cleanup. Settings writes are serialized; deleting
+  an account reloads the appropriate view and drops its label metadata. Account
+  name/notification changes no longer reset photo caches or token managers, and
+  unchanged palettes no longer rerender opened newsletters. One allocation report
+  scans cache headers once for all account totals, without a new index/sidecar.
 - Pending: three-way conflict-resolution UI, full
   visual signature editing, mailto and remaining rich-text keyboard flows,
-  remaining search/label/settings/context/keyboard flows,
+  advanced search, per-message actions and remaining keyboard/layout flows,
   lifecycle reclamation, two-account acceptance, Linux packaging and resource
   audits. The preview has incomplete controls and must not replace 0.9 yet.
 

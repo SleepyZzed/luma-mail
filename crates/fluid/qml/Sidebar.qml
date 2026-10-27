@@ -5,6 +5,7 @@ Item {
     property bool collapsed:false
     property bool unifiedOpen:false
     property string accountOpen:""
+    property bool overlayOpen:false
     property var entries:({})
     property rect pillRect:Qt.rect(0,0,0,0)
     function registerEntry(entry){entries[entry.identity]=entry;Qt.callLater(refreshPill)}
@@ -18,9 +19,10 @@ Item {
     onWidthChanged:Qt.callLater(refreshPill)
     onUnifiedOpenChanged:Qt.callLater(refreshPill)
     onAccountOpenChanged:Qt.callLater(refreshPill)
-    Connections{target:Mail;function onViewChanged(){Qt.callLater(root.refreshPill)}}
+    Connections{target:Mail;function onViewChanged(){Qt.callLater(root.refreshPill)}function onSettingsChanged(){if(root.accountOpen&&!((Mail.settings.accounts||[]).find(a=>a.id===root.accountOpen&&a.enabled!==false)))root.accountOpen=""}}
     signal composeAt(real x,real y,real w,real h)
     signal settingsRequested()
+    signal labelActionRequested(string operation,string account,var label)
     clip:true
     Rectangle{anchors.fill:parent;color:Theme.rail}
     Rectangle{width:1;anchors.right:parent.right;height:parent.height;color:Theme.outline;opacity:.55}
@@ -34,7 +36,7 @@ Item {
         }
     }
     Flickable {
-        id:scroll;x:Theme.unit(12);y:fixedHeader.y+fixedHeader.height+Theme.unit(25);width:parent.width-2*x;height:footer.y-y-Theme.unit(14);clip:true;contentHeight:nav.height;boundsBehavior:Flickable.StopAtBounds
+        id:scroll;objectName:"navigationScroll";x:Theme.unit(12);y:fixedHeader.y+fixedHeader.height+Theme.unit(25);width:parent.width-2*x;height:footer.y-y-Theme.unit(14);clip:true;contentHeight:nav.height;boundsBehavior:Flickable.StopAtBounds
         ScrollBar.vertical:ScrollBar{policy:ScrollBar.AsNeeded;implicitWidth:5}
         Rectangle {
             id:selectionPill
@@ -82,7 +84,7 @@ Item {
                             visible:text!=="0"&&!root.collapsed;color:Theme.accent;font.pixelSize:Theme.unit(9)
                         }
                         Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:accountArrow.value;Motion{id:accountArrow;target:root.accountOpen===accountCard.modelData.id?90:0;enabled:Theme.motion}}
-                        MouseArea{anchors.fill:parent;onClicked:{root.accountOpen=root.accountOpen===accountCard.modelData.id?"":accountCard.modelData.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.modelData.id)}}
+                        MouseArea{anchors.fill:parent;enabled:accountCard.modelData.enabled!==false;onClicked:{root.accountOpen=root.accountOpen===accountCard.modelData.id?"":accountCard.modelData.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.modelData.id)}}
                     }
                     Item {
                         width:parent.width;height:Math.max(0,accountHeight.value);clip:true
@@ -90,6 +92,7 @@ Item {
                         onHeightChanged:Qt.callLater(root.refreshPill)
                         Column {id:accountFolders;width:parent.width
                             Repeater{model:["inbox","all_mail","unread","starred","sent","drafts","archive","spam","trash"];delegate:NavigationEntry{required property string modelData;navigation:root;folder:modelData;scope:accountCard.modelData.id;disclosed:root.accountOpen===accountCard.modelData.id}}
+                            LabelSection{account:accountCard.modelData.id;navigation:root;disclosed:root.accountOpen===accountCard.modelData.id}
                         }
                     }
                 }

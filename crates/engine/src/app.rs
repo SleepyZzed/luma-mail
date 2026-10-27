@@ -32,6 +32,7 @@ pub struct App {
     pub events: Events,
     pub paths: Paths,
     pub settings: Mutex<Settings>,
+    pub preferences: tokio::sync::Mutex<()>,
     pub http: Http,
     pub cache: Arc<Mutex<Cache>>,
     pub clients: Mutex<HashMap<String, Arc<Gmail>>>,
@@ -53,6 +54,7 @@ pub struct App {
     pub render_lock: tokio::sync::Mutex<()>,
     pub sync: Arc<crate::sync::Service>,
     pub attachment_preview: Arc<crate::attachment_preview::Service>,
+    pub preview_labels: Mutex<HashMap<String, Vec<Label>>>,
     pub quit_pending: AtomicBool,
     jobs: Mutex<HashMap<u64, (String, tokio::task::AbortHandle)>>,
     slots: Arc<tokio::sync::Semaphore>,
@@ -146,6 +148,8 @@ impl App {
             render_lock: tokio::sync::Mutex::new(()),
             sync: Arc::new(crate::sync::Service::default()),
             attachment_preview: Arc::new(crate::attachment_preview::Service::default()),
+            preview_labels: Mutex::new(HashMap::new()),
+            preferences: tokio::sync::Mutex::new(()),
             quit_pending: AtomicBool::new(false),
             jobs: Mutex::new(HashMap::new()),
             slots: Arc::new(tokio::sync::Semaphore::new(32)),
@@ -238,7 +242,7 @@ impl App {
             }
             return;
         }
-        if matches!(command.action.as_str(), "mutate" | "undo") {
+        if matches!(command.action.as_str(), "mutate" | "undo" | "draftDelete") {
             self.mutation_serial.fetch_add(1, Ordering::SeqCst);
         }
         let permit = match self.slots.clone().try_acquire_owned() {
@@ -354,13 +358,15 @@ impl App {
                         crate::attachment_preview::thumbnail(&owner, &command).await
                     }
                     "mutate" => crate::mail::mutate(&owner, &command).await,
+                    "draftDelete" => crate::mail_commands::delete_drafts(&owner, &command).await,
+                    "senderRule" => crate::mail_commands::sender_rule(&owner, &command).await,
                     "undo" => crate::mail::undo(&owner, command.id).await,
                     "authStart" => crate::accounts::auth(&owner, &command).await,
                     "settingsUpdate" => crate::accounts::update(&owner, &command).await,
                     "accountUpdate" => crate::accounts::account_update(&owner, &command).await,
                     "accountReorder" => crate::accounts::reorder(&owner, &command).await,
                     "accountRemove" => crate::accounts::remove(&owner, &command).await,
-                    "labels" => crate::accounts::labels(&owner, &command).await,
+                    "labels" => crate::labels::run(&owner, &command).await,
                     "themeReload" => crate::accounts::theme(&owner, command.id).await,
                     "photoRequest" => owner.photos.request(&owner, &command).await,
                     "photoCancel" => {
@@ -388,12 +394,7 @@ impl App {
                         } else {
                             owner.cache.lock().unwrap().clear()?;
                         }
-                        let bytes = owner.cache.lock().unwrap().usage()?;
-                        owner
-                            .events
-                            .emit(id, "cacheUsage", json!({"bytes":bytes}))
-                            .await;
-                        Ok(())
+                        crate::accounts::cache_usage(&owner, id).await
                     }
                     "releaseReader" => {
                         if owner.reading.load(Ordering::SeqCst) != id {
@@ -405,14 +406,7 @@ impl App {
                         v.selected = None;
                         Ok(())
                     }
-                    "cacheUsage" => {
-                        let usage = owner.cache.lock().unwrap().usage()?;
-                        owner
-                            .events
-                            .emit(id, "cacheUsage", json!({"bytes":usage}))
-                            .await;
-                        Ok(())
-                    }
+                    "cacheUsage" => crate::accounts::cache_usage(&owner, id).await,
                     _ => Err(Error::Invalid(format!(
                         "Unknown application command: {}",
                         command.action
@@ -420,7 +414,7 @@ impl App {
                 }
             }
             .await;
-            if matches!(command.action.as_str(), "mutate" | "undo") {
+            if matches!(command.action.as_str(), "mutate" | "undo" | "draftDelete") {
                 owner.sync.reconcile();
             }
             if let Err(e) = result {

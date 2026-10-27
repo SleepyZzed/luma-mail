@@ -25,6 +25,7 @@ void startComposerSmoke(Bridge*,QQuickWindow*);
 void startProfileSmoke(Bridge*,QQuickWindow*);
 void startHtmlSmoke(Bridge*,QQuickWindow*);
 void startSyncSmoke(Bridge*,QQuickWindow*);
+void startNavigationSmoke(Bridge*,QQuickWindow*);
 void startAttachmentSmoke(Bridge*,AttachmentPreview*,QQuickWindow*);
 
 int main(int argc,char**argv){
@@ -66,6 +67,7 @@ int main(int argc,char**argv){
     if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--photo-test"))startProfileSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--html-test"))startHtmlSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--navigation-test"))startNavigationSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--attachment-test"))startAttachmentSmoke(&bridge,&attachmentPreview,window);
     QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",window,[window]{window->show();window->raise();window->requestActivate();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");

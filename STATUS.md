@@ -14,8 +14,9 @@ The published 0.9 Linux/Windows release and both platform gates pass on
 storage/process-tree measurements are recorded in docs/verification.md. Linux
 RAM goals and real desktop/live-account acceptance remain open. The custom GTK
 replacement is in progress on `ui/fluid-morph` (draft PR #12). The custom Qt
-scene and Rust engine now include the first functional rich composer/draft
-checkpoint; parity, live acceptance, packaging and resource audits remain open.
+scene and Rust engine now include rich composer/drafts, supported photos, private
+HTML, silent incremental sync, native notifications, RAM attachment/media previews
+and account-scoped labels/context/settings controls; parity, live acceptance, packaging and resource audits remain open.
 See docs/ui-migration.md for the current port and pending groups.
 
 - Shared native composer colours/highlights, paragraph alignment/spacing/indent,

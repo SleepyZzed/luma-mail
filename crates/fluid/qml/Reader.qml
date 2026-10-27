@@ -16,6 +16,7 @@ Item {
             sender:Qt.rect(Theme.unit(52),senderY,Theme.unit(200),Theme.unit(18))}
     }
     signal replyAt(string mode,var message)
+    signal contextRequested(var row,real x,real y)
     clip:true
     Rectangle{width:1;height:parent.height;color:Theme.outline;opacity:.5}
     Flickable {
@@ -35,6 +36,7 @@ Item {
                     FluidButton {glyph:"trash";tip:"Move to Trash";onClicked:Mail.mutate("trash")}
                     FluidButton {glyph:"unread";tip:"Mark unread";onClicked:Mail.mutate("unread")}
                     FluidButton {glyph:"reply";tip:"Reply";onClicked:root.replyAt("reply",Mail.messages.count?Mail.messages.at(Mail.messages.count-1):{})}
+                    FluidButton {glyph:"more";tip:"More conversation actions";onClicked:{const p=mapToItem(null,0,height);root.contextRequested({},p.x,p.y)}}
                 }
             }
             Repeater {

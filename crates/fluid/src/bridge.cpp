@@ -45,8 +45,8 @@ void Bridge::systemPalette(){
     auto mode=m_settings.value("theme","system").toString();
     const bool dark=mode=="dark"||(mode=="system"&&qApp->styleHints()->colorScheme()==Qt::ColorScheme::Dark);
     auto accent=qApp->palette().color(QPalette::Highlight);if(accent.lightnessF()<.25)accent=QColor("#b1a0df");
-    m_palette={{"mode",dark?"dark":"light"},{"background",dark?"#19181f":"#f6f5fa"},{"surface",dark?"#23212b":"#ffffff"},{"text",dark?"#f2eff7":"#292535"},{"muted",dark?"#a59dae":"#777183"},{"accent",accent.name()},{"accentText",accent.lightnessF()>.6?"#20192e":"#ffffff"},{"outline",dark?"#393440":"#e2deea"},{"hover",dark?"#302b3a":"#f0edf6"}};
-    emit paletteChanged();
+    const QVariantMap next={{"mode",dark?"dark":"light"},{"background",dark?"#19181f":"#f6f5fa"},{"surface",dark?"#23212b":"#ffffff"},{"text",dark?"#f2eff7":"#292535"},{"muted",dark?"#a59dae":"#777183"},{"accent",accent.name()},{"accentText",accent.lightnessF()>.6?"#20192e":"#ffffff"},{"outline",dark?"#393440":"#e2deea"},{"hover",dark?"#302b3a":"#f0edf6"}};
+    if(next==m_palette)return;m_palette=next;emit paletteChanged();
 }
 void Bridge::start(){
     auto binary=qEnvironmentVariable("LUMA_ENGINE");if(binary.isEmpty())binary=QCoreApplication::applicationDirPath()+"/luma-engine"
@@ -56,7 +56,7 @@ void Bridge::start(){
         ;
     process.setProgram(binary);process.setArguments(m_preview?QStringList{"--design-preview"}:QStringList{});process.start();
 }
-quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!=QProcess::Running)return 0;auto id=++serial;QJsonObject c{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(c).toJson(QJsonDocument::Compact);if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}process.write(bytes+'\n');return id;}
+quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!=QProcess::Running)return 0;auto id=++serial;if(a=="labels")labelRequests[data.value("account").toString()]=id;QJsonObject c{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(c).toJson(QJsonDocument::Compact);if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}process.write(bytes+'\n');return id;}
 void Bridge::consume(){pending+=process.readAllStandardOutput();while(true){auto n=pending.indexOf('\n');if(n<0)break;if(n>16*1024*1024){process.kill();pending.clear();return;}auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}if(pending.size()>16*1024*1024){process.kill();pending.clear();}}
 void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
@@ -64,7 +64,14 @@ void Bridge::receive(const QJsonObject&e){
     if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
     if(profileEvent(kind,d,quint64(id))){emit received(kind=="error"?"photoError":kind,d.toVariantMap());return;}
     if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();configRoot=d["configPath"].toString();if(QDir(configRoot).exists()){paletteWatcher.addPath(configRoot);auto file=configRoot+"/noctalia.toml";if(QFileInfo::exists(file))paletteWatcher.addPath(file);}systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}
-    else if(kind=="settings"){m_settings=d.toVariantMap();systemPalette();emit settingsChanged();}
+    else if(kind=="settings"){
+        auto enabled=[](const QVariantMap&settings){QSet<QString>ids;for(const auto&value:settings.value("accounts").toList()){const auto account=value.toMap();if(account.value("enabled").toBool())ids.insert(account.value("id").toString());}return ids;};
+        const auto previous=enabled(m_settings);m_settings=d.toVariantMap();const auto current=enabled(m_settings);
+        QSet<QString>present;for(const auto&value:m_settings.value("accounts").toList())present.insert(value.toMap().value("id").toString());
+        for(auto i=m_labels.begin();i!=m_labels.end();){if(!present.contains(i.key()))i=m_labels.erase(i);else ++i;}
+        systemPalette();emit settingsChanged();emit labelsChanged();
+        if(previous!=current)setView(m_folder,current.contains(m_account)?m_account:QString(),m_search);
+    }
     else if(kind=="theme"){if(d.contains("background")){m_palette=d.toVariantMap();emit paletteChanged();}else systemPalette();}
     else if(kind=="authUrl"){openLink(d["url"].toString());}
     else if(kind=="viewReset"){if(quint64(id)<viewRequest)return;m_inbox.replace({});m_messages.replace({});m_readerOpen=false;m_reader.clear();emit readerChanged();}
@@ -86,9 +93,10 @@ void Bridge::receive(const QJsonObject&e){
     else if(kind=="threadUpdated"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest||d["key"].toObject()!=QJsonObject::fromVariantMap(m_reader.value("key").toMap()))return;m_messages.mergeMessages(d["messages"].toArray());}
     else if(kind=="messageState"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest)return;m_messages.patch(d["id"].toString(),d);}
     else if(kind=="sync"){m_sync=d.toVariantMap();emit syncChanged();}
-    else if(kind=="mutation"){m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
+    else if(kind=="labels"){const auto account=d["account"].toString();if(labelRequests.value(account)>quint64(id))return;labelRequests.remove(account);m_labels[account]=d["items"].toArray().toVariantList();emit labelsChanged();if(d["operation"].toString()=="delete"&&m_account==account&&m_folder=="label:"+d["label"].toString())setView("inbox",account);}
+    else if(kind=="mutation"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
     else if(kind=="activity"){m_activity=d["text"].toString();m_activityKind=d["kind"].toString();emit activityChanged();}
-    else if(kind=="error"){quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
+    else if(kind=="error"){if(labelRequests.removeIf([id](auto entry){return entry.value()==quint64(id);}))emit labelsChanged();quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
     else if(kind=="composeOpened"){m_composer=d.toVariantMap();emit composerChanged();emit composeRequested(d["mode"].toString());}
     else if(kind=="compose"||kind=="composeClosed"){
         if(d["session"].toString()!=m_composer.value("session").toString())return;
@@ -139,7 +147,7 @@ void Bridge::clearSelection(){m_selection.clear();m_selecting=false;emit selecti
 void Bridge::pruneSelection(){if(m_selection.removeIf([this](const QString&key){return m_inbox.indexFor(key)<0;}))emit selectionChanged();}
 void Bridge::closeReader(){if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();m_messages.replace({});documentRequests.clear();m_reader.clear();emit readerChanged();send("releaseReader");}
 void Bridge::openThread(const QString&account,const QString&thread){if(account.isEmpty()||thread.isEmpty())return;clearSelection();const auto key=account+QChar(0)+thread;const auto index=m_inbox.indexFor(key);emit showRequested();if(index>=0){emit openRowRequested(index);return;}m_readerOpen=true;openedKey=key;m_reader={{"key",QVariantMap{{"account",account},{"id",thread}}},{"subject","Opening email"}};m_messages.replace({});documentRequests.clear();emit readerChanged();readerRequest=send("select",{{"account",account},{"id",thread}});}
-void Bridge::mutate(const QString&a,const QVariantMap&r){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a}});}
+void Bridge::mutate(const QString&a,const QVariantMap&r,const QString&label){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a},{"label",label}});}
 void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}
 void Bridge::renderMessage(const QVariantMap&parameters){const auto message=parameters.value("id").toString();documentRequests[message]=send("renderMessage",parameters);m_messages.patch(message,{{"documentPending",true}});}
 void Bridge::openLink(const QString&raw){QUrl u(raw);if(u.isValid()&&(u.scheme()=="https"||u.scheme()=="http"||u.scheme()=="mailto"))QDesktopServices::openUrl(u);}
@@ -157,3 +165,5 @@ void Bridge::chooseColour(bool background){
     const auto session=m_composer.value("session").toString();auto dialog=new QColorDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowModality(Qt::ApplicationModal);
     connect(dialog,&QColorDialog::colorSelected,this,[this,session,background](const QColor&colour){if(m_composer.value("session")==session)emit colourChosen(colour.name(),background);});dialog->open();
 }
+
+void Bridge::ensureLabels(const QString&account,bool force){if(account.isEmpty()||(!force&&(m_labels.contains(account)||labelRequests.contains(account))))return;send("labels",{{"account",account},{"operation","list"}});}

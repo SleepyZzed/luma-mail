@@ -29,5 +29,5 @@ QtObject {
     function initials(sender) {let words=sender.replace(/<.*>/g,'').trim().split(/[\s@._-]+/);return (words[0]?.[0]||'?').toUpperCase()+(words.length>1?(words[1]?.[0]||'').toUpperCase():'')}
     function avatarColor(sender) {let h=0;for(let i=0;i<sender.length;++i)h=(h*31+sender.charCodeAt(i))%360;return Qt.hsla(h/360,.30,.53,1)}
     function date(timestamp) {let d=new Date(Number(timestamp));let now=new Date();return d.toDateString()===now.toDateString()?Qt.formatTime(d,"hh:mm"):Qt.formatDate(d,"d MMM")}
-    function folderTitle(key) {return ({inbox:"Inbox",all_mail:"All Mail",unread:"Unread",starred:"Starred",sent:"Sent",drafts:"Drafts",archive:"Archive",spam:"Spam",trash:"Trash"})[key]||"Label"}
+    function folderTitle(key) {if(key.startsWith("label:")){const labels=Mail.labelSets[Mail.account]||[];const label=labels.find(l=>l.id===key.substring(6));return label?label.name:"Label"}return ({inbox:"Inbox",all_mail:"All Mail",unread:"Unread",starred:"Starred",sent:"Sent",drafts:"Drafts",archive:"Archive",spam:"Spam",trash:"Trash"})[key]||"Label"}
 }

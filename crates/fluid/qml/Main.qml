@@ -19,6 +19,7 @@ ApplicationWindow {
             id:rail;width:railMotion.value;height:parent.height
             onComposeAt:(x,y,w,h)=>{composer.origin=Qt.rect(x,y,w,h);Mail.requestCompose("new")}
             onSettingsRequested:settings.opened=true
+            onLabelActionRequested:(operation,account,label)=>labelDialog.edit(operation,account,label)
         }
         Inbox {
             id:inbox;scene:scene;x:rail.width;height:parent.height-Theme.unit(44)
@@ -28,14 +29,17 @@ ApplicationWindow {
         Reader {
             id:reader;x:inbox.x+inbox.width;width:Math.max(0,scene.width-x);height:parent.height-Theme.unit(44);layoutWidth:scene.readerGoalWidth;projected:morph.active;inlineComposer:composer;visible:width>1
             onReplyAt:(mode,message)=>Mail.requestCompose(mode,message)
-            nativeBlocked:settings.visible||context.visible||errorToast.visible||composer.modalOpen||attachmentPane.shown
+            onContextRequested:(row,x,y)=>{context.row=row;context.x=x;context.y=y;context.open()}
+            nativeBlocked:settings.visible||context.visible||rail.overlayOpen||errorToast.visible||composer.modalOpen||attachmentPane.shown||labelDialog.visible||confirmation.visible
             nativeMasks:(composer.shown&&!composer.inlineMode?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]).concat(downloadPill.visible?[Qt.rect(downloadPill.x,downloadPill.y,downloadPill.width,downloadPill.height)]:[])
         }
         ActivityPill{x:rail.width+Theme.unit(28);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(13)}
         FluidButton{anchors.right:parent.right;anchors.rightMargin:Theme.unit(20);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(9);text:"Undo";glyph:"undo";visible:Mail.canUndo;onClicked:Mail.send("undo")}
         RowMorph{id:morph}
-        Composer{id:composer;scene:scene;shown:false}
-        SettingsSheet{id:settings;anchors.fill:parent;onCloseRequested:opened=false}
+        Composer{id:composer;scene:scene;shown:false;externalModal:labelDialog.opened||settings.opened||confirmation.opened||context.visible||rail.overlayOpen}
+        SettingsSheet{id:settings;anchors.fill:parent;onCloseRequested:opened=false;onConfirmationRequested:(heading,message,buttonText,command,parameters)=>confirmation.ask(heading,message,buttonText,command,parameters)}
+        LabelDialog{id:labelDialog;anchors.fill:parent}
+        ConfirmSheet{id:confirmation;anchors.fill:parent}
         AttachmentPane{id:attachmentPane;anchors.fill:parent}
         DownloadPill{id:downloadPill;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:Theme.unit(18)}
         Rectangle {
@@ -43,17 +47,8 @@ ApplicationWindow {
             Text {textFormat:Text.PlainText;id:message;x:Theme.unit(16);y:Theme.unit(15);width:parent.width-Theme.unit(65);text:Mail.error;wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(12)}
             FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"close";onClicked:Mail.clearError()}
         }
-        Menu {
-            id:context;property var row:({})
-            MenuItem{text:"Archive";onTriggered:Mail.mutate("archive",context.row)}
-            MenuItem{text:"Move to Trash";onTriggered:Mail.mutate("trash",context.row)}
-            MenuItem{text:context.row.unread?"Mark read":"Mark unread";onTriggered:Mail.mutate(context.row.unread?"read":"unread",context.row)}
-            MenuItem{text:context.row.starred?"Remove star":"Star";onTriggered:Mail.mutate(context.row.starred?"unstar":"star",context.row)}
-            MenuItem{text:context.row.important?"Mark unimportant":"Mark important";onTriggered:Mail.mutate(context.row.important?"unimportant":"important",context.row)}
-            MenuItem{text:"Move to Inbox";visible:Mail.folder!=="inbox";height:visible?implicitHeight:0;onTriggered:Mail.mutate("inbox",context.row)}
-            MenuSeparator{}
-            MenuItem{text:"Select all loaded";onTriggered:Mail.selectAll()}
-        }
+        MailActionsMenu{id:context;objectName:"mailActionsMenu";onConfirmationRequested:(heading,message,buttonText,command,parameters)=>confirmation.ask(heading,message,buttonText,command,parameters)}
+
     }
     Connections {
         target:Mail
@@ -76,7 +71,7 @@ ApplicationWindow {
         function onComposeFocused(){composer.focusEditor();if(composer.inlineMode)reader.dockInline(composer)}
         function onShowRequested(){window.show();window.raise();window.requestActivate()}
     }
-    Shortcut{sequence:"Ctrl+N";enabled:!attachmentPane.shown;onActivated:Mail.requestCompose("new")}
-    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen;onActivated:{if(attachmentPane.shown)attachmentPane.close();else if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
-    Shortcut{sequence:"Ctrl+R";enabled:!attachmentPane.shown;onActivated:Mail.setView(Mail.folder,Mail.account,Mail.search)}
+    Shortcut{sequence:"Ctrl+N";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened;onActivated:Mail.requestCompose("new")}
+    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen;onActivated:{if(confirmation.opened)confirmation.opened=false;else if(labelDialog.opened){if(!labelDialog.pending)labelDialog.opened=false}else if(attachmentPane.shown)attachmentPane.close();else if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
+    Shortcut{sequence:"Ctrl+R";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened;onActivated:Mail.setView(Mail.folder,Mail.account,Mail.search)}
 }

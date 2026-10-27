@@ -68,6 +68,16 @@ impl Client {
         .unwrap();
         self.input.flush().unwrap();
     }
+    fn expect_error(&self, id: u64) -> Value {
+        for _ in 0..24 {
+            let event = self.events.recv_timeout(Duration::from_secs(5)).unwrap();
+            if event["event"] == "error" {
+                assert_eq!(event["id"], id);
+                return event["data"].clone();
+            }
+        }
+        panic!("expected error for request {id}")
+    }
     fn until(&self, kind: &str) -> Value {
         for _ in 0..24 {
             let e = self
@@ -499,4 +509,162 @@ fn attachment_previews_and_media_chunks_are_memory_only_and_generation_checked()
     }
     assert!(!c.root.path().join("cache/bodies").exists());
     assert!(!c.root.path().join("config/composer").exists());
+}
+
+#[test]
+fn label_crud_sender_rules_and_draft_delete_keep_their_scope_guards() {
+    let mut c = Client::new();
+    c.until("ready");
+    c.until("rows");
+    c.send(1, "labels", json!({"account":"preview","operation":"list"}));
+    let labels = c.until("labels");
+    assert_eq!(labels["items"].as_array().unwrap().len(), 2);
+    c.send(
+        2,
+        "labels",
+        json!({"account":"preview","operation":"create","name":"Project <literal>"}),
+    );
+    let labels = c.until("labels");
+    let id = labels["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["name"] == "Project <literal>")
+        .unwrap()["id"]
+        .clone();
+    c.send(
+        3,
+        "labels",
+        json!({"account":"preview","operation":"rename","label":id,"name":"Research"}),
+    );
+    let labels = c.until("labels");
+    assert!(
+        labels["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["name"] == "Research")
+    );
+    c.send(
+        4,
+        "labels",
+        json!({"account":"preview","operation":"delete","label":id}),
+    );
+    assert!(
+        c.expect_error(4)["message"]
+            .as_str()
+            .unwrap()
+            .contains("Confirm")
+    );
+    c.send(
+        5,
+        "labels",
+        json!({"account":"preview","operation":"delete","label":id,"confirmed":true}),
+    );
+    assert_eq!(c.until("labels")["items"].as_array().unwrap().len(), 2);
+    c.send(6,"senderRule",json!({"account":"preview","operation":"block","sender":"Alex <alex@example.com>","confirmed":true}));
+    let settings = c.until("settings");
+    assert_eq!(
+        settings["accounts"][0]["blocked_senders"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    c.until("senderRuleSaved");
+    c.send(7,"senderRule",json!({"account":"preview","operation":"block","sender":"alex@example.com","confirmed":true}));
+    assert_eq!(
+        c.until("settings")["accounts"][0]["blocked_senders"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    c.until("senderRuleSaved");
+    c.send(8,"senderRule",json!({"account":"preview","operation":"unblock","sender":"alex@example.com","confirmed":true}));
+    assert!(
+        c.until("settings")["accounts"][0]["blocked_senders"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    c.until("senderRuleSaved");
+    let keys = json!([{"account":"preview","id":"preview0"}]);
+    c.send(9, "draftDelete", json!({"keys":keys,"confirmed":true}));
+    assert!(
+        c.expect_error(9)["message"]
+            .as_str()
+            .unwrap()
+            .contains("Drafts")
+    );
+    c.send(
+        10,
+        "view",
+        json!({"folder":"drafts","accounts":["preview"]}),
+    );
+    c.until("rows");
+    c.send(11, "draftDelete", json!({"keys":keys}));
+    assert!(
+        c.expect_error(11)["message"]
+            .as_str()
+            .unwrap()
+            .contains("Confirm")
+    );
+    c.send(12, "draftDelete", json!({"keys":keys,"confirmed":true}));
+    assert_eq!(c.until("draftsDeleted")["count"], 1);
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
+}
+
+#[test]
+fn concurrent_preferences_preserve_other_fields_and_account_controls_stay_scoped() {
+    let mut c = Client::configured(true);
+    c.until("ready");
+    c.until("rows");
+    c.send(1, "settingsUpdate", json!({"ui_scale_percent":115}));
+    c.send(2, "settingsUpdate", json!({"reduced_motion":true}));
+    c.send(
+        3,
+        "accountUpdate",
+        json!({"account":"preview-b","name":"Second inbox"}),
+    );
+    let mut final_state = Value::Null;
+    for _ in 0..3 {
+        final_state = c.until("settings");
+    }
+    assert_eq!(final_state["ui_scale_percent"], 115);
+    assert_eq!(final_state["reduced_motion"], true);
+    assert_eq!(final_state["accounts"][1]["name"], "Second inbox");
+    c.send(
+        4,
+        "accountReorder",
+        json!({"accounts":["preview-b","preview"]}),
+    );
+    assert_eq!(c.until("settings")["accounts"][0]["id"], "preview-b");
+    c.send(
+        5,
+        "accountUpdate",
+        json!({"account":"preview-b","enabled":false}),
+    );
+    assert_eq!(c.until("settings")["accounts"][0]["enabled"], false);
+    c.send(6, "accountRemove", json!({"account":"preview-b"}));
+    assert!(
+        c.expect_error(6)["message"]
+            .as_str()
+            .unwrap()
+            .contains("Confirm")
+    );
+    c.send(
+        7,
+        "accountRemove",
+        json!({"account":"preview-b","confirmed":true}),
+    );
+    let settings = c.until("settings");
+    assert_eq!(settings["accounts"].as_array().unwrap().len(), 1);
+    assert_eq!(settings["accounts"][0]["id"], "preview");
+    c.send(8, "cacheUsage", json!({}));
+    let usage = c.until("cacheUsage");
+    assert_eq!(usage["bytes"], 0);
+    assert!(usage["accounts"].as_object().unwrap().is_empty());
+    assert!(!c.root.path().join("cache").exists());
 }

@@ -4,7 +4,6 @@ use luma_core::{
     auth::{Authorization, Credentials, SystemVault, Vault},
     config::{Account, Settings},
     gmail::Gmail,
-    provider::MailProvider,
 };
 use serde_json::json;
 use std::sync::{Arc, atomic::Ordering};
@@ -13,7 +12,15 @@ pub async fn publish(app: &App, id: u64) {
     let value = serde_json::to_value(&*app.settings.lock().unwrap()).unwrap_or_default();
     app.events.emit(id, "settings", value).await;
 }
+pub async fn cache_usage(app: &App, id: u64) -> Result<()> {
+    let (bytes, accounts) = app.cache.lock().unwrap().usage_report()?;
+    app.events
+        .emit(id, "cacheUsage", json!({"bytes":bytes,"accounts":accounts}))
+        .await;
+    Ok(())
+}
 pub async fn update(app: &App, c: &Command) -> Result<()> {
+    let _preferences = app.preferences.lock().await;
     const ALLOWED: &[&str] = &[
         "default_account",
         "cache_mib",
@@ -76,9 +83,15 @@ pub async fn update(app: &App, c: &Command) -> Result<()> {
     Ok(())
 }
 pub async fn account_update(app: &App, c: &Command) -> Result<()> {
+    let _start = if c.data["enabled"] == false {
+        Some(app.compose_start.lock().await)
+    } else {
+        None
+    };
     if c.data["enabled"] == false {
         ensure_composer_closed(app, c.text("account"))?;
     }
+    let _preferences = app.preferences.lock().await;
     let mut settings = app.settings.lock().unwrap().clone();
     let account = settings
         .accounts
@@ -115,15 +128,21 @@ pub async fn account_update(app: &App, c: &Command) -> Result<()> {
         app.paths.save(&settings)?;
     }
     *app.settings.lock().unwrap() = settings;
-    if !app.preview {
+    if !app.preview && c.data.get("enabled").is_some() {
         app.rebuild_clients()?;
     }
-    app.photos.reset();
-    app.events.emit(c.id, "photosReset", json!({})).await;
+    if ["enabled", "drive_enabled", "contact_photos"]
+        .iter()
+        .any(|key| c.data.get(key).is_some())
+    {
+        app.photos.reset();
+        app.events.emit(c.id, "photosReset", json!({})).await;
+    }
     publish(app, c.id).await;
     Ok(())
 }
 pub async fn reorder(app: &App, c: &Command) -> Result<()> {
+    let _preferences = app.preferences.lock().await;
     let ids = c.data["accounts"]
         .as_array()
         .ok_or_else(|| Error::Invalid("Missing account order".into()))?;
@@ -151,11 +170,18 @@ pub async fn reorder(app: &App, c: &Command) -> Result<()> {
     Ok(())
 }
 pub async fn remove(app: &App, c: &Command) -> Result<()> {
+    let _start = app.compose_start.lock().await;
     let _lock = app.mutation.lock().await;
     let id = c.text("account");
     ensure_composer_closed(app, id)?;
-    let mut settings = app.settings.lock().unwrap().clone();
-    if !settings.accounts.iter().any(|a| a.id == id) {
+    if !app
+        .settings
+        .lock()
+        .unwrap()
+        .accounts
+        .iter()
+        .any(|a| a.id == id)
+    {
         return Err(Error::Invalid("Account no longer exists".into()));
     }
     // Only a deliberate confirmed removal reaches this command. Never delete mail.
@@ -170,6 +196,8 @@ pub async fn remove(app: &App, c: &Command) -> Result<()> {
         app.cache.lock().unwrap().clear_account(id)?;
         app.recent.clear_account(id)?;
     }
+    let _preferences = app.preferences.lock().await;
+    let mut settings = app.settings.lock().unwrap().clone();
     settings.accounts.retain(|a| a.id != id);
     if settings.default_account.as_deref() == Some(id) {
         settings.default_account = None;
@@ -249,7 +277,12 @@ pub async fn auth(app: &Arc<App>, c: &Command) -> Result<()> {
             "Reconnect using the same Google account".into(),
         ));
     }
-    let id = existing
+    let _preferences = app.preferences.lock().await;
+    let current = app.settings.lock().unwrap().accounts.clone();
+    if expected.is_some_and(|a| !current.iter().any(|v| v.id == a.id)) {
+        return Err(Error::Invalid("This account was removed while Google sign-in was open. Start sign-in again if you want to reconnect it.".into()));
+    }
+    let id = current
         .iter()
         .find(|a| a.email.eq_ignore_ascii_case(&profile.email_address))
         .map(|a| a.id.clone())
@@ -297,51 +330,6 @@ pub async fn auth(app: &Arc<App>, c: &Command) -> Result<()> {
     publish(app, c.id).await;
     app.events
         .emit(c.id, "authComplete", json!({"account":id}))
-        .await;
-    Ok(())
-}
-pub async fn labels(app: &App, c: &Command) -> Result<()> {
-    let client = app.client(c.text("account"))?;
-    match c.text("operation") {
-        "create" => {
-            if c.text("name").trim().is_empty() {
-                return Err(Error::Invalid("Enter a label name".into()));
-            }
-            client.create_label(c.text("name").trim()).await?;
-        }
-        "rename" => {
-            client
-                .rename_label(c.text("label"), c.text("name").trim())
-                .await?;
-        }
-        "delete" => {
-            if !c.flag("confirmed") {
-                return Err(Error::Invalid("Confirm label deletion first".into()));
-            }
-            let labels = client.labels().await?;
-            if !labels
-                .iter()
-                .any(|l| l.id == c.text("label") && l.kind == "user")
-            {
-                return Err(Error::Invalid("Only your own labels can be deleted".into()));
-            }
-            client.delete_label(c.text("label")).await?;
-        }
-        "" | "list" => {}
-        _ => return Err(Error::Invalid("Unknown label operation".into())),
-    }
-    let items: Vec<_> = client
-        .labels()
-        .await?
-        .iter()
-        .map(|l| json!({"id":l.id,"name":l.name,"type":l.kind}))
-        .collect();
-    app.events
-        .emit(
-            c.id,
-            "labels",
-            json!({"account":client.account,"items":items}),
-        )
         .await;
     Ok(())
 }

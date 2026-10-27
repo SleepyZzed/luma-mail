@@ -25,7 +25,7 @@ Item {
             FluidButton{text:"Select all";onClicked:Mail.selectAll()}
             FluidButton{glyph:"archive";tip:"Archive selection";enabled:Mail.selectionCount>0;onClicked:Mail.mutate("archive")}
             FluidButton{glyph:"trash";tip:"Move selection to Trash";enabled:Mail.selectionCount>0;onClicked:Mail.mutate("trash")}
-            FluidButton{glyph:"read";tip:"Mark selection read";enabled:Mail.selectionCount>0;onClicked:Mail.mutate("read")}
+            FluidButton{glyph:"more";tip:"More actions on selection";enabled:Mail.selectionCount>0;onClicked:{const p=mapToItem(root.scene,0,height);root.contextRequested({},p.x,p.y)}}
         }
     }
     ListView {
@@ -66,7 +66,7 @@ Item {
                 Text {textFormat:Text.PlainText;id:subjectText;width:parent.width;text:row.item.subject||"(No subject)";font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Normal;color:row.item.unread?Theme.text:Theme.muted;elide:Text.ElideRight}
                 Text {textFormat:Text.PlainText;id:snippetText;width:parent.width;text:row.item.snippet;font.pixelSize:Theme.unit(10);color:Theme.faint;elide:Text.ElideRight}
             }
-            MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:(mouse)=>{let p=row.mapToItem(root.scene,0,0);if(mouse.button===Qt.RightButton)root.contextRequested(row.item,p.x+mouse.x,p.y+mouse.y);else Mail.selectRow(row.index,mouse.modifiers,p.x,p.y,row.width,row.height,row.projection())}}
+            MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:(mouse)=>{let p=row.mapToItem(root.scene,0,0);if(mouse.button===Qt.RightButton){if(Mail.selectionCount&&!Mail.isSelected(row.item))Mail.clearSelection();root.contextRequested(row.item,p.x+mouse.x,p.y+mouse.y);}else Mail.selectRow(row.index,mouse.modifiers,p.x,p.y,row.width,row.height,row.projection())}}
             Row {x:row.width-width-Theme.unit(12)+(1-rowHover.value)*Theme.unit(12);y:Theme.unit(29);spacing:Theme.unit(1);opacity:Math.max(0,Math.min(1,rowHover.value));enabled:hover.hovered;visible:!Mail.selecting
                 FluidButton {glyph:row.item.starred?"star-filled":"star";tip:row.item.starred?"Remove star":"Star";onClicked:Mail.mutate(row.item.starred?"unstar":"star",row.item)}
                 FluidButton {glyph:"archive";tip:"Archive";onClicked:Mail.mutate("archive",row.item)}
@@ -98,9 +98,9 @@ Item {
         background:Rectangle{radius:Theme.unit(16);color:Theme.raised;border.width:1;border.color:Theme.outline}
         Column{spacing:Theme.unit(12);width:parent.width
             Text {textFormat:Text.PlainText;text:"Search in Gmail";color:Theme.text;font.pixelSize:Theme.unit(14);font.weight:Font.DemiBold}
-            TextField{id:from;placeholderText:"From address";width:parent.width}
-            TextField{id:subject;placeholderText:"Subject contains";width:parent.width}
-            CheckBox{id:attachment;text:"Has attachments"}
+            FluidField{id:from;placeholderText:"From address";width:parent.width}
+            FluidField{id:subject;placeholderText:"Subject contains";width:parent.width}
+            FluidCheck{id:attachment;text:"Has attachments"}
             FluidButton{text:"Search";primary:true;onClicked:{let q=(from.text?"from:"+from.text+" ":"")+(subject.text?"subject:("+subject.text+") ":"")+(attachment.checked?"has:attachment":"");search.text=q;Mail.setView(Mail.folder,Mail.account,q);filters.close()}}
         }
     }

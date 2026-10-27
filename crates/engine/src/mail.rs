@@ -351,6 +351,8 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
                         MailAction::Unread => row.unread = true,
                         MailAction::Star => row.starred = true,
                         MailAction::Unstar => row.starred = false,
+                        MailAction::Important => row.important = true,
+                        MailAction::Unimportant => row.important = false,
                         _ => (),
                     };
                     changed.push(row.clone())
@@ -362,7 +364,7 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             .emit(
                 c.id,
                 "mutation",
-                json!({"removed":removed,"changed":changed,"undo":false}),
+                json!({"generation":generation,"removed":removed,"changed":changed,"undo":false}),
             )
             .await;
         app.status(c.id, "idle", "Preview updated").await;
@@ -488,7 +490,7 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             }
         }
         let has_undo = !app.undo.lock().unwrap().is_empty();
-        app.events.emit(c.id,"mutation",json!({"removed":removed,"changed":changed,"undo":has_undo,"needsRefresh":needs_refresh,"messageFlags":flags})).await;
+        app.events.emit(c.id,"mutation",json!({"generation":generation,"removed":removed,"changed":changed,"undo":has_undo,"needsRefresh":needs_refresh,"messageFlags":flags})).await;
     }
     if !failures.is_empty() {
         return Err(Error::Invalid(failures.join("\n")));

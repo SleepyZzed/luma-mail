@@ -8,7 +8,7 @@ qt_add_executable(luma-mail-fluid WIN32 src/main.cpp src/bridge.cpp src/bridge.h
 target_sources(luma-mail-fluid PRIVATE src/html_smoke.cpp src/runtime_cleanup.cpp src/runtime_cleanup.h)
 target_sources(luma-mail-fluid PRIVATE src/read_document.cpp src/read_document.h)
 target_sources(luma-mail-fluid PRIVATE src/record_model.cpp src/record_model.h)
-target_sources(luma-mail-fluid PRIVATE src/sync_smoke.cpp)
+target_sources(luma-mail-fluid PRIVATE src/sync_smoke.cpp src/actions.cpp src/navigation_smoke.cpp)
 target_sources(luma-mail-fluid PRIVATE src/attachment_preview.cpp src/attachment_preview.h src/attachment_thumbnails.cpp)
 target_sources(luma-mail-fluid PRIVATE src/attachment_smoke.cpp)
 target_include_directories(luma-mail-fluid PRIVATE src)
@@ -25,7 +25,7 @@ endif()
 qt_add_qml_module(luma-mail-fluid URI Luma.Fluid VERSION 1.0
     QML_FILES qml/Main.qml qml/Theme.qml qml/FluidColor.qml qml/FluidButton.qml qml/FluidCombo.qml qml/FluidCheck.qml qml/Icon.qml
         qml/Avatar.qml qml/Sidebar.qml qml/NavigationEntry.qml qml/Inbox.qml qml/Reader.qml
-        qml/Composer.qml qml/RecipientField.qml qml/RowMorph.qml qml/ActivityPill.qml qml/SettingsSheet.qml qml/AttachmentTile.qml qml/AttachmentPane.qml qml/DownloadPill.qml ${LUMA_PLATFORM_READER})
+        qml/Composer.qml qml/RecipientField.qml qml/RowMorph.qml qml/ActivityPill.qml qml/SettingsSheet.qml qml/AttachmentTile.qml qml/AttachmentPane.qml qml/DownloadPill.qml qml/FluidMenu.qml qml/LabelSection.qml qml/LabelDialog.qml qml/MailActionsMenu.qml qml/ConfirmSheet.qml qml/FluidField.qml ${LUMA_PLATFORM_READER})
 file(GLOB LUMA_ICONS CONFIGURE_DEPENDS "../../data/icons/scalable/actions/*.svg")
 qt_add_resources(luma-mail-fluid "icons" PREFIX "/icons" BASE "../../data/icons/scalable/actions" FILES ${LUMA_ICONS})
 qt_add_resources(luma-mail-fluid "brand" PREFIX "/brand" BASE "../../data" FILES "../../data/luma-wordmark.png" "../../data/io.github.lumamail.Luma.svg")

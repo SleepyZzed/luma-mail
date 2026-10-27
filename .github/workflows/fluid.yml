@@ -130,6 +130,19 @@ jobs:
           name: fluid-attachment-linux
           path: fluid-attachment-linux.json
           if-no-files-found: warn
+      - name: Native account labels and safe context actions
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_NAVIGATION_REPORT: ${{ github.workspace }}/fluid-navigation-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --navigation-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-navigation-linux
+          path: fluid-navigation-linux.json
+          if-no-files-found: warn
   windows-scene:
     runs-on: windows-latest
     steps:
@@ -255,4 +268,20 @@ jobs:
           path: |
             fluid-attachment-windows.json
             attachment.stderr
+          if-no-files-found: warn
+      - name: Native account labels and safe context actions
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_NAVIGATION_REPORT="$(cygpath -m "$PWD")/fluid-navigation-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --navigation-test >navigation.stdout 2>navigation.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-navigation-windows
+          path: |
+            fluid-navigation-windows.json
+            navigation.stderr
           if-no-files-found: warn

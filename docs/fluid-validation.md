@@ -142,3 +142,24 @@ window cannot provide frame/geometry evidence. Five local CTest suites and
 strict Rust Clippy pass. Updated Linux/Windows CI and live acceptance remain
 separate gates. Neither the codec nor renderer memory totals are established by
 functional fixture checks.
+
+
+At `f431b69`, all Linux and Windows attachment/scene checks passed in
+[run 40601786955](https://github.com/SleepyZzed/luma-mail/actions/runs/40601786955),
+including media playback from RAM and the Linux private D-Bus suite.
+
+The next navigation checkpoint adds `--design-preview --navigation-test` and
+`LUMA_NAVIGATION_REPORT`. Twenty-four native checks exercise account label
+create/rename/delete, a real right-click label hit target, bulk action visibility,
+importance reversal, explicit sender-rule confirmation/unblock and the dedicated
+draft-delete endpoint. Repeated QML objects are found through the visual tree
+as well as QObject ownership; treating them as ordinary window children hid a
+valid menu in an early test. The synthetic rules never touch a Google account.
+
+The Windows navigation, motion, composer, photo, sync, HTML and attachment suites
+all pass after the new controls. Strict Clippy and core 126/one ignored, engine
+24 unit/ten pipe tests pass. The pipe tests additionally exercise label/rule
+scope guards, concurrent preference preservation, account reorder/disable/remove
+and zero-cache usage reporting. Core's allocation report matches the existing
+total/per-account accounting and adds no disk index. Live Google/desktop and
+whole-process resource acceptance remain outstanding.
