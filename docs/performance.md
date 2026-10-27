@@ -178,6 +178,12 @@ contain seven/nine processes, returning to one after release. Settled last
 samples report 0% CPU; the first fresh sample has no prior CPU delta. These are
 last observations rather than phase means, and are not representative guarantees.
 
+The [raw Windows process-tree report](https://github.com/SleepyZzed/luma-mail/releases/download/v0.9.0-dev.1/luma-0.9-windows-performance.json)
+is attached to the release (SHA-256
+`5fe4381636a3a7f3b1131b793d940203bcbd4ada6787dac2e9a2bd20c3e6d8f4`).
+Its recorded executable hash matches luma-mail.exe inside the downloaded Windows
+ZIP. The Linux raw samples are published as performance.json alongside it.
+
 On the physical Windows laptop, a local 0.9 candidate's PowerShell 5 audit
 measures 92.56 MiB fresh, 104.20 MiB with 1,000 rows, 202.11 MiB for one HTML view,
 243.16 MiB for three, and 97.36 MiB reclaimed. The local signature/HTML/audio/tray
