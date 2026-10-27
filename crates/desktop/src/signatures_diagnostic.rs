@@ -108,15 +108,18 @@ pub(super) fn start(s: &Rc<State>) {
         glib::timeout_future(Duration::from_millis(120)).await;
         let d=e.window.visible_dialog().unwrap().downcast::<adw::AlertDialog>().unwrap();
         response(d.upcast_ref(),"Keep editing").expect("Actual cancel button").emit_clicked();
+        drop(d);
         glib::timeout_future(Duration::from_millis(350)).await;
         assert!(!e.allow_close.get()&&!e.checking_close.get());
         e.window.close();
         for _ in 0..50 {if e.window.visible_dialog().is_some(){break;}glib::timeout_future(Duration::from_millis(50)).await;}
         let d=e.window.visible_dialog().unwrap().downcast::<adw::AlertDialog>().unwrap();
         response(d.upcast_ref(),"Close without saving").expect("Actual discard button").emit_clicked();
-        let weak=Rc::downgrade(&e);drop(e);
+        drop(d);
+        let weak=Rc::downgrade(&e);let view=e.rich.widget.downgrade();drop(e);
         glib::timeout_future(Duration::from_millis(600)).await;
-        assert!(weak.upgrade().is_none(),"Closed signature editor must release its renderer and owner");
+        assert!(weak.upgrade().is_none(),"Closed signature editor must release its owner");
+        assert!(view.upgrade().is_none(),"Closed signature editor must release the actual WebKit widget");
         println!("PASS actual Linux signature toolbar, font/colour/link/bullets/table/picture, bounded hosted-image snapshot, separate draft signature, close confirmation and renderer release; no account or upload");
         state.app.quit();
     });

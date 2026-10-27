@@ -410,13 +410,15 @@ fn loaded(
         if e.allow_close.get(){return glib::Propagation::Proceed;}
         if e.busy.get(){e.status.set_text("Wait for the current signature request before closing");return glib::Propagation::Stop;}
         if e.checking_close.replace(true){return glib::Propagation::Stop;}
-        let weak=Rc::downgrade(&e);e.rich.dirty(move|dirty|{let Some(e)=weak.upgrade()else{return;};if !dirty{e.allow_close.set(true);e.window.close();return;}
-            let dialog=adw::AlertDialog::builder().heading("Close without saving the signature?").body("Your changes are only in this editor. The saved Gmail signature will stay unchanged.").build();dialog.add_responses(&[("cancel","Keep editing"),("close","Close without saving")]);dialog.set_default_response(Some("cancel"));let e=e.clone();glib::MainContext::default().spawn_local(async move{let response=dialog.choose_future(Some(&e.window)).await;e.checking_close.set(false);if response=="close"{e.allow_close.set(true);e.window.close();}});
+        let weak=Rc::downgrade(&e);e.rich.dirty(move|dirty|{let Some(e)=weak.upgrade()else{return;};if !dirty{e.allow_close.set(true);e.window.destroy();return;}
+            let dialog=adw::AlertDialog::builder().heading("Close without saving the signature?").body("Your changes are only in this editor. The saved Gmail signature will stay unchanged.").build();dialog.add_responses(&[("cancel","Keep editing"),("close","Close without saving")]);dialog.set_default_response(Some("cancel"));let e=e.clone();glib::MainContext::default().spawn_local(async move{let response=dialog.choose_future(Some(&e.window)).await;e.checking_close.set(false);if response=="close"{e.allow_close.set(true);e.window.destroy();}});
         });
         glib::Propagation::Stop
     });
     let owner = RefCell::new(Some(e.clone()));
-    e.window.connect_destroy(move |_| {
+    // Dispose/destroy runs after final unref: the editor also owns this window.
+    // Break that keep-alive cycle when its native surface is unrealized.
+    e.window.connect_unrealize(move |_| {
         owner.borrow_mut().take();
         crate::resources::trim();
     });
@@ -818,4 +820,46 @@ mod diagnostic;
 #[cfg(all(debug_assertions, target_os = "linux"))]
 pub fn diagnostic(s: &Rc<State>) {
     diagnostic::start(s);
+}
+
+#[cfg(all(debug_assertions, not(target_os = "linux")))]
+pub fn close_diagnostic(s: &Rc<State>) {
+    fn find(widget: &gtk::Widget, title: &str) -> Option<gtk::Button> {
+        if let Some(b) = widget.downcast_ref::<gtk::Button>()
+            && b.label().as_deref() == Some(title)
+        {
+            return Some(b.clone());
+        }
+        let mut child = widget.first_child();
+        while let Some(w) = child {
+            if let Some(b) = find(&w, title) {
+                return Some(b);
+            }
+            child = w.next_sibling();
+        }
+        None
+    }
+    let state = s.clone();
+    glib::MainContext::default().spawn_local(async move{
+        let account=state.settings.borrow().accounts[0].clone();
+        let e=loaded(&state,account.clone(),Signature{identity:account.email,html:"Synthetic signature".into(),can_update:true},None).unwrap();
+        glib::timeout_future(std::time::Duration::from_millis(350)).await;
+        apply(&e,"bold","");
+        e.window.close();
+        glib::timeout_future(std::time::Duration::from_millis(350)).await;
+        let d=e.window.visible_dialog().unwrap();
+        find(d.upcast_ref(),"Keep editing").unwrap().emit_clicked();drop(d);
+        glib::timeout_future(std::time::Duration::from_millis(350)).await;
+        assert!(!e.allow_close.get()&&!e.checking_close.get());
+        e.window.close();
+        glib::timeout_future(std::time::Duration::from_millis(350)).await;
+        let d=e.window.visible_dialog().unwrap();
+        find(d.upcast_ref(),"Close without saving").unwrap().emit_clicked();drop(d);
+        let weak=Rc::downgrade(&e);let view=e.rich.widget.downgrade();drop(e);
+        glib::timeout_future(std::time::Duration::from_millis(700)).await;
+        assert!(weak.upgrade().is_none(),"Signature owner must be released");
+        assert!(view.upgrade().is_none(),"Signature surface must be released");
+        println!("PASS native Windows signature source, real Keep editing/discard buttons, window close and complete owner/widget release; no account writes");
+        state.app.quit();
+    });
 }

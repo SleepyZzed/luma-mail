@@ -33,7 +33,14 @@ font/size/further typing, links, bullets, tables, public picture serialization a
 separate draft restoration subsequently passed. The close-cancel diagnostic
 uses the actual response buttons and waits for libadwaita dismissal; emitting a
 response signal alone does not reproduce the real button/close lifecycle.
-Final renderer-release/storage/package gates are recorded below when completed.
+A real retention bug was caught before publication: the window's dispose signal
+could not release an editor that itself owned the window, and a second Close
+could target a still-closing dialog. Approved close now destroys the window and
+releases its owner on native unrealize. A Windows native test passed actual
+Keep editing/discard buttons and complete editor/widget release; the Linux gate
+also checks destruction of the actual WebKit widget. Signature toolbar height,
+real image decoding and continued typing with in-memory picture previews are
+checked explicitly. Final storage/package gates are recorded below when completed.
 
 ## Final 0.7 release, 26 October 2026
 

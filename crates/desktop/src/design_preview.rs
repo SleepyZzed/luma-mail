@@ -212,6 +212,11 @@ pub fn show(s: &Rc<State>) {
         ui::verify_virtualization(s);
         return;
     }
+    #[cfg(not(target_os = "linux"))]
+    if std::env::args().any(|a| a == "--signature-close-diagnostics") {
+        crate::signatures::close_diagnostic(s);
+        return;
+    }
     #[cfg(target_os = "linux")]
     if std::env::args().any(|a| a == "--signature-diagnostics") {
         crate::signatures::diagnostic(s);
