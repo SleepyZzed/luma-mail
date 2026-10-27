@@ -1,5 +1,51 @@
 # Verification log
 
+## Final 0.8 release, 27 October 2026
+
+[Release run 40425766520](https://github.com/SleepyZzed/luma-mail/actions/runs/40425766520)
+passed every gate on `5c5a361d7ee06c89fc726b0757e049969a84d1f2` and published
+[v0.8.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.8.0-dev.1).
+The downloaded 157,985,272-byte AppImage matches SHA256SUMS and GitHub's digest:
+`93cd9f0d3d507edb7c3c3a7674f7eaf13f27558594e5e3233af4eb9de95e1491`.
+PKGBUILD pins functional source `e7673436fc1a8c9c579396b684b48917d98dc81a`;
+its downloaded archive matches
+`e8d719d5e9b51714319b528c20ce63467b205b97e981c10003d348c83e99cdf6`.
+All 184 functional files matched the prepared source before the pin-only commit.
+[PR #10](https://github.com/SleepyZzed/luma-mail/pull/10) is merged.
+
+- Strict Linux fmt/Clippy, 117 core and eight desktop tests; separate real
+  GTK/tray/system-notification acceptance and three sandbox-launcher tests.
+- Actual Linux signature font/typing/colour/link/list/table actions, decoded
+  hosted-picture preview, bounded serialization, separate MIME signature,
+  desktop-sized geometry, actual cancel/discard buttons and complete release of
+  both the editor owner and its WebKit widget. The final native capture was
+  downloaded and visually inspected; its SHA-256 is
+  `a861cb33157918cf55238946cf2e886df1f6045f4605344075f71a5a8ea87e86`.
+- All existing compose/navigation/selection/clipboard/virtual-list diagnostics,
+  native and packaged HTML/media on X11 and headless Wayland, hidden host WebKit,
+  read-only bundle, desktop cursor and required Google registration checks.
+- Signature storage report: cache **zero files/bytes** (one empty directory),
+  configuration 220 logical bytes across two test preference/palette files,
+  and temporary runtime 1,686,335 logical / 2,412,544 allocated bytes. Runtime
+  contains engine/graphics/codec/session metadata, not a signature/image archive.
+- Whole package report: compressed 157,985,272 logical / 157,986,816 allocated
+  bytes; extracted installation 497,897,988 logical / 511,913,984 allocated.
+  Read-only Wayland runtime created no files; zero-cache checks retained no mail,
+  local draft, attachment or persistent renderer cache. See published JSON files.
+
+The complete process-tree software-rendered CI profile reports fresh idle
+266.33 MiB PSS, 1,000 records 282.53 MiB, one HTML view 526.77 MiB, three views
+635.77 MiB, and reclaimed background 309.28 MiB. Fresh/final settled CPU samples
+were 0%; HTML short intervals averaged 4.66% and 13.53%. These do not establish
+real GPU/long-soak results, and **the RAM targets remain unmet**. Raw phase/peak
+samples are published in performance.json; see performance.md for scope.
+
+The live signature MIME/draft tests below passed without altering the actual
+account signature or uploading any public Drive copy. Real settings-write,
+public-image recipient access, two-account target Linux acceptance and Google
+approval remain outstanding. Documentation-only follow-ups do not change the
+tagged AppImage or its verified application source.
+
 ## 0.7.1 composer hotfix and 0.8 signature validation
 
 [Hotfix release run 40419941734](https://github.com/SleepyZzed/luma-mail/actions/runs/40419941734)

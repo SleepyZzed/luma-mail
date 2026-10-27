@@ -26,7 +26,7 @@ remaining STATUS.md gaps are not claimed complete.
 | 5 | Source account is identifiable | Account identity retained in every key and visible row | Desktop review with two accounts, including keyboard/screen-reader access. |
 | 6 | Clicking a conversation retrieves its messages | Thread metadata first; individual bodies only on expansion | Real large-thread/MIME interoperability and cancellation checks. |
 | 7 | Compose/reply/reply-all/forward work | MIME/header/account tests and real Gmail endpoints | Real delivery/threading tests; polished rich editor and whole-conversation forwarding. |
-| 8 | Drafts persist in Gmail across restarts | Debounce, create/update/conflict and attachment-preservation tests | Real restart/concurrent-client tests; better conflict recovery; large-draft editing strategy. |
+| 8 | Drafts persist in Gmail across restarts | Explicit Save, Ask/conditional Save on close/Manual modes, revision/conflict and attachment-preservation tests; authorized self-mail draft reopen/save/send with sent-draft removal | Target Linux restart/concurrent-client checks and complex external rich-draft editing. |
 | 9 | Delete moves the correct message to Trash | Correct message/thread/account API endpoints tested | Confirm changes in Gmail using disposable test mail. |
 | 10 | Archive changes Gmail | Removes INBOX with previous-state undo tests | Confirm in Gmail, including mixed-state bulk operations. |
 | 11 | Read/unread changes Gmail | Per-message and conversation remote operations tested | Confirm external persistence, undo and concurrent changes. |
@@ -163,3 +163,26 @@ The remaining priorities and distribution gates are ordered in docs/roadmap.md.
 - [x] Real self-mail: repeated attachment saves reuse one draft; one delivered mail.
 - [x] Record final 0.6 Linux/AppImage/runtime evidence (run 40379375832).
 - [ ] Target Linux/two-account acceptance and Google approval remain required.
+
+## 0.8 signature and draft policy batch
+
+- [x] Restore individually wrapped composer formatting and real toolbar-action checks.
+- [x] Default Ask on close; conditional Save on close requires a valid recipient
+  and authored body; Manual Save never saves on typing, attaching or closing.
+- [x] Add provider-neutral online signature storage and Gmail primary Send-as
+  editing, with a projected fresh read and signature-only update.
+- [x] Add visual rich fonts/colours/lists/alignment/links/tables and hosted images.
+- [x] Require explicit public-link approval before uploading a local signature
+  picture copy; bounded RAM preparation, progress, cancellation and no disk spool.
+- [x] Keep draft signature separate from authored body/quote; preserve one copy
+  across repeated saves and sends, including the authorized live Gmail self-test.
+- [x] Native Linux/WebKit formatting, decoded picture display, desktop-sized
+  editor, actual close/cancel actions and complete owner/view release.
+- [x] Signature zero-cache check: no persistent body/signature/image/draft store.
+- [ ] Target Linux real signature settings Save/reload and another recipient's
+  hosted-picture rendering/sharing acceptance. Real settings/public-upload writes
+  have not been run by the maintainer tests; their transports are mocked.
+
+The signature feature does not mark the pending two-account Linux, long-soak,
+Google review or measured RAM/CPU gates complete. See docs/signatures.md and
+docs/performance.md for the exact feature and measurement boundaries.

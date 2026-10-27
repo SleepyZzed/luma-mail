@@ -57,7 +57,7 @@ and quoted history. Reopening a Luma draft preserves that draft's signature, and
 repeated Save/Send does not append another copy. A signature alone does not count
 as the authored body required by **Save on close**.
 
-HTML is capped at 64 KiB and eight hosted pictures. Picture sources cap at 24 MiB;
+HTML is capped at 64 KiB and eight hosted pictures. Local picture sources cap at 24 MiB; anonymous HTTPS previews cap at 4 MiB;
 previews share the existing two-job decoder semaphore and a 12 MiB batch limit.
 There is no signature database, persistent editor/browser profile, image spool
 or additional local mail archive. Signature settings stay in Gmail; explicitly

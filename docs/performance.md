@@ -115,3 +115,24 @@ Disk categories remain explicit in `docs/storage.md`: installed AppImage/native
 libraries, required preferences/secure credentials, optional bounded mail cache,
 and temporary graphics/codec metadata. A zero mail-cache budget creates no
 mail-body, draft or attachment archive. User-requested saves are separate files.
+
+## 0.8 release measurement
+
+[Run 40425766520](https://github.com/SleepyZzed/luma-mail/actions/runs/40425766520)
+profiles the exact 0.8 published AppImage. The complete process-tree PSS means
+were 266.33 MiB fresh, 282.53 MiB with 1,000 metadata records, 526.77 MiB with one
+HTML view, 635.77 MiB with three, and 309.28 MiB after background reclamation.
+Initial and final settled CPU samples averaged 0%; the scrolled list averaged
+1.97%, one HTML view 4.66%, and three HTML views 13.53% in their short intervals.
+The raw JSON includes startup peaks. This software-rendered CI run still misses
+the RAM goals and cannot substitute for a sustained real GPU/mailbox test.
+
+The signature editor adds one short-lived view in the existing ephemeral engine,
+only when explicitly opened. Composing does not open a signature renderer or
+poll signature settings in the background. Native tests now prove both editor
+and WebKit-widget destruction on close, after catching and correcting a window/
+owner reference cycle before release. Signature source is limited to 64 KiB and
+eight hosted pictures; previews share bounded worker permits. No extra font or
+signature database, browser profile or image spool is introduced. The signature
+zero-cache report has no files; essential preferences and temporary session/
+codec/graphics metadata are reported separately in docs/verification.md.
