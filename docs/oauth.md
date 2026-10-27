@@ -6,7 +6,14 @@ Click **Sign in with Google** in Luma and finish Google's consent in your normal
 browser. Repeat for additional accounts. There is no JSON import, manual client
 configuration or Google Cloud project creation in the installed application's
 account flow. Passwords stay with Google. Access tokens stay in process memory;
-refresh tokens are kept in the Linux Secret Service keyring.
+refresh tokens are kept in Linux Secret Service or Windows Credential Manager.
+
+The first connection offers Gmail plus optional Contacts, limited Drive and
+basic Gmail settings together. Choose the features before opening the browser;
+Google can also let you decline optional scopes. Luma checks the returned grants:
+Gmail is required, and missing optional grants disable only their own features.
+Settings can connect skipped features later without requiring separate initial
+sign-ins for every feature. Existing accounts retain their previous grants.
 
 If the browser cannot launch, use **Open browser again** or **Copy sign-in link**.
 Complete the same request within five minutes. Closing the window cancels the

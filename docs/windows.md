@@ -29,6 +29,14 @@ session directory in TEMP; these are not a mail archive. Interrupted processes
 can leave disposable runtime metadata, which is reported separately from the
 mail-cache budget. Explicit Save/download writes the user's selected destination.
 
+To upgrade, Quit from the tray, extract the new ZIP into a new folder and run
+its executable. Keep the whole extracted folder together. Preferences and secure
+account credentials are separate, so replacing the program does not remove them.
+To uninstall, remove accounts in Luma first if you also want their local vault
+entries/cache removed, then Quit and delete the extracted program folder. Removing
+an account does not delete its Gmail messages. No service or autostart entry is
+installed by this portable package.
+
 ## Reproduce the build
 
 The Windows workflow installs UCRT64 Rust, GTK4/libadwaita, selected GStreamer
@@ -52,3 +60,11 @@ notices and an exact version/source inventory. The WebView2 SDK loader is hash
 pinned to the official Microsoft package; the shared Evergreen browser runtime
 is not duplicated in the ZIP. Whole-package size and cache/runtime allocation
 are measured separately; the development toolchain is never distributed.
+
+The hosted Windows Server runner has no audio device, so its memory-only media
+fixture is a silent VP8 video. Audio decoding is checked on the physical Windows
+desktop. CI requires native Explorer icon registration/update and activation,
+hide/restore and Open actions, but explicitly reports when the hosted shell
+provides no visible icon rectangle. The normal desktop diagnostic still requires
+a visible rectangle; that stricter check passes on the development laptop.
+Neither test claims visual notification delivery or click-to-open acceptance.

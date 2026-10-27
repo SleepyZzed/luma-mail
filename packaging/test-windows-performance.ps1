@@ -24,9 +24,16 @@ try{
         $working=($members | Measure-Object WorkingSet64 -Sum).Sum
         $now=$timer.Elapsed.TotalSeconds;$delta=0.0;$next=@{}
         foreach($member in $members){$value=$member.TotalProcessorTime.TotalSeconds;$next[$member.Id]=$value;if($previous.ContainsKey($member.Id)){$delta+=[Math]::Max(0,$value-$previous[$member.Id])}}
-        $phase=Get-Content -LiteralPath $stdout | Where-Object {$_ -match '^PERF '} | Select-Object -Last 1
+        # Get-Content decorates strings with PSDrive/Provider metadata. Windows
+        # PowerShell 5 serializes that object graph (unlike PowerShell 7), which
+        # can exhaust memory rather than write this small report. Copy only the
+        # selected text to keep every sample plain; Get-Content permits sharing
+        # the file while the fixture is still writing it.
+        $phaseLine=Get-Content -LiteralPath $stdout | Where-Object {$_ -match '^PERF '} | Select-Object -Last 1
+        $phase=if($null -eq $phaseLine){''}else{[string]::new($phaseLine.ToCharArray())}
         $cpu=if($last -gt 0){[Math]::Round(100*$delta/($now-$last),3)}else{$null}
         $samples+=@{elapsed_seconds=[Math]::Round($now,2);phase=$phase;processes=$members.Count;private_working_set_bytes=[long]$private;private_commit_bytes=[long]$commit;working_set_sum_bytes=[long]$working;cpu_one_core_percent=$cpu;cpu_machine_percent=if($null -ne $cpu){[Math]::Round($cpu/[Environment]::ProcessorCount,4)}else{$null}}
+        Write-Output ('SAMPLE {0:N1}s {1}: {2:N2} MiB private WS, {3} processes' -f $now,$phase,($private/1MB),$members.Count)
         $previous=$next;$last=$now
     }
     $process.WaitForExit()

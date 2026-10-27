@@ -160,5 +160,27 @@ Test local picture permission confirmation, upload progress and cancellation at
 preparation/chunk/sharing phases. Confirm recipient rendering and Workspace
 sharing restrictions separately. Public Drive copies are not automatically
 removed when omitted from signatures. Check the zero-cache report and close the
-editor to verify renderer reclamation. The Windows source preview cannot replace
-actual Linux visual-editor acceptance.
+editor to verify renderer reclamation. The shared Windows visual editor cannot
+replace actual Linux/WebKit and target-desktop acceptance.
+
+## 0.9 cross-platform editing and consent
+
+Connect a disposable account with optional features selected in the initial
+dialog. Gmail is required; Contacts, limited Drive and basic Gmail settings can
+be declined individually without losing mail access. Check the actual grants in
+Settings and reconnect only the missing feature. This batch's automated scope
+tests do not establish a fresh live Google-consent acceptance result.
+
+In Compose, check colour/highlight, font size, paragraph alignment/spacing/indent,
+superscript/subscript, lists and further typing. Save/reopen a Luma rich draft and
+switch source/visual modes without flattening its styles. Unsupported HTML must
+ask before flattening. Test Unicode whole-word find/replace, case sensitivity,
+replacement undo and Ctrl+F/Ctrl+H; closing the search bar stops its search work.
+
+On Windows, extract the entire release and test without a development toolchain
+on PATH. Check title-bar minimise/maximise/close, close-to-tray/Open/Quit, HTML
+height and Settings stacking, signatures and image/audio/video previews. Verify
+actual OS notification appearance and activation separately from API dispatch.
+On Linux, retain borderless compositor-managed windows and test Hyprland resizing.
+Compare the exact release's complete process-tree and storage reports; Windows
+private working set is not Linux PSS and short synthetic runs are not soak tests.
