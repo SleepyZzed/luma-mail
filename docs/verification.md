@@ -30,8 +30,9 @@ uploaded. Public-image permission writes remain mocked, not live acceptance.
 The actual Linux/WebKit formatting check caught a transient script-world bug;
 the editor now registers its isolated world for the view lifetime. Formatting,
 font/size/further typing, links, bullets, tables, public picture serialization and
-separate draft restoration subsequently passed. The initial close-cancel test
-needed to wait for libadwaita's dismissal animation before opening another dialog.
+separate draft restoration subsequently passed. The close-cancel diagnostic
+uses the actual response buttons and waits for libadwaita dismissal; emitting a
+response signal alone does not reproduce the real button/close lifecycle.
 Final renderer-release/storage/package gates are recorded below when completed.
 
 ## Final 0.7 release, 26 October 2026

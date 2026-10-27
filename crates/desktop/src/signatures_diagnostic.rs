@@ -37,6 +37,21 @@ fn button(widget: &gtk::Widget, title: &str) -> Option<gtk::Button> {
     }
     None
 }
+fn response(widget: &gtk::Widget, label: &str) -> Option<gtk::Button> {
+    if let Some(b) = widget.downcast_ref::<gtk::Button>()
+        && b.label().as_deref() == Some(label)
+    {
+        return Some(b.clone());
+    }
+    let mut child = widget.first_child();
+    while let Some(w) = child {
+        if let Some(b) = response(&w, label) {
+            return Some(b);
+        }
+        child = w.next_sibling();
+    }
+    None
+}
 pub(super) fn start(s: &Rc<State>) {
     let state = s.clone();
     glib::MainContext::default().spawn_local(async move {
@@ -92,13 +107,13 @@ pub(super) fn start(s: &Rc<State>) {
         e.window.close();
         glib::timeout_future(Duration::from_millis(120)).await;
         let d=e.window.visible_dialog().unwrap().downcast::<adw::AlertDialog>().unwrap();
-        d.emit_by_name::<()>("response",&[&"cancel"]);
+        response(d.upcast_ref(),"Keep editing").expect("Actual cancel button").emit_clicked();
         glib::timeout_future(Duration::from_millis(350)).await;
         assert!(!e.allow_close.get()&&!e.checking_close.get());
         e.window.close();
         for _ in 0..50 {if e.window.visible_dialog().is_some(){break;}glib::timeout_future(Duration::from_millis(50)).await;}
         let d=e.window.visible_dialog().unwrap().downcast::<adw::AlertDialog>().unwrap();
-        d.emit_by_name::<()>("response",&[&"close"]);
+        response(d.upcast_ref(),"Close without saving").expect("Actual discard button").emit_clicked();
         let weak=Rc::downgrade(&e);drop(e);
         glib::timeout_future(Duration::from_millis(600)).await;
         assert!(weak.upgrade().is_none(),"Closed signature editor must release its renderer and owner");

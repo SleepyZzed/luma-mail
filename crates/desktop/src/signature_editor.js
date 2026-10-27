@@ -64,7 +64,7 @@
       } else if (name === 'insertTable') {
         const [rows, columns] = value.split('x').map(Number);
         if (!(rows >= 1 && rows <= 8 && columns >= 1 && columns <= 8)) return false;
-        document.execCommand('insertHTML', false, '<table style="border-collapse:collapse"><tbody>'+Array.from({length:rows},()=>'<tr>'+Array.from({length:columns},()=>'<td style="border:1px solid #999;padding:6px"><br></td>').join('')+'</tr>').join('')+'</tbody></table><br>');
+        document.execCommand('insertHTML', false, '<table style="border-collapse:collapse;width:100%"><tbody>'+Array.from({length:rows},()=>'<tr>'+Array.from({length:columns},()=>'<td style="border:1px solid #999;padding:6px"><br></td>').join('')+'</tr>').join('')+'</tbody></table><br>');
       } else if (name === 'lineHeight') {
         const valueNumber = Number(value); if (!(valueNumber >= 1 && valueNumber <= 2)) return false;
         const node = getSelection().anchorNode;
