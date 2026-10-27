@@ -36,7 +36,10 @@ jobs:
             mingw-w64-ucrt-x86_64-binutils
             mingw-w64-ucrt-x86_64-librsvg
             mingw-w64-ucrt-x86_64-python
-      - uses: actions/cache@v4
+      - name: Record actual UCRT64 runtime path
+        run: printf 'LUMA_MSYS_PREFIX=%s\n' "$(cygpath -w /ucrt64)" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: rust-cache
         with:
           path: |
             ~/.cargo/registry
@@ -66,7 +69,7 @@ jobs:
       - name: Native Windows compose, navigation, HTML, signature and shell acceptance
         shell: powershell
         run: |
-          $env:PATH='C:\msys64\ucrt64\bin;'+$env:PATH
+          $env:PATH=(Join-Path $env:LUMA_MSYS_PREFIX 'bin')+';'+$env:PATH
           & packaging/test-windows.ps1 -Binary target/debug/luma-mail.exe -Evidence dist/windows-native
       - name: Package replaceable runtime dependencies and licence/source inventory
         run: |
@@ -97,3 +100,12 @@ jobs:
             dist/windows-*/*.stdout
             dist/windows-*/*.stderr
           if-no-files-found: error
+      - name: Preserve Rust cache after native acceptance failures
+        if: always() && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: windows-ucrt-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}

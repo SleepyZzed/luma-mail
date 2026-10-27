@@ -7,6 +7,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $evidencePath 'config') | O
 $env:LUMA_TEST_ROOT=$evidencePath
 $stdout=Join-Path $evidencePath 'performance.stdout';$stderr=Join-Path $evidencePath 'performance.stderr'
 $process=Start-Process -FilePath $binaryPath -ArgumentList '--performance-diagnostics' -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+$null=$process.Handle # Preserve exit status in Windows PowerShell 5.1.
 $timer=[Diagnostics.Stopwatch]::StartNew();$samples=@();$previous=@{};$last=0.0
 try{
     while(-not $process.HasExited){

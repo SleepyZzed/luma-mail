@@ -16,8 +16,11 @@ foreach($kind in $cases){
     $arguments=if($kind -eq 'smoke'){@('--smoke-test','--desktop-diagnostics')}elseif($kind -eq 'render'){@('--render-diagnostics')}else{@('--design-preview',('--'+$kind+'-diagnostics'))}
     $stdout=Join-Path $evidencePath ($kind+'.stdout');$stderr=Join-Path $evidencePath ($kind+'.stderr')
     $process=Start-Process -FilePath $binaryPath -ArgumentList $arguments -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    $null=$process.Handle # Preserve exit status for fast exits in Windows PowerShell 5.1.
     if(-not $process.WaitForExit(40000)){Stop-Process -Id $process.Id;Get-Content -LiteralPath $stdout;Get-Content -LiteralPath $stderr -TotalCount 20;throw "$kind Windows diagnostics timed out"}
     Get-Content -LiteralPath $stdout
+    $process.Refresh()
+    if($null -eq $process.ExitCode){throw "Cannot read the native process exit status"}
     if($process.ExitCode -ne 0){Get-Content -LiteralPath $stderr -TotalCount 30;throw "$kind Windows diagnostics failed: $($process.ExitCode)"}
     if((Test-Path (Join-Path $root 'cache')) -and (Get-ChildItem (Join-Path $root 'cache') -File -Recurse | Select-Object -First 1)){throw "$kind persisted files with a zero mail-cache budget"}
     if(Test-Path (Join-Path $root 'config/compose')){throw "$kind created a local draft archive"}
