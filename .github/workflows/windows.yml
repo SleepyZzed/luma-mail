@@ -70,7 +70,12 @@ jobs:
         shell: powershell
         run: |
           $env:PATH=(Join-Path $env:LUMA_MSYS_PREFIX 'bin')+';'+$env:PATH
+          # Hosted Server accepts icons but may not expose a visible tray rectangle.
+          # Registration/update, native events and hide/restore remain mandatory.
+          # A normal desktop run keeps the visible-rectangle assertion enabled.
+          $env:LUMA_ALLOW_UNPOSITIONED_TRAY='1'
           & packaging/test-windows.ps1 -Binary target/debug/luma-mail.exe -Evidence dist/windows-native
+          Remove-Item Env:LUMA_ALLOW_UNPOSITIONED_TRAY
       - name: Package replaceable runtime dependencies and licence/source inventory
         run: |
           version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)"

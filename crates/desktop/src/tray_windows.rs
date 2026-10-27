@@ -220,7 +220,14 @@ fn diagnostic(s: &Rc<State>, handle: Arc<AtomicIsize>) {
         for _ in 0..100{if state.tray_available.get(){break}gtk::glib::timeout_future(std::time::Duration::from_millis(50)).await;}
         assert!(state.tray_available.get(),"Windows shell must accept the tray icon");
         let hwnd=handle.load(Ordering::Acquire) as HWND;let mut id:NOTIFYICONIDENTIFIER=unsafe{std::mem::zeroed()};id.cbSize=std::mem::size_of::<NOTIFYICONIDENTIFIER>() as u32;id.hWnd=hwnd;id.uID=1;
-        let mut rect=RECT::default();assert_eq!(unsafe{Shell_NotifyIconGetRect(&id,&mut rect)},0,"Explorer must expose the real tray icon rectangle");
+        let mut rect=RECT::default();let mut position=1;
+        for _ in 0..20{position=unsafe{Shell_NotifyIconGetRect(&id,&mut rect)};if position==0{break}gtk::glib::timeout_future(std::time::Duration::from_millis(100)).await;}
+        // Registration and layout are separate: hosted Server sessions can accept
+        // icons while exposing no visible notification-area rectangle. Keep the
+        // visible-desktop check strict unless that runner limitation is explicit.
+        let update=data(hwnd,std::ptr::null_mut());let mut update=update;update.uFlags=NIF_TIP;
+        assert_ne!(unsafe{Shell_NotifyIconW(NIM_MODIFY,&update)},0,"Explorer must accept updates to the registered icon");
+        if position!=0{assert_eq!(std::env::var("LUMA_ALLOW_UNPOSITIONED_TRAY").as_deref(),Ok("1"),"Explorer must expose the real tray icon rectangle: {position:#x}");println!("LIMIT hosted shell accepted native tray registration/update but exposed no visible icon rectangle ({position:#x}); visible tray placement needs desktop acceptance");}else{assert!(rect.right>rect.left&&rect.bottom>rect.top);println!("PASS visible Explorer tray icon rectangle");}
         state.window.set_visible(false);unsafe{PostMessageW(hwnd,CALLBACK,0,NIN_SELECT as isize);}
         gtk::glib::timeout_future(std::time::Duration::from_millis(150)).await;assert!(state.window.is_visible());
         state.settings.borrow_mut().close_to_tray=true;state.window.close();gtk::glib::timeout_future(std::time::Duration::from_millis(150)).await;assert!(!state.window.is_visible());
