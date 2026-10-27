@@ -23,7 +23,7 @@ def package(prefix,binary,output,version):
     copy(loader_dll,'WebView2Loader.dll')
     copy(ROOT/'packaging/WEBVIEW2-LICENSE.txt','licenses/WebView2-SDK-LICENSE.txt')
     # Runtime-loaded plugins are invisible to PE imports; include a deliberate set.
-    plugins=('coreelements','playback','typefindfunctions','app','gio','audioconvert','audioresample','audioparsers','audiofx','videoconvertscale','videorate','volume','autodetect','directsound','wasapi','wasapi2','d3d11','d3d12','libav','isomp4','matroska','ogg','vorbis','opus','wavparse','flac','mpg123','avi','jpeg','png','adder','audiomixer')
+    plugins=('coreelements','playback','typefindfunctions','app','gio','audioconvert','audioresample','audioparsers','audiofx','videoconvertscale','videorate','volume','autodetect','directsound','wasapi','wasapi2','d3d11','d3d12','libav','vpx','isomp4','matroska','ogg','vorbis','opus','wavparse','flac','mpg123','avi','jpeg','png','adder','audiomixer')
     for plugin in plugins:
         src=prefix/f'lib/gstreamer-1.0/libgst{plugin}.dll'
         if src.exists():copy(src,src.relative_to(prefix))

@@ -71,14 +71,18 @@ pub(super) fn append(
                     let visible = surface.visible();
                     assert!(visible, "newsletter restores after Settings closes");
                     println!("PASS native newsletter restores after Settings");
-                    let media = crate::media::from_bytes(silent_wav()).unwrap();
-                    let controls = gtk::MediaControls::new(Some(&media));
-                    state.reader.append(&controls);
+                    let media = crate::media::from_bytes(
+                        include_bytes!("../tests/fixtures/silent-video.webm").to_vec(),
+                    )
+                    .unwrap();
+                    let video = gtk::Video::for_media_stream(Some(&media));
+                    video.set_height_request(90);
+                    state.reader.append(&video);
                     let state = state.clone();
                     glib::MainContext::default().spawn_local(async move{
                         for _ in 0..100{if media.is_prepared()||media.error().is_some(){break}glib::timeout_future(std::time::Duration::from_millis(50)).await;}
-                        assert!(media.error().is_none(),"Windows media decoder: {:?}",media.error());assert!(media.is_prepared()&&media.duration()>0,"In-memory WAV must prepare without a temporary attachment");media.clear();
-                        println!("PASS Windows in-memory media decoding and controls; no attachment spooling");state.app.quit();
+                        assert!(media.error().is_none(),"Windows media decoder: {:?}",media.error());assert!(media.is_prepared()&&media.duration()>0,"In-memory silent video must prepare without a temporary attachment");media.clear();
+                        println!("PASS Windows in-memory silent video decoding and controls; no attachment spooling or sound-card requirement");state.app.quit();
                     });
                     return glib::ControlFlow::Break;
                 }
@@ -89,24 +93,6 @@ pub(super) fn append(
     }
 }
 
-fn silent_wav() -> Vec<u8> {
-    let len = 16000u32;
-    let mut b = Vec::with_capacity(len as usize + 44);
-    b.extend_from_slice(b"RIFF");
-    b.extend_from_slice(&(len + 36).to_le_bytes());
-    b.extend_from_slice(b"WAVEfmt ");
-    b.extend_from_slice(&16u32.to_le_bytes());
-    b.extend_from_slice(&1u16.to_le_bytes());
-    b.extend_from_slice(&1u16.to_le_bytes());
-    b.extend_from_slice(&8000u32.to_le_bytes());
-    b.extend_from_slice(&16000u32.to_le_bytes());
-    b.extend_from_slice(&2u16.to_le_bytes());
-    b.extend_from_slice(&16u16.to_le_bytes());
-    b.extend_from_slice(b"data");
-    b.extend_from_slice(&len.to_le_bytes());
-    b.resize(len as usize + 44, 0);
-    b
-}
 pub(super) fn diagnostic(s: &Rc<State>) {
     ui::clear(&s.reader);
     append(
