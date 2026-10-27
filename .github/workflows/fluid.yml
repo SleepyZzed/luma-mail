@@ -62,6 +62,7 @@ jobs:
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
           LUMA_COMPOSER_REPORT: ${{ github.workspace }}/fluid-composer-linux.json
+          LUMA_PREVIEW_TWO_ACCOUNTS: '1'
           QT_FORCE_STDERR_LOGGING: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: timeout 30s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --composer-test
@@ -118,6 +119,7 @@ jobs:
           set -euo pipefail
           export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
           export LUMA_COMPOSER_REPORT="$(cygpath -m "$PWD")/fluid-composer-windows.json"
+          export LUMA_PREVIEW_TWO_ACCOUNTS=1
           export QT_FORCE_STDERR_LOGGING=1
           timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --composer-test >composer.stdout 2>composer.stderr
       - uses: actions/upload-artifact@v4

@@ -7,15 +7,24 @@
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <QTimer>
+#include <QBuffer>
+#include <QImage>
+#include <QDir>
+#include <QDateTime>
 class ComposerSmoke:public QObject {
     Bridge *mail;QQuickWindow *window;QQuickItem *card=nullptr;RichDocument *document=nullptr;
     int stage=0;bool failed=false,finished=false;QString session;QJsonArray checks;
     void check(const QString&name,bool ok){checks.append(QJsonObject{{"check",name},{"passed",ok}});failed|=!ok;}
     void invoke(const char*method){QMetaObject::invokeMethod(card,method);}
     void key(int code,Qt::KeyboardModifiers modifiers=Qt::NoModifier){QKeyEvent press(QEvent::KeyPress,code,modifiers);QCoreApplication::sendEvent(window,&press);QKeyEvent release(QEvent::KeyRelease,code,modifiers);QCoreApplication::sendEvent(window,&release);}
+    void completeRecipient(){stage=18;auto to=window->findChild<QQuickItem*>("composeTo");to->setProperty("text",QString("\"Saved, Person\" <saved@example.com>, May"));to->setProperty("cursorPosition",to->property("text").toString().size());to->forceActiveFocus();QMetaObject::invokeMethod(to,"query");}
+    void choose(const QString&account,const QString&address){QVariant row=QVariantMap{{"account",account},{"address",address}};QMetaObject::invokeMethod(card,"chooseSender",Q_ARG(QVariant,row));}
     void finish(){if(finished)return;finished=true;QJsonObject r{{"passed",!failed},{"checks",checks},{"syntheticData",true}};if(auto path=qEnvironmentVariable("LUMA_COMPOSER_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(r).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(r).toJson(QJsonDocument::Compact);mail->send("settingsUpdate",{{"draft_mode","manual"}});mail->quit(failed?2:0);}
 public:
     ComposerSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){
+        const auto root=qEnvironmentVariable("LUMA_TEST_ROOT");
+        // Seed only optional recipient metadata in this isolated synthetic root.
+        if(!root.isEmpty()){const auto dir=root+"/config/composer";QDir().mkpath(dir);QSaveFile file(dir+"/recipients.json");if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(QJsonArray{QJsonObject{{"account","preview"},{"address","Maya Chen <maya@example.com>"},{"last_sent",QDateTime::currentSecsSinceEpoch()}}}).toJson());file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);file.commit();}}
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(300,this,[this]{mail->requestCompose();});});
         connect(mail,&Bridge::received,this,[this](const QString&event,const QVariantMap&data){
             if(finished)return;
@@ -29,8 +38,29 @@ public:
                     to->setProperty("text","person@example.com");subject->setProperty("text","Synthetic composer test");QTextCursor c(document->nativeDocument());c.insertText("Hello synthetic world");document->selection(0,5,5);document->toggle("bold");
                     check("selected formatting produces rich outgoing markup",document->payload()["html"].toBool()&&document->html().contains("font-weight:700"));
                     if(auto path=qEnvironmentVariable("LUMA_COMPOSER_SCREENSHOT");!path.isEmpty())window->grabWindow().save(path);
-                    invoke("sync");invoke("requestClose");
+                    invoke("sync");
+                    // Supply a synthetic MIME source without replacing the user's OS clipboard.
+                    QImage image(400,300,QImage::Format_RGB32);quint32 noise=17;for(int y=0;y<image.height();++y)for(int x=0;x<image.width();++x){noise=noise*1664525+1013904223;image.setPixel(x,y,0xff000000|(noise&0xffffff));}
+                    QByteArray png;QBuffer buffer(&png);buffer.open(QIODevice::WriteOnly);image.save(&buffer,"PNG");
+                    auto fixture=new QMimeData;fixture->setParent(this);fixture->setData("image/png",png);mail->clipboardFixture=fixture;stage=12;
+                    check("large clipboard image crosses acknowledged chunks",png.size()>256*1024&&mail->interceptImagePaste());
                 });
+            }else if(event=="clipboardComplete"&&stage==12){stage=13;check("clipboard PNG is validated as a MIME attachment",data["ok"].toBool());}
+            else if(event=="compose"&&stage==13&&!data["inputBusy"].toBool()){
+                check("image paste leaves authored text outside image resources",document->nativeDocument()->toPlainText()=="Hello synthetic world"&&data["attachments"].toList().size()==1);
+                QImage bitmap(2,2,QImage::Format_RGB32);bitmap.fill(Qt::cyan);mail->clipboardFixture->setData("image/png",QByteArray());mail->clipboardFixture->setImageData(bitmap);stage=14;mail->interceptImagePaste();
+            }else if(event=="clipboardComplete"&&stage==14){stage=15;check("native clipboard bitmap encodes off the UI thread",data["ok"].toBool());}
+            else if(event=="compose"&&stage==15&&!data["inputBusy"].toBool()){
+                check("two pasted images remain attachments without a draft",data["attachments"].toList().size()==2&&data["draftId"].isNull());mail->clipboardFixture.clear();
+                if(mail->settings().value("accounts").toList().size()>1){stage=16;choose("preview-b","jamie@example.com");}else completeRecipient();
+            }else if(event=="compose"&&stage==16&&data["account"]=="preview-b"){
+                check("From switches the owning account without resetting body",data["from"]=="jamie@example.com"&&document->nativeDocument()->toPlainText()=="Hello synthetic world");stage=17;choose("preview","alex@example.com");
+            }else if(event=="compose"&&stage==17&&data["account"]=="preview"){
+                check("switching back preserves attachments and verified From",data["attachments"].toList().size()==2&&data["senderVerified"].toBool());completeRecipient();
+            }else if(event=="recipients"&&stage==18&&data["prefix"]=="May"){
+                auto to=window->findChild<QQuickItem*>("composeTo");check("recipient suggestions respect quoted display-name commas",to->property("suggestionsOpen").toBool()&&data["items"].toList().size()==1);
+                key(Qt::Key_Tab);check("Tab completes a recipient and stays in the field",window->activeFocusItem()==to&&to->property("text").toString()=="\"Saved, Person\" <saved@example.com>, Maya Chen <maya@example.com>, ");
+                key(Qt::Key_Tab);check("next Tab resumes the text-field navigation chain",window->activeFocusItem()==window->findChild<QQuickItem*>("composeSubject"));stage=1;invoke("sync");invoke("requestClose");
             }else if(event=="composeCloseQuestion"&&stage==1){
                 stage=2;check("close asks before any Gmail draft write",data["revision"].toULongLong()>0);
                 QMetaObject::invokeMethod(card,"answerClose",Q_ARG(QVariant,QString("keep")));
@@ -46,6 +76,7 @@ public:
             else if(event=="body"&&stage==7){stage=8;mail->requestCompose("reply",mail->messages()->at(0));}
             else if(event=="composeOpened"&&stage==8){
                 stage=9;session=data["session"].toString();check("reply has read-only history outside the editor",!data["quote"].toString().isEmpty()&&document->nativeDocument()->isEmpty());
+                check("reply keeps its account ownership",data["accountLocked"].toBool());
                 QTimer::singleShot(750,this,[this]{check("reply docks inside the reading thread",card->property("inlineMode").toBool()&&!card->property("expanded").toBool());check("reply focuses authored body",window->activeFocusItem()==window->findChild<QQuickItem*>("composeBody"));mail->requestCompose("reply",mail->messages()->at(0));});
             }else if(event=="composeFocus"&&stage==9){stage=10;check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());invoke("requestClose");}
             else if(event=="composeClosed"&&stage==10){stage=11;QTimer::singleShot(900,this,[this]{check("inline close collapses and releases the surface",!card->isVisible());finish();});}

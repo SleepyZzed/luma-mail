@@ -77,6 +77,77 @@ fn type_body(s: &Session, id: u64, body: &str) {
     )
     .unwrap();
 }
+fn second_account() -> luma_core::config::Account {
+    luma_core::config::Account {
+        id: "account2".into(),
+        email: "jamie@example.com".into(),
+        name: "Jamie".into(),
+        enabled: true,
+        notifications: false,
+        signature: String::new(),
+        drive_enabled: false,
+        sender_controls: false,
+        contact_photos: false,
+        blocked_senders: vec![],
+    }
+}
+#[test]
+fn account_switch_keeps_authored_input_and_cannot_move_existing_drafts_or_replies() {
+    let s = editor();
+    type_body(&s, 1, "Keep this body");
+    s.data.lock().unwrap().signature = "Previous account signature".into();
+    let epoch = s.select_account(&second_account(), false).unwrap();
+    let d = s.data.lock().unwrap();
+    assert_eq!(epoch, 1);
+    assert_eq!(d.form.text, "Keep this body");
+    assert_eq!(d.form.to, "person@example.com");
+    assert!(d.signature.is_empty());
+    assert_eq!(d.form.from, "jamie@example.com");
+    drop(d);
+    s.data.lock().unwrap().form.thread = Some("existing-thread".into());
+    assert!(s.select_account(&second_account(), false).is_err());
+    s.data.lock().unwrap().form.thread = None;
+    s.data.lock().unwrap().draft = Some(Draft {
+        id: "saved".into(),
+        message: Message::default(),
+    });
+    assert!(s.select_account(&second_account(), false).is_err());
+}
+#[tokio::test]
+async fn sender_settings_gate_send_and_header_choice_is_applied_before_queueing() {
+    let s = editor();
+    let remote = Arc::new(Remote::default());
+    type_body(&s, 1, "Reply body");
+    let alias = SendAs {
+        send_as_email: "alias@example.com".into(),
+        display_name: "Alias".into(),
+        reply_to_address: "replies@example.com".into(),
+        is_primary: false,
+        is_default: false,
+        verification_status: "accepted".into(),
+    };
+    s.data.lock().unwrap().identities.push(alias);
+    s.select_identity("alias@example.com", true).unwrap();
+    s.queue(2, Intent::Send).unwrap();
+    let task = {
+        let s = s.clone();
+        let remote = remote.clone();
+        tokio::spawn(async move { s.persist(&*remote, None, false, 2).await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    assert_eq!(remote.saves.load(Ordering::SeqCst), 0);
+    {
+        let mut d = s.data.lock().unwrap();
+        assert!(d.form.from.contains("alias@example.com"));
+        assert_eq!(d.form.sender_reply_to, "replies@example.com");
+        d.signature = "<p>New signature</p>".into();
+        d.identity_loading = false;
+    }
+    s.input_ready.notify_waiters();
+    task.await.unwrap().unwrap();
+    assert_eq!(remote.sends.load(Ordering::SeqCst), 1);
+    assert!(String::from_utf8_lossy(&remote.raw.lock().unwrap()[0]).contains("alias@example.com"));
+}
 #[test]
 fn upload_progress_is_retained_without_an_active_ui_poll() {
     let s = editor();
@@ -127,6 +198,42 @@ async fn saves_reuse_one_remote_draft_and_send_once_without_late_recreation() {
     assert!(s.update(&json!({"text":"late callback"}), 8).is_err());
     s.persist(&remote, None, false, 5).await.unwrap();
     assert_eq!(remote.saves.load(Ordering::SeqCst), 3);
+}
+#[tokio::test]
+async fn queued_send_waits_for_clipboard_and_cancellation_never_sends_without_it() {
+    let s = editor();
+    let remote = Arc::new(Remote::default());
+    type_body(&s, 1, "Latest body");
+    s.begin_input("image1").unwrap();
+    s.queue(2, Intent::Send).unwrap();
+    let task = {
+        let s = s.clone();
+        let remote = remote.clone();
+        tokio::spawn(async move { s.persist(&*remote, None, false, 2).await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    assert_eq!(remote.saves.load(Ordering::SeqCst), 0);
+    s.cancel_input("image1", "Cancelled");
+    task.await.unwrap().unwrap();
+    assert_eq!(remote.sends.load(Ordering::SeqCst), 0);
+    assert!(s.active());
+    s.begin_input("image2").unwrap();
+    s.queue(3, Intent::Send).unwrap();
+    let task = {
+        let s = s.clone();
+        let remote = remote.clone();
+        tokio::spawn(async move { s.persist(&*remote, None, false, 3).await })
+    };
+    let file = luma_core::composer::RetainedAttachment {
+        name: "image.png".into(),
+        mime_type: "image/png".into(),
+        data: vec![1, 2, 3].into(),
+        content_id: None,
+    };
+    assert!(s.accept_input("image2", file).unwrap());
+    task.await.unwrap().unwrap();
+    assert_eq!(remote.sends.load(Ordering::SeqCst), 1);
+    assert!(String::from_utf8_lossy(&remote.raw.lock().unwrap()[0]).contains("image.png"));
 }
 #[tokio::test]
 async fn save_in_flight_preserves_newer_text_and_queued_send_uses_it() {

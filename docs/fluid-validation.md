@@ -48,10 +48,13 @@ The bounded diagnostic interval sample is accompanied by an independent total
 frame counter, so reaching the sample cap cannot make the idle check pass.
 
 Run `--design-preview --composer-test` separately with `LUMA_COMPOSER_REPORT`
-set to a JSON path. Its 17 native checks exercise the actual form/pipe session,
+set to a JSON path and `LUMA_PREVIEW_TWO_ACCOUNTS=1`. Its 28 native checks exercise the actual form/pipe session,
 To-field focus, Tab/Shift-Tab, selected rich formatting, keep/close policies,
 quit cancellation, input release, inline reply docking, separated quoted history
-and repeated Reply without maximizing. It never writes/sends real Gmail mail.
+and repeated Reply without maximizing, chunked PNG/bitmap paste, account switching
+and recipient completion. It never writes/sends real Gmail mail. The test uses
+an isolated synthetic MIME source rather than replacing the user's OS clipboard;
+only its optional recipient-metadata fixture is written inside the test root.
 Transport mock tests separately cover serialized saves, latest input during a
 save, one-draft reuse, duplicate-send prevention, conflicts and uncertain writes.
 The native document suite covers logical font scaling, paragraph lists, safe
@@ -62,7 +65,7 @@ links, Unicode legacy formatting, bounded undo and blocked resource loading.
 27 October 2026, Windows, Qt 6.12/UCRT64: CMake release build and the spring suite
 passed. The real native-window motion and composer suites passed on synthetic
 data. Core tests: 125 passed and one isolated OS-vault test intentionally ignored;
-engine tests: 13 unit tests and three real-pipe tests passed. Strict Clippy is a
+engine tests: 17 unit tests and five real-pipe tests passed. Strict Clippy is a
 separate required check. Exact run details are in the diagnostic JSON artifact.
 
 The raw frame intervals describe this display/run only. They are not a universal
@@ -86,5 +89,6 @@ mail-cache preference or its budget.
 The composer checkpoint also recovered cleanly after the interrupted laptop
 session: Git connectivity, saved working tree and prior platform CI were checked
 before changes resumed. New draft/input operations create no local draft file;
-the real-pipe zero-cache checks verify no compose store or body-cache directory
-is written. This does not replace the final installed-app/process-tree audit.
+the real-pipe zero-cache checks verify no local draft file or body-cache directory
+is written. Optional recipient metadata is tested separately. This does not
+replace the final installed-app/process-tree audit.

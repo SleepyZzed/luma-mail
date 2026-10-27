@@ -62,9 +62,14 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   keep quoted history outside authored input; file attachments and private Drive
   upload/progress use the existing core. Input/attachment events never autosave.
   These paths have synthetic native/transport tests, not live Gmail acceptance.
-- Pending: composer account switching, three-way conflict-resolution UI,
-  clipboard-image pipe, attachment previews/media, full visual signature editing,
-  recipient suggestions UI, mailto and remaining rich-text keyboard flows,
+- Restored: account/verified-alias selection with sender-load ordering guards,
+  account-scoped recent completion (Tab/Enter and quoted display names),
+  clipboard PNG/bitmap attachments through an acknowledged RAM-only pipe,
+  queued-Send cancellation on paste failure, scrolling Settings, draft policies,
+  recent-recipient opt-out/clear and appearance choices. Native tests seed only
+  synthetic recipient metadata and do not modify the OS clipboard.
+- Pending: three-way conflict-resolution UI, attachment previews/media, full
+  visual signature editing, mailto and remaining rich-text keyboard flows,
   supported contact-photo lookup, HTML adapters/privacy/image choices, remaining
   search/label/settings/context/keyboard flows, background poller/OS notifications,
   lifecycle reclamation, two-account acceptance, Linux packaging and resource

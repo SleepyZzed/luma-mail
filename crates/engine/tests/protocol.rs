@@ -14,10 +14,17 @@ struct Client {
 }
 impl Client {
     fn new() -> Self {
+        Self::configured(false)
+    }
+    fn configured(two_accounts: bool) -> Self {
         let root = tempfile::tempdir().unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_luma-engine"))
             .arg("--design-preview")
             .env("LUMA_TEST_ROOT", root.path())
+            .env(
+                "LUMA_PREVIEW_TWO_ACCOUNTS",
+                if two_accounts { "1" } else { "0" },
+            )
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -116,7 +123,7 @@ fn real_pipe_navigation_read_actions_and_zero_cache_do_not_write_a_mailbox() {
     assert_eq!(settings["reduced_motion"], true);
     c.send(6, "cacheUsage", json!({}));
     assert_eq!(c.until("cacheUsage")["bytes"], 0);
-    assert!(!c.root.path().join("config/compose").exists());
+    assert!(!c.root.path().join("config/composer").exists());
     assert!(!c.root.path().join("cache/bodies").exists());
 }
 
@@ -176,6 +183,107 @@ fn composer_input_and_close_use_ram_only_and_quit_can_be_cancelled() {
     assert_eq!(fresh["document"]["text"], "");
     c.send(9, "composePrepareQuit", json!({}));
     c.until("quitReady");
-    assert!(!c.root.path().join("config/compose").exists());
+    assert!(!c.root.path().join("config/composer").exists());
     assert!(!c.root.path().join("cache/bodies").exists());
+}
+#[test]
+fn clipboard_transfer_rejects_bad_data_and_creates_only_a_ram_attachment() {
+    use base64::Engine;
+    let mut c = Client::new();
+    c.until("ready");
+    c.until("rows");
+    c.send(1, "composeStart", json!({"mode":"new"}));
+    let s = c.until("composeOpened")["session"].clone();
+    c.send(
+        2,
+        "composeClipboardBegin",
+        json!({"session":s,"token":"bad"}),
+    );
+    c.until("clipboardAck");
+    c.send(
+        3,
+        "composeClipboardChunk",
+        json!({"session":s,"token":"bad","size":3,"offset":0,"bytes":"!!!"}),
+    );
+    assert_eq!(c.until("clipboardComplete")["ok"], false);
+    c.until("compose");
+    let png=base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+P//PwAF/wL+Xg47rQAAAABJRU5ErkJggg==").unwrap();
+    c.send(
+        4,
+        "composeClipboardBegin",
+        json!({"session":s,"token":"good"}),
+    );
+    c.until("clipboardAck");
+    c.send(5,"composeClipboardChunk",json!({"session":s,"token":"good","size":png.len(),"offset":0,"bytes":base64::engine::general_purpose::STANDARD.encode(&png)}));
+    assert_eq!(c.until("clipboardAck")["next"], png.len());
+    c.send(
+        6,
+        "composeClipboardFinish",
+        json!({"session":s,"token":"good"}),
+    );
+    assert_eq!(c.until("clipboardComplete")["ok"], true);
+    let state = c.until("compose");
+    assert_eq!(state["attachments"].as_array().unwrap().len(), 1);
+    assert!(state["draftId"].is_null());
+    assert_eq!(state["inputBusy"], false);
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
+}
+#[test]
+fn account_switch_and_recent_recipients_are_account_scoped_and_respect_opt_out() {
+    let mut c = Client::configured(true);
+    c.until("ready");
+    c.until("rows");
+    let store = luma_core::local_compose::Store::new(&c.root.path().join("config"));
+    store.configure(false, true);
+    store.set_accounts(["preview".into(), "preview-b".into()]);
+    for (account, to) in [
+        ("preview", "Maya Chen <maya@example.com>"),
+        ("preview-b", "Morgan <morgan@example.com>"),
+    ] {
+        store
+            .remember(
+                account,
+                &luma_core::composer::Compose {
+                    to: to.into(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+    }
+    c.send(1, "composeStart", json!({"mode":"new","account":"preview"}));
+    let s = c.until("composeOpened")["session"].clone();
+    c.send(2, "composeRecipients", json!({"session":s,"prefix":"Ma"}));
+    let a = c.until("recipients");
+    assert_eq!(a["request"], 2);
+    assert_eq!(a["account"], "preview");
+    assert_eq!(a["items"][0], "Maya Chen <maya@example.com>");
+    c.send(
+        3,
+        "composeAccount",
+        json!({"session":s,"account":"preview-b"}),
+    );
+    let b = c.until("compose");
+    assert_eq!(b["account"], "preview-b");
+    assert_eq!(b["from"], "jamie@example.com");
+    c.send(4, "composeRecipients", json!({"session":s,"prefix":"Mo"}));
+    assert_eq!(
+        c.until("recipients")["items"][0],
+        "Morgan <morgan@example.com>"
+    );
+    c.send(5, "settingsUpdate", json!({"recent_recipients":false}));
+    c.until("settings");
+    c.send(6, "composeRecipients", json!({"session":s,"prefix":"Mo"}));
+    assert!(
+        c.until("recipients")["items"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!c.root.path().join("cache/bodies").exists());
+    assert!(
+        std::fs::read_dir(c.root.path().join("config/composer"))
+            .unwrap()
+            .all(|e| e.unwrap().path().extension().is_none_or(|s| s != "draft"))
+    );
 }

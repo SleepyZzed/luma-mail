@@ -23,7 +23,16 @@ pub enum Prepared {
     Start,
     Update(Arc<Session>),
     Write(Arc<Session>, bool),
+    Input(Arc<Session>, InputAction),
+    Sender(Arc<Session>, u64, bool),
     Other,
+}
+pub enum InputAction {
+    Begin,
+    Ack(usize),
+    Finish(Vec<u8>),
+    Cancel,
+    Failed(String),
 }
 pub fn session(app: &App, c: &Command) -> Result<Arc<Session>> {
     app.composer
@@ -38,6 +47,79 @@ pub fn session(app: &App, c: &Command) -> Result<Arc<Session>> {
 }
 pub fn prepare(app: &App, c: &Command) -> Result<Prepared> {
     match c.action.as_str() {
+        "composeIdentity" => {
+            let s = session(app, c)?;
+            let account = s.data.lock().unwrap().form.account.clone();
+            let loading = !app.preview
+                && app
+                    .settings
+                    .lock()
+                    .unwrap()
+                    .accounts
+                    .iter()
+                    .any(|a| Some(&a.id) == account.as_ref() && a.sender_controls);
+            let epoch = s.select_identity(c.text("address"), loading)?;
+            Ok(Prepared::Sender(s, epoch, false))
+        }
+        "composeAccount" => {
+            let s = session(app, c)?;
+            let account = app
+                .settings
+                .lock()
+                .unwrap()
+                .accounts
+                .iter()
+                .find(|a| a.id == c.text("account") && a.enabled)
+                .cloned()
+                .ok_or_else(|| Error::Invalid("Choose an enabled account".into()))?;
+            let epoch = s.select_account(&account, !app.preview && account.sender_controls)?;
+            Ok(Prepared::Sender(s, epoch, true))
+        }
+        "composeClipboardBegin" => {
+            let s = session(app, c)?;
+            s.begin_input(c.text("token"))?;
+            Ok(Prepared::Input(s, InputAction::Begin))
+        }
+        "composeClipboardChunk" | "composeClipboardFinish" | "composeClipboardCancel" => {
+            let s = session(app, c)?;
+            let action = {
+                let mut d = s.data.lock().unwrap();
+                if !d.input_busy || d.input_token != c.text("token") {
+                    return Err(Error::Invalid("This clipboard transfer has ended".into()));
+                }
+                if c.action == "composeClipboardCancel" {
+                    InputAction::Cancel
+                } else if c.action == "composeClipboardFinish" {
+                    if d.clipboard.as_ref().is_some_and(|i| i.complete()) {
+                        d.status = "Preparing clipboard image".into();
+                        InputAction::Finish(d.clipboard.take().unwrap().bytes)
+                    } else {
+                        InputAction::Failed("The clipboard image was incomplete".into())
+                    }
+                } else {
+                    let total = c.data["size"]
+                        .as_u64()
+                        .and_then(|v| usize::try_from(v).ok())
+                        .unwrap_or(usize::MAX);
+                    let offset = c.data["offset"]
+                        .as_u64()
+                        .and_then(|v| usize::try_from(v).ok())
+                        .unwrap_or(usize::MAX);
+                    match d
+                        .clipboard
+                        .as_mut()
+                        .ok_or_else(|| {
+                            Error::Invalid("The image is already being prepared".into())
+                        })?
+                        .append(total, offset, c.text("bytes"))
+                    {
+                        Ok(next) => InputAction::Ack(next),
+                        Err(e) => InputAction::Failed(e.to_string()),
+                    }
+                }
+            };
+            Ok(Prepared::Input(s, action))
+        }
         "composeStart" => Ok(Prepared::Start),
         "composeUpdate" => {
             let s = session(app, c)?;
@@ -81,6 +163,10 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
         return Ok(());
     }
     match prepared {
+        Prepared::Sender(s, epoch, aliases) => {
+            return refresh_sender(app, c.id, &s, epoch, aliases, true).await;
+        }
+        Prepared::Input(s, action) => return input(app, c, &s, action).await,
         Prepared::Start => return start(app, c).await,
         Prepared::Update(s) => {
             emit(app, c.id, &s, false).await;
@@ -143,7 +229,6 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
             emit(app, c.id, &s, true).await;
             Ok(())
         }
-        "composeIdentity" => identity(app, c, &s).await,
         "composeAttach" => attach(app, c, &s).await,
         "composeRemoveAttachment" => remove_attachment(app, c, &s).await,
         "composeCancelUpload" => {
@@ -188,18 +273,121 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
             if prefix.len() > 320 {
                 return Err(Error::ResponseLimit);
             }
-            let rows = app.recent.recent(&account, prefix);
+            let enabled = app.settings.lock().unwrap().recent_recipients;
+            let rows = if enabled {
+                let store = app.recent.clone();
+                let account = account.clone();
+                let prefix = prefix.to_string();
+                tokio::task::spawn_blocking(move || store.recent(&account, &prefix))
+                    .await
+                    .unwrap_or_default()
+            } else {
+                vec![]
+            };
             app.events
                 .emit(
                     c.id,
                     "recipients",
-                    json!({"session":s.id,"prefix":prefix,"items":rows}),
+                    json!({"session":s.id,"account":account,"request":c.id,"prefix":prefix,"items":rows}),
                 )
                 .await;
             Ok(())
         }
         _ => Err(Error::Invalid("Unknown composer action".into())),
     }
+}
+async fn input(app: &Arc<App>, c: &Command, s: &Arc<Session>, action: InputAction) -> Result<()> {
+    let token = c.text("token");
+    match action {
+        InputAction::Begin => {
+            app.events
+                .emit(
+                    c.id,
+                    "clipboardAck",
+                    json!({"session":s.id,"token":token,"next":0}),
+                )
+                .await;
+            let owner = Arc::downgrade(app);
+            let editor = Arc::downgrade(s);
+            let token = token.to_string();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(30)).await;
+                if let (Some(app), Some(s)) = (owner.upgrade(), editor.upgrade())
+                    && s.cancel_input(
+                        &token,
+                        "Clipboard image preparation timed out; queued Send was cancelled",
+                    )
+                {
+                    app.events.emit(0,"clipboardComplete",json!({"session":s.id,"token":token,"ok":false,"message":"Clipboard image preparation timed out"})).await;
+                    emit(&app, 0, &s, false).await;
+                    resume_close(&app, 0, &s).await.ok();
+                }
+            });
+        }
+        InputAction::Ack(next) => {
+            app.events
+                .emit(
+                    c.id,
+                    "clipboardAck",
+                    json!({"session":s.id,"token":token,"next":next}),
+                )
+                .await
+        }
+        InputAction::Cancel | InputAction::Failed(_) => {
+            let message = match action {
+                InputAction::Failed(m) => m,
+                _ => "Clipboard image cancelled; queued Send was cancelled".into(),
+            };
+            s.cancel_input(token, &message);
+            app.events
+                .emit(
+                    c.id,
+                    "clipboardComplete",
+                    json!({"session":s.id,"token":token,"ok":false,"message":message}),
+                )
+                .await;
+        }
+        InputAction::Finish(bytes) => {
+            let number = s.data.lock().unwrap().form.retained.len() + 1;
+            let result = tokio::task::spawn_blocking(move || {
+                luma_core::clipboard_image::attachment(bytes, number)
+            })
+            .await
+            .map_err(|_| Error::Invalid("Could not prepare the clipboard image".into()))
+            .and_then(|r| r)
+            .and_then(|file| s.accept_input(token, file));
+            if matches!(result, Ok(false)) {
+                return Ok(());
+            }
+            let error = result.err().map(|e| e.to_string());
+            if let Some(message) = &error {
+                s.cancel_input(token, message);
+            }
+            app.events
+                .emit(
+                    c.id,
+                    "clipboardComplete",
+                    json!({"session":s.id,"token":token,"ok":error.is_none(),"message":error}),
+                )
+                .await;
+        }
+    }
+    emit(app, c.id, s, false).await;
+    resume_close(app, c.id, s).await
+}
+async fn resume_close(app: &Arc<App>, id: u64, s: &Arc<Session>) -> Result<()> {
+    let waiting = {
+        let mut d = s.data.lock().unwrap();
+        if !d.input_busy && !d.identity_loading && d.pending.is_none() {
+            std::mem::take(&mut d.close_pending)
+        } else {
+            false
+        }
+    };
+    if waiting {
+        Box::pin(close(app, id, s)).await?;
+    }
+    Ok(())
 }
 pub async fn emit(app: &App, id: u64, s: &Session, replace: bool) {
     let event = if s.data.lock().unwrap().phase == Phase::Closed {
@@ -354,28 +542,18 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
     }
     init.form.account = Some(account.id.clone());
     let s = Session::new(init);
+    if account.sender_controls && !app.preview {
+        s.data.lock().unwrap().identity_loading = true;
+    }
     *app.composer.lock().unwrap() = Some(s.clone());
     app.events
         .emit(c.id, "composeOpened", s.snapshot(true))
         .await;
     if account.sender_controls && !app.preview {
-        let client = app.client(&account.id)?;
-        let identities = client.send_as(&account.email).await;
-        if s.active() {
-            if let Ok(rows) = identities {
-                s.data.lock().unwrap().identities = rows;
-            }
-            let address = luma_core::sender_rules::address(&s.data.lock().unwrap().form.from)?;
-            if let Ok(signature) = client.signature(&address).await {
-                let mut d = s.data.lock().unwrap();
-                if d.signature.is_empty() && d.draft.is_none() && d.phase == Phase::Editing {
-                    d.signature = signature.html;
-                }
-            }
-            emit(app, c.id, &s, false).await;
-        }
+        refresh_sender(app, c.id, &s, 0, true, false).await
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 fn from_draft(
     account: &Account,
@@ -458,41 +636,107 @@ fn synthetic(id: &str, thread: &str) -> Message {
     Message{id:id.into(),thread_id:thread.into(),payload:Part{mime_type:"text/plain".into(),headers:vec![
         Header{name:"From".into(),value:"Maya Chen <maya@example.com>".into()},Header{name:"To".into(),value:"alex@example.com".into()},Header{name:"Subject".into(),value:"A quick thought on the launch".into()},Header{name:"Message-ID".into(),value:"<synthetic@example.com>".into()},Header{name:"Date".into(),value:"Tuesday".into()}],body:luma_core::model::PartBody{data:Some(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("Earlier synthetic message. This must stay outside editable reply text.").into()),..Default::default()},..Default::default()},..Default::default()}
 }
-async fn identity(app: &Arc<App>, c: &Command, s: &Arc<Session>) -> Result<()> {
-    let address = c.text("address");
-    let (account, can_signature) = {
-        let mut d = s.data.lock().unwrap();
-        if !d.phase.writable() {
-            return Err(Error::Invalid("Wait for the current send operation".into()));
-        }
-        let choice = d
-            .identities
-            .iter()
-            .find(|i| i.send_as_email.eq_ignore_ascii_case(address))
-            .cloned()
-            .ok_or_else(|| Error::Invalid("Choose a verified sending address".into()))?;
-        d.form.from = choice.header();
-        d.form.sender_reply_to = choice.reply_to_address;
-        d.revision += 1;
-        let account = d.form.account.clone().unwrap_or_default();
-        let can = app
-            .settings
-            .lock()
-            .unwrap()
-            .accounts
-            .iter()
-            .any(|a| a.id == account && a.sender_controls);
-        (account, can)
-    };
-    if can_signature && !app.preview {
-        let signature = app.client(&account)?.signature(address).await?;
-        let mut d = s.data.lock().unwrap();
-        if luma_core::sender_rules::address(&d.form.from)? == address {
-            d.signature = signature.html;
-        }
+async fn refresh_sender(
+    app: &Arc<App>,
+    id: u64,
+    s: &Arc<Session>,
+    epoch: u64,
+    aliases: bool,
+    force: bool,
+) -> Result<()> {
+    let loading = s.data.lock().unwrap().identity_loading;
+    if loading {
+        emit(app, id, s, false).await;
     }
-    emit(app, c.id, s, false).await;
-    Ok(())
+    let (account, address, needs_signature) = {
+        let d = s.data.lock().unwrap();
+        if d.identity_epoch != epoch || !d.phase.writable() {
+            return Ok(());
+        }
+        (
+            d.form.account.clone().unwrap_or_default(),
+            luma_core::sender_rules::address(&d.form.from).unwrap_or_default(),
+            !d.source_mode && (force || d.draft.is_none()),
+        )
+    };
+    let config = app
+        .settings
+        .lock()
+        .unwrap()
+        .accounts
+        .iter()
+        .find(|a| a.id == account)
+        .cloned();
+    let result: Result<(Option<Vec<luma_core::send_as::SendAs>>, Option<String>)> = async {
+        if address.is_empty() {
+            return Err(Error::Invalid("Choose a verified From address".into()));
+        }
+        if app.preview || !config.as_ref().is_some_and(|a| a.sender_controls) {
+            return Ok((None, None));
+        }
+        let client = app.client(&account)?;
+        let rows = if aliases {
+            Some(client.send_as(&config.as_ref().unwrap().email).await?)
+        } else {
+            None
+        };
+        let signature = if needs_signature {
+            Some(client.signature(&address).await?.html)
+        } else {
+            None
+        };
+        Ok((rows, signature))
+    }
+    .await;
+    let error = {
+        let mut d = s.data.lock().unwrap();
+        if d.identity_epoch != epoch
+            || d.form.account.as_deref() != Some(&account)
+            || !d.phase.writable()
+        {
+            return Ok(());
+        }
+        d.identity_loading = false;
+        match result {
+            Ok((rows, signature)) => {
+                if let Some(rows) = rows {
+                    d.identities = rows;
+                }
+                if let Some(html) = signature {
+                    d.signature = html;
+                }
+                if let Some(i) = d
+                    .identities
+                    .iter()
+                    .find(|i| i.send_as_email.eq_ignore_ascii_case(&address))
+                    .cloned()
+                {
+                    d.form.from = i.header();
+                    d.form.sender_reply_to = i.reply_to_address;
+                }
+                d.status = if d.draft.is_some() {
+                    "Gmail draft ready"
+                } else {
+                    "Changes stay in memory until saved"
+                }
+                .into();
+                None
+            }
+            Err(e) => {
+                d.pending = None;
+                d.status = format!("Sender settings could not load: {e}. Review before sending.");
+                Some(e.to_string())
+            }
+        }
+    };
+    s.input_ready.notify_waiters();
+    emit(app, id, s, false).await;
+    if let Some(message) = error {
+        app.events
+            .error(id, &format!("Sender settings could not load: {message}"))
+            .await;
+    }
+    resume_close(app, id, s).await
 }
 async fn watch_operation<T>(
     app: &App,

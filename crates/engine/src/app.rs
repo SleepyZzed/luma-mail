@@ -84,6 +84,20 @@ impl App {
                 contact_photos: false,
                 blocked_senders: vec![],
             });
+            if std::env::var("LUMA_PREVIEW_TWO_ACCOUNTS").is_ok_and(|v| v == "1") {
+                settings.accounts.push(luma_core::config::Account {
+                    id: "preview-b".into(),
+                    email: "jamie@example.com".into(),
+                    name: "Jamie Taylor".into(),
+                    enabled: true,
+                    notifications: false,
+                    signature: String::new(),
+                    drive_enabled: false,
+                    sender_controls: false,
+                    contact_photos: false,
+                    blocked_senders: vec![],
+                });
+            }
         }
         let cache = Cache::new(
             paths.cache.join("bodies"),
@@ -253,6 +267,16 @@ impl App {
                     "accountRemove" => crate::accounts::remove(&owner, &command).await,
                     "labels" => crate::accounts::labels(&owner, &command).await,
                     "themeReload" => crate::accounts::theme(&owner, command.id).await,
+                    "recentClear" => {
+                        let store = owner.recent.clone();
+                        tokio::task::spawn_blocking(move || store.clear_recent())
+                            .await
+                            .map_err(|_| {
+                                Error::Invalid("Could not clear recent recipients".into())
+                            })??;
+                        owner.events.emit(id, "recentCleared", json!({})).await;
+                        Ok(())
+                    }
                     "cacheClear" => {
                         if let Some(account) = command.data["account"].as_str() {
                             owner.cache.lock().unwrap().clear_account(account)?;

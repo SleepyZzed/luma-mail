@@ -66,6 +66,7 @@ quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!
 void Bridge::consume(){pending+=process.readAllStandardOutput();if(pending.size()>16*1024*1024){process.kill();return;}while(true){auto n=pending.indexOf('\n');if(n<0)break;auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}}
 void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
+    if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
     if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();auto path=d["configPath"].toString();if(QDir(path).exists())paletteWatcher.addPath(path);systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}
     else if(kind=="settings"){m_settings=d.toVariantMap();systemPalette();emit settingsChanged();}
     else if(kind=="theme"){if(d.contains("background")){m_palette=d.toVariantMap();emit paletteChanged();}else systemPalette();}
@@ -145,10 +146,4 @@ void Bridge::attachFiles(){
 void Bridge::chooseColour(bool background){
     const auto session=m_composer.value("session").toString();auto dialog=new QColorDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowModality(Qt::ApplicationModal);
     connect(dialog,&QColorDialog::colorSelected,this,[this,session,background](const QColor&colour){if(m_composer.value("session")==session)emit colourChosen(colour.name(),background);});dialog->open();
-}
-bool Bridge::interceptImagePaste(){
-    // The native attachment pipe is not yet ported. Prevent Qt from inserting
-    // an image resource that has no corresponding outgoing MIME attachment.
-    const auto mime=qApp->clipboard()->mimeData();if(!mime||!mime->hasImage())return false;
-    m_error="Clipboard image attachment is still being ported in this migration preview. Use Attach files for now; the 0.9 release retains image paste.";emit errorChanged();return true;
 }

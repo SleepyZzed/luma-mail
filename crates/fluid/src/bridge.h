@@ -7,6 +7,10 @@
 #include <QSet>
 #include <QFileSystemWatcher>
 #include <QTimer>
+#include <QPointer>
+#include <QMimeData>
+#include <atomic>
+#include <memory>
 
 class RecordModel : public QAbstractListModel {
     Q_OBJECT
@@ -47,6 +51,7 @@ class Bridge : public QObject {
     Q_PROPERTY(int selectionCount READ selectionCount NOTIFY selectionChanged)
     Q_PROPERTY(bool selecting READ selecting NOTIFY selectionChanged)
     Q_PROPERTY(bool preview READ preview CONSTANT)
+    Q_PROPERTY(bool clipboardBusy READ clipboardBusy NOTIFY clipboardChanged)
 public:
     explicit Bridge(bool preview,QObject *parent=nullptr);
     void start();
@@ -58,6 +63,7 @@ public:
     QString activity()const{return m_activity;} QString activityKind()const{return m_activityKind;} QString error()const{return m_error;}
     bool readerOpen()const{return m_readerOpen;} bool more()const{return m_more;} bool canUndo()const{return m_canUndo;}
     int selectionCount()const{return m_selection.size();} bool selecting()const{return m_selecting;} bool preview()const{return m_preview;}
+    bool clipboardBusy()const{return !clipboardToken.isEmpty();}
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
     Q_INVOKABLE void setView(const QString &folder,const QString &account=QString(),const QString &search=QString());
     Q_INVOKABLE void selectRow(int row,int modifiers,qreal x,qreal y,qreal width,qreal height,const QVariantMap &projection={});
@@ -72,6 +78,7 @@ public:
     Q_INVOKABLE void attachFiles();
     Q_INVOKABLE void chooseColour(bool background=false);
     Q_INVOKABLE bool interceptImagePaste();
+    Q_INVOKABLE void cancelClipboard();
     Q_INVOKABLE void clearError(){m_error.clear();emit errorChanged();}
     Q_INVOKABLE void quit(int exitCode=0);
 signals:
@@ -83,10 +90,14 @@ signals:
     void composeRequested(QString mode); void notification(QVariantMap data);
     void composeFocused();void composeClosed();void composeCloseQuestion(QVariantMap data);
     void flushComposer();void colourChosen(QString colour,bool background);void showRequested();
+    void clipboardChanged();
     void received(QString event,QVariantMap data); void ready();
 private:
+    friend class ComposerSmoke;
     void consume(); void receive(const QJsonObject &event);
     void systemPalette();
+    void pumpClipboard();void resetClipboard(const QString&error=QString());
+    void clipboardEvent(const QString&kind,const QJsonObject&data,quint64 id);
     bool eventFilter(QObject *object,QEvent *event) override;
     RecordModel m_inbox{this},m_messages{this}; QProcess process; QByteArray pending;
     QVariantMap m_settings,m_reader,m_composer,m_palette; QString m_folder="inbox",m_account,m_search;
@@ -96,4 +107,9 @@ private:
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey;
     bool quitting=false,quitWaiting=false; int quitCode=0;
+    QString clipboardSession,clipboardToken;QByteArray clipboardBytes;
+    quint64 clipboardRequest=0;qint64 clipboardOffset=0;
+    bool clipboardReady=false,clipboardAcked=false,clipboardCancelled=false,clipboardBegan=false;
+    bool clipboardEncoding=false;std::shared_ptr<std::atomic_bool> clipboardEncodingCancel;
+    QPointer<QMimeData> clipboardFixture;
 };

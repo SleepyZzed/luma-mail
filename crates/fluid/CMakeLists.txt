@@ -4,14 +4,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Svg Multimedia ShaderTools)
 qt_standard_project_setup(REQUIRES 6.8)
-qt_add_executable(luma-mail-fluid WIN32 src/main.cpp src/bridge.cpp src/bridge.h src/motion.cpp src/motion.h src/motion_smoke.cpp src/motion_smoke.h src/rich_document.cpp src/rich_document.h src/composer_smoke.cpp)
+qt_add_executable(luma-mail-fluid WIN32 src/main.cpp src/bridge.cpp src/bridge.h src/motion.cpp src/motion.h src/motion_smoke.cpp src/motion_smoke.h src/rich_document.cpp src/rich_document.h src/composer_smoke.cpp src/clipboard.cpp)
 target_include_directories(luma-mail-fluid PRIVATE src)
 target_link_libraries(luma-mail-fluid PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Svg Qt6::Multimedia)
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 qt_add_qml_module(luma-mail-fluid URI Luma.Fluid VERSION 1.0
-    QML_FILES qml/Main.qml qml/Theme.qml qml/FluidColor.qml qml/FluidButton.qml qml/FluidCombo.qml qml/Icon.qml
+    QML_FILES qml/Main.qml qml/Theme.qml qml/FluidColor.qml qml/FluidButton.qml qml/FluidCombo.qml qml/FluidCheck.qml qml/Icon.qml
         qml/Avatar.qml qml/Sidebar.qml qml/NavigationEntry.qml qml/Inbox.qml qml/Reader.qml
-        qml/Composer.qml qml/RowMorph.qml qml/ActivityPill.qml qml/SettingsSheet.qml)
+        qml/Composer.qml qml/RecipientField.qml qml/RowMorph.qml qml/ActivityPill.qml qml/SettingsSheet.qml)
 file(GLOB LUMA_ICONS CONFIGURE_DEPENDS "../../data/icons/scalable/actions/*.svg")
 qt_add_resources(luma-mail-fluid "icons" PREFIX "/icons" BASE "../../data/icons/scalable/actions" FILES ${LUMA_ICONS})
 qt_add_resources(luma-mail-fluid "brand" PREFIX "/brand" BASE "../../data" FILES "../../data/luma-wordmark.png" "../../data/io.github.lumamail.Luma.svg")

@@ -62,6 +62,11 @@ pub enum Close {
 }
 
 pub struct Data {
+    pub clipboard: Option<crate::clipboard::Input>,
+    pub input_busy: bool,
+    pub input_token: String,
+    pub identity_loading: bool,
+    pub identity_epoch: u64,
     pub file_sizes: std::collections::HashMap<std::path::PathBuf, u64>,
     pub sent_recipients: Option<Compose>,
     pub form: Compose,
@@ -88,6 +93,7 @@ pub struct Data {
     pub attachment_generation: u64,
 }
 pub struct Session {
+    pub input_ready: tokio::sync::Notify,
     pub id: String,
     pub data: Mutex<Data>,
     pub operation: tokio::sync::Mutex<()>,
@@ -153,8 +159,14 @@ impl Session {
         let identities = vec![SendAs::primary(&primary)];
         let (progress, progress_lifetime) = tokio::sync::watch::channel(Default::default());
         Arc::new(Self {
+            input_ready: tokio::sync::Notify::new(),
             id: composer::new_id(),
             data: Mutex::new(Data {
+                clipboard: None,
+                input_busy: false,
+                input_token: String::new(),
+                identity_loading: false,
+                identity_epoch: 0,
                 file_sizes: Default::default(),
                 sent_recipients: None,
                 form,
@@ -287,7 +299,9 @@ impl Session {
     }
     pub fn close(&self, mode: DraftMode) -> Close {
         let mut d = self.data.lock().unwrap();
-        if matches!(d.phase, Phase::Saving | Phase::Sending | Phase::Uploading)
+        if d.input_busy
+            || d.identity_loading
+            || matches!(d.phase, Phase::Saving | Phase::Sending | Phase::Uploading)
             || d.pending.is_some()
         {
             d.close_pending = true;
@@ -356,6 +370,11 @@ impl Session {
             .iter()
             .map(|i| json!({"email":i.send_as_email,"name":i.display_name,"header":i.header()}))
             .collect();
+        let sender_verified = luma_core::sender_rules::address(&d.form.from).is_ok_and(|address| {
+            d.identities
+                .iter()
+                .any(|i| i.send_as_email.eq_ignore_ascii_case(&address))
+        });
         let mut value = json!({"session":self.id,"mode":d.mode,"key":d.key,"account":d.form.account,"from":d.form.from,
             "revision":d.revision,"savedRevision":d.saved_revision,"dirty":d.revision!=d.saved_revision,
             "state":d.phase.label(),"phase":if d.phase==Phase::Sending{"sending"}else if d.phase==Phase::Sent{"sent"}else{"editing"},
@@ -363,6 +382,9 @@ impl Session {
             "attachments":attachments,"attachmentGeneration":d.attachment_generation,"identities":identities,
             "quote":d.quote,"signatureHtml":d.signature,"includeQuote":d.include_quote,"includeSignature":d.include_signature,
             "sourceMode":d.source_mode,"draftId":d.draft.as_ref().map(|v|&v.id),
+            "identityBusy":d.identity_loading,"accountLocked":d.draft.is_some()||d.form.thread.is_some()||!d.form.drive_files.is_empty(),
+            "senderVerified":sender_verified,
+            "inputBusy":d.input_busy,"clipboard":{"done":d.clipboard.as_ref().map(|i|i.bytes.len()).unwrap_or(0),"total":d.clipboard.as_ref().and_then(|i|i.total).unwrap_or(0)},
             "progress":{"name":progress.name,"done":if progress.total>0{progress.done}else{done},"total":if progress.total>0{progress.total}else{total},"sharing":progress.sharing},
             "replace":replace});
         if replace {
@@ -382,8 +404,12 @@ impl Session {
         ticket: u64,
     ) -> Result<()> {
         let _operation = self.operation.lock().await;
-        let intent = {
+        let intent = loop {
+            self.wait_input().await;
             let mut d = self.data.lock().unwrap();
+            if d.input_busy || d.identity_loading {
+                continue;
+            }
             let Some((id, intent)) = d.pending else {
                 return Ok(());
             };
@@ -409,7 +435,7 @@ impl Session {
                 "Saving to Gmail"
             }
             .into();
-            intent
+            break intent;
         };
         let result = self.persist_inner(transport, client, drive, intent).await;
         if let Err(error) = &result {
@@ -549,6 +575,138 @@ impl Session {
             Ok(())
         }
     }
+    async fn wait_input(&self) {
+        loop {
+            let ready = self.input_ready.notified();
+            tokio::pin!(ready);
+            ready.as_mut().enable();
+            let busy = {
+                let d = self.data.lock().unwrap();
+                d.input_busy || d.identity_loading
+            };
+            if !busy {
+                return;
+            }
+            ready.await;
+        }
+    }
+    pub fn begin_input(&self, token: &str) -> Result<()> {
+        let mut d = self.data.lock().unwrap();
+        if d.input_busy || !matches!(d.phase, Phase::Editing | Phase::Uploading) {
+            return Err(Error::Invalid(
+                "Finish the current attachment operation first".into(),
+            ));
+        }
+        if d.form.attachments.len() + d.form.retained.len() + d.form.drive_files.len() >= 64 {
+            return Err(Error::ResponseLimit);
+        }
+        let retained = d.form.retained.iter().map(|a| a.data.len()).sum();
+        d.clipboard = Some(crate::clipboard::Input::new(token, retained)?);
+        d.input_token = token.into();
+        d.input_busy = true;
+        d.status = "Reading clipboard image".into();
+        Ok(())
+    }
+    pub fn cancel_input(&self, token: &str, message: &str) -> bool {
+        let mut d = self.data.lock().unwrap();
+        if !d.input_busy || d.input_token != token {
+            return false;
+        }
+        d.clipboard = None;
+        d.input_busy = false;
+        d.input_token.clear();
+        d.pending = None;
+        d.status = message.into();
+        drop(d);
+        self.input_ready.notify_waiters();
+        true
+    }
+    pub fn accept_input(
+        &self,
+        token: &str,
+        file: luma_core::composer::RetainedAttachment,
+    ) -> Result<bool> {
+        let mut d = self.data.lock().unwrap();
+        if !d.input_busy || d.input_token != token {
+            return Ok(false);
+        }
+        let total = d.form.retained.iter().map(|a| a.data.len()).sum::<usize>() + file.data.len();
+        if total > luma_core::composer::MAX_ATTACHMENT_BYTES as usize
+            || d.form.attachments.len() + d.form.retained.len() + d.form.drive_files.len() >= 64
+        {
+            return Err(Error::ResponseLimit);
+        }
+        d.form.retained.push(file);
+        d.revision += 1;
+        d.attachment_generation += 1;
+        d.input_busy = false;
+        d.input_token.clear();
+        d.clipboard = None;
+        d.status = "Image attached · changes are in memory".into();
+        drop(d);
+        self.input_ready.notify_waiters();
+        Ok(true)
+    }
+    pub fn select_identity(&self, address: &str, loading: bool) -> Result<u64> {
+        let mut d = self.data.lock().unwrap();
+        if !matches!(d.phase, Phase::Editing | Phase::Conflict)
+            || d.pending.is_some()
+            || d.input_busy
+        {
+            return Err(Error::Invalid(
+                "Wait for the current operation before changing From".into(),
+            ));
+        }
+        let choice = d
+            .identities
+            .iter()
+            .find(|i| i.send_as_email.eq_ignore_ascii_case(address))
+            .cloned()
+            .ok_or_else(|| Error::Invalid("Choose a verified From address".into()))?;
+        d.form.from = choice.header();
+        d.form.sender_reply_to = choice.reply_to_address;
+        if !d.source_mode {
+            d.signature.clear();
+            d.original_html = None;
+        }
+        d.revision += 1;
+        d.close_question = None;
+        d.identity_epoch += 1;
+        d.identity_loading = loading;
+        Ok(d.identity_epoch)
+    }
+    pub fn select_account(
+        &self,
+        account: &luma_core::config::Account,
+        loading: bool,
+    ) -> Result<u64> {
+        let mut d = self.data.lock().unwrap();
+        if !account.enabled {
+            return Err(Error::Invalid("Choose an enabled account".into()));
+        }
+        if d.phase != Phase::Editing
+            || d.pending.is_some()
+            || d.input_busy
+            || d.draft.is_some()
+            || d.form.thread.is_some()
+            || !d.form.drive_files.is_empty()
+        {
+            return Err(Error::Invalid("This draft, reply or Drive attachment belongs to its current account. Start a new message to use another account.".into()));
+        }
+        d.form.account = Some(account.id.clone());
+        d.form.from = account.email.clone();
+        d.form.sender_reply_to.clear();
+        d.identities = vec![SendAs::primary(&account.email)];
+        d.signature.clear();
+        d.original_html = None;
+        d.revision += 1;
+        d.close_question = None;
+        d.identity_epoch += 1;
+        d.identity_loading = loading;
+        d.status = "Loading sender settings".into();
+        self.uploads.lock().unwrap().clear();
+        Ok(d.identity_epoch)
+    }
 }
 fn stamp(mut draft: Draft) -> Draft {
     draft.message.payload = Default::default();
@@ -556,6 +714,11 @@ fn stamp(mut draft: Draft) -> Draft {
     draft
 }
 fn clear(d: &mut Data, phase: Phase) {
+    d.clipboard = None;
+    d.input_busy = false;
+    d.input_token.clear();
+    d.identity_loading = false;
+    d.identity_epoch += 1;
     d.form = Compose::default();
     d.base = Fields::of(&d.form);
     d.original_html = None;

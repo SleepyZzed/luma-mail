@@ -72,6 +72,6 @@ ApplicationWindow {
         function onShowRequested(){window.show();window.raise();window.requestActivate()}
     }
     Shortcut{sequence:"Ctrl+N";onActivated:Mail.requestCompose("new")}
-    Shortcut{sequence:"Escape";onActivated:{if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
+    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen;onActivated:{if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
     Shortcut{sequence:"Ctrl+R";onActivated:Mail.setView(Mail.folder,Mail.account,Mail.search)}
 }

@@ -26,8 +26,12 @@ The native rich document is now wired to RAM-only Rust composer sessions. It
 blocks all text-document network/file resource loading, caps authored input at
 1 MiB/250,000 native characters and undo snapshots at 64/1 MiB. Retained MIME
 attachments keep the existing 16-MiB limit. File attachments stream through the
-existing private Drive path. Clipboard-image and media adapters remain pending;
-the preview rejects image paste instead of silently sending a broken resource.
+existing private Drive path. Clipboard images now travel in acknowledged
+256-KiB chunks under the same aggregate 16-MiB retained-attachment budget. Native
+bitmap encoding runs off the UI thread with bounded output and cancellation;
+the engine validates the raster before attaching it. Save/Send waits for input
+and sender settings; failed/cancelled input cancels queued Send. No image spool,
+body resource or clipboard autosave is created. Media adapters remain pending.
 Quoted history and online signatures are separate from authored reply text and
 round-trip in Gmail's MIME draft, without local sidecars. Save/send operations
 serialize, reuse one draft ID and do not retry uncertain writes. Quitting uses
