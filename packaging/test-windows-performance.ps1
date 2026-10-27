@@ -19,6 +19,7 @@ try{
         do{$before=$ids.Count;foreach($item in $all){if($ids.Contains([int]$item.ParentProcessId)){[void]$ids.Add([int]$item.ProcessId)}}}while($ids.Count -gt $before)
         $members=@(Get-Process -Id ([int[]]$ids) -ErrorAction SilentlyContinue)
         $counters=@(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -Property IDProcess,WorkingSetPrivate | Where-Object {$ids.Contains([int]$_.IDProcess)})
+        if($process.HasExited){break} # Do not record a zero-memory post-exit sample.
         $private=($counters | Measure-Object WorkingSetPrivate -Sum).Sum
         $commit=($members | Measure-Object PrivateMemorySize64 -Sum).Sum
         $working=($members | Measure-Object WorkingSet64 -Sum).Sum
@@ -42,7 +43,7 @@ try{
     $report=@{binary_sha256=(Get-FileHash -LiteralPath $binaryPath -Algorithm SHA256).Hash.ToLower();metric='Windows private working set and private commit; not Linux PSS';includes='Luma and recursively discovered child renderer/helper processes';cpu='Settled per-process CPU deltas, one-core and whole-machine percentages; short-lived exited helpers can be missed';samples=$samples}
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidencePath 'windows-performance.json') -Encoding UTF8
     Get-Content -LiteralPath $stdout
-    $samples | Group-Object phase | ForEach-Object {$group=$_.Group | Select-Object -Last 1;[pscustomobject]@{Phase=$_.Name;Processes=$group.processes;PrivateWorkingSetMiB=[Math]::Round($group.private_working_set_bytes/1MB,2);CPUOneCorePercent=$group.cpu_one_core_percent}} | Format-Table
+    $samples | Group-Object {$_['phase']} | ForEach-Object {$group=$_.Group | Select-Object -Last 1;[pscustomobject]@{Phase=$_.Name;Processes=$group.processes;PrivateWorkingSetMiB=[Math]::Round($group.private_working_set_bytes/1MB,2);CPUOneCorePercent=$group.cpu_one_core_percent}} | Format-Table
 }finally{
     if(-not $process.HasExited){Stop-Process -Id $process.Id}
     Remove-Item Env:LUMA_TEST_ROOT -ErrorAction SilentlyContinue
