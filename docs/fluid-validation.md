@@ -665,3 +665,38 @@ These checks address the reproduced crash rather than ignoring the failed runs.
 See Qt's [cached interface implementation](https://github.com/qt/qtdeclarative/blob/v6.12.0/src/quick/accessible/qaccessiblequickitem.cpp)
 and [document replacement](https://github.com/qt/qtdeclarative/blob/v6.12.0/src/quick/items/qquicktextedit.cpp).
 Fresh packaged Windows/Linux acceptance of this correction remains required.
+
+
+## Lazy media and composer table checkpoint
+
+All fourteen local native groups pass after the document-lifetime correction:
+271 Windows checks, including five new composer table controls/navigation checks.
+The composer exposes table insertion, keeps unsupported source HTML read-only,
+and routes Tab/Shift+Tab between table cells before moving to another field.
+Tab adds rows up to ten, then leaves the table; undo stays within the existing
+1-MiB history budget. Closing also dismisses its table/link/find/history popups.
+The animation fixture now waits for spring completion within two seconds before
+starting its next phase; rapid retargets remain 70 ms apart. This removes a fixed
+700-ms settle assumption, while asserting final geometry and frame-clock rest.
+
+The Windows 37c8178 CI first-scene step timed out before producing its report.
+Its only diagnostic was eager FFmpeg initialization followed by thread/mutex
+teardown messages; the cause is not yet established. Startup/check milestones
+are now logged for this synthetic fixture, and packaged Windows acceptance remains
+blocked. Linux 37c8178 passed all native and all 263 portable AppImage checks.
+
+VideoOutput is now created only when a video preview is actually requested,
+avoiding startup initialization of the media backend. Native media playback and
+close/release checks still pass. The full Windows process tree in the measured
+lazy-media build used 142.2 MiB private working set/209.5 MiB private commit at
+baseline, 256.9/382.8 with HTML and 61.8/126.2 when backgrounded. This run reduced
+private commit relative to the previous async-reader run, but its working set was
+higher at baseline/HTML; it is not an across-the-board RAM improvement. All seven
+lifecycle checks pass and the zero-cache profile retains only a 51-byte settings
+file (56 allocated bytes reported by FileStandardInfo), with zero cache files.
+See fluid-resource-media-*.json for exact binary/provenance and samples.
+
+Linux 37c8178 software-rendered full-tree PSS is 234.3 MiB at baseline, 410.1 with
+HTML and 335.5 when backgrounded; settled sampled CPU is 0.00% of one core.
+This is not real GPU/Hyprland or sustained live-sync acceptance, and RAM goals
+remain unmet. No mailbox, draft, attachment or browser disk archive was added.

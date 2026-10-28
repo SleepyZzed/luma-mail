@@ -46,6 +46,16 @@ private slots:
     void tableNavigationIsBoundedAndUndoable(){
         RichDocument d;d.load({{"kind","plain"},{"text","Hello"}});QVERIFY(!d.table(100,100));QVERIFY(d.table(1,2));auto table=QTextCursor(d.nativeDocument()->begin()).currentTable();QVERIFY(d.html().contains("<table"));QVERIFY(d.tableTab());QVERIFY(d.tableTab());QVERIFY(d.tableTab(true));d.undo();QVERIFY(d.undoBytes()<=1024*1024);Q_UNUSED(table);
     }
+    void tableTabLeavesAtCapacityAndShiftTabDoesNotGrow(){
+        RichDocument d;d.load({{"kind","plain"},{"text",""}});QVERIFY(d.table(1,2));
+        QTextCursor c(d.nativeDocument());int caret=0;connect(&d,&RichDocument::placeCursor,this,[&](int,int end){caret=end;});
+        for(int i=0;i<19;++i)QVERIFY(d.tableTab());
+        c.setPosition(caret);auto table=c.currentTable();QVERIFY(table);QCOMPARE(table->rows(),10);QCOMPARE(table->columns(),2);
+        QCOMPARE(table->cellAt(c).row(),9);QCOMPARE(table->cellAt(c).column(),1);
+        QVERIFY(d.tableTab(true));c.setPosition(caret);QCOMPARE(table->cellAt(c).column(),0);QCOMPARE(table->rows(),10);
+        QVERIFY(d.tableTab());QVERIFY(d.tableTab());c.setPosition(caret);QVERIFY(!c.currentTable());QCOMPARE(table->rows(),10);
+        QVERIFY(!d.tableTab());d.undo();QVERIFY(d.undoBytes()<=1024*1024);
+    }
     void receivedLinksAreLiteralSafeAndSelectionCompatible(){
         ReadDocument reader;const QString source=QString::fromUtf8("<b>literal</b> 🙂 https://example.com and mail@example.com");reader.setSource(source);
         const auto start=source.indexOf("https://");reader.setSpans({QVariantMap{{"start",start},{"end",start+19},{"url","https://example.com"}},QVariantMap{{"start",0},{"end",3},{"url","file:///private"}}});reader.setLinkColour(QColor("#82b5ff"));

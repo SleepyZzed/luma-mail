@@ -54,6 +54,8 @@ int main(int argc,char**argv){
     app.setQuitOnLastWindowClosed(false);
     ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
+    const bool traceMotion=preview&&app.arguments().contains("--motion-test");
+    if(traceMotion)qInfo()<<"MOTION startup: application initialized";
     QString mailto;for(const auto&argument:app.arguments())if(argument.startsWith("mailto:",Qt::CaseInsensitive)){mailto=argument;break;}
     std::unique_ptr<SingleInstance>instance;
     if(!preview){instance=std::make_unique<SingleInstance>(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));const auto result=instance->start(mailto);if(result==SingleInstance::Forwarded)return 0;if(result==SingleInstance::Busy){qWarning()<<"The existing Luma window is busy. Try opening it again shortly.";return 1;}}
@@ -74,7 +76,9 @@ int main(int argc,char**argv){
         false
 #endif
     );
+    if(traceMotion)qInfo()<<"MOTION startup: loading native scene";
     engine.loadFromModule("Luma.Fluid","Main");if(engine.rootObjects().isEmpty())return 1;
+    if(traceMotion)qInfo()<<"MOTION startup: native scene loaded";
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     // Preserve the native state, rather than transient X11 map visibility.
     bridge.trackWindow(window);
@@ -112,7 +116,7 @@ int main(int argc,char**argv){
     QObject::connect(&bridge,&Bridge::notification,&tray,[&](QVariantMap n){if(!QSystemTrayIcon::isSystemTrayAvailable()||!QSystemTrayIcon::supportsMessages()){bridge.setNotificationStatus("Windows system notifications are unavailable.");return;}lastNotification=n;tray.showMessage(n["title"].toString(),n["body"].toString());bridge.setNotificationStatus(QString());});
     QObject::connect(&tray,&QSystemTrayIcon::messageClicked,&bridge,[&]{bridge.openThread(lastNotification["account"].toString(),lastNotification["thread"].toString());});
 #endif
-    QTimer::singleShot(0,&bridge,&Bridge::start);
+    QTimer::singleShot(0,&bridge,[&bridge,traceMotion]{if(traceMotion)qInfo()<<"MOTION startup: starting synthetic engine";bridge.start();});
     if(preview&&app.arguments().contains("--preview-reader")){
         QObject::connect(&bridge,&Bridge::ready,&app,[&]{if(app.arguments().contains("--preview-account")){if(auto nav=window->findChild<QQuickItem*>("navigation"))nav->setProperty("accountOpen","preview");bridge.setView("inbox","preview");}QTimer::singleShot(350,&app,[&]{auto list=window->findChild<QQuickItem*>("mailList");if(list&&bridge.inbox()->rowCount()>1){auto p=list->mapToScene(QPointF(0,73));bridge.selectRow(1,0,p.x(),p.y(),list->width(),68);}});});
     }

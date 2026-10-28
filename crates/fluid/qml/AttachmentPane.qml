@@ -30,7 +30,9 @@ Item {
             ScrollView{anchors.fill:parent;visible:AttachmentViewer.kind==="Text"||AttachmentViewer.kind==="Word document";clip:true
                 TextArea{text:AttachmentViewer.text;textFormat:TextEdit.PlainText;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;color:Theme.text;font.family:Theme.family;font.pixelSize:Theme.unit(13);background:Item{}}
             }
-            VideoOutput{id:video;anchors.fill:parent;visible:AttachmentViewer.kind==="Video";fillMode:VideoOutput.PreserveAspectFit;Component.onCompleted:AttachmentViewer.setVideoSink(videoSink);Component.onDestruction:AttachmentViewer.clearVideoSink(videoSink)}
+            Loader{anchors.fill:parent;active:AttachmentViewer.kind==="Video"
+                sourceComponent:Component{VideoOutput{fillMode:VideoOutput.PreserveAspectFit;Component.onCompleted:AttachmentViewer.setVideoSink(videoSink);Component.onDestruction:AttachmentViewer.clearVideoSink(videoSink)}}
+            }
             Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:AttachmentViewer.kind==="Audio"?"Audio preview":"";visible:text!==""&&!AttachmentViewer.loading;color:Theme.muted;font.pixelSize:Theme.unit(22)}
             Column{anchors.centerIn:parent;width:Math.min(parent.width,Theme.unit(360));spacing:Theme.unit(14);visible:AttachmentViewer.loading
                 Text{textFormat:Text.PlainText;text:"Preparing preview…";color:Theme.muted;font.pixelSize:Theme.unit(13)}

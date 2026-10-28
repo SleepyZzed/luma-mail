@@ -187,3 +187,11 @@ image authoring, whole-conversation forwarding and Linux RAM goals remain open.
   source/notices checks are now wired into CI; successful Linux packaging is still
   pending. The fixed installation is audited separately from cache/runtime data.
   Qt 6.11.2 is used for the forthcoming Linux packaging checks. See fluid-packaging.md.
+
+
+- Composer table tools now expose the existing native rich-table model, including
+  Tab/Shift+Tab cell navigation, capped row growth, final-cell exit and popup
+  cleanup. Fourteen local native groups pass 271 checks. Lazy VideoOutput creation
+  preserves tested playback while avoiding eager media-backend startup. Linux
+  37c8178 portable checks pass; Windows startup/packaging and RAM/desktop gates
+  remain open. Exact evidence is recorded in fluid-validation.md.

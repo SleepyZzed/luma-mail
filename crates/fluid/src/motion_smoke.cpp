@@ -20,12 +20,13 @@ MotionSmoke::MotionSmoke(Bridge *bridge,QQuickWindow *window)
     : QObject(window),bridge(bridge),window(window) {
     const int previewWidth=qEnvironmentVariableIntValue("LUMA_PREVIEW_WIDTH");
     if(previewWidth>=760&&previewWidth<=3840)window->setWidth(previewWidth);
-    connect(bridge,&Bridge::ready,this,[this]{if(!started){started=true;QTimer::singleShot(300,this,[this]{begin();});}});
+    connect(bridge,&Bridge::ready,this,[this]{qInfo()<<"MOTION startup: synthetic engine ready";if(!started){started=true;QTimer::singleShot(300,this,[this]{begin();});}});
     connect(window,&QQuickWindow::afterFrameEnd,this,[this]{if(elapsed.isValid()){++totalFrames;if(frames.size()<1000)frames.append(elapsed.elapsed());}},Qt::QueuedConnection);
 }
 void MotionSmoke::check(const QString &name,bool passed) {
     checks.append(QJsonObject{{"check",name},{"passed",passed},{"atMs",elapsed.isValid()?elapsed.elapsed():0},{"exposed",window->isExposed()},{"visible",window->isVisible()},{"minimized",window->visibility()==QWindow::Minimized}});
     failed|=!passed;
+    qInfo().noquote()<<"MOTION check"<<(elapsed.isValid()?elapsed.elapsed():0)<<name<<passed;
 }
 void MotionSmoke::open(int index,int modifiers) {
     QMetaObject::invokeMethod(inbox,"openIndex",Q_ARG(QVariant,index),Q_ARG(QVariant,modifiers));
@@ -109,34 +110,46 @@ void MotionSmoke::begin() {
         QMetaObject::invokeMethod(composer,"open",Q_ARG(QVariant,"new"));
         check("new composer starts compact",!composer->property("expanded").toBool());
         check("compose button starts a bounds morph",composer->property("moving").toBool());
-        QTimer::singleShot(700,this,[this,composer]{
+        whenStill(composer,[this,composer]{
             check("compact composer reaches its layout",std::abs(composer->width()-650)<.5&&std::abs(composer->height()-535)<.5);
             composer->setProperty("expanded",true);
-        });
-        QTimer::singleShot(770,this,[composer]{composer->setProperty("expanded",false);});
-        QTimer::singleShot(840,this,[composer]{composer->setProperty("expanded",true);});
-        QTimer::singleShot(1600,this,[this,composer]{
-            check("interrupted maximize reaches full bounds",std::abs(composer->width()-(window->width()-40))<.5&&!composer->property("moving").toBool());
-            composer->setProperty("expanded",false);
-        });
-        QTimer::singleShot(2400,this,[this,composer]{
-            check("restore retains bound layout",std::abs(composer->width()-650)<.5&&!composer->property("moving").toBool());
-            QMetaObject::invokeMethod(composer,"close");
-            check("close starts a downward movement",composer->property("moving").toBool());
-        });
-        QTimer::singleShot(2470,this,[this,composer]{const auto before=composer->position();const auto size=composer->size();QMetaObject::invokeMethod(composer,"open",Q_ARG(QVariant,"new"));check("reopening during close preserves current bounds",QLineF(before,composer->position()).length()<.1&&std::abs(composer->width()-size.width())<.1&&std::abs(composer->height()-size.height())<.1);});
-        QTimer::singleShot(3100,this,[composer]{QMetaObject::invokeMethod(composer,"close");});
-        QTimer::singleShot(4000,this,[this,composer]{
-            check("closed composer releases its visible surface",!composer->isVisible()&&!composer->property("moving").toBool());
-            const auto atRest=totalFrames;
-            QTimer::singleShot(300,this,[this,atRest]{
-                check("settled scene stops requesting frames",totalFrames-atRest<=2);
-                finish();
+            QTimer::singleShot(70,this,[composer]{composer->setProperty("expanded",false);});
+            QTimer::singleShot(140,this,[this,composer]{
+                composer->setProperty("expanded",true);
+                whenStill(composer,[this,composer]{
+                    check("interrupted maximize reaches full bounds",std::abs(composer->width()-(window->width()-40))<.5&&!composer->property("moving").toBool());
+                    composer->setProperty("expanded",false);
+                    whenStill(composer,[this,composer]{
+                        check("restore retains bound layout",std::abs(composer->width()-650)<.5&&!composer->property("moving").toBool());
+                        QMetaObject::invokeMethod(composer,"close");
+                        check("close starts a downward movement",composer->property("moving").toBool());
+                        QTimer::singleShot(70,this,[this,composer]{
+                            const auto before=composer->position();const auto size=composer->size();
+                            QMetaObject::invokeMethod(composer,"open",Q_ARG(QVariant,"new"));
+                            check("reopening during close preserves current bounds",QLineF(before,composer->position()).length()<.1&&std::abs(composer->width()-size.width())<.1&&std::abs(composer->height()-size.height())<.1);
+                            whenStill(composer,[this,composer]{
+                                QMetaObject::invokeMethod(composer,"close");
+                                whenStill(composer,[this,composer]{
+                                    check("closed composer releases its visible surface",!composer->isVisible()&&!composer->property("moving").toBool());
+                                    const auto atRest=totalFrames;
+                                    QTimer::singleShot(300,this,[this,atRest]{check("settled scene stops requesting frames",totalFrames-atRest<=2);finish();});
+                                });
+                            });
+                        });
+                    });
+                });
             });
         });
     });
 }
+void MotionSmoke::whenStill(QQuickItem*item,std::function<void()> next,int attempts){
+    if(finished)return;
+    if(!item->property("moving").toBool()){next();return;}
+    if(attempts<=0){check("composer springs settle within two seconds",false);finish();return;}
+    QTimer::singleShot(25,this,[this,item,next,attempts]{whenStill(item,next,attempts-1);});
+}
 void MotionSmoke::finish() {
+    if(finished)return;finished=true;
     QJsonArray intervals;
     for(qsizetype i=1;i<frames.size();++i){auto interval=frames[i]-frames[i-1];if(interval>0&&interval<100)intervals.append(interval);}
     QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks},{"frameIntervalsMs",intervals},{"windowExposed",window->isExposed()},{"windowWidth",window->width()},{"windowHeight",window->height()},{"elapsedMs",elapsed.isValid()?elapsed.elapsed():0},{"note","Observed frame delivery during this native smoke run; not a cross-platform frame-rate or resource guarantee."}};

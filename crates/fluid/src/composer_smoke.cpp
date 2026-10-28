@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QBuffer>
 #include <QImage>
+#include <QTextTable>
 #include <QDir>
 #include <QDateTime>
 #include <functional>
@@ -46,6 +47,18 @@ public:
                     check("preserved HTML keeps formatting read-only while attachments remain usable",body->property("readOnly").toBool()&&attach&&attach->isEnabled()&&bold&&!bold->isEnabled());
                     mail->m_composer=original;mail->m_composer.remove("document");mail->m_composer.remove("replace");emit mail->composerChanged();
                     check("editable messages restore formatting without changing field focus",bold&&bold->isEnabled()&&!body->property("readOnly").toBool()&&window->activeFocusItem()==subject);
+                    auto tableButton=window->findChild<QQuickItem*>("composeTable");auto tableDialog=window->findChild<QObject*>("composeTableDialog");
+                    check("table insertion is available in the composer toolbar",tableButton&&tableButton->isEnabled()&&tableDialog);
+                    if(tableButton&&tableDialog){QMetaObject::invokeMethod(tableButton,"clicked");check("table control opens its modal options",tableDialog->property("visible").toBool());QMetaObject::invokeMethod(tableDialog,"accept");}
+                    auto table=QTextCursor(document->nativeDocument()->begin()).currentTable();
+                    // The first block is outside the table; inspect the live editor cursor.
+                    QTextCursor tableCursor(document->nativeDocument());tableCursor.setPosition(body->property("cursorPosition").toInt());table=tableCursor.currentTable();
+                    check("table options insert a real two-by-two rich table",table&&table->rows()==2&&table->columns()==2);
+                    if(table){
+                        body->forceActiveFocus();key(Qt::Key_Tab);tableCursor.setPosition(body->property("cursorPosition").toInt());check("composer Tab moves to the next table cell",table->cellAt(tableCursor).column()==1&&table->cellAt(tableCursor).row()==0);
+                        key(Qt::Key_Backtab,Qt::ShiftModifier);tableCursor.setPosition(body->property("cursorPosition").toInt());check("composer Shift Tab returns to the previous table cell",table->cellAt(tableCursor).column()==0&&table->cellAt(tableCursor).row()==0);
+                    }
+                    document->load({{"kind","plain"},{"text",""}});subject->forceActiveFocus();
                     to->setProperty("text","person@example.com");subject->setProperty("text","Synthetic composer test");QTextCursor c(document->nativeDocument());c.insertText("Hello synthetic world");document->selection(0,5,5);document->toggle("bold");
                     check("selected formatting produces rich outgoing markup",document->payload()["html"].toBool()&&document->html().contains("font-weight:700"));
                     if(auto path=qEnvironmentVariable("LUMA_COMPOSER_SCREENSHOT");!path.isEmpty())window->grabWindow().save(path);

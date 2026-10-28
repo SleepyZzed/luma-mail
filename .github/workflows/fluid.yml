@@ -344,6 +344,7 @@ jobs:
           cargo build --locked -p luma-engine -p luma-webview
           python packaging/webview2-loader.py --binary target/debug/luma-engine.exe
           export PATH="$PWD/target/debug:$PATH"
+          cargo test --locked -p luma-webview --no-run
           timeout 45s cargo test --locked -p luma-webview -- --test-threads=1
       - uses: actions/cache/save@v4
         if: steps.ucrt_rust_cache.outputs.cache-hit != 'true'

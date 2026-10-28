@@ -210,3 +210,13 @@ Windows portable checks pass, but source-provenance diagnosis and corrected Linu
 AppRun/portable acceptance remain distribution gates. Actual Linux/GPU/Hyprland,
 long-lived sync, remaining editor/forwarding parity and Google review remain open;
 none of these checkpoints authorizes a 1.0 completeness claim.
+
+
+The latest local checkpoint restores composer table insertion and real cell
+Tab/Shift+Tab navigation, including bounded row growth and escape from the final
+cell. Its fourteen native groups pass 271 Windows checks. Lazy video-sink creation
+removes eager media initialization; zero-cache still retains only settings.
+Linux 37c8178 passed all 263 packaged checks, but its measured 234.3-MiB baseline/
+410.1-MiB HTML PSS misses the goals. The corresponding Windows CI stalled before
+its first animation report; startup diagnostics and a fresh package run are
+required. See fluid-validation.md for complete evidence and limitations.

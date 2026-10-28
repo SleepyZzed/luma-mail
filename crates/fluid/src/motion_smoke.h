@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QObject>
 #include <QPointer>
+#include <functional>
 class Bridge;
 class QQuickItem;
 class QQuickWindow;
@@ -16,6 +17,7 @@ private:
     void check(const QString &name, bool passed);
     void open(int index, int modifiers=0);
     void finish();
+    void whenStill(QQuickItem*item,std::function<void()> next,int attempts=80);
     Bridge *bridge;
     QQuickWindow *window;
     QQuickItem *navigation=nullptr, *inbox=nullptr, *morph=nullptr;
@@ -24,5 +26,5 @@ private:
     QList<qint64> frames;
     qint64 totalFrames=0;
     bool removalAnimated=false;
-    bool failed=false, started=false;
+    bool failed=false, started=false, finished=false;
 };

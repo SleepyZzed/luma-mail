@@ -85,7 +85,10 @@ bool RichDocument::table(int rows,int columns){
 }
 bool RichDocument::tableTab(bool backwards){
     if(readOnly)return false;auto c=cursor();auto table=c.currentTable();if(!table)return false;auto cell=table->cellAt(c);int next=cell.row()*table->columns()+cell.column()+(backwards?-1:1);if(next<0)return false;
-    if(next>=table->rows()*table->columns()){if(table->rows()>=10)return true;checkpoint();table->appendRows(1);checkpoint();}
+    if(next>=table->rows()*table->columns()){
+        if(table->rows()>=10){position=start=end=std::min(table->lastPosition()+1,doc->characterCount()-1);emit placeCursor(position,position);return true;}
+        checkpoint();table->appendRows(1);checkpoint();
+    }
     const auto target=table->cellAt(next/table->columns(),next%table->columns());position=start=end=target.firstCursorPosition().position();emit placeCursor(position,position);return true;
 }
 void RichDocument::list(bool numbered){

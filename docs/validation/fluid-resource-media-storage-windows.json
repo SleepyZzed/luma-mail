@@ -1,0 +1,28 @@
+{
+  "schema": 2,
+  "allocation_method": "Win32 FileStandardInfo (no reparse traversal)",
+  "categories": {
+    "config": {
+      "logical_bytes": 51,
+      "allocated_bytes": 56,
+      "files": 1,
+      "directories": 1,
+      "links": 0,
+      "top_level": {
+        "settings.json": {
+          "logical_bytes": 51,
+          "allocated_bytes": 56,
+          "files": 1
+        }
+      }
+    },
+    "cache": {
+      "logical_bytes": 0,
+      "allocated_bytes": 0,
+      "files": 0,
+      "directories": 0,
+      "links": 0,
+      "top_level": {}
+    }
+  }
+}

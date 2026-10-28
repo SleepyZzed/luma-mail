@@ -57,7 +57,7 @@ Item {
     readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
     visible:shown||moving;clip:true;z:70
     property bool externalModal:false
-    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible||formatMenu.visible
+    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||tableDialog.visible||findDialog.visible||historyDialog.visible||formatMenu.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
     Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&root.hostVisible&&!drag.active}
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag.active}
@@ -131,6 +131,7 @@ Item {
                 FormatButton{text:"•";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
                 FormatButton{text:"1.";tip:"Numbered paragraphs";onClicked:rich.list(true)}
                 FormatButton{glyph:"link";tip:"Insert hyperlink · Ctrl+K";onClicked:linkDialog.open()}
+                FormatButton{objectName:"composeTable";glyph:"table";tip:"Insert table";onClicked:tableDialog.open()}
                 FluidButton{objectName:"composeAttachFiles";glyph:"attachment";tip:"Attach files";enabled:root.attachmentEditable&&!root.inputBusy;onClicked:Mail.attachFiles()}
                 FormatButton{text:"A";tip:"Font colour";onClicked:Mail.chooseColour(false)}
                 FormatButton{text:"▰";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
@@ -170,8 +171,12 @@ Item {
                 else if(ctrl&&event.key===Qt.Key_K){linkDialog.open();event.accepted=true}
                 else if(ctrl&&(event.key===Qt.Key_F||event.key===Qt.Key_H)){findDialog.open();event.accepted=true}
                 else if(ctrl&&(event.key===Qt.Key_Return||event.key===Qt.Key_Enter)){root.submit("composeSend");event.accepted=true}
-                else if(event.key===Qt.Key_Backtab||(event.key===Qt.Key_Tab&&(event.modifiers&Qt.ShiftModifier))){if(rich.inList())rich.indent(-1);else subject.forceActiveFocus();event.accepted=true}
-                else if(event.key===Qt.Key_Tab&&rich.inList()){rich.indent(1);event.accepted=true}
+                else if(event.key===Qt.Key_Tab||event.key===Qt.Key_Backtab){
+                    const back=event.key===Qt.Key_Backtab||!!(event.modifiers&Qt.ShiftModifier)
+                    if(rich.inList()){rich.indent(back?-1:1);event.accepted=true}
+                    else if(rich.tableTab(back))event.accepted=true
+                    else if(back){subject.forceActiveFocus();event.accepted=true}
+                }
                 else if((event.key===Qt.Key_Return||event.key===Qt.Key_Enter)&&!(event.modifiers&Qt.ShiftModifier)){event.accepted=rich.paragraphBreak()}
             }
             TapHandler{acceptedModifiers:Qt.ControlModifier;onTapped:(event)=>{const link=body.linkAt(event.position.x,event.position.y);if(link)Mail.openLink(link)}}
@@ -229,6 +234,17 @@ Item {
         onOpened:{linkLabel.text=body.selectedText;linkUrl.text="";linkUrl.forceActiveFocus()}
         onAccepted:rich.link(linkUrl.text,linkLabel.text)
     }
+    Dialog{id:tableDialog;objectName:"composeTableDialog";title:"Insert table";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(360,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+        Column{width:parent.width;spacing:Theme.unit(10)
+            Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"Choose up to 10 rows and columns. Tab moves between cells; Tab in the last cell adds a row.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+            Row{width:parent.width;spacing:Theme.unit(12)
+                Column{width:(parent.width-parent.spacing)/2;spacing:Theme.unit(4);Text{text:"Rows";color:Theme.muted;font.pixelSize:Theme.unit(11)}FluidField{id:tableRows;width:parent.width;text:"2";placeholderText:"Rows";validator:IntValidator{bottom:1;top:10}}}
+                Column{width:(parent.width-parent.spacing)/2;spacing:Theme.unit(4);Text{text:"Columns";color:Theme.muted;font.pixelSize:Theme.unit(11)}FluidField{id:tableColumns;width:parent.width;text:"2";placeholderText:"Columns";validator:IntValidator{bottom:1;top:10}}}
+            }
+        }
+        onOpened:{tableRows.selectAll();tableRows.forceActiveFocus()}
+        onAccepted:if(!root.locked&&!rich.table(Number(tableRows.text),Number(tableColumns.text)))root.localError="Choose between 1 and 10 rows and columns."
+    }
     Dialog{id:findDialog;title:"Find and replace";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(430,root.scene.width-40);standardButtons:Dialog.Close
         Column{width:parent.width;spacing:8
             TextField{id:findText;width:parent.width;placeholderText:"Find"}
@@ -277,7 +293,7 @@ Item {
     function toggleWindow(){
         if(detached){returnHome(true);return}
         if(!shown||statusMode||modalOpen)return
-        inputDelay.stop();sync();linkDialog.close();findDialog.close();historyDialog.close();formatMenu.close()
+        inputDelay.stop();sync();linkDialog.close();tableDialog.close();findDialog.close();historyDialog.close();formatMenu.close()
         const at=mapToGlobal(0,0),oldWidth=width,oldHeight=height
         previousExpanded=expanded;previousInline=inlineMode
         const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth),height:Math.max(Theme.unit(500),oldHeight),x:at.x,y:at.y})
@@ -319,7 +335,7 @@ Item {
         if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
     }
-    function close(){inputDelay.stop();closingPending=true;shown=false;closeDialog.close();Qt.callLater(()=>{if(!moving)releaseDelay.restart()})}
+    function close(){inputDelay.stop();closingPending=true;shown=false;closeDialog.close();linkDialog.close();tableDialog.close();findDialog.close();historyDialog.close();formatMenu.close();Qt.callLater(()=>{if(!moving)releaseDelay.restart()})}
     function toggleExpanded(){
         const position=mapToItem(scene,0,0)
         if(inlineMode){inlineMode=false;parent=scene;expanded=true;horizontal.rebase(position.x);vertical.rebase(position.y)}
