@@ -38,6 +38,7 @@ pub async fn change_view(app: &Arc<App>, c: &Command) -> Result<()> {
         v.rows.clear();
         v.selected = None;
         v.thread = None;
+        v.headers.reset(c.id);
         v.bodies.clear();
     }
     app.events
@@ -104,6 +105,7 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
         let mut v = app.view.lock().unwrap();
         v.selected = Some(key.clone());
         v.thread = None;
+        v.headers.reset(c.id);
         v.bodies.clear();
     }
     app.events
@@ -119,15 +121,80 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
             .find(|r| r.key == key)
             .cloned();
         if let Some(row) = row {
-            app.events.emit(c.id,"thread",json!({"key":key,"subject":row.subject,"messages":[{"id":key.id,"from":row.sender,"to":"alex@example.com","date":row.date,"subject":row.subject,"unread":row.unread,"starred":row.starred,"important":false,"attachments":[]}]})).await;
-            let has_html =
-                key.id == "preview0" && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1");
-            let text = format!(
-                "{}\n\n{}\n\nThis is a synthetic design preview. No Gmail account or local mailbox is used.\n\nhttps://example.com/review",
-                row.subject, row.snippet
-            );
-            let links = crate::reader::links(&text);
-            app.events.emit(c.id,"body",json!({"account":key.account,"reading":reading,"id":key.id,"text":text,"links":links,"hasHtml":has_html,"externalImages":has_html,"attachments":[]})).await;
+            let count = std::env::var("LUMA_PREVIEW_THREAD_COUNT")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(1)
+                .clamp(1, 5000);
+            let messages = (0..count)
+                .map(|i| Message {
+                    id: if i + 1 == count {
+                        key.id.clone()
+                    } else {
+                        format!("{}-message-{i}", key.id)
+                    },
+                    thread_id: key.id.clone(),
+                    internal_date: (row.date - count as i64 + i as i64).to_string(),
+                    payload: Part {
+                        headers: vec![
+                            Header {
+                                name: "From".into(),
+                                value: row.sender.clone(),
+                            },
+                            Header {
+                                name: "To".into(),
+                                value: "alex@example.com".into(),
+                            },
+                            Header {
+                                name: "Subject".into(),
+                                value: row.subject.clone(),
+                            },
+                        ],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .collect();
+            let mut thread = Thread {
+                id: key.id.clone(),
+                messages,
+                ..Default::default()
+            };
+            if row.unread {
+                thread
+                    .messages
+                    .last_mut()
+                    .unwrap()
+                    .label_ids
+                    .push("UNREAD".into());
+            }
+            if row.starred {
+                thread
+                    .messages
+                    .last_mut()
+                    .unwrap()
+                    .label_ids
+                    .push("STARRED".into());
+            }
+            let (messages, window) = {
+                let v = app.view.lock().unwrap();
+                (
+                    thread.messages[v.headers.range(&thread.messages)]
+                        .iter()
+                        .map(message_header)
+                        .collect::<Vec<_>>(),
+                    v.headers.describe(&thread.messages),
+                )
+            };
+            app.view.lock().unwrap().thread = Some(thread);
+            app.events
+                .emit(
+                    c.id,
+                    "thread",
+                    json!({"key":key,"subject":row.subject,"messages":messages,"window":window}),
+                )
+                .await;
+            preview_body(app, c.id, &key.account, &key.id, reading).await;
         }
         return Ok(());
     }
@@ -137,21 +204,30 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
     if app.reading.load(Ordering::SeqCst) != reading {
         return Ok(());
     }
-    let messages: Vec<_> = thread.messages.iter().map(message_header).collect();
-    let subject = thread
-        .messages
-        .last()
-        .map(|m| m.payload.header("Subject").to_owned())
-        .unwrap_or_default();
-    let last = thread.messages.last().map(|m| m.id.clone());
-    {
-        app.view.lock().unwrap().thread = Some(thread);
-    }
+    let (messages, window, subject, last) = {
+        let mut v = app.view.lock().unwrap();
+        if app.reading.load(Ordering::SeqCst) != reading || v.selected.as_ref() != Some(&key) {
+            return Ok(());
+        }
+        let messages = thread.messages[v.headers.range(&thread.messages)]
+            .iter()
+            .map(message_header)
+            .collect::<Vec<_>>();
+        let window = v.headers.describe(&thread.messages);
+        let subject = thread
+            .messages
+            .last()
+            .map(|m| m.payload.header("Subject").to_owned())
+            .unwrap_or_default();
+        let last = thread.messages.last().map(|m| m.id.clone());
+        v.thread = Some(thread);
+        (messages, window, subject, last)
+    };
     app.events
         .emit(
             c.id,
             "thread",
-            json!({"key":key,"subject":subject,"messages":messages}),
+            json!({"key":key,"subject":subject,"messages":messages,"window":window}),
         )
         .await;
     if let Some(message) = last {
@@ -161,6 +237,60 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
             data: json!({"account":key.account,"id":message,"reading":reading}),
         };
         body(app, &request).await?;
+    }
+    Ok(())
+}
+async fn preview_body(app: &Arc<App>, id: u64, account: &str, message: &str, reading: u64) {
+    let has_html =
+        message == "preview0" && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1");
+    let text = "This is a synthetic design preview. No Gmail account or local mailbox is used.\n\nhttps://example.com/review";
+    app.events.emit(id,"body",json!({"account":account,"reading":reading,"id":message,"text":text,"links":crate::reader::links(text),"hasHtml":has_html,"externalImages":has_html,"attachments":[]})).await;
+}
+pub async fn thread_page(app: &Arc<App>, c: &Command) -> Result<()> {
+    let key = app::key(&c.data["key"])?;
+    let reading = app.reading.load(Ordering::SeqCst);
+    if c.data["reading"].as_u64() != Some(reading) {
+        return Ok(());
+    }
+    let (messages, window, last) = {
+        let mut v = app.view.lock().unwrap();
+        if v.selected.as_ref() != Some(&key) {
+            return Ok(());
+        }
+        let app::View {
+            thread, headers, ..
+        } = &mut *v;
+        let thread = thread
+            .as_ref()
+            .ok_or_else(|| Error::Invalid("Wait for the conversation headers".into()))?;
+        headers.change(&thread.messages, c.text("direction"), c.id)?;
+        let range = headers.range(&thread.messages);
+        (
+            thread.messages[range.clone()]
+                .iter()
+                .map(message_header)
+                .collect::<Vec<_>>(),
+            headers.describe(&thread.messages),
+            range.last().map(|i| thread.messages[i].id.clone()),
+        )
+    };
+    app.events
+        .emit(
+            c.id,
+            "threadHeaders",
+            json!({"key":key,"reading":reading,"messages":messages,"window":window}),
+        )
+        .await;
+    if let Some(message) = last {
+        body(
+            app,
+            &Command {
+                id: c.id,
+                action: "message".into(),
+                data: json!({"account":key.account,"id":message,"reading":reading}),
+            },
+        )
+        .await?;
     }
     Ok(())
 }
@@ -188,6 +318,12 @@ pub fn message_header(m: &Message) -> Value {
 pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
     let key = app::key(&c.data)?;
     let reading = app.reading.load(Ordering::SeqCst);
+    if c.data["reading"]
+        .as_u64()
+        .is_some_and(|epoch| epoch != reading)
+    {
+        return Ok(());
+    }
     let mutation_serial = app.mutation_serial.load(Ordering::SeqCst);
     {
         let v = app.view.lock().unwrap();
@@ -203,6 +339,19 @@ pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
                 "Choose a message in the open conversation".into(),
             ));
         }
+    }
+    {
+        let mut v = app.view.lock().unwrap();
+        let app::View {
+            thread, headers, ..
+        } = &mut *v;
+        if let Some(thread) = thread {
+            headers.focus(&thread.messages, &key.id);
+        }
+    }
+    if app.preview {
+        preview_body(app, c.id, &key.account, &key.id, reading).await;
+        return Ok(());
     }
     let client = app.client(&key.account)?;
     let resident = app.view.lock().unwrap().bodies.get(&key.id);
@@ -258,6 +407,13 @@ pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
     // Bodies are retained only for the selected reader. No historical preload.
     {
         let mut v = app.view.lock().unwrap();
+        if app.reading.load(Ordering::SeqCst) != reading
+            || v.selected.as_ref().is_none_or(|selected| {
+                selected.account != key.account || selected.id != message.thread_id
+            })
+        {
+            return Ok(());
+        }
         v.bodies.insert(Arc::new(message.clone()));
     }
     let external = luma_core::mail_images::sources(&message.payload)
@@ -481,14 +637,10 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             }
         }
         let after = confirmed_thread(before, &confirmed, &operation, message);
-        flags.extend(
-            after.messages.iter().map(
-                |m| json!({"account":key.account,"thread":key.id,"message":message_header(m)}),
-            ),
-        );
         {
             let mut view = app.view.lock().unwrap();
             if view.selected.as_ref() == Some(&key) {
+                flags.extend(after.messages[view.headers.range(&after.messages)].iter().map(|m|json!({"account":key.account,"thread":key.id,"message":message_header(m)})));
                 view.thread = Some(after.clone());
             }
         }

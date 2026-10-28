@@ -86,6 +86,7 @@ public:
     Q_INVOKABLE QVariantMap actionState(const QVariantMap&row={})const;
     Q_INVOKABLE void composeFor(const QString&mode,const QVariantMap&key);
     Q_INVOKABLE void mutateMessage(const QString&action,const QVariantMap&message);
+    Q_INVOKABLE void pageReader(const QString&direction);
     Q_INVOKABLE void closeReader();
     Q_INVOKABLE void openThread(const QString&account,const QString&thread);
     Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={},const QString&label=QString());
@@ -130,6 +131,7 @@ private:
     QVariantMap m_labels;QHash<QString,quint64>labelRequests;
     friend class ComposerSmoke;
     friend class SyncSmoke;
+    friend class ThreadSmoke;
     void consume(); void receive(const QJsonObject &event);
     void systemPalette();
     void pruneSelection();
@@ -146,7 +148,7 @@ private:
     QString m_notificationStatus;
     bool m_windowVisible=true;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
-    quint64 serial=0,viewRequest=0,readerRequest=0; QString openedKey,anchorKey;
+    quint64 serial=0,viewRequest=0,readerRequest=0,headerRequest=0; QString openedKey,anchorKey;
     QHash<QString,quint64> documentRequests;
     bool quitting=false,quitWaiting=false; int quitCode=0;
     QString clipboardSession,clipboardToken;QByteArray clipboardBytes;

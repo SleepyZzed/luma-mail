@@ -172,6 +172,20 @@ jobs:
           name: fluid-conflict-linux
           path: fluid-conflict-linux.json
           if-no-files-found: warn
+      - name: Native bounded long-conversation reading
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_THREAD_REPORT: ${{ github.workspace }}/fluid-thread-linux.json
+          LUMA_PREVIEW_THREAD_COUNT: '2503'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --thread-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-thread-linux
+          path: fluid-thread-linux.json
+          if-no-files-found: warn
       - name: Native online signature editing and close policies
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
@@ -190,6 +204,8 @@ jobs:
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
           LUMA_RESOURCE_REPORT: ${{ github.workspace }}/fluid-resource-linux/lifecycle.json
+          # Xvfb/llvmpipe has no usable Chromium shared-image GPU buffers.
+          QTWEBENGINE_CHROMIUM_FLAGS: '--disable-gpu'
           QT_FORCE_STDERR_LOGGING: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
@@ -377,6 +393,23 @@ jobs:
           path: |
             fluid-conflict-windows.json
             conflict.stderr
+          if-no-files-found: warn
+      - name: Native bounded long-conversation reading
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_THREAD_REPORT="$(cygpath -m "$PWD")/fluid-thread-windows.json"
+          export LUMA_PREVIEW_THREAD_COUNT=2503
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --thread-test >thread.stdout 2>thread.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-thread-windows
+          path: |
+            fluid-thread-windows.json
+            thread.stderr
           if-no-files-found: warn
       - name: Native online signature editing and close policies
         shell: msys2 {0}

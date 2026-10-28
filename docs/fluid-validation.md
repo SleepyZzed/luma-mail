@@ -269,3 +269,36 @@ Windows PowerShell 5 resource summaries now convert sample hashtables to plain
 records before Measure-Object, avoiding a report-generation failure in the
 retained reference frontend job. These changes do not add persistent mail data
 or change the configured cache/TTL limits.
+
+
+## Bounded long conversations — 28 October continuation
+
+The selected conversation sends only 32 headers to the native reader at a time.
+Earlier/Later/Latest controls preserve access to the complete current thread,
+including messages beyond the old generic 1,000-row model limit. Opening an older
+message pins that historical window when new replies arrive; Latest is explicit.
+Bodies remain on demand. Collapsed message bodies now use a lazy native loader,
+retained through the closing spring and released when it settles. Long pages
+spring-scroll their last message into view. Reader/window revision fences reject
+late metadata and navigation events, and only visible-window flags are projected
+after a provider mutation.
+
+The real private-pipe test walks all 2,503 synthetic headers with only one explicitly
+opened body per page, and no mail/draft files or remaining-body preload. Windows native acceptance has
+17 passing long-thread checks, covering 32 header delegates, one body document,
+latest-message visibility, earlier/latest navigation, preserved open bodies during
+incoming replies, stale-window rejection and complete close release. The shared
+native model test also checks stable identity and eviction of departed bodies.
+Rust engine checks now cover 32 unit and 15 real-pipe tests; strict Clippy passes.
+
+The ca64d4f Linux functional suites passed, including online signatures and native
+window restoration. Its resource fixture completed but Chromium reported invalid
+shared-image buffers under Xvfb/llvmpipe. That run remains invalid for a memory
+claim: the older profiler discarded counters on any diagnostic error. Profiling
+now writes counters and explicit failure/phase status before failing, preserving
+per-process attribution for investigation. The CI-only resource run explicitly
+uses Chromium software rendering, following [Qt's documented GPU diagnostic
+switch](https://doc.qt.io/qt-6/qtwebengine-debugging.html). This does not change the
+application's graphics defaults, disable sandboxing, or establish real Hyprland
+GPU performance. Backend configuration is recorded with the report; differences
+must not be attributed to lazy profiles alone.

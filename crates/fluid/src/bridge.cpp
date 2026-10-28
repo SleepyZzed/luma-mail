@@ -80,7 +80,11 @@ void Bridge::receive(const QJsonObject&e){
     else if(kind=="searchBuilt"){if(quint64(id)!=searchRequest||quint64(id)<viewRequest)return;applySearch(d);}
     else if(kind=="viewReset"){if(quint64(id)<viewRequest)return;m_inbox.replace({});m_messages.replace({});m_readerOpen=false;m_reader.clear();emit readerChanged();}
     else if(kind=="rows"){if(quint64(d["generation"].toInteger())<viewRequest)return;if(d["reset"].toBool())m_inbox.replace(d["items"].toArray());else m_inbox.append(d["items"].toArray());m_more=d["more"].toBool();m_activity="Your inbox, with room to breathe";m_activityKind="idle";emit activityChanged();emit viewChanged();}
-    else if(kind=="thread"){if(quint64(id)<readerRequest)return;documentRequests.clear();m_reader=d.toVariantMap();m_messages.replace(d["messages"].toArray());emit readerChanged();}
+    else if(kind=="thread"){if(quint64(id)!=readerRequest||!m_readerOpen)return;headerRequest=0;documentRequests.clear();m_reader=d.toVariantMap();m_reader.remove("messages");m_messages.windowMessages(d["messages"].toArray(),false);emit readerChanged();}
+    else if(kind=="threadHeaders"){
+        if(!m_readerOpen||quint64(id)!=headerRequest||quint64(d["reading"].toInteger())!=readerRequest||d["key"].toObject()!=QJsonObject::fromVariantMap(m_reader.value("key").toMap()))return;
+        headerRequest=0;documentRequests.clear();m_reader["pagePending"]=false;m_reader["window"]=d["window"].toObject().toVariantMap();m_messages.windowMessages(d["messages"].toArray(),false);emit readerChanged();
+    }
     else if(kind=="body"){
         const auto key=m_reader.value("key").toMap();
         if(!m_readerOpen || quint64(d["reading"].toInteger())!=readerRequest || d["account"].toString()!=key.value("account").toString())return;
@@ -94,13 +98,19 @@ void Bridge::receive(const QJsonObject&e){
     }
     else if(kind=="rowChanged"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.update(d["row"].toObject(),d["insert"].toBool());pruneSelection();}
     else if(kind=="syncRemoved"){if(quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.removeKeys(d["keys"].toArray());pruneSelection();}
-    else if(kind=="threadUpdated"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest||d["key"].toObject()!=QJsonObject::fromVariantMap(m_reader.value("key").toMap()))return;m_messages.mergeMessages(d["messages"].toArray());}
+    else if(kind=="threadUpdated"){
+        if(!m_readerOpen||headerRequest||quint64(d["reading"].toInteger())!=readerRequest||d["key"].toObject()!=QJsonObject::fromVariantMap(m_reader.value("key").toMap()))return;
+        if(d.contains("window")){
+            if(d["window"].toObject()["revision"].toInteger()<m_reader.value("window").toMap().value("revision").toLongLong())return;
+            m_reader["window"]=d["window"].toObject().toVariantMap();m_messages.windowMessages(d["messages"].toArray(),true);emit readerChanged();
+        }else m_messages.mergeMessages(d["messages"].toArray());
+    }
     else if(kind=="messageState"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest)return;m_messages.patch(d["id"].toString(),d);}
     else if(kind=="sync"){m_sync=d.toVariantMap();emit syncChanged();}
     else if(kind=="labels"){const auto account=d["account"].toString();if(labelRequests.value(account)>quint64(id))return;labelRequests.remove(account);m_labels[account]=d["items"].toArray().toVariantList();emit labelsChanged();if(d["operation"].toString()=="delete"&&m_account==account&&m_folder=="label:"+d["label"].toString())setView("inbox",account);}
     else if(kind=="mutation"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;const auto key=m_reader.value("key").toMap();for(const auto flag:d["messageFlags"].toArray()){auto row=flag.toObject();if(m_readerOpen&&row["account"].toString()==key.value("account").toString()&&row["thread"].toString()==key.value("id").toString()){auto message=row["message"].toObject();m_messages.patch(message["id"].toString(),message);}}m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
     else if(kind=="activity"){m_activity=d["text"].toString();m_activityKind=d["kind"].toString();emit activityChanged();}
-    else if(kind=="error"){if(labelRequests.removeIf([id](auto entry){return entry.value()==quint64(id);}))emit labelsChanged();quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
+    else if(kind=="error"){if(headerRequest==quint64(id)){headerRequest=0;m_reader["pagePending"]=false;emit readerChanged();}if(labelRequests.removeIf([id](auto entry){return entry.value()==quint64(id);}))emit labelsChanged();quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
     else if(kind=="composeOpened"){m_composer=d.toVariantMap();emit composerChanged();emit composeRequested(d["mode"].toString());}
     else if(kind=="compose"||kind=="composeClosed"){
         if(d["session"].toString()!=m_composer.value("session").toString())return;
@@ -148,7 +158,8 @@ void Bridge::selectionMode(bool on){m_selecting=on;if(!on)m_selection.clear();em
 void Bridge::selectAll(){m_selecting=true;for(int i=0;i<m_inbox.rowCount();++i)m_selection.insert(RecordModel::key(QJsonObject::fromVariantMap(m_inbox.at(i))));emit selectionChanged();}
 void Bridge::clearSelection(){m_selection.clear();m_selecting=false;emit selectionChanged();}
 void Bridge::pruneSelection(){if(m_selection.removeIf([this](const QString&key){return m_inbox.indexFor(key)<0;}))emit selectionChanged();}
-void Bridge::closeReader(){if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();m_messages.replace({});documentRequests.clear();m_reader.clear();emit readerChanged();send("releaseReader");}
+void Bridge::pageReader(const QString&direction){if(!m_readerOpen||headerRequest||!m_reader.contains("window"))return;headerRequest=send("threadPage",{{"key",m_reader["key"]},{"reading",qint64(readerRequest)},{"direction",direction}});if(headerRequest){m_reader["pagePending"]=true;emit readerChanged();}}
+void Bridge::closeReader(){headerRequest=0;if(m_readerOpen)emit returnRow(m_openedRow);m_readerOpen=false;openedKey.clear();m_messages.replace({});documentRequests.clear();m_reader.clear();emit readerChanged();send("releaseReader");}
 void Bridge::openThread(const QString&account,const QString&thread){if(account.isEmpty()||thread.isEmpty())return;clearSelection();const auto key=account+QChar(0)+thread;const auto index=m_inbox.indexFor(key);emit showRequested();if(index>=0){emit openRowRequested(index);return;}m_readerOpen=true;openedKey=key;m_reader={{"key",QVariantMap{{"account",account},{"id",thread}}},{"subject","Opening email"}};m_messages.replace({});documentRequests.clear();emit readerChanged();readerRequest=send("select",{{"account",account},{"id",thread}});}
 void Bridge::mutate(const QString&a,const QVariantMap&r,const QString&label){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a},{"label",label}});}
 void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}

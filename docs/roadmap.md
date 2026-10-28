@@ -142,3 +142,11 @@ The full Linux software-rendered baseline is 330.8 MiB PSS; resource targets are
 not met. Lazy browser-profile lifetime and detailed process attribution are being
 measured next rather than treating the lower Windows private-working-set result
 as a Linux result.
+
+
+Long conversations now have bounded 32-header views with explicit earlier/later/
+latest navigation, lazy collapsed-body views and preserved reading positions when
+new replies arrive. A 2,503-message synthetic test verifies all headers remain
+accessible, and native checks verify bounded delegates and latest-message reveal.
+The resource profiler now retains failed-run counters rather than losing them;
+Linux software-renderer diagnostics and real GPU measurements remain open gates.

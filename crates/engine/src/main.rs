@@ -18,6 +18,7 @@ mod resident;
 mod search_commands;
 mod signatures;
 mod sync;
+mod thread_window;
 use luma_core::registration;
 
 use luma_core::Result;

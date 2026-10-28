@@ -147,6 +147,11 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   Close/quit coordinates save/discard, and closing destroys the document, previews
   and bounded undo history. Windows native and private-pipe synthetic tests pass;
   real Gmail/recipient-image acceptance remains required.
+- Long conversations: 32 native headers per explicit page, latest-message reveal,
+  stable historical anchors, revision fences and lazy collapsed body documents.
+  All older headers remain accessible. A requested page opens its last message;
+  other bodies/attachments are not preloaded. Existing body/cache budgets remain.
+  Native 2,503-message acceptance verifies bounded delegates and complete release.
 - Pending: remaining rich-text/forwarding and layout flows, final
   lifecycle/resource hardening, two-account acceptance,
   Linux packaging and sustained resource audits. The preview has incomplete

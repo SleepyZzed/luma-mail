@@ -141,3 +141,14 @@ Its privacy configuration is unchanged. The memory effect is an experiment
 pending Linux process-tree measurements; the baseline software-rendered CI
 measurement misses the resource goals. Per-process counters accompany aggregate
 PSS so UI/engine/renderer costs can be distinguished.
+
+
+The active conversation has a 32-header native window, separate from the loaded
+inbox's 1,000-conversation cap. Header paging uses the single selected thread's
+already fetched metadata. An explicitly requested page opens only its last message;
+other bodies and attachments are not preloaded.
+Its stable end-message anchor protects explicit older-message reading during sync.
+A reading epoch plus monotonic header-window revision fences stale replies/pages.
+Only headers in the current window receive native mutation projections. The
+existing eight-message/8-MiB engine body budget and eight-body/16-MiB UTF-16 native
+budget are unchanged. Collapsed body documents are lazy, with spring-close teardown.

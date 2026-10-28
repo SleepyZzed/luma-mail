@@ -277,7 +277,10 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
     }
     for (key, result) in output {
         let thread = match result {
-            Ok(thread) => thread,
+            Ok(mut thread) => {
+                thread.messages.sort_by_key(Message::date);
+                thread
+            }
             Err(luma_core::Error::Api { status: 404, .. }) => {
                 pending.remove(&key);
                 continue;
@@ -300,7 +303,7 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
                 .as_ref()
                 .is_none_or(|accounts| accounts.contains(&key.account));
         let visible = list_scope && folder.matches(&thread);
-        let mut selected = false;
+        let mut selected = None;
         {
             let mut view = app.view.lock().unwrap();
             row.attachments |= view
@@ -312,7 +315,13 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
             }
             if view.selected.as_ref() == Some(&key) {
                 view.thread = Some(thread.clone());
-                selected = true;
+                selected = Some((
+                    thread.messages[view.headers.range(&thread.messages)]
+                        .iter()
+                        .map(mail::message_header)
+                        .collect::<Vec<_>>(),
+                    view.headers.describe(&thread.messages),
+                ));
             }
         }
         if list_scope && visible {
@@ -332,13 +341,12 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
                 )
                 .await;
         }
-        if selected {
-            let messages: Vec<_> = thread.messages.iter().map(mail::message_header).collect();
+        if let Some((messages, window)) = selected {
             app.events
                 .emit(
                     0,
                     "threadUpdated",
-                    json!({"key":key,"reading":reading,"messages":messages}),
+                    json!({"key":key,"reading":reading,"messages":messages,"window":window}),
                 )
                 .await;
         }

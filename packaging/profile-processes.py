@@ -56,6 +56,7 @@ previous = {}
 samples = []
 clock = os.sysconf('SC_CLK_TCK')
 begin = time.monotonic()
+timed_out = False
 while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
     time.sleep(1)
     stats = {}
@@ -123,13 +124,12 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
     if now-begin > duration:
         if attached:
             break
+        timed_out = True
         process.terminate()
-        raise SystemExit('Performance fixture timeout')
+        break
 code = process.wait(timeout=5) if process else 0
-if code or not samples or errors:
-    raise SystemExit(f'Performance fixture failed: exit={code}, samples={len(samples)}, errors={errors}, recent output={diagnostics}')
 report = dict(description=('Release Qt host/debug engine' if not attached and fluid else 'Release AppImage')+' plus all descendant renderer/helper processes. RSS double-counts shared mappings; PSS apportions them. CPU is percentage of one core, sampled once per second. Synthetic fixtures, no live sync/network or real GPU compositor; targets are goals, not enforced caps.',
-    machine=dict(kernel=os.uname().release, cpu_count=os.cpu_count()), phases={}, samples=samples)
+    machine=dict(kernel=os.uname().release, cpu_count=os.cpu_count()), graphics=dict(chromium_gpu_disabled='--disable-gpu' in os.environ.get('QTWEBENGINE_CHROMIUM_FLAGS',''),mesa_software=os.environ.get('LIBGL_ALWAYS_SOFTWARE')=='1'), phases={}, samples=samples)
 for name in dict.fromkeys(s['phase'] for s in samples):
     subset = [s for s in samples if s['phase']==name and s['settled']]
     if not subset:
@@ -143,9 +143,13 @@ for name in dict.fromkeys(s['phase'] for s in samples):
     report['phases'][name]['pss_complete'] = all(s['unreadable_pss']==0 for s in subset)
 if attached:
     report['description'] = 'Read-only attachment to the live Luma main process and descendants. No mail, tokens, titles or arguments recorded. Luma is not stopped or reconfigured. CPU is percentage of one core; RSS includes shared mappings and PSS apportions them.'
-Path(output).write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
-print(json.dumps(report['phases'], indent=2))
 required = {'baseline', 'inbox_1000', 'scrolled_1000', 'newsletter', 'released', 'reclaimed_background'}
 if not attached and not fluid:
     required.add('three_html_messages')
-assert attached or required <= report['phases'].keys(), 'All resource lifecycle phases must be measured'
+report.update(passed=bool(code==0 and samples and not errors and not timed_out),exit_code=code,
+              timed_out=timed_out,errors=errors,recent_diagnostics=diagnostics,
+              phases_complete=bool(attached or required <= report['phases'].keys()))
+Path(output).write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+print(json.dumps(report['phases'], indent=2))
+if not report['passed'] or not report['phases_complete']:
+    raise SystemExit(f'Performance fixture failed; complete counters retained in {output}: exit={code}, samples={len(samples)}, errors={errors}, timed_out={timed_out}, phases_complete={report["phases_complete"]}')

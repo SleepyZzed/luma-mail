@@ -20,6 +20,7 @@ public:
     void removeKeys(const QJsonArray &keys);
     void patch(const QString &id,const QJsonObject &values);
     void trimBodies(const QString&keep);
+    void windowMessages(const QJsonArray&items,bool arrivals);
     void mergeMessages(const QJsonArray&items);
     Q_INVOKABLE int indexFor(const QString&key)const;
     static QString key(const QJsonObject &row);

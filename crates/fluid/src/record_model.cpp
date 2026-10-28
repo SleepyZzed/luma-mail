@@ -27,6 +27,9 @@ void RecordModel::update(const QJsonObject&r,bool insert){
 }
 void RecordModel::removeKeys(const QJsonArray&a){QSet<QString>keys;for(auto k:a){QJsonObject r;r["key"]=k;keys.insert(key(r));}for(int i=rows.size()-1;i>=0;--i)if(keys.contains(key(rows[i]))){beginRemoveRows({},i,i);rows.removeAt(i);reindex();endRemoveRows();}emit countChanged();}
 void RecordModel::patch(const QString&id,const QJsonObject&v){const auto i=indexFor(id);if(i<0)return;for(auto it=v.begin();it!=v.end();++it)rows[i][it.key()]=it.value();emit dataChanged(index(i),index(i),{Qt::UserRole+1});}
+void RecordModel::windowMessages(const QJsonArray&items,bool arrivals){
+    QJsonArray merged;for(const auto&value:items){const auto header=value.toObject();const auto i=indexFor(header["id"].toString());auto row=i>=0?rows[i]:QJsonObject{};for(auto at=header.begin();at!=header.end();++at)row[at.key()]=at.value();if(i<0)row["arrived"]=arrivals;merged.append(row);if(merged.size()==32)break;}reconcileOrdered(merged);
+}
 void RecordModel::mergeMessages(const QJsonArray&a){for(auto value:a){auto r=value.toObject();auto id=r["id"].toString();if(indexFor(id)>=0)patch(id,r);else{r["arrived"]=true;append({r});}}}
 void RecordModel::trimBodies(const QString&keep){
     qint64 bytes=0;int count=0;for(const auto&r:rows){bytes+=(r["text"].toString().size()+r["document"].toString().size())*2;count+=r.contains("text");}

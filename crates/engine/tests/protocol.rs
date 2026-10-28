@@ -26,10 +26,20 @@ impl Client {
         Self::fixture(two_accounts, photos, html, false)
     }
     fn fixture(two_accounts: bool, photos: bool, html: bool, conflict: bool) -> Self {
+        Self::fixture_count(two_accounts, photos, html, conflict, 1)
+    }
+    fn fixture_count(
+        two_accounts: bool,
+        photos: bool,
+        html: bool,
+        conflict: bool,
+        count: usize,
+    ) -> Self {
         let root = tempfile::tempdir().unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_luma-engine"))
             .arg("--design-preview")
             .env("LUMA_TEST_ROOT", root.path())
+            .env("LUMA_PREVIEW_THREAD_COUNT", count.to_string())
             .env("LUMA_PREVIEW_PHOTOS", if photos { "1" } else { "0" })
             .env("LUMA_PREVIEW_HTML", if html { "1" } else { "0" })
             .env("LUMA_PREVIEW_CONFLICT", if conflict { "1" } else { "0" })
@@ -841,4 +851,60 @@ fn online_signature_edits_are_ephemeral_and_quit_waits_for_an_explicit_choice() 
     assert!(!c.root.path().join("config/signatures.json").exists());
     assert!(!c.root.path().join("config/composer").exists());
     assert!(!c.root.path().join("cache/bodies").exists());
+}
+
+#[test]
+fn long_conversations_page_headers_without_prefetching_or_dropping_the_latest() {
+    let mut c = Client::fixture_count(false, false, false, false, 2503);
+    c.until("ready");
+    c.until("rows");
+    let key = json!({"account":"preview","id":"preview1"});
+    c.send(1, "select", key.clone());
+    let first = c.until("thread");
+    assert_eq!(first["messages"].as_array().unwrap().len(), 32);
+    assert_eq!(first["window"]["start"], 2472);
+    assert_eq!(first["window"]["end"], 2503);
+    assert_eq!(c.until("body")["id"], "preview1");
+    let mut seen = std::collections::HashSet::new();
+    let mut current = first;
+    let mut id = 2;
+    loop {
+        for header in current["messages"].as_array().unwrap() {
+            assert!(!header.as_object().unwrap().contains_key("text"));
+            seen.insert(header["id"].as_str().unwrap().to_owned());
+        }
+        if current["window"]["earlier"] == false {
+            break;
+        }
+        c.send(
+            id,
+            "threadPage",
+            json!({"key":key,"reading":1,"direction":"earlier"}),
+        );
+        current = c.until("threadHeaders");
+        assert!(current["messages"].as_array().unwrap().len() <= 32);
+        assert_eq!(current["window"]["revision"], id);
+        c.until("body");
+        id += 1;
+    }
+    assert_eq!(seen.len(), 2503);
+    c.send(
+        id,
+        "threadPage",
+        json!({"key":key,"reading":1,"direction":"latest"}),
+    );
+    let latest = c.until("threadHeaders");
+    assert_eq!(
+        latest["messages"].as_array().unwrap().last().unwrap()["id"],
+        "preview1"
+    );
+    assert_eq!(c.until("body")["id"], "preview1");
+    c.send(
+        id + 1,
+        "threadPage",
+        json!({"key":key,"reading":1,"direction":"bad"}),
+    );
+    c.expect_error(id + 1);
+    assert!(!c.root.path().join("cache/bodies").exists());
+    assert!(!c.root.path().join("config/composer").exists());
 }

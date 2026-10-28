@@ -27,6 +27,7 @@ pub struct View {
     pub selected: Option<ThreadKey>,
     pub thread: Option<Thread>,
     pub bodies: crate::resident::Bodies,
+    pub headers: crate::thread_window::Window,
 }
 pub struct App {
     pub events: Events,
@@ -131,6 +132,7 @@ impl App {
                 selected: None,
                 thread: None,
                 bodies: crate::resident::Bodies::default(),
+                headers: Default::default(),
             }),
             pager: tokio::sync::Mutex::new(None),
             generation: AtomicU64::new(0),
@@ -250,6 +252,7 @@ impl App {
                         | "page"
                         | "select"
                         | "message"
+                        | "threadPage"
                         | "authStart"
                         | "attachmentThumbnail"
                         | "searchBuild"
@@ -315,10 +318,13 @@ impl App {
                     if action == "view" {
                         matches!(
                             kind.as_str(),
-                            "view" | "page" | "select" | "message" | "renderMessage"
+                            "view" | "page" | "select" | "message" | "renderMessage" | "threadPage"
                         )
                     } else {
-                        matches!(kind.as_str(), "select" | "message" | "renderMessage")
+                        matches!(
+                            kind.as_str(),
+                            "select" | "message" | "renderMessage" | "threadPage"
+                        )
                     }
                 })
                 .map(|(id, _)| *id)
@@ -361,6 +367,7 @@ impl App {
                     }
                     "select" => crate::mail::open(&owner, &command).await,
                     "message" => crate::mail::body(&owner, &command).await,
+                    "threadPage" => crate::mail::thread_page(&owner, &command).await,
                     "renderMessage" => crate::reader::render(&owner, &command).await,
                     "pollNow" => {
                         owner.sync.check();
@@ -432,6 +439,7 @@ impl App {
                         }
                         let mut v = owner.view.lock().unwrap();
                         v.thread = None;
+                        v.headers.reset(id);
                         v.bodies.clear();
                         v.selected = None;
                         Ok(())

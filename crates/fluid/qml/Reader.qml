@@ -18,14 +18,25 @@ Item {
     signal replyAt(string mode,var message)
     signal contextRequested(var row,real x,real y)
     signal messageMenuRequested(var message,real x,real y)
+    property int pageDirection:0
+    function page(direction){followingReply=false;pageDirection=direction==="earlier"?-1:1;Mail.pageReader(direction)}
+    property string followingMessage:""
+    property real messageScrollGoal:0
+    Connections{target:Mail;function onReceived(kind,data){
+        if((kind==="thread"||kind==="threadHeaders")&&data.key?.account===Mail.reader.key?.account&&data.key?.id===Mail.reader.key?.id){
+            root.pageDirection=0;root.followingMessage=Mail.messages.count>5?Mail.messages.at(Mail.messages.count-1).id:""
+            replyScroll.snap(scroll.contentY);Qt.callLater(root.scrollToMessage)
+        }
+    }}
+    function scrollToMessage(){if(!followingMessage||!Mail.readerOpen)return;const item=messages.itemAt(Mail.messages.indexFor(followingMessage));if(item){messageScrollGoal=Math.max(0,item.y-Theme.unit(12));replyScroll.resume()}}
     function showDetails(id){const index=Mail.messages.indexFor(id);const item=messages.itemAt(index);if(item)item.detailsOpen=!item.detailsOpen}
     clip:true
     Rectangle{width:1;height:parent.height;color:Theme.outline;opacity:.5}
     Flickable {
         id:scroll;x:Theme.unit(30);y:Theme.unit(30);width:Math.max(0,root.layoutWidth-Theme.unit(60));height:parent.height-y-Theme.unit(24)
         clip:true;contentHeight:thread.height;boundsBehavior:Flickable.StopAtBounds
-        onContentHeightChanged:if(root.followingReply)Qt.callLater(root.scrollToReply)
-        onDraggingChanged:if(dragging)root.followingReply=false
+        onContentHeightChanged:{if(root.followingReply)Qt.callLater(root.scrollToReply);else if(root.followingMessage)Qt.callLater(root.scrollToMessage)}
+        onDraggingChanged:if(dragging){root.followingReply=false;root.followingMessage=""}
         ScrollBar.vertical:ScrollBar{implicitWidth:5}
         Column {
             id:thread;width:scroll.width;spacing:Theme.unit(26)
@@ -41,6 +52,13 @@ Item {
                     FluidButton {glyph:"more";tip:"More conversation actions";onClicked:{const p=mapToItem(null,0,height);root.contextRequested({},p.x,p.y)}}
                 }
             }
+            Row {
+                objectName:"readerPager";width:parent.width;spacing:Theme.unit(8);visible:(Mail.reader.window?.total||0)>32||!!Mail.reader.window?.later
+                FluidButton{text:"Earlier";glyph:"chevron-up";enabled:!!Mail.reader.window?.earlier&&!Mail.reader.pagePending;onClicked:root.page("earlier")}
+                Text{textFormat:Text.PlainText;anchors.verticalCenter:parent.verticalCenter;text:(Mail.reader.window?.start||0)+" - "+(Mail.reader.window?.end||0)+" of "+(Mail.reader.window?.total||0);color:Theme.muted;font.pixelSize:Theme.unit(10)}
+                FluidButton{text:"Later";glyph:"chevron-down";enabled:!!Mail.reader.window?.later&&!Mail.reader.pagePending;onClicked:root.page("later")}
+                FluidButton{text:"Latest";visible:!!Mail.reader.window?.later;enabled:!Mail.reader.pagePending;onClicked:root.page("latest")}
+            }
             Repeater {
                 id:messages
                 model:Mail.messages
@@ -48,7 +66,9 @@ Item {
                     id:message;objectName:"threadMessage-"+item.id;required property var item;required property int index
                     property bool expanded:false
                     property bool detailsOpen:false
-                    Component.onCompleted:expanded=index===Mail.messages.count-1&&!item.arrived
+                    Component.onCompleted:{Qt.callLater(()=>expanded=index===Mail.messages.count-1&&!item.arrived);if(root.pageDirection){arrival.snap(root.pageDirection*Theme.unit(22));arrival.resume()}}
+                    transform:Translate{y:arrival.value}
+                    Motion{id:arrival;target:0;enabled:Theme.motion}
                     property bool originalColours:false
                     property bool hasHtml:item.hasHtml||false
                     function render(external=false){
@@ -76,14 +96,16 @@ Item {
                     }
                     Item{width:parent.width;height:Math.max(0,detailHeight.value);clip:true;visible:height>0
                         Motion{id:detailHeight;target:message.detailsOpen?detailLoader.implicitHeight:0;enabled:Theme.motion}
-                        Loader{id:detailLoader;width:parent.width;active:message.detailsOpen||detailHeight.value>0;sourceComponent:TextArea{objectName:"messageDetails-"+message.item.id;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;padding:Theme.unit(12);font.pixelSize:Theme.unit(11);color:Theme.muted;background:Rectangle{color:Theme.surface;radius:Theme.unit(12)}
+                        Loader{id:detailLoader;width:parent.width;active:message.detailsOpen||detailHeight.running||detailHeight.value>0;sourceComponent:TextArea{objectName:"messageDetails-"+message.item.id;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;padding:Theme.unit(12);font.pixelSize:Theme.unit(11);color:Theme.muted;background:Rectangle{color:Theme.surface;radius:Theme.unit(12)}
                             text:"From: "+(message.item.from||"")+"\nTo: "+(message.item.to||"")+(message.item.cc?"\nCc: "+message.item.cc:"")+(message.item.bcc?"\nBcc: "+message.item.bcc:"")+(message.item.replyTo?"\nReply-To: "+message.item.replyTo:"")+(message.item.sentDate?"\nDate: "+message.item.sentDate:"")+(message.item.messageId?"\nMessage-ID: "+message.item.messageId:"")
                         }}
                     }
                     Item {
-                        width:parent.width;height:Math.max(0,expansion.value);clip:true
-                        Motion{id:expansion;target:message.expanded?body.implicitHeight:0;enabled:Theme.motion}
-                        Column {
+                        width:parent.width;height:Math.max(0,expansion.value);clip:true;visible:height>0
+                        Motion{id:expansion;target:message.expanded?bodyLoader.implicitHeight:0;enabled:Theme.motion}
+                        Loader {
+                            id:bodyLoader;width:parent.width;active:message.expanded||expansion.running||expansion.value>0
+                            sourceComponent:Column {
                             id:body;width:parent.width;spacing:Theme.unit(20)
                             Motion{id:reveal;target:root.projected||!Mail.readerOpen?0:1;epsilon:.002;enabled:Theme.motion}
                             opacity:Math.max(0,Math.min(1,reveal.value))
@@ -114,7 +136,7 @@ Item {
                                     source:isWindows?"WindowsReader.qml":"LinuxReader.qml"
                                     onLoaded:{item.objectName="mailHtml-"+message.item.id;item.page=Qt.binding(()=>message.item.document||"");item.uiScale=Qt.binding(()=>Theme.scale);item.paused=Qt.binding(()=>root.nativeBlocked);item.masks=Qt.binding(()=>root.nativeMasks);htmlHost.lastHeight=item.implicitHeight}
                                 }
-                                Connections{target:htmlLoader.item;function onImplicitHeightChanged(){htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
+                                Connections{target:htmlLoader.item;function onImplicitHeightChanged(){htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;root.followingMessage="";scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
                                 Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active}
                             }
                             TextArea {
@@ -131,6 +153,7 @@ Item {
                                 FluidButton {text:"Reply all";glyph:"reply-all";onClicked:root.replyAt("replyAll",message.item)}
                                 FluidButton {text:"Forward";glyph:"forward";onClicked:root.replyAt("forward",message.item)}
                             }
+                            }
                         }
                     }
                 }
@@ -146,8 +169,8 @@ Item {
     property bool followingReply:false
     property real replyScrollGoal:0
     Motion {
-        id:replyScroll;target:root.replyScrollGoal;enabled:Theme.motion
-        onValueChanged:if(root.followingReply&&!scroll.dragging&&!scroll.flicking)scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,value))
+        id:replyScroll;target:root.followingReply?root.replyScrollGoal:root.messageScrollGoal;enabled:Theme.motion
+        onValueChanged:if((root.followingReply||root.followingMessage)&&!scroll.dragging&&!scroll.flicking)scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,value))
     }
     function scrollToReply(){
         if(!root.followingReply||!root.inlineComposer||!root.inlineComposer.shown)return
@@ -155,7 +178,7 @@ Item {
     }
     function dockInline(card) {
         card.dockTo(inlineSlot)
-        followingReply=true;replyScroll.snap(scroll.contentY)
+        followingMessage="";followingReply=true;replyScroll.snap(scroll.contentY)
         Qt.callLater(()=>{scrollToReply();replyScroll.resume()})
     }
 }

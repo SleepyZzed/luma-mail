@@ -26,6 +26,13 @@ private slots:
         QCOMPARE(model.at(0)["text"].toString(),QString("Opened body"));QCOMPARE(model.at(0)["document"].toString(),QString("Private HTML"));QVERIFY(model.at(1)["arrived"].toBool());QVERIFY(model.at(1)["unread"].toBool());
         model.patch("m2",{{"unread",false}});QVERIFY(!model.at(1)["unread"].toBool());
     }
+    void movingHeaderWindowsKeepOpenBodiesAndReleaseDepartedMessages(){
+        RecordModel model;QAbstractItemModelTester tester(&model,QAbstractItemModelTester::FailureReportingMode::Fatal);
+        QJsonArray headers;for(int i=0;i<32;++i)headers.append(QJsonObject{{"id",QString::number(i)}});model.windowMessages(headers,false);model.patch("31",{{"text","Kept body"},{"document","Kept HTML"}});model.patch("0",{{"text","Evicted body"}});
+        QPersistentModelIndex retained(model.index(31));headers.removeAt(0);headers.append(QJsonObject{{"id","32"},{"unread",true}});model.windowMessages(headers,true);
+        QCOMPARE(model.rowCount(),32);QVERIFY(retained.isValid());QCOMPARE(retained.row(),30);QCOMPARE(model.indexFor("0"),-1);QCOMPARE(model.at(30)["text"].toString(),QString("Kept body"));QVERIFY(model.at(31)["arrived"].toBool());QVERIFY(!model.at(31).contains("text"));
+        model.windowMessages({QJsonObject{{"id","older"}}},false);QCOMPARE(model.rowCount(),1);QVERIFY(!model.at(0).contains("text"));QVERIFY(!model.at(0)["arrived"].toBool());
+    }
     void readerPayloadsAreEvictedWithTheirLinkMetadata(){
         RecordModel model;QJsonArray rows;for(int i=0;i<9;++i)rows.append(QJsonObject{{"id",QString::number(i)},{"text","Opened body"},{"links",QJsonArray{QJsonObject{{"url","https://example.com"}}}}});model.replace(rows);model.trimBodies("8");
         QVERIFY(!model.at(0).contains("text"));QVERIFY(!model.at(0).contains("links"));QCOMPARE(model.at(8)["text"].toString(),QString("Opened body"));
