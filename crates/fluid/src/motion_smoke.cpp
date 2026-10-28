@@ -11,7 +11,7 @@
 
 namespace {
 QQuickItem *visualItem(QQuickItem *parent,const QString &name){
-    if(parent->objectName()==name)return parent;
+    if(parent->objectName()==name&&!parent->property("pooled").toBool())return parent;
     for(auto child:parent->childItems())if(auto found=visualItem(child,name))return found;
     return nullptr;
 }
@@ -21,12 +21,6 @@ MotionSmoke::MotionSmoke(Bridge *bridge,QQuickWindow *window)
     const int previewWidth=qEnvironmentVariableIntValue("LUMA_PREVIEW_WIDTH");
     if(previewWidth>=760&&previewWidth<=3840)window->setWidth(previewWidth);
     connect(bridge,&Bridge::ready,this,[this]{if(!started){started=true;QTimer::singleShot(300,this,[this]{begin();});}});
-    connect(bridge,&Bridge::received,this,[this](const QString &kind,const QVariantMap &){
-        if(kind=="mutation")QTimer::singleShot(55,this,[this]{
-            auto row=visualItem(this->window->contentItem(),"mailRow-preview4");
-            removalAnimated=row&&row->height()>0&&row->height()<68;
-        });
-    });
     connect(window,&QQuickWindow::afterFrameEnd,this,[this]{if(elapsed.isValid()){++totalFrames;if(frames.size()<1000)frames.append(elapsed.elapsed());}},Qt::QueuedConnection);
 }
 void MotionSmoke::check(const QString &name,bool passed) {
@@ -59,7 +53,7 @@ void MotionSmoke::begin() {
         check("opening spring reaches rest",!morph->property("active").toBool()&&!morph->property("moving").toBool());
         check("reader shows latest selection",bridge->reader().value("key").toMap().value("id")=="preview3");
         auto subject=visualItem(window->contentItem(),"readerSubject");
-        check("mail headers render as literal text",subject&&subject->property("textFormat").toInt()==int(Qt::PlainText));
+        check("mail headers render as literal text",subject&&subject->property("text").toString()==bridge->reader().value("subject").toString().toHtmlEscaped());
         auto projected=visualItem(window->contentItem(),"projectedAvatar");
         auto actual=visualItem(window->contentItem(),"readerAvatar-0");
         check("avatar handoff matches reader geometry",projected&&actual&&QLineF(projected->mapToScene(QPointF()),actual->mapToScene(QPointF())).length()<1&&std::abs(projected->width()-actual->width())<.5);
@@ -95,7 +89,17 @@ void MotionSmoke::begin() {
             bridge->send("settingsUpdate",{{"reduced_motion",false}});
         });
     });
-    QTimer::singleShot(3900,this,[this]{bridge->mutate("archive",bridge->inbox()->at(4));});
+    QTimer::singleShot(3900,this,[this]{
+        // Attach before the server-confirmed removal; recycled offscreen rows
+        // can retain the same objectName as the active delegate.
+        if(auto row=visualItem(window->contentItem(),"mailRow-preview4")){
+            const auto initial=row->height();
+            connect(row,&QQuickItem::heightChanged,this,[this,row=QPointer<QQuickItem>(row),initial]{
+                if(row&&row->property("removing").toBool()&&row->height()>0&&row->height()<initial)removalAnimated=true;
+            });
+        }
+        bridge->mutate("archive",bridge->inbox()->at(4));
+    });
     QTimer::singleShot(4800,this,[this]{
         check("server-confirmed archive animates row height",removalAnimated);
         check("archived row leaves the list without a refresh",bridge->inbox()->rowCount()==7);

@@ -91,7 +91,7 @@
   "windowTrace": [
     {
       "event": "windowStateChanged",
-      "ms": 3525,
+      "ms": 3546,
       "remembered": 0,
       "state": 1,
       "visibility": 2,
@@ -99,7 +99,7 @@
     },
     {
       "event": "visibilityChanged",
-      "ms": 3526,
+      "ms": 3549,
       "remembered": 0,
       "state": 1,
       "visibility": 3,
@@ -107,7 +107,7 @@
     },
     {
       "event": "windowStateChanged",
-      "ms": 3715,
+      "ms": 3739,
       "remembered": 0,
       "state": 0,
       "visibility": 3,
@@ -115,7 +115,7 @@
     },
     {
       "event": "visibilityChanged",
-      "ms": 3716,
+      "ms": 3740,
       "remembered": 0,
       "state": 0,
       "visibility": 2,
@@ -123,7 +123,7 @@
     },
     {
       "event": "windowStateChanged",
-      "ms": 3871,
+      "ms": 3896,
       "remembered": 2,
       "state": 2,
       "visibility": 2,
@@ -131,7 +131,7 @@
     },
     {
       "event": "visibilityChanged",
-      "ms": 3872,
+      "ms": 3896,
       "remembered": 2,
       "state": 2,
       "visibility": 4,
@@ -139,7 +139,7 @@
     },
     {
       "event": "before maximized hide",
-      "ms": 4022,
+      "ms": 4045,
       "remembered": 2,
       "state": 2,
       "visibility": 4,
@@ -147,7 +147,7 @@
     },
     {
       "event": "visibleChanged",
-      "ms": 4025,
+      "ms": 4049,
       "remembered": 2,
       "state": 2,
       "visibility": 4,
@@ -155,7 +155,7 @@
     },
     {
       "event": "visibilityChanged",
-      "ms": 4025,
+      "ms": 4049,
       "remembered": 2,
       "state": 2,
       "visibility": 0,
@@ -163,7 +163,7 @@
     },
     {
       "event": "after maximized hide",
-      "ms": 4062,
+      "ms": 4099,
       "remembered": 2,
       "state": 2,
       "visibility": 0,
@@ -171,7 +171,7 @@
     },
     {
       "event": "windowStateChanged",
-      "ms": 4062,
+      "ms": 4099,
       "remembered": 2,
       "state": 0,
       "visibility": 0,
@@ -179,7 +179,7 @@
     },
     {
       "event": "windowStateChanged",
-      "ms": 4062,
+      "ms": 4099,
       "remembered": 2,
       "state": 2,
       "visibility": 0,
@@ -187,7 +187,7 @@
     },
     {
       "event": "visibleChanged",
-      "ms": 4064,
+      "ms": 4101,
       "remembered": 2,
       "state": 2,
       "visibility": 0,
@@ -195,7 +195,7 @@
     },
     {
       "event": "visibilityChanged",
-      "ms": 4064,
+      "ms": 4101,
       "remembered": 2,
       "state": 2,
       "visibility": 4,
@@ -203,7 +203,7 @@
     },
     {
       "event": "after tray activation",
-      "ms": 4075,
+      "ms": 4111,
       "remembered": 2,
       "state": 2,
       "visibility": 4,

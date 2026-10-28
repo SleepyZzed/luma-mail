@@ -9,6 +9,22 @@
       "passed": true
     },
     {
+      "check": "collapsed folder controls are hidden and cannot receive focus",
+      "passed": true
+    },
+    {
+      "check": "Tab skips collapsed account folders",
+      "passed": true
+    },
+    {
+      "check": "Shift Tab returns to the previous account header",
+      "passed": true
+    },
+    {
+      "check": "Space opens an account and its own Inbox",
+      "passed": true
+    },
+    {
       "check": "account labels load only when requested",
       "passed": true
     },

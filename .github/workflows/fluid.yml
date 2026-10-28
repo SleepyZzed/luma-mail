@@ -138,6 +138,7 @@ jobs:
           if-no-files-found: warn
       - name: Native account labels and safe context actions
         env:
+          LUMA_PREVIEW_TWO_ACCOUNTS: '1'
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
           LUMA_NAVIGATION_REPORT: ${{ github.workspace }}/fluid-navigation-linux.json
           QT_FORCE_STDERR_LOGGING: '1'
@@ -337,6 +338,8 @@ jobs:
           set -euo pipefail
           cargo build --locked -p luma-engine -p luma-webview
           python packaging/webview2-loader.py --binary target/debug/luma-engine.exe
+          export PATH="$PWD/target/debug:$PATH"
+          timeout 45s cargo test --locked -p luma-webview -- --test-threads=1
       - uses: actions/cache/save@v4
         if: steps.ucrt_rust_cache.outputs.cache-hit != 'true'
         with:
@@ -459,6 +462,7 @@ jobs:
           set -euo pipefail
           export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
           export LUMA_NAVIGATION_REPORT="$(cygpath -m "$PWD")/fluid-navigation-windows.json"
+          export LUMA_PREVIEW_TWO_ACCOUNTS=1
           export QT_FORCE_STDERR_LOGGING=1
           timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --navigation-test >navigation.stdout 2>navigation.stderr
       - uses: actions/upload-artifact@v4

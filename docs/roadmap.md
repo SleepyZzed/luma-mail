@@ -199,3 +199,14 @@ follow-up Windows run measured 124.5 MiB idle and 94.4 backgrounded; active HTML
 still measured 239.9 MiB. Both packaging paths have first-run setup fixes pending
 CI confirmation; Linux tray-restore stress remains under diagnosis. See the
 validation record rather than treating implementation as a completed release.
+
+
+The next checkpoint adds safe search-term highlighting to metadata/reading titles,
+asynchronous Windows HTML initialization, keyboard-accessible account disclosures
+and focus-safe collapsed folders. Native acceptance totals 266 scene checks,
+seven CTest groups and one standalone private-renderer component test. A complete
+Windows tree measured 123.3 MiB idle/238.0 with HTML/95.2 backgrounded. Registered
+Windows portable checks pass, but source-provenance diagnosis and corrected Linux
+AppRun/portable acceptance remain distribution gates. Actual Linux/GPU/Hyprland,
+long-lived sync, remaining editor/forwarding parity and Google review remain open;
+none of these checkpoints authorizes a 1.0 completeness claim.

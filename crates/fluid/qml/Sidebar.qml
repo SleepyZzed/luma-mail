@@ -54,7 +54,8 @@ Item {
                 Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(13);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:unifiedArrow.value;Motion{id:unifiedArrow;target:root.unifiedOpen?90:0;enabled:Theme.motion}}
             }
             Item {
-                width:parent.width;height:Math.max(0,unifiedHeight.value);clip:true
+                objectName:"unifiedFolders";width:parent.width;height:Math.max(0,unifiedHeight.value);clip:true
+                visible:root.unifiedOpen||unifiedHeight.running;enabled:root.unifiedOpen
                 Motion{id:unifiedHeight;target:root.unifiedOpen?folderColumn.implicitHeight:0;enabled:Theme.motion}
                 onHeightChanged:Qt.callLater(root.refreshPill)
                 Column {
@@ -75,7 +76,15 @@ Item {
                 delegate:Column {
                     id:accountCard;required property var item;width:nav.width
                     Item {
-                        width:parent.width;height:Theme.unit(62)
+                        id:accountHeader;objectName:"accountHeader-"+accountCard.item.id
+                        width:parent.width;height:Theme.unit(62);activeFocusOnTab:true;enabled:accountCard.item.enabled!==false
+                        function toggle(){root.accountOpen=root.accountOpen===accountCard.item.id?"":accountCard.item.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.item.id)}
+                        Accessible.role:Accessible.Button
+                        Accessible.name:(accountCard.item.name||accountCard.item.email)+" account folders"
+                        Accessible.description:root.accountOpen===accountCard.item.id?"Expanded":"Collapsed"
+                        Accessible.onPressAction:toggle()
+                        Keys.onPressed:event=>{if(event.key===Qt.Key_Return||event.key===Qt.Key_Enter||event.key===Qt.Key_Space){toggle();event.accepted=true}}
+                        Rectangle{anchors.fill:parent;anchors.margins:Theme.unit(2);radius:Theme.unit(11);color:"transparent";border.width:accountHeader.activeFocus?1:0;border.color:Theme.accent}
                         Avatar{objectName:"accountAvatar-"+accountCard.item.id;x:Theme.unit(10);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(32);height:width;sender:accountCard.item.name||accountCard.item.email;photoSender:accountCard.item.email;account:accountCard.item.id;active:accountCard.y+parent.height>scroll.contentY&&accountCard.y<scroll.contentY+scroll.height}
                         Column {x:Theme.unit(53);anchors.verticalCenter:parent.verticalCenter;visible:!root.collapsed;width:parent.width-x-Theme.unit(28);spacing:3
                             Text {textFormat:Text.PlainText;text:accountCard.item.name||accountCard.item.email;color:Theme.text;font.pixelSize:Theme.unit(12);elide:Text.ElideRight;width:parent.width}
@@ -86,10 +95,11 @@ Item {
                             visible:text!=="0"&&!root.collapsed;color:Theme.accent;font.pixelSize:Theme.unit(9)
                         }
                         Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:accountArrow.value;Motion{id:accountArrow;target:root.accountOpen===accountCard.item.id?90:0;enabled:Theme.motion}}
-                        MouseArea{anchors.fill:parent;enabled:accountCard.item.enabled!==false;onClicked:{root.accountOpen=root.accountOpen===accountCard.item.id?"":accountCard.item.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.item.id)}}
+                        MouseArea{anchors.fill:parent;onClicked:{accountHeader.forceActiveFocus(Qt.MouseFocusReason);accountHeader.toggle()}}
                     }
                     Item {
-                        width:parent.width;height:Math.max(0,accountHeight.value);clip:true
+                        objectName:"accountFolders-"+accountCard.item.id;width:parent.width;height:Math.max(0,accountHeight.value);clip:true
+                        visible:root.accountOpen===accountCard.item.id||accountHeight.running;enabled:root.accountOpen===accountCard.item.id
                         Motion{id:accountHeight;target:root.accountOpen===accountCard.item.id?accountFolders.implicitHeight:0;enabled:Theme.motion}
                         onHeightChanged:Qt.callLater(root.refreshPill)
                         Column {id:accountFolders;width:parent.width

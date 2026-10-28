@@ -172,3 +172,18 @@ owner request ID fences the busy state. Shutdown interrupts reads, requests expo
 cancellation and waits for accepted writes before dropping the process/writer.
 The authorization fixture is opt-in only under isolated design preview, uses an
 invalid synthetic client, and never contacts Google or writes vault credentials.
+
+
+Windows private reader construction is asynchronous on Qt's existing GUI STA.
+The adapter uses WebView2's environment/controller completion handlers directly;
+it never runs a nested message pump or moves Qt callbacks to another thread.
+Closed construction suppresses late events and releases document buffers. Native
+host callbacks are epoch-checked before delivery. Private mode is required rather
+than silently falling back to a persistent profile. All renderer network/file
+subresources are blocked; approved RAM data images remain supported. The empty
+initialization lease is delete-on-close runtime metadata, not a content store.
+
+Search highlighting is presentation only: a single compiled literal expression,
+at most eight terms and 32 highlights within 8,192 display characters per field.
+Untrusted strings are escaped before styling. Gmail retains query semantics and
+remote search; unopened messages are not downloaded or indexed for highlighting.

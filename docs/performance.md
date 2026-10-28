@@ -195,3 +195,21 @@ The observer's PowerShell 5 JSON bug is fixed: phase strings no longer carry
 file-provider object graphs into serialization. Its complete report is about
 12 KiB, rather than an out-of-memory failure. Post-exit zero-memory samples are
 excluded. Zero-cache checks create no retained mail/draft/attachment store.
+
+
+## Fluid asynchronous reader follow-up — 28 October
+
+The local synthetic process-tree run recorded Windows private working set of
+123.3 MiB idle, 136.0 with 1,000 rows, 136.1 after scrolling, 238.0 with HTML,
+140.9 after release, 95.2 backgrounded and 126.3 restored. All seven lifecycle
+checks passed, renderer process counts returned from nine to three, and settled
+CPU deltas were 0.00% at sampling resolution. Private commit is separately retained
+in validation/fluid-resource-async-windows.json. The artifact records its exact
+binary hash and precedes the subsequent small keyboard/contrast changes. It is
+not Linux PSS, a real-GPU measurement or several-hour live polling acceptance.
+HTML still exceeds the 200-MiB goal.
+
+Direct asynchronous WebView2 initialization reduced measured GUI caller blocking
+from 377 ms to 5 ms locally. That comparison measures the constructor call, not
+total browser/document load time; no memory trimming or disabled browser sandbox
+was used. The Qt event loop remains available during initialization/cancellation.

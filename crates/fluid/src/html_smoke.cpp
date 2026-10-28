@@ -5,21 +5,22 @@
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <QFileInfo>
+#include <QElapsedTimer>
 class HtmlSmoke:public QObject {
-    Bridge*mail;QQuickWindow*window;QJsonArray checks;QTimer deadline,poll;bool failed=false,finished=false;int stage=0;
+    Bridge*mail;QQuickWindow*window;QJsonArray checks;QTimer deadline,poll;QElapsedTimer elapsed;qint64 initializationMs=-1;bool failed=false,finished=false;int stage=0;
     QQuickItem*find(QQuickItem*at,const QString&name){if(at->objectName()==name)return at;for(auto child:at->childItems())if(auto item=find(child,name))return item;return nullptr;}
     void check(const QString&name,bool ok){checks.append(QJsonObject{{"check",name},{"passed",ok}});failed|=!ok;}
-    void finish(){if(finished)return;finished=true;deadline.stop();poll.stop();QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks}};if(failed){auto s=find(window->contentItem(),"mailHtml-preview0");auto row=mail->messages()->at(0);report["diagnostics"]=QJsonObject{{"surface",bool(s)},{"height",s?s->implicitHeight():0},{"viewport",s?s->property("viewportHeight").toReal():0},{"surfaceError",s?s->property("error").toString():""},{"hasHtml",row["hasHtml"].toBool()},{"documentBytes",row["document"].toString().size()},{"pending",row["documentPending"].toBool()}};}if(auto path=qEnvironmentVariable("LUMA_HTML_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(report).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(report).toJson(QJsonDocument::Compact);mail->quit(failed?2:0);}
+    void finish(){if(finished)return;finished=true;deadline.stop();poll.stop();QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks},{"elapsedMs",elapsed.elapsed()},{"initializationMs",initializationMs},{"stage",stage}};if(failed){auto s=find(window->contentItem(),"mailHtml-preview0");if(s)report["initializationMs"]=s->property("initializationMs").toLongLong();auto row=mail->messages()->at(0);report["diagnostics"]=QJsonObject{{"surface",bool(s)},{"height",s?s->implicitHeight():0},{"viewport",s?s->property("viewportHeight").toReal():0},{"surfaceError",s?s->property("error").toString():""},{"hasHtml",row["hasHtml"].toBool()},{"documentBytes",row["document"].toString().size()},{"pending",row["documentPending"].toBool()}};}if(auto path=qEnvironmentVariable("LUMA_HTML_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(report).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(report).toJson(QJsonDocument::Compact);mail->quit(failed?2:0);}
 public:
     HtmlSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){
-        deadline.setSingleShot(true);deadline.setInterval(20000);connect(&deadline,&QTimer::timeout,this,[this]{check("HTML reader completes within deadline",false);finish();});deadline.start();
+        elapsed.start();deadline.setSingleShot(true);deadline.setInterval(20000);connect(&deadline,&QTimer::timeout,this,[this]{check("HTML reader completes within deadline",false);finish();});deadline.start();
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(350,this,[this]{auto list=window->findChild<QQuickItem*>("mailList");auto p=list->mapToScene(QPointF());mail->selectRow(0,0,p.x(),p.y(),list->width(),68);});});
         connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(kind=="error"){check("reader command succeeds: "+data.value("message").toString(),false);finish();}});
         poll.setInterval(100);connect(&poll,&QTimer::timeout,this,[this]{
             auto surface=find(window->contentItem(),"mailHtml-preview0");
             if(stage==0&&surface&&!surface->property("error").toString().isEmpty()){check("native HTML surface opens: "+surface->property("error").toString(),false);finish();return;}
             if(stage==0&&surface&&surface->implicitHeight()>600){
-                stage=1;check("newsletter uses full measured content height",true);
+                stage=1;initializationMs=surface->property("initializationMs").toLongLong();check("newsletter uses full measured content height",true);
 #ifdef Q_OS_WIN
                 check("HTML creation owns exactly one native controller",HtmlSurface::liveNativeSurfaces()==1);
 #endif

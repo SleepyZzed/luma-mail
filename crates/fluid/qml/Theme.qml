@@ -17,10 +17,10 @@ QtObject {
     readonly property color hover:tokens.hover||"#302a3b"
     readonly property color outline:tokens.outline||"#393240"
     readonly property color muted:tokens.muted||"#a39aae"
-    readonly property color faint:mix(muted,window,.25)
+    readonly property color faint:muted
     readonly property color accentText:tokens.accentText||"#281c3d"
     readonly property color selected:mix(surface,accent,dark?.19:.12)
-    readonly property color link: "#82b5ff"
+    readonly property color link:dark?"#82b5ff":"#165fcb"
     readonly property bool compact:Mail.settings.compact||false
     readonly property real scale: Math.max(.75,Math.min(2,(Mail.settings.ui_scale_percent || 100)/100))
     readonly property bool motion: Mail.windowVisible&&!(Mail.settings.reduced_motion || false)

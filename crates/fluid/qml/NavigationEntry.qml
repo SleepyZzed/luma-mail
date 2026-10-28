@@ -8,6 +8,7 @@ Item {
     property bool disclosed: true
     readonly property bool selected: Mail.folder === folder && Mail.account === scope
     readonly property string identity: scope + ":" + folder
+    enabled:disclosed
     width: parent.width
     height: Theme.unit(40)
     Component.onCompleted: navigation.registerEntry(root)

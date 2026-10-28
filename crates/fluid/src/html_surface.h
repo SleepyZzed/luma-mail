@@ -7,6 +7,7 @@
 class HtmlSurface:public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
+    Q_PROPERTY(qint64 initializationMs READ initializationMs NOTIFY initializationChanged)
     Q_PROPERTY(QString document READ document WRITE setDocument NOTIFY documentChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight NOTIFY contentHeightChanged)
@@ -19,6 +20,7 @@ class HtmlSurface:public QQuickItem {
     Q_PROPERTY(QVariantList occluders READ occluders WRITE setOccluders NOTIFY occludersChanged)
 public:
     explicit HtmlSurface(QQuickItem*parent=nullptr);~HtmlSurface()override;
+    qint64 initializationMs()const{return initialization;}
     QString document()const{return page;}void setDocument(const QString&value);
     QString error()const{return failure;}qreal contentHeight()const{return measuredHeight;}
     qreal zoom()const{return scale;}void setZoom(qreal value);
@@ -29,7 +31,7 @@ public:
     qreal viewportTop()const{return top;}qreal viewportHeight()const{return span;}
     QVariantList occluders()const{return masks;}void setOccluders(const QVariantList&value);
 signals:
-    void documentChanged();void errorChanged();void contentHeightChanged();void zoomChanged();void blockedChanged();void nativeVisibleChanged();void occludersChanged();
+    void initializationChanged();void documentChanged();void errorChanged();void contentHeightChanged();void zoomChanged();void blockedChanged();void nativeVisibleChanged();void occludersChanged();
     void linkActivated(QString url);void wheel(qreal delta);void loaded();
     void viewportChanged();
     void activeChanged();
@@ -40,5 +42,6 @@ private:
     static void callback(void*context,const unsigned char*bytes,size_t size);
     QString page,failure;std::unique_ptr<ReaderRuntime> runtime;QTimer debounce;QVariantList masks;
     QVector<QMetaObject::Connection> connections;void*surface=nullptr;
-    qreal measuredHeight=48,scale=1,top=0,span=0;bool complete=false,covered=false,displayed=false,ready=false,lifetimeActive=true,creating=false,releasePending=false;quint64 generation=0;
+    qint64 initialization=0;
+    qreal measuredHeight=48,scale=1,top=0,span=0;bool complete=false,covered=false,displayed=false,ready=false,lifetimeActive=true,creating=false,releasePending=false;quint64 generation=0,nativeEpoch=0;
 };

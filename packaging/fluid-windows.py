@@ -84,7 +84,9 @@ def package(args):
         copy(entry/'desc',Path('licenses')/owner/'MSYS2-package.txt')
     for source,relative in [('LICENSE','LICENSE.txt'),('docs/fluid-packaging.md','START-HERE.md'),('packaging/WEBVIEW2-LICENSE.txt','licenses/WEBVIEW2-LICENSE.txt'),('Cargo.lock','source/Cargo.lock')]:copy(ROOT/source,relative)
     subprocess.run([os.sys.executable,str(ROOT/'packaging/rust-notices.py'),'--windows','--output',str(output/'licenses/rust')],check=True,cwd=ROOT)
-    metadata={'schema':1,'frontend':'Qt Quick (GTK-free)','version':args.version,'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),'source_dirty':bool(subprocess.check_output(['git','status','--porcelain','--','crates','packaging','data','Cargo.toml','Cargo.lock','.github','docs'],cwd=ROOT)),'packages':[packages[name][1] for name in sorted(used)],'files':inventory,'webview2_sdk':{'version':'1.0.3650.58','sha256':LOADER_SHA,'source':'https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3650.58'}}
+    changes=subprocess.check_output(['git','status','--porcelain','--untracked-files=all','--','crates','packaging','data','Cargo.toml','Cargo.lock','.github','docs'],cwd=ROOT,text=True).splitlines()
+    if changes:print('Source provenance changes: '+json.dumps(changes))
+    metadata={'schema':1,'frontend':'Qt Quick (GTK-free)','version':args.version,'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),'source_dirty':bool(changes),'source_changes':changes,'packages':[packages[name][1] for name in sorted(used)],'files':inventory,'webview2_sdk':{'version':'1.0.3650.58','sha256':LOADER_SHA,'source':'https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3650.58'}}
     (output/'THIRD-PARTY.json').write_text(json.dumps(metadata,indent=2)+'\n',encoding='utf8')
     archive=output.parent/f'Luma-Mail-{args.version}-fluid-windows-x86_64.zip'
     if archive.exists():raise SystemExit(f'Refusing to overwrite {archive}')

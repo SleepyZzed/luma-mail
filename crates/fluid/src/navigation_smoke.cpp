@@ -50,7 +50,13 @@ class NavigationSmoke:public QObject {
 public:
     NavigationSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){
         QTimer::singleShot(20000,this,[this]{if(!finished){check("navigation workflows finish within deadline",false);finish();}});
-        connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(350,this,[this]{menu=window->findChild<QObject*>("mailActionsMenu");dialog=find(window->contentItem(),"labelDialog");confirmation=find(window->contentItem(),"confirmationSheet");check("custom navigation views load",menu&&dialog&&confirmation);check("closed Settings starts without constructing account controls",!find(window->contentItem(),"settingsContentScroll"));if(!menu||!dialog||!confirmation){finish();return;}window->findChild<QQuickItem*>("navigation")->setProperty("accountOpen","preview");mail->ensureLabels("preview");stage=1;});});
+        connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(350,this,[this]{menu=window->findChild<QObject*>("mailActionsMenu");dialog=find(window->contentItem(),"labelDialog");confirmation=find(window->contentItem(),"confirmationSheet");check("custom navigation views load",menu&&dialog&&confirmation);check("closed Settings starts without constructing account controls",!find(window->contentItem(),"settingsContentScroll"));if(!menu||!dialog||!confirmation){finish();return;}auto unified=find(window->contentItem(),"unifiedFolders"),folders=find(window->contentItem(),"accountFolders-preview"),header=find(window->contentItem(),"accountHeader-preview");
+            check("collapsed folder controls are hidden and cannot receive focus",unified&&!unified->isVisible()&&!unified->isEnabled()&&folders&&!folders->isVisible()&&!folders->isEnabled());
+            if(!header){check("account disclosure has a keyboard target",false);finish();return;}
+            if(auto next=find(window->contentItem(),"accountHeader-preview-b")){
+                header->forceActiveFocus();key(Qt::Key_Tab);check("Tab skips collapsed account folders",window->activeFocusItem()==next);key(Qt::Key_Backtab,Qt::ShiftModifier);check("Shift Tab returns to the previous account header",window->activeFocusItem()==header);
+            }
+            header->forceActiveFocus();key(Qt::Key_Space);check("Space opens an account and its own Inbox",mail->account()=="preview"&&mail->folder()=="inbox"&&find(window->contentItem(),"navigation")->property("accountOpen")=="preview");mail->ensureLabels("preview");stage=1;});});
         connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(kind=="error"){check("navigation command succeeds: "+data.value("message").toString(),false);finish();}});
         poll.setInterval(80);connect(&poll,&QTimer::timeout,this,[this]{if(finished)return;
             if(stage==1&&labels().size()==2){stage=2;check("account labels load only when requested",true);edit("create");text("Project <literal>");}

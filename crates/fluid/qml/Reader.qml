@@ -42,7 +42,7 @@ Item {
             id:thread;width:scroll.width;spacing:Theme.unit(26)
             Item {
                 width:parent.width;height:subject.implicitHeight+Theme.unit(66);opacity:root.projected?0:1
-                Text {textFormat:Text.PlainText;id:subject;objectName:"readerSubject";width:parent.width-Theme.unit(20);text:Mail.reader.subject||"";wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(25);font.weight:Font.DemiBold;lineHeight:1.2}
+                Text {textFormat:Text.StyledText;id:subject;objectName:"readerSubject";width:parent.width-Theme.unit(20);text:Mail.highlightSearch(Mail.reader.subject||"",Mail.search,Theme.accent);wrapMode:Text.Wrap;color:Theme.text;font.pixelSize:Theme.unit(25);font.weight:Font.DemiBold;lineHeight:1.2}
                 Row {y:subject.height+Theme.unit(17);spacing:Theme.unit(6);visible:Mail.selectionCount<=1
                     FluidButton {glyph:"back";tip:"Back to inbox";onClicked:Mail.closeReader()}
                     FluidButton {glyph:"archive";tip:"Archive conversation";onClicked:Mail.mutate("archive")}

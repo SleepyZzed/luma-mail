@@ -1,4 +1,5 @@
 #pragma once
+#include "search_highlights.h"
 #include "record_model.h"
 #include <QAbstractListModel>
 #include <QProcess>
@@ -67,6 +68,7 @@ public:
     Q_INVOKABLE void ensureLabels(const QString&account,bool force=false);
     QString notificationStatus()const{return m_notificationStatus;}
     void setNotificationStatus(const QString&value){if(m_notificationStatus==value)return;m_notificationStatus=value;emit notificationStatusChanged();}
+    Q_INVOKABLE QString highlightSearch(const QString&text,const QString&query,const QColor&colour)const{return searchHighlights.render(text,query,colour);}
     QString folder()const{return m_folder;} QString search()const{return m_search;}
     QString account()const{return m_account;}
     QVariantList searchAccounts()const;
@@ -167,6 +169,7 @@ private:
     QString m_notificationStatus;
     bool m_windowVisible=true,m_mainWindowVisible=true,m_composerWindowVisible=false;
     void updateWindowVisibility(){const bool visible=m_mainWindowVisible||m_composerWindowVisible;if(visible==m_windowVisible)return;m_windowVisible=visible;emit windowVisibleChanged();}
+    SearchHighlights searchHighlights;
     QSet<quint64> mutationRequests;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0,headerRequest=0; QString openedKey,anchorKey;

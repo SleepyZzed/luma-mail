@@ -1,58 +1,66 @@
 {
-    "checks": [
-        {
-            "check": "custom search sheet loads",
-            "passed": true
-        },
-        {
-            "check": "search bar opens through a bounds morph",
-            "passed": true
-        },
-        {
-            "check": "search morph reaches its expanded bounds",
-            "passed": true
-        },
-        {
-            "check": "advanced search builds validated Gmail operators",
-            "passed": true
-        },
-        {
-            "check": "search retains the selected account scope",
-            "passed": true
-        },
-        {
-            "check": "manual refresh keeps the search subset",
-            "passed": true
-        },
-        {
-            "check": "editing the raw query keeps its account scope",
-            "passed": true
-        },
-        {
-            "check": "cancelling a pending builder does not replace the query",
-            "passed": true
-        },
-        {
-            "check": "mail links use the currently selected sending account",
-            "passed": true
-        },
-        {
-            "check": "mail-link fields reach the real composer",
-            "passed": true
-        },
-        {
-            "check": "prefilled Bcc remains visible for review",
-            "passed": true
-        },
-        {
-            "check": "mail links start with the compact composer",
-            "passed": true
-        },
-        {
-            "check": "search and mail links create no local mail or draft archive",
-            "passed": true
-        }
-    ],
-    "passed": true,
-    "syntheticData": true
+  "checks": [
+    {
+      "check": "custom search sheet loads",
+      "passed": true
+    },
+    {
+      "check": "search bar opens through a bounds morph",
+      "passed": true
+    },
+    {
+      "check": "search morph reaches its expanded bounds",
+      "passed": true
+    },
+    {
+      "check": "remote search terms are highlighted in actual conversation rows",
+      "passed": true
+    },
+    {
+      "check": "highlighting escapes untrusted mail headers in the real row",
+      "passed": true
+    },
+    {
+      "check": "advanced search builds validated Gmail operators",
+      "passed": true
+    },
+    {
+      "check": "search retains the selected account scope",
+      "passed": true
+    },
+    {
+      "check": "manual refresh keeps the search subset",
+      "passed": true
+    },
+    {
+      "check": "editing the raw query keeps its account scope",
+      "passed": true
+    },
+    {
+      "check": "cancelling a pending builder does not replace the query",
+      "passed": true
+    },
+    {
+      "check": "mail links use the currently selected sending account",
+      "passed": true
+    },
+    {
+      "check": "mail-link fields reach the real composer",
+      "passed": true
+    },
+    {
+      "check": "prefilled Bcc remains visible for review",
+      "passed": true
+    },
+    {
+      "check": "mail links start with the compact composer",
+      "passed": true
+    },
+    {
+      "check": "search and mail links create no local mail or draft archive",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "syntheticData": true
 }

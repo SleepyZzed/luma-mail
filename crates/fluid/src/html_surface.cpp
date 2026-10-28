@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPointer>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <cmath>
 #ifdef Q_OS_WIN
@@ -52,7 +53,7 @@ void HtmlSurface::ancestors(){
     }
     if(window()){connections.append(connect(window(),&QWindow::visibleChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::visibilityChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::screenChanged,this,&HtmlSurface::updateSurface));}
 }
-void HtmlSurface::release(){debounce.stop();ready=false;if(creating){releasePending=true;return;}
+void HtmlSurface::release(){++nativeEpoch;debounce.stop();ready=false;if(creating){releasePending=true;return;}
 #ifdef Q_OS_WIN
     if(surface){api().destroy(surface);surface=nullptr;--nativeSurfaceCount;}
 #endif
@@ -72,12 +73,12 @@ void HtmlSurface::updateSurface(){
         if(!runtime)runtime=std::make_unique<ReaderRuntime>();
         if(!api().valid()||!runtime->isValid()){failure="HTML preview component is unavailable: "+api().library.errorString();emit errorChanged();return;}
         auto bytes=page.toUtf8(),directory=runtime->path().toUtf8();
-        // WebView2 creation pumps native messages. Geometry/visibility callbacks
-        // can reenter this function before create returns; never create a second
-        // controller and overwrite the only pointer that owns the first one.
-        creating=true;releasePending=false;const auto version=generation;
+        // The adapter initializes asynchronously. Keep the host's reentrancy
+        // guard as well so a synchronous failure/lifetime callback cannot
+        // overwrite ownership with a second native surface.
+        creating=true;releasePending=false;const auto version=generation;QElapsedTimer creation;creation.start();
         surface=api().create(qintptr(window()->winId()),reinterpret_cast<const unsigned char*>(bytes.constData()),bytes.size(),reinterpret_cast<const unsigned char*>(directory.constData()),directory.size(),&HtmlSurface::callback,this);
-        creating=false;
+        initialization=creation.elapsed();creating=false;emit initializationChanged();
         if(!surface){failure="Could not create the HTML view. Microsoft Edge WebView2 Runtime is required.";emit errorChanged();return;}
         ++nativeSurfaceCount;
         if(releasePending||!lifetimeActive){releasePending=false;release();return;}
@@ -99,7 +100,8 @@ void HtmlSurface::measure(){
 }
 void HtmlSurface::callback(void*context,const unsigned char*bytes,size_t size){
     if(size>65536)return;auto self=static_cast<HtmlSurface*>(context);QPointer<HtmlSurface>guard(self);QByteArray copy(reinterpret_cast<const char*>(bytes),size);
-    QMetaObject::invokeMethod(self,[guard,copy]{if(guard)guard->event(copy);},Qt::QueuedConnection);
+    const auto epoch=self->nativeEpoch;
+    QMetaObject::invokeMethod(self,[guard,copy,epoch]{if(guard&&guard->nativeEpoch==epoch)guard->event(copy);},Qt::QueuedConnection);
 }
 void HtmlSurface::event(const QByteArray&bytes){auto e=QJsonDocument::fromJson(bytes).object();auto kind=e["kind"].toString();
     if(kind=="loaded"){ready=true;measure();emit loaded();}

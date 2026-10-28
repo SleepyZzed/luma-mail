@@ -100,6 +100,17 @@ QmlImports=qml
 Data=.
 Translations=translations
 EOF
+# linuxdeploy makes AppRun a symlink to the executable. Unlink that entry
+# before creating a wrapper; redirection through it would overwrite the ELF.
+python3 - "$appdir" <<'PY'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1]);launcher=root/'AppRun';binary=root/'usr/bin/luma-mail'
+with binary.open('rb') as stream:
+    if stream.read(4)!=b'\x7fELF':raise SystemExit('The deployed mail application is not an ELF executable')
+if launcher.is_symlink():launcher.unlink()
+elif launcher.exists():raise SystemExit('Unexpected existing AppRun file; refusing to overwrite it')
+PY
 cat > "$appdir/AppRun" <<'EOF'
 #!/bin/sh
 set -eu
@@ -116,6 +127,11 @@ if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${QT_QPA_PLATFORM:-}" ]; then export Q
 exec "$APPDIR/usr/bin/luma-mail" "$@"
 EOF
 chmod +x "$appdir/AppRun"
+python3 - "$appdir/usr/bin/luma-mail" <<'PY'
+import sys
+with open(sys.argv[1],'rb') as binary:
+    if binary.read(4)!=b'\x7fELF':raise SystemExit('Launcher creation changed the native application')
+PY
 python3 packaging/audit-storage.py --tree installation "$appdir" --output "$output/FLUID-INSTALLED-STORAGE.json"
 export OUTPUT="$destination" ARCH=x86_64
 "$tool" --appdir "$appdir" --output appimage

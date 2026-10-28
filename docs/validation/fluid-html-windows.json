@@ -53,6 +53,9 @@
       "passed": true
     }
   ],
+  "elapsedMs": 4381,
+  "initializationMs": 6,
   "passed": true,
+  "stage": 6,
   "syntheticData": true
 }

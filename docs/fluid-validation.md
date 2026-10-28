@@ -539,3 +539,69 @@ installs Git. Registered portable acceptance remains pending these corrections.
 The parallel Windows PR HTML test hit its deadline despite reporting a measured
 824-pixel document and no surface error; cold-start event-loop timing remains
 under investigation rather than being treated as a successful acceptance run.
+
+
+## Async Windows reader, search and keyboard review — 28 October
+
+Search now highlights bounded positive terms/quoted phrases in loaded sender,
+subject and snippet fields and in the reading title/shared projection. Gmail
+still performs matching and pagination; no local index, body crawl or download
+is added. All untrusted text is escaped before StyledText formatting. Six helper
+cases cover injection, operators, Unicode/literal regex, retargeting and bounds;
+two native search checks inspect actual rendered rows.
+
+The Windows HTML adapter now starts WebView2 asynchronously on Qt's GUI STA,
+without Wry's nested blocking message pump. A measured local create call fell
+from 377 ms to 5 ms; this measures caller blocking, not total document loading.
+Late initialization is cancelled, closed input buffers are released immediately,
+and queued host events carry a native-lifetime epoch. A delete-on-close empty
+runtime lease protects initialization from directory cleanup. Private controllers
+are mandatory. Sender scripts/host objects/dialogs/permissions/downloads are
+disabled, network/file subresources are denied, and only host measurement/wheel
+scripts execute. A standalone native component test passed cancellation-before-
+completion, latest-document replacement, decoded inline PNG, disabled sender JS,
+private-profile/settings checks, blocked loopback-image networking, height
+measurement, denied external navigation and native-child/lease release.
+
+Fourteen scene groups pass in this continuation (266 checks after the keyboard
+review), plus seven CTest groups and that standalone native component case.
+Navigation/composer/motion/HTML were rerun after the final focus changes. A
+single-account motion run also passes. The archive assertion now observes the
+active delegate's actual spring and excludes recycled rows; it no longer samples
+a potentially pooled duplicate at an arbitrary 55-ms instant.
+
+Computer-use inspection confirmed the real row-to-reader layout, inline Reply,
+repeated Reply staying compact and closed-editor release. It also caught collapsed
+folder controls in the accessibility/focus tree and mouse-only account headers.
+Closed groups are now hidden/disabled after their closing spring; account headers
+have keyboard/accessible actions. New native checks exercise Tab, Shift+Tab and
+Space through two accounts. Small muted text and light-theme blue links have
+stronger contrast. Layout and available theme/config choices remain intact.
+
+The async candidate's complete Windows process tree measured private working set
+of 123.3 MiB baseline, 136.0 with 1,000 rows, 136.1 scrolled, 238.0 with HTML,
+140.9 after reader release, 95.2 backgrounded and 126.3 restored. Settled CPU
+samples were 0.00% at counter resolution; private commit remains separately
+reported. All seven lifecycle checks pass. The recorded binary hash identifies
+the pre-keyboard-polish candidate; this is not Linux PSS, a long live-sync soak or
+proof of the 200-MiB HTML target. No `luma-webview-*` runtime directory remained
+after the run; the zero-cache fixture retained only its 51-byte settings file and
+zero cache files. No local mailbox, index, draft, attachment or photo store was
+introduced. The previously rejected unrelated test-folder cleanup stays untouched.
+
+The registered Windows CI package at 2d97bc3 passed all 260 packaged checks with
+SDK paths removed. Its archive digest was verified after download. Its provenance
+reports dirty source; the next packager records exact changed paths for diagnosis,
+so this is not claimed as a reproducible final release. The authorized live test
+used the existing test profile/saved vault connection, remotely searched already-
+read self-addressed Luma test mail, and opened one conversation/body. First-page
+search took 1.094 seconds; no mail actions were issued and no raw mail was saved
+as evidence. That pre-existing test profile has a custom 5,000-MiB cache setting;
+this check did not change it or establish the normal/default cache acceptance.
+
+On the second branch attempt all Linux native scenes passed and AppImage creation
+completed. Portable launch caught a wrapper bug: linuxdeploy's AppRun symlink was
+followed during redirection, replacing the binary with the wrapper. Packaging now
+unlinks that exact staging entry before creating the wrapper and checks the native
+ELF before/after. The corrected portable Linux acceptance remains pending CI.
+No release tag, full-parity, complete GTK removal or Google approval is claimed.
