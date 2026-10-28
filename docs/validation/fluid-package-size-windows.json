@@ -1,12 +1,12 @@
 {
-  "version": "0.10.0-preview.e6d6dc9-basic-2",
-  "source_commit": "e6d6dc956db0506f348ea81aba3d1d52d828b66e",
-  "source_dirty": true,
-  "archive_bytes": 102134858,
-  "installed_logical_bytes": 275822634,
-  "files": 956,
-  "packages": 84,
-  "sha256": "5daf06e580c4e637c59663811272a3a786934b0f6a4b19c97bd0c037ad1fe2b8",
+  "version": "0.10.0-preview.a23a207",
+  "source_commit": "a23a207a91d85e48f03609ebf7db66c7736abcc9",
+  "source_dirty": false,
+  "archive_bytes": 102405855,
+  "installed_logical_bytes": 277161607,
+  "files": 934,
+  "packages": 85,
+  "sha256": "eeec68a8bcd5377bacb271804a096b385ed689710bea743f6ca1b80b0e42d4f8",
   "mailbox_bytes": 0,
   "note": "Package bytes only. Runtime/settings/cache allocation is measured separately; no account data is copied."
 }

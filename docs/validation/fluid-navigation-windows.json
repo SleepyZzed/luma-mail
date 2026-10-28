@@ -1,178 +1,178 @@
 {
-  "checks": [
-    {
-      "check": "custom navigation views load",
-      "passed": true
-    },
-    {
-      "check": "closed Settings starts without constructing account controls",
-      "passed": true
-    },
-    {
-      "check": "collapsed folder controls are hidden and cannot receive focus",
-      "passed": true
-    },
-    {
-      "check": "Tab skips collapsed account folders",
-      "passed": true
-    },
-    {
-      "check": "Shift Tab returns to the previous account header",
-      "passed": true
-    },
-    {
-      "check": "Space opens an account and its own Inbox",
-      "passed": true
-    },
-    {
-      "check": "account labels load only when requested",
-      "passed": true
-    },
-    {
-      "check": "create label preserves literal name",
-      "passed": true
-    },
-    {
-      "check": "label is represented by a visible recycled row",
-      "passed": true
-    },
-    {
-      "check": "right click opens the account label menu",
-      "passed": true
-    },
-    {
-      "check": "action is wired: renameLabelAction-preview",
-      "passed": true
-    },
-    {
-      "check": "rename updates the same account label",
-      "passed": true
-    },
-    {
-      "check": "label deletion asks before changing Gmail",
-      "passed": true
-    },
-    {
-      "check": "deleted active label returns to account inbox",
-      "passed": true
-    },
-    {
-      "check": "bulk menu targets both selected conversations",
-      "passed": true
-    },
-    {
-      "check": "bulk selection hides sender-only and draft-only actions",
-      "passed": true
-    },
-    {
-      "check": "Inbox selection hides Move to Inbox",
-      "passed": true
-    },
-    {
-      "check": "important selection reverses to Mark unimportant",
-      "passed": true
-    },
-    {
-      "check": "action is wired: senderRuleAction",
-      "passed": true
-    },
-    {
-      "check": "single-sender blocking requests explicit confirmation",
-      "passed": true
-    },
-    {
-      "check": "sender rule reference is account scoped",
-      "passed": true
-    },
-    {
-      "check": "blocked sender menu reverses to unblock",
-      "passed": true
-    },
-    {
-      "check": "action is wired: senderRuleAction",
-      "passed": true
-    },
-    {
-      "check": "unblock removes the saved Gmail rule reference",
-      "passed": true
-    },
-    {
-      "check": "Drafts alone exposes Delete draft",
-      "passed": true
-    },
-    {
-      "check": "action is wired: deleteDraftAction",
-      "passed": true
-    },
-    {
-      "check": "draft deletion uses the dedicated endpoint",
-      "passed": true
-    },
-    {
-      "check": "confirmed draft deletion removes only the selected conversation",
-      "passed": true
-    },
-    {
-      "check": "navigation creates no mail or draft archive",
-      "passed": true
-    },
-    {
-      "check": "Ctrl F focuses the actual search field",
-      "passed": true
-    },
-    {
-      "check": "Delete inside search never trashes mail",
-      "passed": true
-    },
-    {
-      "check": "account shortcut opens its own Inbox disclosure",
-      "passed": true
-    },
-    {
-      "check": "navigation has an internal resize handle",
-      "passed": true
-    },
-    {
-      "check": "keyboard pane resizing persists only its layout preference",
-      "passed": true
-    },
-    {
-      "check": "Ctrl A in the inbox selects only loaded conversations",
-      "passed": true
-    },
-    {
-      "check": "Ctrl comma opens custom Settings",
-      "passed": true
-    },
-    {
-      "check": "compact density changes existing rows without refetching mail",
-      "passed": true
-    },
-    {
-      "check": "comfortable density restores the same loaded rows",
-      "passed": true
-    },
-    {
-      "check": "closing Settings releases its controls after the spring settles",
-      "passed": true
-    },
-    {
-      "check": "reopening lazy Settings restores the saved Gmail draft policy",
-      "passed": true
-    },
-    {
-      "check": "Settings releases reopened controls and stops masking the reader",
-      "passed": true
-    },
-    {
-      "check": "narrow sidebar footer controls do not overlap",
-      "passed": true
-    },
-    {
-      "check": "collapsed sidebar footer controls stay separate and inside the rail",
-      "passed": true
-    }
-  ],
-  "passed": true,
-  "syntheticData": true
+    "checks": [
+        {
+            "check": "custom navigation views load",
+            "passed": true
+        },
+        {
+            "check": "closed Settings starts without constructing account controls",
+            "passed": true
+        },
+        {
+            "check": "collapsed folder controls are hidden and cannot receive focus",
+            "passed": true
+        },
+        {
+            "check": "Tab skips collapsed account folders",
+            "passed": true
+        },
+        {
+            "check": "Shift Tab returns to the previous account header",
+            "passed": true
+        },
+        {
+            "check": "Space opens an account and its own Inbox",
+            "passed": true
+        },
+        {
+            "check": "account labels load only when requested",
+            "passed": true
+        },
+        {
+            "check": "create label preserves literal name",
+            "passed": true
+        },
+        {
+            "check": "label is represented by a visible recycled row",
+            "passed": true
+        },
+        {
+            "check": "right click opens the account label menu",
+            "passed": true
+        },
+        {
+            "check": "action is wired: renameLabelAction-preview",
+            "passed": true
+        },
+        {
+            "check": "rename updates the same account label",
+            "passed": true
+        },
+        {
+            "check": "label deletion asks before changing Gmail",
+            "passed": true
+        },
+        {
+            "check": "deleted active label returns to account inbox",
+            "passed": true
+        },
+        {
+            "check": "bulk menu targets both selected conversations",
+            "passed": true
+        },
+        {
+            "check": "bulk selection hides sender-only and draft-only actions",
+            "passed": true
+        },
+        {
+            "check": "Inbox selection hides Move to Inbox",
+            "passed": true
+        },
+        {
+            "check": "important selection reverses to Mark unimportant",
+            "passed": true
+        },
+        {
+            "check": "action is wired: senderRuleAction",
+            "passed": true
+        },
+        {
+            "check": "single-sender blocking requests explicit confirmation",
+            "passed": true
+        },
+        {
+            "check": "sender rule reference is account scoped",
+            "passed": true
+        },
+        {
+            "check": "blocked sender menu reverses to unblock",
+            "passed": true
+        },
+        {
+            "check": "action is wired: senderRuleAction",
+            "passed": true
+        },
+        {
+            "check": "unblock removes the saved Gmail rule reference",
+            "passed": true
+        },
+        {
+            "check": "Drafts alone exposes Delete draft",
+            "passed": true
+        },
+        {
+            "check": "action is wired: deleteDraftAction",
+            "passed": true
+        },
+        {
+            "check": "draft deletion uses the dedicated endpoint",
+            "passed": true
+        },
+        {
+            "check": "confirmed draft deletion removes only the selected conversation",
+            "passed": true
+        },
+        {
+            "check": "navigation creates no mail or draft archive",
+            "passed": true
+        },
+        {
+            "check": "Ctrl F focuses the actual search field",
+            "passed": true
+        },
+        {
+            "check": "Delete inside search never trashes mail",
+            "passed": true
+        },
+        {
+            "check": "account shortcut opens its own Inbox disclosure",
+            "passed": true
+        },
+        {
+            "check": "navigation has an internal resize handle",
+            "passed": true
+        },
+        {
+            "check": "keyboard pane resizing persists only its layout preference",
+            "passed": true
+        },
+        {
+            "check": "Ctrl A in the inbox selects only loaded conversations",
+            "passed": true
+        },
+        {
+            "check": "Ctrl comma opens custom Settings",
+            "passed": true
+        },
+        {
+            "check": "compact density changes existing rows without refetching mail",
+            "passed": true
+        },
+        {
+            "check": "comfortable density restores the same loaded rows",
+            "passed": true
+        },
+        {
+            "check": "closing Settings releases its controls after the spring settles",
+            "passed": true
+        },
+        {
+            "check": "reopening lazy Settings restores the saved Gmail draft policy",
+            "passed": true
+        },
+        {
+            "check": "Settings releases reopened controls and stops masking the reader",
+            "passed": true
+        },
+        {
+            "check": "narrow sidebar footer controls do not overlap",
+            "passed": true
+        },
+        {
+            "check": "collapsed sidebar footer controls stay separate and inside the rail",
+            "passed": true
+        }
+    ],
+    "passed": true,
+    "syntheticData": true
 }

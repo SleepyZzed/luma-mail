@@ -1,0 +1,67 @@
+{
+    "checks": [
+        {
+            "check": "signature editor stays lazy before opening",
+            "passed": true
+        },
+        {
+            "check": "online signature loads the actual native document",
+            "passed": true
+        },
+        {
+            "check": "existing source begins read-only and unchanged",
+            "passed": true
+        },
+        {
+            "check": "local picture upload asks for explicit public-link approval",
+            "passed": true
+        },
+        {
+            "check": "signature has selected text colours and rich formatting",
+            "passed": true
+        },
+        {
+            "check": "hosted pictures keep HTTPS sources",
+            "passed": true
+        },
+        {
+            "check": "explicit picture loading supplies bounded in-memory pixels",
+            "passed": true
+        },
+        {
+            "check": "signature tables use native rich text",
+            "passed": true
+        },
+        {
+            "check": "preview save sanitizes HTML without a local signature store",
+            "passed": true
+        },
+        {
+            "check": "confirmed save clears the editor dirty state",
+            "passed": true
+        },
+        {
+            "check": "app quit asks about unsaved online signature edits",
+            "passed": true
+        },
+        {
+            "check": "Keep editing cancels application quit",
+            "passed": true
+        },
+        {
+            "check": "normal close asks before discarding signature edits",
+            "passed": true
+        },
+        {
+            "check": "closing releases the signature document and previews",
+            "passed": true
+        },
+        {
+            "check": "signature editing creates no mail, image or local signature archive",
+            "passed": true
+        }
+    ],
+    "note": "Actual native editor and engine; preview signatures save only in RAM and never call Gmail.",
+    "passed": true,
+    "syntheticData": true
+}

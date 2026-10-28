@@ -1,7 +1,7 @@
 {
   "passed": true,
   "synthetic_data": true,
-  "binary_sha256": "2cb03de046b0e846b5c83a2d56d85d14d7aa66f948a3bbe5d99b5d8f208a55ec",
+  "binary_sha256": "42c58ae65c87cca3b42172828625b55707e287023cd0fe6374bd6fb603171e20",
   "platform": "win32",
   "sdk_search_paths_removed": true,
   "checks": [
@@ -16,21 +16,28 @@
       "case": "popout",
       "passed": true,
       "exit_code": 0,
-      "checks": 14,
+      "checks": 18,
+      "qml_warnings": []
+    },
+    {
+      "case": "popup",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 23,
       "qml_warnings": []
     },
     {
       "case": "navigation",
       "passed": true,
       "exit_code": 0,
-      "checks": 35,
+      "checks": 43,
       "qml_warnings": []
     },
     {
       "case": "composer",
       "passed": true,
       "exit_code": 0,
-      "checks": 28,
+      "checks": 36,
       "qml_warnings": []
     },
     {
@@ -65,7 +72,7 @@
       "case": "search",
       "passed": true,
       "exit_code": 0,
-      "checks": 13,
+      "checks": 15,
       "qml_warnings": []
     },
     {
@@ -104,5 +111,5 @@
       "qml_warnings": []
     }
   ],
-  "total_checks": 254
+  "total_checks": 299
 }

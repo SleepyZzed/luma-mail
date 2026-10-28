@@ -100,7 +100,7 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   notification transport. Privacy, per-account notification and tray preferences
   are wired. Linux daemon transport has an isolated private-bus CI test; desktop
   notification activation/live acceptance is still required.
-- Attachment checkpoint: received/compose cards, visible-only 128×96 image
+- Attachment checkpoint: received/compose cards, visible-only 128Ã—96 image
   thumbnails (32 images/1.5 MiB pixels maximum), a single explicit RAM preview
   and native audio/video playback. DOCX text is read without extraction. Media
   input is capped at 24 MiB and transferred in acknowledged 256-KiB chunks;
@@ -216,3 +216,11 @@ The GTK-free 0.10 preview is published as v0.10.0-dev.1 at d4889b7. Both exact
 packages pass (269 Linux/272 Windows); all eight uploaded asset digests and the
 release tag/source archive commit were verified. The 0.9 tag/source remains the
 reference; 1.0 and target-desktop acceptance are still open.
+
+
+The next feedback preview is published as v0.10.0-dev.2 at a23a207. It fixes
+button/field geometry, pointer and keyboard context actions, theme-owned spring
+menus/dialogs and pop-out handoff. Outgoing inline replies follow the configured
+close policy; detached replies retain their document and drop their old inline
+anchor on navigation. All fifteen exact portable groups pass (296 Linux/299
+Windows). Full target-desktop/live parity is still pending; see fluid-parity.md.

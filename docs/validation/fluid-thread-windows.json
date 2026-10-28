@@ -1,76 +1,76 @@
 {
-  "checks": [
-    {
-      "check": "native thread delegates stay bounded to 32 at stage 0",
-      "passed": true
-    },
-    {
-      "check": "collapsed messages create no body text documents at stage 0",
-      "passed": true
-    },
-    {
-      "check": "opening a long page springs its latest message into view at stage 0",
-      "passed": true
-    },
-    {
-      "check": "a chain beyond the old 1000-row cap opens its actual latest message",
-      "passed": true
-    },
-    {
-      "check": "native thread delegates stay bounded to 32 at stage 1",
-      "passed": true
-    },
-    {
-      "check": "collapsed messages create no body text documents at stage 1",
-      "passed": true
-    },
-    {
-      "check": "opening a long page springs its latest message into view at stage 1",
-      "passed": true
-    },
-    {
-      "check": "Earlier changes only the requested bounded header window",
-      "passed": true
-    },
-    {
-      "check": "native thread delegates stay bounded to 32 at stage 2",
-      "passed": true
-    },
-    {
-      "check": "collapsed messages create no body text documents at stage 2",
-      "passed": true
-    },
-    {
-      "check": "opening a long page springs its latest message into view at stage 2",
-      "passed": true
-    },
-    {
-      "check": "Latest restores the current end of the conversation",
-      "passed": true
-    },
-    {
-      "check": "late metadata cannot restore a previous header window",
-      "passed": true
-    },
-    {
-      "check": "an incoming reply preserves the body being read",
-      "passed": true
-    },
-    {
-      "check": "new reply headers stay unread without automatic body fetching",
-      "passed": true
-    },
-    {
-      "check": "closing releases every thread delegate and body",
-      "passed": true
-    },
-    {
-      "check": "paging creates no mailbox or draft archive",
-      "passed": true
-    }
-  ],
-  "headerWindow": 32,
-  "passed": true,
-  "syntheticData": true,
-  "totalMessages": 2503
+    "checks": [
+        {
+            "check": "native thread delegates stay bounded to 32 at stage 0",
+            "passed": true
+        },
+        {
+            "check": "collapsed messages create no body text documents at stage 0",
+            "passed": true
+        },
+        {
+            "check": "opening a long page springs its latest message into view at stage 0",
+            "passed": true
+        },
+        {
+            "check": "a chain beyond the old 1000-row cap opens its actual latest message",
+            "passed": true
+        },
+        {
+            "check": "native thread delegates stay bounded to 32 at stage 1",
+            "passed": true
+        },
+        {
+            "check": "collapsed messages create no body text documents at stage 1",
+            "passed": true
+        },
+        {
+            "check": "opening a long page springs its latest message into view at stage 1",
+            "passed": true
+        },
+        {
+            "check": "Earlier changes only the requested bounded header window",
+            "passed": true
+        },
+        {
+            "check": "native thread delegates stay bounded to 32 at stage 2",
+            "passed": true
+        },
+        {
+            "check": "collapsed messages create no body text documents at stage 2",
+            "passed": true
+        },
+        {
+            "check": "opening a long page springs its latest message into view at stage 2",
+            "passed": true
+        },
+        {
+            "check": "Latest restores the current end of the conversation",
+            "passed": true
+        },
+        {
+            "check": "late metadata cannot restore a previous header window",
+            "passed": true
+        },
+        {
+            "check": "an incoming reply preserves the body being read",
+            "passed": true
+        },
+        {
+            "check": "new reply headers stay unread without automatic body fetching",
+            "passed": true
+        },
+        {
+            "check": "closing releases every thread delegate and body",
+            "passed": true
+        },
+        {
+            "check": "paging creates no mailbox or draft archive",
+            "passed": true
+        }
+    ],
+    "headerWindow": 32,
+    "passed": true,
+    "syntheticData": true,
+    "totalMessages": 2503
 }

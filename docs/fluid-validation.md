@@ -1,8 +1,8 @@
 # Fluid migration validation
 
-This branch is an implementation checkpoint, not a distributable replacement or
-1.0 claim. The original GTK executable remains the feature reference. The new
-native host and Rust engine do not depend on GTK.
+The GTK-free frontend is distributed as an early-access preview. The original
+GTK source remains the feature reference until final acceptance. The native host
+and Rust engine do not depend on GTK; this is not a 1.0 completeness claim.
 
 ## Reproduce
 
@@ -797,3 +797,53 @@ The published prerelease is v0.10.0-dev.1; GitHub confirms its d4889b7 tag and a
 eight uploaded asset SHA-256 digests match the checked local files. See the
 release evidence JSON and public release page. The tag remains a development
 preview with the roadmap/security/Google/real-desktop gates still open.
+
+
+## 0.10.0-dev.2 feedback hardening
+
+Published source/tag `a23a207a91d85e48f03609ebf7db66c7736abcc9` passes all fifteen
+portable groups: 296 Linux / 299 Windows checks, with SDK paths removed and no
+QML warnings. Core/engine/strict Clippy and seven Windows/eight Linux component
+groups pass. The exact Windows bundle records clean source and its host hash
+matches portable acceptance. All nine public release asset hashes and tag/source
+archive commit were verified. See validation/fluid-release-0.10.0-dev.2.json.
+
+New exposed-window checks exercise actual inbox/editor right-clicks, keyboard
+context actions, readable popup bounds, themed close prompts, standard formatting
+dialog footers, typed/placeholder alignment, Escape and complete menu release.
+The pop-out fixture begins with a real inline reply, checks bounds/corner
+continuity and retained document/session, then changes conversations to verify
+that the detached editor remains open without an inline placeholder. The composer
+fixture verifies that ordinary inline replies close when another thread opens;
+Ask preserves unsaved text and never silently creates a draft.
+
+The 822f17d Linux run exposed an ordering hazard in the motion fixture: a fixed
+archive timer could run before the asynchronous reduced-motion update. The
+fixture now waits for the actual acknowledged preference and active delegate.
+Both height-collapse and confirmed removal assertions remain; fresh a23a207
+native/portable Linux and Windows runs pass all 33 motion checks.
+
+A cold local WMI counter query left the first resource run without a settled idle
+sample. The app's ten lifecycle assertions and exit status passed, but the sampler
+correctly rejected the incomplete aggregate. Fixture phase files now include their
+actual UTC boundary; CPU intervals are accepted only when both ends fall inside
+that phase and its settle interval has elapsed. The repeated local run passes:
+134.6 MiB private working set idle, 146.7 with 1,000 records, 148.4 scrolled,
+255.4 with HTML, 154.1 released, 64.0 backgrounded and 145.0 restored. Its binary
+hash precedes the final small field/navigation fixture changes and is retained
+with the report. No memory trimming was used.
+
+The matching a23a207 Linux software-rendered full-process PSS is 226.4 MiB idle,
+402.4 with HTML and 326.5 backgrounded. The separate Windows CI host measures
+66.1/136.4/51.6 MiB private working set. These different graphics environments and
+metrics are kept separate. Settled CPU samples are 0.00% at sampling resolution;
+this is not proof of zero CPU or sustained live polling. Cache-off creates no
+mail cache; the isolated local profile contains only 51 bytes of settings.
+Linux RAM goals and real GPU/Hyprland/two-account/sustained acceptance remain open.
+
+The AppImage is 175,069,688 bytes; its installed logical/allocation totals are
+485,346,545 / 513,425,408 bytes. The Windows ZIP is 102,405,855 bytes with
+277,161,607 installed logical bytes. Runtime data is accounted separately from
+these fixed framework/application bytes. New menus are constructed only when
+opened and released after their exit transition; no mailbox/draft/image archive
+or additional persistent store is introduced.

@@ -1,63 +1,63 @@
 {
-  "checks": [
-    {
-      "check": "an empty account list offers one-click Google onboarding",
-      "passed": true
-    },
-    {
-      "check": "browser failure is visible without losing the sign-in request",
-      "passed": true
-    },
-    {
-      "check": "one sign-in requests Gmail and its optional feature connections",
-      "passed": true
-    },
-    {
-      "check": "explicit Copy uses only the active sign-in URL",
-      "passed": true
-    },
-    {
-      "check": "browser retry uses the same request URL",
-      "passed": true
-    },
-    {
-      "check": "auth controls appear in the custom spring sheet",
-      "passed": true
-    },
-    {
-      "check": "Cancel clears the URL and active request",
-      "passed": true
-    },
-    {
-      "check": "cancelled sign-in slides closed",
-      "passed": true
-    },
-    {
-      "check": "late cancelled callbacks cannot reopen the browser",
-      "passed": true
-    },
-    {
-      "check": "credential commit disables cancellation and clears its browser URL",
-      "passed": true
-    },
-    {
-      "check": "an accepted commit completes despite a late Cancel",
-      "passed": true
-    },
-    {
-      "check": "successful connection morphs and releases its sheet",
-      "passed": true
-    },
-    {
-      "check": "sign-in recovery creates no local mailbox, draft or credential file",
-      "passed": true
-    },
-    {
-      "check": "non-Google and active-content sign-in links never reach the browser",
-      "passed": true
-    }
-  ],
-  "note": "Real private-pipe authorization state machine; browser and clipboard are isolated, with no Google access, vault write or real consent.",
-  "passed": true,
-  "syntheticData": true
+    "checks": [
+        {
+            "check": "an empty account list offers one-click Google onboarding",
+            "passed": true
+        },
+        {
+            "check": "browser failure is visible without losing the sign-in request",
+            "passed": true
+        },
+        {
+            "check": "one sign-in requests Gmail and its optional feature connections",
+            "passed": true
+        },
+        {
+            "check": "explicit Copy uses only the active sign-in URL",
+            "passed": true
+        },
+        {
+            "check": "browser retry uses the same request URL",
+            "passed": true
+        },
+        {
+            "check": "auth controls appear in the custom spring sheet",
+            "passed": true
+        },
+        {
+            "check": "Cancel clears the URL and active request",
+            "passed": true
+        },
+        {
+            "check": "cancelled sign-in slides closed",
+            "passed": true
+        },
+        {
+            "check": "late cancelled callbacks cannot reopen the browser",
+            "passed": true
+        },
+        {
+            "check": "credential commit disables cancellation and clears its browser URL",
+            "passed": true
+        },
+        {
+            "check": "an accepted commit completes despite a late Cancel",
+            "passed": true
+        },
+        {
+            "check": "successful connection morphs and releases its sheet",
+            "passed": true
+        },
+        {
+            "check": "sign-in recovery creates no local mailbox, draft or credential file",
+            "passed": true
+        },
+        {
+            "check": "non-Google and active-content sign-in links never reach the browser",
+            "passed": true
+        }
+    ],
+    "note": "Real private-pipe authorization state machine; browser and clipboard are isolated, with no Google access, vault write or real consent.",
+    "passed": true,
+    "syntheticData": true
 }

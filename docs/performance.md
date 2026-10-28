@@ -213,3 +213,16 @@ Direct asynchronous WebView2 initialization reduced measured GUI caller blocking
 from 377 ms to 5 ms locally. That comparison measures the constructor call, not
 total browser/document load time; no memory trimming or disabled browser sandbox
 was used. The Qt event loop remains available during initialization/cancellation.
+
+
+## 0.10.0-dev.2 resource checkpoint
+
+Menu/editor changes preserve bounded RAM and create no persistent store. Editor
+menus are lazy and release after closing. Full local Windows process-tree audit
+(source/hash in fluid-resource-popup-windows.json) measures 134.6 MiB private
+working set idle / 255.4 with HTML / 64.0 backgrounded. The matching a23a207 Linux
+software CI PSS is 226.4 / 402.4 / 326.5; its RAM goals remain unmet. The separate
+Windows CI host's 66.1 / 136.4 / 51.6 private-WS result is not a direct comparison
+with local graphics. Settled CPU counters read 0.00% at measurement resolution;
+real long-duration syncing is still required. See fluid-validation.md for phase
+measurement corrections, exact binary/source identity and installation bytes.

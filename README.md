@@ -2,10 +2,10 @@
 
 <img src="data/luma-wordmark.png" alt="Luma Mail" width="320">
 
-**[Download the 0.10 fluid interface preview](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.1):** the replacement uses a custom Qt Quick scene with
+**[Download the 0.10 fluid interface preview](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2):** the replacement uses a custom Qt Quick scene with
 shared-element spring transitions and the existing Rust engine. GTK-free Linux
-and Windows packages pass 269/272 native portable checks. See the
-[interface wiring](docs/ui-migration.md), [build/packaging instructions](docs/fluid-packaging.md)
+and Windows packages pass 296/299 native portable checks. See the
+[feature-parity audit](docs/fluid-parity.md), [interface wiring](docs/ui-migration.md), [build/packaging instructions](docs/fluid-packaging.md)
 and [validation record](docs/fluid-validation.md). The 0.9 download below remains
 the released reference while final parity and desktop acceptance continue.
 

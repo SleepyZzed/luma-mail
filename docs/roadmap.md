@@ -177,3 +177,11 @@ wiring, evidence and the original twenty acceptance criteria.
 These advance the keyboard/focus and UI hardening priorities. Full accessibility,
 live desktop acceptance and the remaining authoring/Drive/resource gates above
 remain open.
+
+
+The feedback milestone is published as [v0.10.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2),
+source a23a207. All fifteen portable groups pass (296 Linux/299 Windows).
+The callback/feature audit and exact resource evidence are recorded; next code
+priorities remain inline-image authoring, whole-conversation forwarding and Drive
+interruption/permission/existing-file recovery. Target desktop, RAM, independent
+security and Google approval remain release gates.

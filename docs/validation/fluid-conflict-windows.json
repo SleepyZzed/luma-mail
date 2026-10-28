@@ -1,59 +1,59 @@
 {
-  "checks": [
-    {
-      "check": "fixture reaches real conflict guard",
-      "passed": true
-    },
-    {
-      "check": "comparison surface is available",
-      "passed": true
-    },
-    {
-      "check": "different subject merges while body requires explicit choice",
-      "passed": true
-    },
-    {
-      "check": "comparison shows both read-only body versions",
-      "passed": true
-    },
-    {
-      "check": "unresolved comparison cannot create a copy",
-      "passed": true
-    },
-    {
-      "check": "version selector exists: mergeChoice5",
-      "passed": true
-    },
-    {
-      "check": "version selector exists: mergeAttachments",
-      "passed": true
-    },
-    {
-      "check": "explicit choices enable unsaved merged copy",
-      "passed": true
-    },
-    {
-      "check": "merge creates a fresh unsaved session",
-      "passed": true
-    },
-    {
-      "check": "merged copy is dirty and preserves Gmail thread routing",
-      "passed": true
-    },
-    {
-      "check": "chosen versions reach the actual editor",
-      "passed": true
-    },
-    {
-      "check": "comparison body data releases after the slide closes",
-      "passed": true
-    },
-    {
-      "check": "conflict resolution creates no disk draft or mail archive",
-      "passed": true
-    }
-  ],
-  "note": "Synthetic conflicting draft through the real private engine; no Gmail save/delete/send.",
-  "passed": true,
-  "syntheticData": true
+    "checks": [
+        {
+            "check": "fixture reaches real conflict guard",
+            "passed": true
+        },
+        {
+            "check": "comparison surface is available",
+            "passed": true
+        },
+        {
+            "check": "different subject merges while body requires explicit choice",
+            "passed": true
+        },
+        {
+            "check": "comparison shows both read-only body versions",
+            "passed": true
+        },
+        {
+            "check": "unresolved comparison cannot create a copy",
+            "passed": true
+        },
+        {
+            "check": "version selector exists: mergeChoice5",
+            "passed": true
+        },
+        {
+            "check": "version selector exists: mergeAttachments",
+            "passed": true
+        },
+        {
+            "check": "explicit choices enable unsaved merged copy",
+            "passed": true
+        },
+        {
+            "check": "merge creates a fresh unsaved session",
+            "passed": true
+        },
+        {
+            "check": "merged copy is dirty and preserves Gmail thread routing",
+            "passed": true
+        },
+        {
+            "check": "chosen versions reach the actual editor",
+            "passed": true
+        },
+        {
+            "check": "comparison body data releases after the slide closes",
+            "passed": true
+        },
+        {
+            "check": "conflict resolution creates no disk draft or mail archive",
+            "passed": true
+        }
+    ],
+    "note": "Synthetic conflicting draft through the real private engine; no Gmail save/delete/send.",
+    "passed": true,
+    "syntheticData": true
 }

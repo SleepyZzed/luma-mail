@@ -1,23 +1,40 @@
 # Implementation and verification status
 
-0.9.0 is **early access**. It does not complete the original brief. Google sign-in
-has no per-address test list, but its unverified warning and lifetime 100-user
-cap remain. Branding and data-access verification were submitted on 26 October
-2026 with an English demo and the homepage ownership appeal. Google Auth Platform
-confirms both are under review. Submission is not approval; any assessment
-decision and Google's final response remain gates.
+The current GTK-free preview is [v0.10.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2), built from `a23a207a91d85e48f03609ebf7db66c7736abcc9`.
+It is early access and does not complete the original brief. Google verification
+was submitted on 26 October; current approval has not been confirmed. The
+unverified sign-in restrictions and any required assessment remain release gates.
 
-## Implemented and exercised
+## Current fluid implementation and verification
 
-The published 0.9 Linux/Windows release and both platform gates pass on
-`65c67d1eac7f897eda14442bb4ccea0031daf171`; downloaded binary checksums and whole-app
-storage/process-tree measurements are recorded in docs/verification.md. Linux
-RAM goals and real desktop/live-account acceptance remain open. The custom GTK
-replacement is in progress on `ui/fluid-morph` (draft PR #12). The custom Qt
-scene and Rust engine now include rich composer/drafts, supported photos, private
-HTML, silent incremental sync, native notifications, RAM attachment/media previews
-and account-scoped labels/context/settings controls; parity, live acceptance, packaging and resource audits remain open.
-See docs/ui-migration.md for the current port and pending groups.
+Both exact Qt Quick packages pass all fifteen native groups without SDK paths:
+296 Linux checks / 299 Windows checks, with no QML warnings. The Windows package
+has clean source provenance; source/tag and all nine release asset digests match.
+Core/engine/Clippy and seven Windows/eight Linux native component groups pass.
+
+The major existing functional groups are rewired into the Qt Quick frontend and
+private Rust engine. See [the parity audit](docs/fluid-parity.md) for coverage and
+remaining acceptance, and docs/ui-migration.md for the callback map. GTK is absent
+from these preview runtimes. The 0.9 source remains the comparison reference until
+full acceptance; no blanket 100% live/desktop parity claim is made.
+
+This feedback pass fixes button spacing, typed/placeholder alignment, real inbox
+and editor context menus, themed spring dialogs, native pop-out handoff and
+outgoing inline reply closure. Detached replies remain independent. Keyboard
+context actions and lazy/released menus advance accessibility/resource hardening.
+
+Online-first behavior is unchanged: bounded metadata, remote search, on-demand
+bodies/attachments, server drafts and existing cache budgets. The zero-cache
+fixture retains one 51-byte settings file and no cache files. Local Windows full
+tree private working set is about 134.6 MiB idle / 255.4 with HTML / 64 backgrounded;
+Linux software CI PSS is 226.4 / 402.4 / 326.5. RAM targets, sustained real sync,
+real Hyprland/GPU/two-account acceptance and Google/security approval remain open.
+
+## Legacy 0.9 implementation and acceptance history
+
+The 0.9 Linux/Windows reference is `65c67d1eac7f897eda14442bb4ccea0031daf171`.
+The following milestones describe that reference and its earlier acceptance;
+they do not substitute for the fluid preview's outstanding live checks.
 
 - Shared native composer colours/highlights, paragraph alignment/spacing/indent,
   scripts/code, bounded Unicode find/replace and source/visual preservation.
