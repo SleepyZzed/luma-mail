@@ -60,7 +60,12 @@ void SingleInstance::accept(){
             if(bytes->indexOf('\n')!=bytes->size()-1){socket->abort();return;}
             QJsonParseError error;const auto document=QJsonDocument::fromJson(*bytes,&error);const auto data=document.object();const auto uri=data["uri"].toString();
             if(error.error!=QJsonParseError::NoError||!document.isObject()||data.size()!=2||data["version"].toInt()!=1||!data["uri"].isString()||uri.toUtf8().size()>65536||(!uri.isEmpty()&&!uri.startsWith("mailto:",Qt::CaseInsensitive))){socket->abort();return;}
-            *handled=true;deadline->stop();emit activated(uri);socket->write("ok\n");socket->flush();socket->disconnectFromServer();
+            *handled=true;emit activated(uri);socket->write("ok\n");socket->flush();
+            // Let the client close after reading the acknowledgement. Closing
+            // the server's Windows named pipe here can discard its final bytes
+            // before the client's waitForReadyRead observes them. The existing
+            // deadline still bounds peers that never consume/close the socket.
+            deadline->start();
         };
         connect(socket,&QLocalSocket::readyRead,socket,receive);
         if(socket->bytesAvailable()>0)QTimer::singleShot(0,socket,receive);

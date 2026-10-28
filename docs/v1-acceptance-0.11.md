@@ -16,7 +16,10 @@ Simulated accounts are never recorded as live Linux acceptance.
   is silently truncated. Newsletter visual styling is not reproduced inside the
   readable forwarded-history section. No history archive is written.
 - Previews/isolated acceptance windows register no tray icons. Normal launches
-  retain a single per-profile process owner on both platforms.
+  retain a single per-profile process owner on both platforms. Local activation
+  keeps its acknowledgement socket alive until the client reads/closes it,
+  preventing intermittent final-byte loss on Windows named pipes. Repeated
+  activation and stale-owner recovery have dedicated component coverage.
 - Linux daemon notifications have explicit Open actions. Windows uses native
   actionable toasts with individual targets. Unambiguous 4–8 digit codes in the
   existing subject/snippet metadata offer Copy code; no extra body fetch occurs.
@@ -69,3 +72,19 @@ installation or remote connection to the user's Linux desktop. Linux CI verifies
 a Linux build and synthetic desktop/accounts; it cannot certify real Gmail,
 keyring, GPU, Noctalia or notification behavior on that desktop. These remain
 1.0 gates. Exact live-account and build evidence is recorded separately.
+
+## Local Windows evidence before the activation fix
+
+[The two-account read check](validation/fluid-live-two-read-0426658.json) uses
+registered source 0426658 and the user's two connected accounts. Both scoped
+inboxes return bounded 25-row pages in 1.61/1.13 seconds, with zero cache files
+and no mailbox writes. It does not certify sending or Linux account behavior.
+
+[The full-process synthetic profile](validation/fluid-local-resources-9f780b9.json)
+uses local source 9f780b9, a debug engine and Qt 6.12.0 on Windows. Private working
+set is 139.3 MiB at baseline, 153.3 after scrolling 1,000 rows, 253.5 with HTML,
+155.5 after releasing HTML, and 64.1 after background reclamation. Settled sampled
+CPU is 0.000% of one core. This short fixture is not a sustained live-mail test;
+the HTML phase exceeds the requested 200 MiB target. These counters are not Linux
+PSS, and working-set sums count shared pages differently. No zero-budget mail
+cache files were written. Package CI resource reports have their own build IDs.
