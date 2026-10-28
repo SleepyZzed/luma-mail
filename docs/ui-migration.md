@@ -152,6 +152,13 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   All older headers remain accessible. A requested page opens its last message;
   other bodies/attachments are not preloaded. Existing body/cache budgets remain.
   Native 2,503-message acceptance verifies bounded delegates and complete release.
+- Native pop-out/dock now reparents one editor/session, preserving formatting,
+  selection and attachments. Platform decorations, minimized restore and the
+  ordinary draft close policy remain intact. Native Windows checks pass.
+- Close cleanup waits for spring completion; a five-second hidden-window grace
+  period releases recreatable graphics resources without polling or disk writes.
+  Compact rows, saved main-window size and visible unified-account badges use the
+  existing preferences and metadata. Linux memory verification remains pending.
 - Pending: remaining rich-text/forwarding and layout flows, final
   lifecycle/resource hardening, two-account acceptance,
   Linux packaging and sustained resource audits. The preview has incomplete

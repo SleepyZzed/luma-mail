@@ -13,6 +13,8 @@
 #include <QPalette>
 #include <QColor>
 #include <QEvent>
+#include <QWindow>
+#include <QQuickWindow>
 #include <QFileDialog>
 #include <QColorDialog>
 #include <QClipboard>
@@ -35,6 +37,25 @@ Bridge::Bridge(bool preview,QObject*p):QObject(p),m_preview(preview){
 #ifdef Q_OS_WIN
     process.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments*a){a->flags|=CREATE_NO_WINDOW;});
 #endif
+}
+void Bridge::trackWindow(QObject*object){
+    auto window=qobject_cast<QWindow*>(object);if(!window||window->property("lumaRestoreState").isValid())return;
+    window->setProperty("lumaRestoreState",int(Qt::WindowNoState));
+    if(auto quick=qobject_cast<QQuickWindow*>(window)){
+        // A one-shot background grace period avoids rebuilding graphics for
+        // quick hide/restore cycles. QML state and mail sessions stay intact.
+        auto idle=new QTimer(quick);idle->setSingleShot(true);idle->setInterval(5000);
+        auto visibility=[quick,idle]{if(quick->isVisible()&&quick->visibility()!=QWindow::Minimized){idle->stop();quick->setPersistentGraphics(true);quick->setPersistentSceneGraph(true);}else idle->start();};
+        connect(quick,&QWindow::visibleChanged,quick,visibility);connect(quick,&QWindow::visibilityChanged,quick,visibility);
+        connect(idle,&QTimer::timeout,quick,[quick]{if(!quick->isVisible()||quick->visibility()==QWindow::Minimized){quick->setPersistentGraphics(false);quick->setPersistentSceneGraph(false);quick->releaseResources();}});
+    }
+
+    connect(window,&QWindow::windowStateChanged,window,[window](Qt::WindowState state){if(window->isVisible()&&!(state&Qt::WindowMinimized))window->setProperty("lumaRestoreState",int(state));});
+}
+void Bridge::activateWindow(QObject*object){
+    auto window=qobject_cast<QWindow*>(object);if(!window)return;
+    const auto state=window->property("lumaRestoreState").toInt();
+    if(state&Qt::WindowFullScreen)window->showFullScreen();else if(state&Qt::WindowMaximized)window->showMaximized();else window->showNormal();window->raise();window->requestActivate();
 }
 bool Bridge::eventFilter(QObject *object,QEvent *event){
     if(object==qApp && event->type()==QEvent::ApplicationPaletteChange)systemPalette();

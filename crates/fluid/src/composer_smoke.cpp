@@ -11,12 +11,18 @@
 #include <QImage>
 #include <QDir>
 #include <QDateTime>
+#include <functional>
 class ComposerSmoke:public QObject {
     Bridge *mail;QQuickWindow *window;QQuickItem *card=nullptr;RichDocument *document=nullptr;
     int stage=0;bool failed=false,finished=false;QString session;QJsonArray checks;
     void check(const QString&name,bool ok){checks.append(QJsonObject{{"check",name},{"passed",ok}});failed|=!ok;}
     void invoke(const char*method){QMetaObject::invokeMethod(card,method);}
     void key(int code,Qt::KeyboardModifiers modifiers=Qt::NoModifier){QKeyEvent press(QEvent::KeyPress,code,modifiers);QCoreApplication::sendEvent(window,&press);QKeyEvent release(QEvent::KeyRelease,code,modifiers);QCoreApplication::sendEvent(window,&release);}
+    void afterClosed(std::function<void()> next,int attempts=50){
+        if(!card->property("shown").toBool()&&!card->property("closingPending").toBool()&&document->nativeDocument()->isEmpty()){next();return;}
+        if(!attempts){check("closed composer settles and releases its document",false);finish();return;}
+        QTimer::singleShot(50,this,[this,next,attempts]{afterClosed(next,attempts-1);});
+    }
     void completeRecipient(){stage=18;auto to=window->findChild<QQuickItem*>("composeTo");to->setProperty("text",QString("\"Saved, Person\" <saved@example.com>, May"));to->setProperty("cursorPosition",to->property("text").toString().size());to->forceActiveFocus();QMetaObject::invokeMethod(to,"query");}
     void choose(const QString&account,const QString&address){QVariant row=QVariantMap{{"account",account},{"address",address}};QMetaObject::invokeMethod(card,"chooseSender",Q_ARG(QVariant,row));}
     void finish(){if(finished)return;finished=true;QJsonObject r{{"passed",!failed},{"checks",checks},{"syntheticData",true}};if(auto path=qEnvironmentVariable("LUMA_COMPOSER_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(r).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(r).toJson(QJsonDocument::Compact);mail->send("settingsUpdate",{{"draft_mode","manual"}});mail->quit(failed?2:0);}
@@ -72,16 +78,16 @@ public:
             }else if(event=="quitCancelled"&&stage==4){
                 stage=5;check("keep editing cancels quit",card->property("shown").toBool());mail->send("settingsUpdate",{{"draft_mode","manual"}});
             }else if(event=="settings"&&stage==5){stage=6;invoke("requestClose");}
-            else if(event=="composeClosed"&&stage==6){stage=7;check("manual close clears engine content",data["quote"].toString().isEmpty()&&data["attachments"].toList().isEmpty());QTimer::singleShot(900,this,[this]{check("close clears the native rich document",document->nativeDocument()->isEmpty());mail->selectRow(0,0,240,100,450,68);});}
+            else if(event=="composeClosed"&&stage==6){stage=7;check("manual close clears engine content",data["quote"].toString().isEmpty()&&data["attachments"].toList().isEmpty());afterClosed([this]{check("close clears the native rich document",document->nativeDocument()->isEmpty());mail->selectRow(0,0,240,100,450,68);});}
             else if(event=="body"&&stage==7){stage=8;mail->requestCompose("reply",mail->messages()->at(0));}
             else if(event=="composeOpened"&&stage==8){
                 stage=9;session=data["session"].toString();check("reply has read-only history outside the editor",!data["quote"].toString().isEmpty()&&document->nativeDocument()->isEmpty());
                 check("reply keeps its account ownership",data["accountLocked"].toBool());
                 QTimer::singleShot(750,this,[this]{check("reply docks inside the reading thread",card->property("inlineMode").toBool()&&!card->property("expanded").toBool());check("reply focuses authored body",window->activeFocusItem()==window->findChild<QQuickItem*>("composeBody"));mail->requestCompose("reply",mail->messages()->at(0));});
             }else if(event=="composeFocus"&&stage==9){stage=10;check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());invoke("requestClose");}
-            else if(event=="composeClosed"&&stage==10){stage=11;QTimer::singleShot(900,this,[this]{check("inline close collapses and releases the surface",!card->isVisible());finish();});}
+            else if(event=="composeClosed"&&stage==10){stage=11;afterClosed([this]{check("inline close collapses and releases the surface",!card->isVisible());finish();});}
         });
-        QTimer::singleShot(18000,this,[this]{if(!finished){check("composer smoke completes within deadline",false);finish();}});
+        QTimer::singleShot(22000,this,[this]{if(!finished){check("composer smoke completes within deadline",false);finish();}});
     }
 };
 void startComposerSmoke(Bridge*m,QQuickWindow*w){new ComposerSmoke(m,w);}

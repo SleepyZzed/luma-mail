@@ -6,7 +6,7 @@ Rectangle {
     property string account:""
     property string photoSender:sender
     property bool active:true
-    readonly property bool displayActive:active&&visible&&Mail.windowVisible
+    readonly property bool displayActive:active&&visible&&Mail.windowVisible&&!!root.Window.window?.visible&&root.Window.window?.visibility!==Window.Minimized
     property bool ready:false
     property string watchedKey:""
     property string profileSource:""

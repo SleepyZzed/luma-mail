@@ -6,10 +6,19 @@ ApplicationWindow {
     width:1440;height:900;minimumWidth:760;minimumHeight:560;visible:true;title:"Luma Mail";color:Theme.window
     flags:isWindows?Qt.Window:Qt.Window|Qt.FramelessWindowHint
     font.family:Theme.family
+    property bool geometryReady:false
+    function restoreGeometry(){
+        if(!Mail.preview){width=Math.max(minimumWidth,Math.min(Mail.settings.window_width||1320,Screen.desktopAvailableWidth));height=Math.max(minimumHeight,Math.min(Mail.settings.window_height||840,Screen.desktopAvailableHeight))}
+        geometryReady=true
+    }
+    function flushGeometry(){geometrySave.stop();if(geometryReady&&!Mail.preview&&visibility===Window.Windowed)Mail.send("settingsUpdate",{window_width:Math.round(width),window_height:Math.round(height)})}
+    onWidthChanged:if(geometryReady&&!Mail.preview&&visibility===Window.Windowed)geometrySave.restart()
+    onHeightChanged:if(geometryReady&&!Mail.preview&&visibility===Window.Windowed)geometrySave.restart()
+    Timer{id:geometrySave;interval:500;onTriggered:window.flushGeometry()}
     readonly property bool appModal:settings.visible||searchSheet.shown||comparison.visible||signature.visible||confirmation.visible||labelDialog.visible||attachmentPane.shown
     function accountShortcut(index){const accounts=(Mail.settings.accounts||[]).filter(account=>account.enabled!==false);if(index<accounts.length)Mail.setView("inbox",accounts[index].id)}
     function scaleBy(delta){Mail.send("settingsUpdate",{ui_scale_percent:Math.max(75,Math.min(200,(Mail.settings.ui_scale_percent||100)+delta))})}
-    onClosing:(close)=>{if((Mail.settings.close_to_tray===undefined||Mail.settings.close_to_tray)&&trayAvailable){close.accepted=false;window.hide()}else{close.accepted=false;Mail.quit()}}
+    onClosing:(close)=>{flushGeometry();if((Mail.settings.close_to_tray===undefined||Mail.settings.close_to_tray)&&trayAvailable){close.accepted=false;window.hide()}else{close.accepted=false;Mail.quit()}}
     Item {
         id:scene;anchors.fill:parent
         readonly property real railGoal:Theme.unit(rail.collapsed?76:railHandle.value)
@@ -38,14 +47,14 @@ ApplicationWindow {
             onMessageMenuRequested:(message,x,y)=>{messageMenu.message=message;messageMenu.threadKey=Mail.reader.key;messageMenu.x=x;messageMenu.y=y;messageMenu.open()}
             onContextRequested:(row,x,y)=>{context.row=row;context.x=x;context.y=y;context.open()}
             nativeBlocked:settings.visible||context.visible||messageMenu.visible||rail.overlayOpen||errorToast.visible||composer.modalOpen||attachmentPane.shown||labelDialog.visible||confirmation.visible||searchSheet.shown||comparison.visible||signature.visible
-            nativeMasks:(composer.shown&&!composer.inlineMode?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]).concat(downloadPill.visible?[Qt.rect(downloadPill.x,downloadPill.y,downloadPill.width,downloadPill.height)]:[])
+            nativeMasks:(composer.shown&&!composer.inlineMode&&!composer.detached?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]).concat(downloadPill.visible?[Qt.rect(downloadPill.x,downloadPill.y,downloadPill.width,downloadPill.height)]:[])
         }
         PaneHandle{id:railHandle;objectName:"navigationResize";x:rail.width-width/2;height:parent.height;z:50;visible:!rail.collapsed;initial:Math.max(160,Math.min(480,Mail.settings.sidebar_width||240));minimum:160;maximum:Math.min(480,scene.width/Theme.scale*.4);onCommitted:value=>Mail.send("settingsUpdate",{sidebar_width:Math.round(value)})}
         PaneHandle{id:inboxHandle;objectName:"inboxResize";x:reader.x-width/2;height:parent.height;z:50;visible:Mail.readerOpen&&inbox.width>1;initial:Math.max(180,Math.min(1200,Mail.settings.list_width||450));minimum:180;maximum:Math.min(1200,Math.max(180,(scene.width-scene.railGoal)/Theme.scale-380));onCommitted:value=>Mail.send("settingsUpdate",{list_width:Math.round(value)})}
         ActivityPill{x:rail.width+Theme.unit(28);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(13)}
         FluidButton{anchors.right:parent.right;anchors.rightMargin:Theme.unit(20);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(9);text:"Undo";glyph:"undo";visible:Mail.canUndo;onClicked:Mail.send("undo")}
         RowMorph{id:morph}
-        Composer{id:composer;scene:scene;shown:false;externalModal:labelDialog.opened||settings.opened||confirmation.opened||context.visible||messageMenu.visible||rail.overlayOpen||searchSheet.shown||comparison.visible||signature.visible;onComparisonRequested:(session,form)=>comparison.begin(session,form)}
+        Composer{id:composer;scene:scene;homeScene:scene;shown:false;externalModal:labelDialog.opened||settings.opened||confirmation.opened||context.visible||messageMenu.visible||rail.overlayOpen||searchSheet.shown||comparison.visible||signature.visible;onComparisonRequested:(session,form)=>comparison.begin(session,form)}
         SettingsSheet{id:settings;anchors.fill:parent;onCloseRequested:opened=false;onSignatureRequested:account=>Mail.send("signatureOpen",{account:account});onConfirmationRequested:(heading,message,buttonText,command,parameters)=>confirmation.ask(heading,message,buttonText,command,parameters)}
         LabelDialog{id:labelDialog;anchors.fill:parent}
         ConfirmSheet{id:confirmation;anchors.fill:parent}
@@ -65,6 +74,8 @@ ApplicationWindow {
     }
     Connections {
         target:Mail
+        function onReady(){window.restoreGeometry()}
+        function onFlushComposer(){window.flushGeometry()}
         function onOpenRowRequested(index){inbox.revealIndex(index)}
         function onProjectRow(row,x,y,w,h){morph.place(row,Qt.rect(x,y,w,h),scene.projectionSpec(),true)}
         function onReturnRow(row){const target=inbox.projectionTarget(row.key,scene.width-scene.railGoal);if(target)morph.place(row,target,scene.projectionSpec(),false)}
@@ -76,6 +87,7 @@ ApplicationWindow {
             }
         }
         function onComposeRequested(mode){
+            if(composer.detached)composer.returnHome(false)
             composer.openingSurface=composer.visible
             const key=Mail.composer.key,reading=Mail.reader.key
             if((mode==="reply"||mode==="replyAll"||mode==="forward")&&key&&reading&&key.id===reading.id&&key.account===reading.account)reader.dockInline(composer)

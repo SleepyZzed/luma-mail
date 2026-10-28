@@ -3,11 +3,18 @@ import QtQuick.Controls
 Item {
     id:root;objectName:"composer"
     property bool shown:false
+    property bool closingPending:false
     signal comparisonRequested(string session,var form)
     property bool expanded:false
     property bool inlineMode:false
     property string phase:"editing"
     property Item scene
+    property Item homeScene
+    property var popout:null
+    readonly property bool detached:popout!==null
+    property bool previousExpanded:false
+    property bool previousInline:false
+    readonly property bool hostVisible:!!root.Window.window?.visible&&root.Window.window?.visibility!==Window.Minimized
     property rect origin:Qt.rect(22,99,200,47)
     property Item inlineDock
     property bool manualPosition:false
@@ -38,25 +45,27 @@ Item {
     readonly property real compactWidth:Math.min(Theme.unit(650),scene.width-Theme.unit(48))
     readonly property real compactHeight:Math.min(Theme.unit(535),scene.height-Theme.unit(48))
     readonly property real inlineHeight:Theme.unit(480)
-    readonly property real editorWidth:inlineMode&&parent?parent.width:expanded?scene.width-Theme.unit(40):compactWidth
-    readonly property real editorHeight:inlineMode?inlineHeight:expanded?scene.height-Theme.unit(40):compactHeight
+    readonly property real editorWidth:detached?scene.width:inlineMode&&parent?parent.width:expanded?scene.width-Theme.unit(40):compactWidth
+    readonly property real editorHeight:detached?scene.height:inlineMode?inlineHeight:expanded?scene.height-Theme.unit(40):compactHeight
     readonly property bool statusMode:phase==="sent"||phase==="sending"
     readonly property real goalWidth:statusMode?Math.min(editorWidth,Theme.unit(330)):editorWidth
     readonly property real goalHeight:inlineMode&&!shown?0:statusMode?Theme.unit(54):editorHeight
-    readonly property real goalX:inlineMode?0:statusMode?scene.width-goalWidth-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.width-goalWidth-Theme.unit(12),floatingPosition.x)):scene.width-goalWidth-Theme.unit(24)
-    readonly property real goalY:inlineMode?0:!shown?scene.height+Theme.unit(24):statusMode?scene.height-goalHeight-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.height-goalHeight-Theme.unit(12),floatingPosition.y)):scene.height-goalHeight-Theme.unit(24)
+    readonly property real goalX:detached&&!statusMode?0:inlineMode?0:statusMode?scene.width-goalWidth-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.width-goalWidth-Theme.unit(12),floatingPosition.x)):scene.width-goalWidth-Theme.unit(24)
+    readonly property real goalY:detached&&shown&&!statusMode?0:inlineMode?0:!shown?scene.height+Theme.unit(24):statusMode?scene.height-goalHeight-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.height-goalHeight-Theme.unit(12),floatingPosition.y)):scene.height-goalHeight-Theme.unit(24)
     readonly property bool moving:horizontal.running||vertical.running||breadth.running||depth.running
+    onMovingChanged:if(closingPending&&!shown&&!moving)Qt.callLater(()=>releaseDelay.restart())
     readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
     visible:shown||moving;clip:true;z:70
     property bool externalModal:false
     readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible||formatMenu.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
-    Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&!drag.active}
-    Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&!drag.active}
-    Motion{id:breadth;target:root.goalWidth;enabled:Theme.motion}
-    Motion{id:depth;target:root.goalHeight;enabled:Theme.motion}
-    Rectangle{anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.inlineMode?18:22);enabled:Theme.motion}}
+    Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&root.hostVisible&&!drag.active}
+    Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag.active}
+    Motion{id:breadth;target:root.goalWidth;enabled:Theme.motion&&root.hostVisible}
+    Motion{id:depth;target:root.goalHeight;enabled:Theme.motion&&root.hostVisible}
+    Rectangle{anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:Theme.motion&&root.hostVisible}}
     component Field:TextField {
+        Accessible.name:placeholderText
         color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;font.pixelSize:Theme.unit(12)
         leftPadding:0;rightPadding:0;topPadding:Theme.unit(4);bottomPadding:Theme.unit(4);background:Item{}
         enabled:!root.state.locked;maximumLength:8192;onTextEdited:root.schedule()
@@ -65,12 +74,13 @@ Item {
         id:header;width:parent.width;height:Theme.unit(52)
         Text{textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending · waiting for Gmail…":root.phase==="sent"?"Sent · confirmed by Gmail":root.state.mode==="draft"?"Gmail draft":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
         Row{anchors.right:parent.right;anchors.rightMargin:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;visible:!root.statusMode
-            FluidButton{glyph:root.expanded?"minimize":"maximize";tip:root.expanded?"Restore composer":"Expand composer";onClicked:root.toggleExpanded()}
+            FluidButton{glyph:"popout";tip:root.detached?"Dock composer":"Pop out composer";onClicked:root.toggleWindow()}
+            FluidButton{visible:!root.detached;glyph:root.expanded?"minimize":"maximize";tip:root.expanded?"Restore composer":"Expand composer";onClicked:root.toggleExpanded()}
             FluidButton{glyph:"close";tip:"Close composer";onClicked:root.requestClose()}
         }
-        DragHandler{id:drag;target:null;enabled:!root.inlineMode&&!root.expanded&&!root.statusMode;acceptedButtons:Qt.LeftButton
-            onActiveChanged:if(active){root.dragStart=Qt.point(root.x,root.y);root.floatingPosition=root.dragStart;root.manualPosition=true}
-            onTranslationChanged:if(active)root.floatingPosition=Qt.point(root.dragStart.x+translation.x,root.dragStart.y+translation.y)
+        DragHandler{id:drag;target:null;enabled:!root.statusMode&&(root.detached||(!root.inlineMode&&!root.expanded));acceptedButtons:Qt.LeftButton
+            onActiveChanged:if(active){if(root.detached){root.popout.startSystemMove();return}root.dragStart=Qt.point(root.x,root.y);root.floatingPosition=root.dragStart;root.manualPosition=true}
+            onTranslationChanged:if(active&&!root.detached)root.floatingPosition=Qt.point(root.dragStart.x+translation.x,root.dragStart.y+translation.y)
         }
     }
     Column {
@@ -233,7 +243,55 @@ Item {
     Shortcut{sequence:"Ctrl+Enter";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSend")}
     Shortcut{sequence:"Ctrl+S";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSave")}
     Timer{id:sentDelay;interval:1100;onTriggered:root.close()}
-    Timer{id:releaseDelay;interval:800;onTriggered:if(!root.shown){root.formLoading=true;to.clear();cc.clear();bcc.clear();root.showCc=false;root.showBcc=false;subject.clear();rich.load({kind:"plain",text:""});Mail.releaseComposerView(root.loadedSession);root.loadedSession="";root.formLoading=false}}
+    Timer{id:releaseDelay;interval:0;onTriggered:if(root.closingPending&&!root.shown&&!root.moving){root.closingPending=false;root.formLoading=true;to.clear();cc.clear();bcc.clear();root.showCc=false;root.showBcc=false;subject.clear();rich.load({kind:"plain",text:""});Mail.releaseComposerView(root.loadedSession);root.loadedSession="";root.formLoading=false;root.releasePopout()}}
+    Component {
+        id:windowComponent
+        ApplicationWindow {
+            id:secondary;objectName:"composerWindow";property var card:null
+            width:Math.max(Theme.unit(500),card?card.width:650);height:Math.max(Theme.unit(500),card?card.height:560)
+            minimumWidth:Theme.unit(440);minimumHeight:Theme.unit(420)
+            visible:false;title:"Compose - Luma Mail";color:Theme.window
+            flags:isWindows?Qt.Window:Qt.Window|Qt.FramelessWindowHint
+            transientParent:null
+            onVisibilityChanged:if(!root.popout||root.popout===secondary)Mail.setComposerWindowVisible(visible&&visibility!==Window.Minimized)
+            onClosing:event=>{event.accepted=false;if(card)card.requestClose()}
+            Shortcut{sequence:"Ctrl+W";enabled:!!secondary.card&&!secondary.card.modalOpen;onActivated:secondary.card.requestClose()}
+            Shortcut{sequence:"Escape";enabled:!!secondary.card&&!secondary.card.modalOpen&&!secondary.card.recipientSuggestionsOpen;onActivated:secondary.card.requestClose()}
+            Shortcut{sequence:"Ctrl+Q";onActivated:Mail.quit()}
+            Component.onDestruction:if(!root.popout||root.popout===secondary)Mail.setComposerWindowVisible(false)
+        }
+    }
+    function toggleWindow(){
+        if(detached){returnHome(true);return}
+        if(!shown||statusMode||modalOpen)return
+        inputDelay.stop();sync();linkDialog.close();findDialog.close();historyDialog.close();formatMenu.close()
+        const at=mapToGlobal(0,0),oldWidth=width,oldHeight=height
+        previousExpanded=expanded;previousInline=inlineMode
+        const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth),height:Math.max(Theme.unit(500),oldHeight),x:at.x,y:at.y})
+        if(!host)return
+        Mail.trackWindow(host);popout=host;inlineMode=false;expanded=true;scene=host.contentItem;parent=scene
+        horizontal.rebase(0);vertical.rebase(0);breadth.rebase(oldWidth);depth.rebase(oldHeight)
+        host.show();host.raise();host.requestActivate();Qt.callLater(()=>body.forceActiveFocus())
+    }
+    function releasePopout(){
+        if(!popout)return
+        const old=popout
+        parent=homeScene;scene=homeScene;popout=null;inlineMode=false;expanded=false;inlineDock=null
+        horizontal.snap(goalX);vertical.snap(goalY);breadth.snap(goalWidth);depth.snap(goalHeight)
+        old.card=null;old.hide();old.destroy()
+    }
+    function returnHome(activate){
+        if(!popout)return
+        const old=popout,global=mapToGlobal(0,0),oldWidth=width,oldHeight=height
+        if(activate)Mail.showMainWindow()
+        parent=homeScene;scene=homeScene;popout=null;inlineMode=false;expanded=previousExpanded
+        const at=homeScene.mapFromGlobal(global.x,global.y)
+        horizontal.rebase(Math.max(0,Math.min(homeScene.width-oldWidth,at.x)));vertical.rebase(Math.max(0,Math.min(homeScene.height-oldHeight,at.y)))
+        breadth.rebase(oldWidth);depth.rebase(oldHeight)
+        if(previousInline&&inlineDock&&Mail.readerOpen&&Mail.reader.key?.id===state.key?.id&&Mail.reader.key?.account===state.key?.account){dockTo(inlineDock);expanded=false}
+        else inlineDock=null
+        old.card=null;old.hide();old.destroy();if(activate)Qt.callLater(()=>body.forceActiveFocus())
+    }
     function schedule(){if(!formLoading&&shown&&loadedSession)inputDelay.restart()}
     function chooseSender(choice){root.sync();if(choice.account===state.account)Mail.send("composeIdentity",{session:loadedSession,address:choice.address});else Mail.send("composeAccount",{session:loadedSession,account:choice.account})}
     function form(){let value={to:to.text,cc:cc.text,bcc:bcc.text,subject:subject.text,includeQuote:includeQuote,includeSignature:includeSignature};if(!state.sourceMode){const p=rich.payload();value.text=p.text;value.html=p.html}return value}
@@ -241,14 +299,14 @@ Item {
     function submit(action){if(!loadedSession||state.locked)return;inputDelay.stop();Mail.send(action,{session:loadedSession,form:form()})}
     function requestClose(){if(closeDialog.visible)return;if(loadedSession){inputDelay.stop();Mail.send("composeClose",{session:loadedSession,form:form()})}else close()}
     function answerClose(answer){Mail.send("composeCloseAnswer",{session:loadedSession,revision:closeDialog.question.revision,answer:answer});closeDialog.close()}
-    function focusEditor(){Qt.callLater(()=>{if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
+    function focusEditor(){if(detached)Mail.activateWindow(popout);Qt.callLater(()=>{if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
     function open(mode){
         const activeSurface=openingSurface===undefined?visible:openingSurface;openingSurface=undefined
-        releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
+        closingPending=false;releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
         if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
     }
-    function close(){inputDelay.stop();shown=false;closeDialog.close();releaseDelay.restart()}
+    function close(){inputDelay.stop();closingPending=true;shown=false;closeDialog.close();Qt.callLater(()=>{if(!moving)releaseDelay.restart()})}
     function toggleExpanded(){
         const position=mapToItem(scene,0,0)
         if(inlineMode){inlineMode=false;parent=scene;expanded=true;horizontal.rebase(position.x);vertical.rebase(position.y)}
@@ -266,7 +324,7 @@ Item {
     Connections{target:Mail
         function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;formLoading=false;if(c.state==="sent")sentDelay.restart()}
         function onComposeClosed(){root.close()}
-        function onComposeCloseQuestion(data){closeDialog.question=data;closeDialog.open()}
+        function onComposeCloseQuestion(data){if(root.detached)Mail.activateWindow(root.popout);closeDialog.question=data;closeDialog.open()}
         function onFlushComposer(){root.sync()}
         function onColourChosen(colour,background){if(background)rich.highlight(colour);else rich.foreground(colour)}
     }

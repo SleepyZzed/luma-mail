@@ -21,6 +21,7 @@ QtObject {
     readonly property color accentText:tokens.accentText||"#281c3d"
     readonly property color selected:mix(surface,accent,dark?.19:.12)
     readonly property color link: "#82b5ff"
+    readonly property bool compact:Mail.settings.compact||false
     readonly property real scale: Math.max(.75,Math.min(2,(Mail.settings.ui_scale_percent || 100)/100))
     readonly property bool motion: Mail.windowVisible&&!(Mail.settings.reduced_motion || false)
     readonly property string family: Qt.application.font.family

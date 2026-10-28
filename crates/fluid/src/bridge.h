@@ -75,7 +75,11 @@ public:
     Q_INVOKABLE void queueMailto(const QString&uri);
     Q_INVOKABLE void releaseComposerView(const QString&session);
     Q_INVOKABLE void handleMailto(const QUrl&uri);
-    void setWindowVisible(bool value){if(m_windowVisible==value)return;m_windowVisible=value;emit windowVisibleChanged();}
+    void setWindowVisible(bool value){m_mainWindowVisible=value;updateWindowVisibility();}
+    Q_INVOKABLE void setComposerWindowVisible(bool value){m_composerWindowVisible=value;updateWindowVisibility();}
+    Q_INVOKABLE void showMainWindow(){emit showRequested();}
+    Q_INVOKABLE void trackWindow(QObject*window);
+    Q_INVOKABLE void activateWindow(QObject*window);
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
     Q_INVOKABLE void setView(const QString &folder,const QString &account=QString(),const QString &search=QString());
     Q_INVOKABLE void selectRow(int row,int modifiers,qreal x,qreal y,qreal width,qreal height,const QVariantMap &projection={});
@@ -146,7 +150,8 @@ private:
     QString configRoot;
     QString m_activity="Connecting to your inbox",m_activityKind="loading",m_error;
     QString m_notificationStatus;
-    bool m_windowVisible=true;
+    bool m_windowVisible=true,m_mainWindowVisible=true,m_composerWindowVisible=false;
+    void updateWindowVisibility(){const bool visible=m_mainWindowVisible||m_composerWindowVisible;if(visible==m_windowVisible)return;m_windowVisible=visible;emit windowVisibleChanged();}
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0,headerRequest=0; QString openedKey,anchorKey;
     QHash<QString,quint64> documentRequests;

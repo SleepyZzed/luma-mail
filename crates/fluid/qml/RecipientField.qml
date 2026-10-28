@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 TextField {
     id:field
+    Accessible.name:placeholderText||"Recipients"
     property string session:""
     property string account:""
     property var entries:[]

@@ -172,6 +172,19 @@ jobs:
           name: fluid-conflict-linux
           path: fluid-conflict-linux.json
           if-no-files-found: warn
+      - name: Native pop-out composer and redocking
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_POPOUT_REPORT: ${{ github.workspace }}/fluid-popout-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --popout-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-popout-linux
+          path: fluid-popout-linux.json
+          if-no-files-found: warn
       - name: Native bounded long-conversation reading
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
@@ -393,6 +406,22 @@ jobs:
           path: |
             fluid-conflict-windows.json
             conflict.stderr
+          if-no-files-found: warn
+      - name: Native pop-out composer and redocking
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_POPOUT_REPORT="$(cygpath -m "$PWD")/fluid-popout-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --popout-test >popout.stdout 2>popout.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-popout-windows
+          path: |
+            fluid-popout-windows.json
+            popout.stderr
           if-no-files-found: warn
       - name: Native bounded long-conversation reading
         shell: msys2 {0}

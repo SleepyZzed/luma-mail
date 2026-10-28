@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 TextField {
     id:root
+    Accessible.name:placeholderText
     implicitHeight:Theme.unit(38)
     padding:Theme.unit(11);selectByMouse:true
     font.family:Theme.family;font.pixelSize:Theme.unit(12)

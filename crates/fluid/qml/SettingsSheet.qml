@@ -84,6 +84,7 @@ Item {
                 Text{textFormat:Text.PlainText;width:Theme.unit(140);text:"Appearance";color:Theme.text;font.pixelSize:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter}
                 FluidCombo{width:parent.width-Theme.unit(155);model:["System","Light","Dark","Noctalia"];currentIndex:["system","light","dark","noctalia"].indexOf(Mail.settings.theme||"system");onActivated:Mail.send("settingsUpdate",{theme:["system","light","dark","noctalia"][currentIndex]})}
             }
+            FluidCheck{objectName:"compactRowsChoice";text:"Compact inbox rows";checked:Theme.compact;onToggled:Mail.send("settingsUpdate",{compact:checked})}
             FluidCheck{text:"Reduce motion";checked:Mail.settings.reduced_motion||false;onToggled:Mail.send("settingsUpdate",{reduced_motion:checked})}
             Text{textFormat:Text.PlainText;text:"SYNC & DESKTOP";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
             Row{width:parent.width;spacing:Theme.unit(15)

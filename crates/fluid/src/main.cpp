@@ -34,6 +34,7 @@ void startConflictSmoke(Bridge*,QQuickWindow*);
 void startResourceSmoke(Bridge*,QQuickWindow*);
 void startSignatureSmoke(Bridge*,QQuickWindow*);
 void startThreadSmoke(Bridge*,QQuickWindow*);
+void startPopoutSmoke(Bridge*,QQuickWindow*);
 void startAttachmentSmoke(Bridge*,AttachmentPreview*,QQuickWindow*);
 
 int main(int argc,char**argv){
@@ -73,19 +74,9 @@ int main(int argc,char**argv){
     );
     engine.loadFromModule("Luma.Fluid","Main");if(engine.rootObjects().isEmpty())return 1;
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
-    // Window visibility can transiently become Windowed while X11 maps a
-    // maximized window. Preserve the real native state, not that map event.
-    Qt::WindowState restoredState=Qt::WindowNoState;
-    QObject::connect(window,&QWindow::windowStateChanged,window,[window,&restoredState](Qt::WindowState state){
-        if(window->isVisible()&&!(state&Qt::WindowMinimized))restoredState=state;
-    });
-    QObject::connect(&bridge,&Bridge::showRequested,window,[window,&restoredState]{
-        const auto state=restoredState;
-        if(state&Qt::WindowFullScreen)window->showFullScreen();
-        else if(state&Qt::WindowMaximized)window->showMaximized();
-        else window->showNormal();
-        window->raise();window->requestActivate();
-    });
+    // Preserve the native state, rather than transient X11 map visibility.
+    bridge.trackWindow(window);
+    QObject::connect(&bridge,&Bridge::showRequested,window,[&bridge,window]{bridge.activateWindow(window);});
     QDesktopServices::setUrlHandler("mailto",&bridge,"handleMailto");
     if(instance)QObject::connect(instance.get(),&SingleInstance::activated,&bridge,[&bridge](const QString&uri){if(uri.isEmpty())emit bridge.showRequested();else bridge.queueMailto(uri);});
     if(!mailto.isEmpty())bridge.queueMailto(mailto);
@@ -100,6 +91,7 @@ int main(int argc,char**argv){
     if(preview&&app.arguments().contains("--resource-test"))startResourceSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--signature-test"))startSignatureSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--navigation-test"))startNavigationSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--popout-test"))startPopoutSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--thread-test"))startThreadSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--attachment-test"))startAttachmentSmoke(&bridge,&attachmentPreview,window);

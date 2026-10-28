@@ -302,3 +302,69 @@ switch](https://doc.qt.io/qt-6/qtwebengine-debugging.html). This does not change
 application's graphics defaults, disable sandboxing, or establish real Hyprland
 GPU performance. Backend configuration is recorded with the report; differences
 must not be attributed to lazy profiles alone.
+
+
+## Complete software-rendered Linux attribution at c4b07ec
+
+All Linux functional scene suites, including 17 long-conversation checks and the
+signature editor, passed in [run 40624580688](https://github.com/SleepyZzed/luma-mail/actions/runs/40624580688).
+The explicit Chromium-software resource run completed with all six lifecycle
+assertions and readable PSS for every descendant process. It measured 258.2 MiB
+PSS at baseline (two processes), 278.5 with 1,000 loaded conversations, 295.4 after
+scrolling, 452.8 with HTML (five processes), 405.3 after release and 405.5 in the
+background (four processes). Settled CPU samples were 0.00% at the one-second
+counter resolution. These results fail the requested RAM goals; the changed
+software renderer configuration means they cannot isolate the effect of lazy
+profiles against the earlier 330.8-MiB baseline.
+
+Per-process samples show the main Qt host dominating idle allocations; after
+HTML closes the renderer view is gone, while Chromium framework/zygote processes
+and host allocations persist. No mailbox archive was added. The raw aggregate,
+per-process and lifecycle evidence is retained in docs/validation. Actual
+Hyprland/GPU use and a sustained live-account run remain separate required gates.
+The Windows job at that commit failed the old fixed-900-ms document-release
+assertion; close teardown is now being tied to spring completion and its native
+check waits for actual release rather than assuming a fixed frame deadline.
+
+
+## Pop-out, close completion and background graphics — 28 October
+
+The native pop-out window reparents the same composer/document/session; it does
+not create another draft or editor. Docking restores its former compact, expanded
+or inline context. Native close follows the existing draft policy. Windows keeps
+system title-bar controls, while Linux delegates its frameless window to the
+compositor. Auxiliary-window visibility keeps the active editor responsive when
+the inbox is hidden; hidden inbox avatars and HTML still stop independently.
+A shared native window-state tracker restores minimized/maximized windows.
+
+Closed-composer teardown now follows the completion of the actual closing springs,
+rather than an 800-ms timer. Rapid reopening cancels pending cleanup. The native
+check waits for release before continuing. All 12 affected Windows scene groups
+pass without QML warnings (219 checks), including 14 pop-out checks, 33 navigation
+checks and density changes that preserve loaded rows. Comfortable/compact density,
+account-source badges, recipient/input accessibility names and saved main-window
+size are wired to existing preferences. No mailbox refresh is needed for density.
+
+After five seconds deliberately hidden/minimized, a one-shot requests release of
+recreatable Qt scene/graphics resources. Short hide/restore cycles retain them;
+there is no repeated idle trim or working-set manipulation. This follows [Qt's
+resource-lifetime API](https://doc.qt.io/qt-6/qquickwindow.html#setPersistentGraphics).
+The local Windows resource binary, built before the later density/geometry changes
+and identified by its SHA-256 in the raw report, passed all seven lifecycle checks:
+
+| Phase | Complete-tree private working set (MiB) |
+| --- | ---: |
+| Fresh baseline | 128.8 |
+| 1,000 loaded conversations | 140.7 |
+| After scrolling | 144.0 |
+| Open newsletter | 251.3 |
+| Reader released, window visible | 149.9 |
+| Background after resource release | 98.6 |
+| Restored native scene | 128.6 |
+
+Settled CPU samples were 0.00% at the sampling resolution. Windows private commit
+is reported separately (341.2 MiB baseline, 522.1 HTML, 194.7 background); these
+figures are not Linux PSS. The newsletter phase still exceeds the requested active
+RAM goal, and no Linux result for the background-release change is claimed yet.
+The isolated fixture retained only its small settings file, with no cache/body,
+attachment or draft directory. Package/long-soak/real-GPU acceptance remains open.

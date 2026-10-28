@@ -152,3 +152,13 @@ A reading epoch plus monotonic header-window revision fences stale replies/pages
 Only headers in the current window receive native mutation projections. The
 existing eight-message/8-MiB engine body budget and eight-body/16-MiB UTF-16 native
 budget are unchanged. Collapsed body documents are lazy, with spring-close teardown.
+
+
+The optional native composer window reparents the same document and session; its
+lifetime is bounded to one window, destroyed after close/redock. Main/auxiliary
+visibility is aggregated only for foreground activity; avatar/HTML ownership also
+uses their actual host window. Native window-state tracking preserves restore
+state. Closed documents are cleared after their bounds springs finish, and a
+rapid reopen cancels cleanup. A single-shot five-second hidden-window grace timer
+requests Qt graphics/scene release; no recurring memory trim or mail-state reset
+is introduced. Saved window dimensions and density remain small preferences.

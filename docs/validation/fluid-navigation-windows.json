@@ -123,6 +123,14 @@
         {
             "check": "Ctrl comma opens custom Settings",
             "passed": true
+        },
+        {
+            "check": "compact density changes existing rows without refetching mail",
+            "passed": true
+        },
+        {
+            "check": "comfortable density restores the same loaded rows",
+            "passed": true
         }
     ],
     "passed": true,

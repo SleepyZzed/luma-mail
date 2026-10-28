@@ -23,6 +23,10 @@
         {
             "check": "hiding stops foreground animation and photo work",
             "passed": true
+        },
+        {
+            "check": "restoration reconstructs an exposed native scene after background release",
+            "passed": true
         }
     ],
     "note": "Lifecycle assertions only. RAM/CPU are sampled externally for the entire process tree.",

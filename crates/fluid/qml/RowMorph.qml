@@ -98,6 +98,6 @@ Item {
         font.pixelSize: Theme.unit(10)
         color: Theme.faint
         elide: Text.ElideRight
-        opacity: 1 - root.progress
+        opacity: (root.source.snippetVisible===false?0:1)*(1-root.progress)
     }
 }

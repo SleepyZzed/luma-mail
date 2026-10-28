@@ -150,3 +150,19 @@ new replies arrive. A 2,503-message synthetic test verifies all headers remain
 accessible, and native checks verify bounded delegates and latest-message reveal.
 The resource profiler now retains failed-run counters rather than losing them;
 Linux software-renderer diagnostics and real GPU measurements remain open gates.
+
+
+The c4b07ec Linux run passed all functional scenes. Its controlled Chromium-software
+resource test measured 258.2 MiB PSS at idle, 452.8 with HTML and 405.5 after release/
+background, with near-zero settled CPU samples. The RAM targets are still unmet.
+Per-process data identifies the Qt host and persistent browser framework helpers;
+this is not an email-cache growth issue. Actual GPU/Hyprland profiling is required.
+
+
+The replacement now restores a real pop-out/dock composer with one retained RAM
+session, spring-completion cleanup, saved window size, compact inbox density and
+unified account badges. Windows native acceptance has 219 passing scene checks.
+Its measured private working set is 128.8 MiB baseline, 251.3 with HTML and 98.6
+while backgrounded after graphics release; private commit is reported separately.
+Linux PSS and full-package/live-account gates remain open. Next parity work includes
+sign-in recovery/cancellation, remaining editing/forwarding flows and distribution.

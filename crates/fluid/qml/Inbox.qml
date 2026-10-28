@@ -5,6 +5,8 @@ Item {
     property Item scene
     property bool compact:Mail.readerOpen
     property bool searchMorphed:false
+    readonly property var sourceAccounts:{const accounts={};for(const account of Mail.settings.accounts||[])if(account.enabled!==false)accounts[account.id]=account;return accounts}
+    readonly property bool showSources:!Mail.account&&Object.keys(sourceAccounts).length>1
     readonly property bool listFocused:list.activeFocus
     function focusSearch(){search.forceActiveFocus();search.selectAll()}
     signal searchRequested(rect origin)
@@ -53,11 +55,17 @@ Item {
             property bool selected: {let n=Mail.selectionCount;return Mail.isSelected(item)}
             property bool open:Mail.readerOpen&&Mail.reader.key&&Mail.reader.key.id===item.key.id&&Mail.reader.key.account===item.key.account
             function box(item) {let p=item.mapToItem(row,0,0);return Qt.rect(p.x,p.y,item.width,item.height)}
-            function projection() {return {avatar:box(avatar),sender:box(senderText),subject:box(subjectText),snippet:box(snippetText)}}
+            function projection() {return {avatar:box(avatar),sender:box(senderText),subject:box(subjectText),snippet:box(snippetText),snippetVisible:!Theme.compact}}
+            readonly property var sourceAccount:root.sourceAccounts[item.key.account]||({})
+            Accessible.role:Accessible.ListItem
+            Accessible.name:(item.sender||"")+", "+(item.subject||"No subject")
+            Accessible.description:(item.unread?"Unread. ":"Read. ")+(sourceAccount.email||item.key.account)
+            Accessible.selected:row.selected||row.open
+            Accessible.onPressAction:root.openIndex(row.index,0)
             property bool removing:false
             property bool pooled:false
             width:list.width;height:Math.max(0,rowHeight.value);clip:true
-            Motion{id:rowHeight;target:row.removing?0:Theme.unit(68);enabled:Theme.motion;onRunningChanged:if(!running&&row.removing)row.ListView.delayRemove=false}
+            Motion{id:rowHeight;target:row.removing?0:Theme.unit(Theme.compact?56:68);enabled:Theme.motion;onRunningChanged:if(!running&&row.removing)row.ListView.delayRemove=false}
             ListView.onRemove:{ListView.delayRemove=Theme.motion;row.removing=true}
             ListView.onPooled:row.pooled=true
             ListView.onReused:{row.removing=false;row.pooled=false}
@@ -71,14 +79,17 @@ Item {
             Rectangle{x:Theme.unit(14);y:Theme.unit(12);width:Theme.unit(5);height:width;radius:width/2;color:Theme.accent;visible:row.item.unread}
             Column {x:Theme.unit(60);y:Theme.unit(10);width:row.width-x-Theme.unit(21);spacing:Theme.unit(3)
                 Row {width:parent.width
-                    Text {textFormat:Text.PlainText;id:senderText;width:parent.width-Theme.unit(65);text:row.item.sender.replace(/<.*>/g,"").trim();font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Medium;color:Theme.text;elide:Text.ElideRight}
+                    Text {textFormat:Text.PlainText;id:senderText;width:Math.max(0,parent.width-Theme.unit(65)-(accountBadge.visible?accountBadge.width+Theme.unit(6):0));text:row.item.sender.replace(/<.*>/g,"").trim();font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Medium;color:Theme.text;elide:Text.ElideRight}
+                    Rectangle{id:accountBadge;visible:root.showSources;width:visible?Math.min(Theme.unit(90),badgeLabel.implicitWidth+Theme.unit(12)):0;height:Theme.unit(16);radius:Theme.unit(5);color:Theme.mix(Theme.surface,Theme.avatarColor(row.sourceAccount.email||row.item.key.account),.25)
+                        Text{id:badgeLabel;textFormat:Text.PlainText;anchors.centerIn:parent;width:parent.width-Theme.unit(10);text:row.sourceAccount.name||row.sourceAccount.email||row.item.key.account;elide:Text.ElideRight;color:Theme.muted;font.pixelSize:Theme.unit(9)}
+                    }
                     Text {textFormat:Text.PlainText;width:Theme.unit(65);horizontalAlignment:Text.AlignRight;text:Theme.date(row.item.date);font.pixelSize:Theme.unit(9);color:row.item.unread?Theme.accent:Theme.faint}
                 }
                 Text {textFormat:Text.PlainText;id:subjectText;width:parent.width;text:row.item.subject||"(No subject)";font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Normal;color:row.item.unread?Theme.text:Theme.muted;elide:Text.ElideRight}
-                Text {textFormat:Text.PlainText;id:snippetText;width:parent.width;text:row.item.snippet;font.pixelSize:Theme.unit(10);color:Theme.faint;elide:Text.ElideRight}
+                Text {textFormat:Text.PlainText;id:snippetText;visible:!Theme.compact;width:parent.width;text:row.item.snippet;font.pixelSize:Theme.unit(10);color:Theme.faint;elide:Text.ElideRight}
             }
             MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:(mouse)=>{list.forceActiveFocus();list.currentIndex=row.index;let p=row.mapToItem(root.scene,0,0);if(mouse.button===Qt.RightButton){if(Mail.selectionCount&&!Mail.isSelected(row.item))Mail.clearSelection();root.contextRequested(row.item,p.x+mouse.x,p.y+mouse.y);}else Mail.selectRow(row.index,mouse.modifiers,p.x,p.y,row.width,row.height,row.projection())}}
-            Row {x:row.width-width-Theme.unit(12)+(1-rowHover.value)*Theme.unit(12);y:Theme.unit(29);spacing:Theme.unit(1);opacity:Math.max(0,Math.min(1,rowHover.value));enabled:hover.hovered;visible:!Mail.selecting
+            Row {x:row.width-width-Theme.unit(12)+(1-rowHover.value)*Theme.unit(12);y:Theme.unit(Theme.compact?15:29);spacing:Theme.unit(1);opacity:Math.max(0,Math.min(1,rowHover.value));enabled:hover.hovered;visible:!Mail.selecting
                 FluidButton {glyph:row.item.starred?"star-filled":"star";tip:row.item.starred?"Remove star":"Star";onClicked:Mail.mutate(row.item.starred?"unstar":"star",row.item)}
                 FluidButton {glyph:"archive";tip:"Archive";onClicked:Mail.mutate("archive",row.item)}
                 FluidButton {glyph:"trash";tip:"Move to Trash";onClicked:Mail.mutate("trash",row.item)}
