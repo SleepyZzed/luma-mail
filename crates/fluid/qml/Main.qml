@@ -84,8 +84,10 @@ ApplicationWindow {
         function onReaderChanged(){
             if(morph.active&&morph.opening&&Mail.readerOpen)morph.destination=scene.projectionSpec()
             const key=Mail.composer.key,reading=Mail.reader.key
-            if(composer.inlineMode&&composer.shown&&(!Mail.readerOpen||!key||!reading||key.id!==reading.id||key.account!==reading.account)){
-                composer.inlineDock=null;composer.floatToScene();composer.requestClose()
+            if(composer.shown&&(!Mail.readerOpen||!key||!reading||key.id!==reading.id||key.account!==reading.account)){
+                const wasInline=composer.inlineMode
+                composer.inlineDock=null
+                if(wasInline){composer.floatToScene();composer.requestClose()}
             }
         }
         function onComposeRequested(mode){
