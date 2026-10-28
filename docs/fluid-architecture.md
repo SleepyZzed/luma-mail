@@ -162,3 +162,13 @@ state. Closed documents are cleared after their bounds springs finish, and a
 rapid reopen cancels cleanup. A single-shot five-second hidden-window grace timer
 requests Qt graphics/scene release; no recurring memory trim or mail-state reset
 is introduced. Saved window dimensions and density remain small preferences.
+
+
+Authorization retains one request/URL in native RAM, with a strict official-Google
+HTTPS launcher boundary, explicit clipboard action and eight cancelled request-ID
+fences. Token exchange, PKCE verifier and vault operations remain entirely in Rust.
+Cancellation and credential commit synchronize through the engine job lock; an
+owner request ID fences the busy state. Shutdown interrupts reads, requests export
+cancellation and waits for accepted writes before dropping the process/writer.
+The authorization fixture is opt-in only under isolated design preview, uses an
+invalid synthetic client, and never contacts Google or writes vault credentials.

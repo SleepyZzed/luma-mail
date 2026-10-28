@@ -368,3 +368,37 @@ figures are not Linux PSS. The newsletter phase still exceeds the requested acti
 RAM goal, and no Linux result for the background-release change is claimed yet.
 The isolated fixture retained only its small settings file, with no cache/body,
 attachment or draft directory. Package/long-soak/real-GPU acceptance remains open.
+
+
+## Sign-in recovery and accepted writes — 28 October continuation
+
+The custom sheet now follows real authorization request IDs, opens the system
+browser, reports launch failure and offers explicit retry/copy/cancel. Cancelled
+or mismatched callbacks cannot reopen a browser. Only bounded official Google
+HTTPS authorization URLs reach that launcher; the URL is cleared on completion,
+error or cancellation. Empty mailboxes now offer one-click Google onboarding and
+useful empty/search/disabled-account states. Initial sign-in requests the existing
+Gmail and optional Contacts/Drive/sender-control connections together; actual
+returned permissions remain authoritative.
+
+Cancellation is accepted before credential persistence. The engine fences the
+vault/settings commit against cancellation, while quit waits for accepted provider
+and credential writes (including read receipts) instead of aborting them. An
+old cancelled task cannot clear a newer request's busy state. No token or verifier
+enters the QML scene and no credential JSON file is created. The test-only synthetic
+authorization fixture has no Google request or vault/configuration write.
+
+Windows native acceptance passes all 13 scene groups without QML warnings
+(233 checks), including 14 auth recovery checks with an isolated browser launcher
+and clipboard. Engine validation passes 33 unit and 16 real-pipe tests; the auth
+cancel/retry/commit/quit case passed 20 consecutive runs. Six CTest groups pass.
+These are state/lifetime/security-boundary checks, not real Google consent proof.
+
+At 063ab88, both complete Linux and Windows migration CI passed in
+[run 40627979471](https://github.com/SleepyZzed/luma-mail/actions/runs/40627979471).
+The Linux software-rendered resource run measured 247.4 MiB PSS baseline, 253.7
+with 1,000 loaded records, 255.6 after scrolling, 410.8 with HTML, 355.2 after
+reader release, 331.1 backgrounded and 362.0 restored. All seven lifecycle checks
+and complete-PSS checks passed. Settled CPU samples were 0.00% at counter resolution.
+Releasing the hidden scene helps, but RAM goals remain unmet; render configuration
+and CI variability must be preserved when interpreting differences between runs.

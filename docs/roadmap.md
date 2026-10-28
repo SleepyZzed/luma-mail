@@ -166,3 +166,12 @@ Its measured private working set is 128.8 MiB baseline, 251.3 with HTML and 98.6
 while backgrounded after graphics release; private commit is reported separately.
 Linux PSS and full-package/live-account gates remain open. Next parity work includes
 sign-in recovery/cancellation, remaining editing/forwarding flows and distribution.
+
+
+Sign-in recovery/onboarding is implemented in the replacement, including browser
+retry/copy/cancel, official-URL validation and credential-commit/quit fencing.
+Windows native acceptance now has 233 passing scene checks. Both platforms passed
+all migration checks at 063ab88; its Linux software-rendered PSS is 247.4 MiB idle,
+410.8 with HTML and 331.1 backgrounded. Resource goals and real desktop/Google
+acceptance remain open. Remaining parity includes file drops and read/undo recovery;
+inline images, whole-conversation forwarding and packaging remain 1.0 priorities.

@@ -46,7 +46,11 @@ pub struct App {
     pub read_revision: AtomicU64,
     pub undo: Mutex<Vec<crate::mail::Undo>>,
     pub preview: bool,
-    pub auth_busy: Arc<AtomicBool>,
+    pub auth_busy: Arc<AtomicU64>,
+    pub auth_committing: AtomicU64,
+    pub stopping: AtomicBool,
+    pub preview_auth_approved: AtomicU64,
+    pub preview_auth_notify: tokio::sync::Notify,
     pub recent: luma_core::local_compose::Store,
     pub composer: Mutex<Option<Arc<crate::compose::Session>>>,
     pub signatures: Arc<crate::signatures::Service>,
@@ -142,7 +146,11 @@ impl App {
             read_revision: AtomicU64::new(0),
             undo: Mutex::new(vec![]),
             preview,
-            auth_busy: Arc::new(AtomicBool::new(false)),
+            auth_busy: Arc::new(AtomicU64::new(0)),
+            auth_committing: AtomicU64::new(0),
+            stopping: AtomicBool::new(false),
+            preview_auth_approved: AtomicU64::new(0),
+            preview_auth_notify: tokio::sync::Notify::new(),
             recent,
             composer: Mutex::new(None),
             signatures: Default::default(),
@@ -244,7 +252,16 @@ impl App {
         if command.action == "cancel" {
             let request = command.data["request"].as_u64().unwrap_or(0);
             let mut jobs = self.jobs.lock().unwrap();
-            // Never abort a provider write after it may have reached Gmail.
+            let auth = jobs
+                .get(&request)
+                .is_some_and(|(kind, _)| kind == "authStart");
+            if auth && self.auth_committing.load(Ordering::SeqCst) == request {
+                let events = self.events.clone();
+                tokio::spawn(async move {
+                    events.emit(request, "authFinishing", json!({})).await;
+                });
+                return;
+            }
             let cancellable = jobs.get(&request).is_some_and(|(kind, _)| {
                 matches!(
                     kind.as_str(),
@@ -260,6 +277,18 @@ impl App {
             });
             if cancellable && let Some((_, job)) = jobs.remove(&request) {
                 job.abort();
+                if auth {
+                    let _ = self.auth_busy.compare_exchange(
+                        request,
+                        0,
+                        Ordering::SeqCst,
+                        Ordering::SeqCst,
+                    );
+                    let events = self.events.clone();
+                    tokio::spawn(async move {
+                        events.emit(request, "authCancelled", json!({})).await;
+                    });
+                }
             }
             return;
         }
@@ -399,6 +428,18 @@ impl App {
                     "senderRule" => crate::mail_commands::sender_rule(&owner, &command).await,
                     "undo" => crate::mail::undo(&owner, command.id).await,
                     "authStart" => crate::accounts::auth(&owner, &command).await,
+                    "previewAuthApprove"
+                        if owner.preview
+                            && std::env::var("LUMA_PREVIEW_AUTH").as_deref() == Ok("1") =>
+                    {
+                        let request = command.data["request"].as_u64().unwrap_or(0);
+                        if request == 0 || owner.auth_busy.load(Ordering::SeqCst) != request {
+                            return Err(Error::Invalid("No matching synthetic sign-in".into()));
+                        }
+                        owner.preview_auth_approved.store(request, Ordering::SeqCst);
+                        owner.preview_auth_notify.notify_one();
+                        Ok(())
+                    }
                     "settingsUpdate" => crate::accounts::update(&owner, &command).await,
                     "accountUpdate" => crate::accounts::account_update(&owner, &command).await,
                     "accountReorder" => crate::accounts::reorder(&owner, &command).await,
@@ -478,29 +519,46 @@ impl App {
             false
         }
     }
+    pub fn begin_auth_commit(&self, id: u64) -> Result<()> {
+        let jobs = self.jobs.lock().unwrap();
+        if self.stopping.load(Ordering::SeqCst) || !jobs.contains_key(&id) {
+            return Err(Error::Invalid("Sign-in was cancelled".into()));
+        }
+        self.auth_committing.store(id, Ordering::SeqCst);
+        Ok(())
+    }
     pub async fn shutdown(&self) {
         self.attachment_preview.begin("");
         self.attachment_preview.cancel_saves();
         self.sync.stop();
         self.photos.stop();
-        let downloads: Vec<_> = self
-            .jobs
-            .lock()
-            .unwrap()
-            .drain()
-            .filter_map(|(_, (kind, handle))| {
-                if kind == "attachmentSaveAll" {
-                    Some(handle)
-                } else {
-                    handle.abort();
-                    None
-                }
-            })
-            .collect();
-        // Cooperative export cancellation finishes cleanup of a partial file.
-        // The current network read is interruptible; the safe write is not aborted.
-        drop(downloads);
+        let writes: Vec<_> = {
+            let mut jobs = self.jobs.lock().unwrap();
+            self.stopping.store(true, Ordering::SeqCst);
+            let auth = self.auth_committing.load(Ordering::SeqCst);
+            jobs.drain()
+                .filter_map(|(id, (kind, handle))| {
+                    if crate::lifecycle::finish_before_exit(&kind, id, auth) {
+                        Some(handle)
+                    } else {
+                        handle.abort();
+                        None
+                    }
+                })
+                .collect()
+        };
+        if writes.iter().any(|handle| !handle.is_finished()) {
+            self.status(0, "saving", "Finishing accepted changes before closing")
+                .await;
+        }
+        // Accepted writes finish before the child and event writer exit. This
+        // also keeps vault/settings commits atomic with respect to Cancel/Quit.
+        while writes.iter().any(|handle| !handle.is_finished()) {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
         self.attachment_preview.wait_saves().await;
+        self.sync.stop();
+        self.photos.stop();
         if self.settings.lock().unwrap().clear_cache_on_exit {
             let _ = self.cache.lock().unwrap().clear();
         }

@@ -10,6 +10,7 @@ Item {
     readonly property bool listFocused:list.activeFocus
     function focusSearch(){search.forceActiveFocus();search.selectAll()}
     signal searchRequested(rect origin)
+    signal settingsRequested()
     signal contextRequested(var row,real x,real y)
     clip:true
     Item {
@@ -95,6 +96,15 @@ Item {
                 FluidButton {glyph:"trash";tip:"Move to Trash";onClicked:Mail.mutate("trash",row.item)}
             }
         }
+    }
+    Column {
+        id:emptyState;anchors.centerIn:parent;width:Math.max(0,Math.min(parent.width-Theme.unit(80),Theme.unit(390)));spacing:Theme.unit(18)
+        visible:Mail.inbox.count===0&&Mail.activityKind==="idle"
+        readonly property bool noAccounts:Mail.accounts.count===0
+        Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;horizontalAlignment:Text.AlignHCenter;text:emptyState.noAccounts?"Make room for your mail":Mail.search?"No matching conversations":"Nothing here right now";color:Theme.text;font.pixelSize:Theme.unit(22);font.weight:Font.DemiBold}
+        Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;horizontalAlignment:Text.AlignHCenter;text:emptyState.noAccounts?"Connect Gmail in your browser. Your mail stays online; messages and attachments load when you open them.":Mail.search?"Try another search or clear the current query.":Object.keys(root.sourceAccounts).length?"New mail will appear here automatically.":"Enable an account in Settings to see its mail.";color:Theme.muted;font.pixelSize:Theme.unit(12)}
+        FluidButton{objectName:"onboardingGoogleSignIn";anchors.horizontalCenter:parent.horizontalCenter;text:"Sign in with Google";primary:true;visible:emptyState.noAccounts;onClicked:Mail.send("authStart",{drive:true,settings:true,photos:true})}
+        FluidButton{anchors.horizontalCenter:parent.horizontalCenter;text:Mail.search?"Clear search":"Account settings";visible:!emptyState.noAccounts;onClicked:if(Mail.search)Mail.searchCurrent("");else root.settingsRequested()}
     }
     FluidButton {anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(15);text:"Load 25 more";glyph:"chevron-down";visible:Mail.more;onClicked:Mail.send("page")}
     function projectionTarget(key, paneWidth) {

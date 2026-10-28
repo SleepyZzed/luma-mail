@@ -26,7 +26,7 @@ impl Client {
         Self::fixture(two_accounts, photos, html, false)
     }
     fn fixture(two_accounts: bool, photos: bool, html: bool, conflict: bool) -> Self {
-        Self::fixture_count(two_accounts, photos, html, conflict, 1)
+        Self::fixture_count(two_accounts, photos, html, conflict, 1, false)
     }
     fn fixture_count(
         two_accounts: bool,
@@ -34,11 +34,13 @@ impl Client {
         html: bool,
         conflict: bool,
         count: usize,
+        auth: bool,
     ) -> Self {
         let root = tempfile::tempdir().unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_luma-engine"))
             .arg("--design-preview")
             .env("LUMA_TEST_ROOT", root.path())
+            .env("LUMA_PREVIEW_AUTH", if auth { "1" } else { "0" })
             .env("LUMA_PREVIEW_THREAD_COUNT", count.to_string())
             .env("LUMA_PREVIEW_PHOTOS", if photos { "1" } else { "0" })
             .env("LUMA_PREVIEW_HTML", if html { "1" } else { "0" })
@@ -855,7 +857,7 @@ fn online_signature_edits_are_ephemeral_and_quit_waits_for_an_explicit_choice() 
 
 #[test]
 fn long_conversations_page_headers_without_prefetching_or_dropping_the_latest() {
-    let mut c = Client::fixture_count(false, false, false, false, 2503);
+    let mut c = Client::fixture_count(false, false, false, false, 2503, false);
     c.until("ready");
     c.until("rows");
     let key = json!({"account":"preview","id":"preview1"});
@@ -907,4 +909,36 @@ fn long_conversations_page_headers_without_prefetching_or_dropping_the_latest() 
     c.expect_error(id + 1);
     assert!(!c.root.path().join("cache/bodies").exists());
     assert!(!c.root.path().join("config/composer").exists());
+}
+
+#[test]
+fn signin_cancel_retry_and_quit_do_not_interrupt_an_accepted_commit() {
+    let mut c = Client::fixture_count(false, false, false, false, 1, true);
+    c.until("ready");
+    c.until("rows");
+    c.send(
+        1,
+        "authStart",
+        json!({"drive":true,"settings":true,"photos":true}),
+    );
+    let first = c.until("authUrl");
+    assert!(
+        first["url"]
+            .as_str()
+            .unwrap()
+            .starts_with("https://accounts.google.com/")
+    );
+    c.send(2, "cancel", json!({"request":1}));
+    c.until("authCancelled");
+    c.send(3, "authStart", json!({}));
+    c.until("authUrl");
+    c.send(4, "previewAuthApprove", json!({"request":3}));
+    c.until("authFinishing");
+    c.send(5, "cancel", json!({"request":3}));
+    c.until("authFinishing");
+    c.send(6, "quit", json!({}));
+    assert_eq!(c.until("authComplete")["synthetic"], true);
+    assert!(c.child.wait().unwrap().success());
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
 }

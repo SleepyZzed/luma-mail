@@ -24,6 +24,7 @@
 #endif
 
 Bridge::Bridge(bool preview,QObject*p):QObject(p),m_preview(preview){
+    authOpener=[](const QUrl&url){return QDesktopServices::openUrl(url);};
     systemPalette();
     paletteDebounce=new QTimer(this);paletteDebounce->setSingleShot(true);paletteDebounce->setInterval(120);
     connect(&paletteWatcher,&QFileSystemWatcher::directoryChanged,this,[this]{paletteDebounce->start();});
@@ -77,11 +78,23 @@ void Bridge::start(){
         ;
     process.setProgram(binary);process.setArguments(m_preview?QStringList{"--design-preview"}:QStringList{});process.start();
 }
-quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!=QProcess::Running)return 0;auto id=++serial;if(a=="searchBuild")searchRequest=id;if(a=="labels")labelRequests[data.value("account").toString()]=id;QJsonObject c{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(c).toJson(QJsonDocument::Compact);if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}process.write(bytes+'\n');return id;}
+quint64 Bridge::send(const QString&a,const QVariantMap&data){
+    if(process.state()!=QProcess::Running)return 0;
+    if(a=="authStart"&&authRequest){emit authChanged();emit showRequested();return 0;}
+    const auto id=++serial;if(a=="searchBuild")searchRequest=id;if(a=="labels")labelRequests[data.value("account").toString()]=id;
+    QJsonObject command{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(command).toJson(QJsonDocument::Compact);
+    if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}
+    if(a=="authStart"){
+        authRequest=id;authOptions=data;m_authState={{"request",qint64(id)},{"phase","starting"},{"message","Preparing secure Google sign-in"}};emit authChanged();emit showRequested();
+    }
+    process.write(bytes+'\n');return id;
+}
 void Bridge::consume(){pending+=process.readAllStandardOutput();while(true){auto n=pending.indexOf('\n');if(n<0)break;if(n>16*1024*1024){process.kill();pending.clear();return;}auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}if(pending.size()>16*1024*1024){process.kill();pending.clear();}}
 void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
     if(attachmentPreview&&attachmentPreview->consume(kind,d,quint64(id))){emit received(kind=="error"?"attachmentError":kind,QVariantMap{{"token",d["token"].toString()}});return;}
+    if(cancelledAuth.contains(quint64(id))&&(kind=="error"||kind.startsWith("auth")))return;
+    if(authEvent(kind,d,quint64(id))){emit received(kind=="error"?"authError":kind,m_authState);return;}
     if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
     if(profileEvent(kind,d,quint64(id))){emit received(kind=="error"?"photoError":kind,d.toVariantMap());return;}
     if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();m_accounts.reconcileOrdered(d["settings"].toObject()["accounts"].toArray());configRoot=d["configPath"].toString();if(QDir(configRoot).exists()){paletteWatcher.addPath(configRoot);auto file=configRoot+"/noctalia.toml";if(QFileInfo::exists(file))paletteWatcher.addPath(file);}systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();engineReady=true;emit ready();if(!m_preview)setView("inbox");flushMailto();}
@@ -97,7 +110,6 @@ void Bridge::receive(const QJsonObject&e){
         }flushMailto();
     }
     else if(kind=="theme"){if(d.contains("background")){m_palette=d.toVariantMap();emit paletteChanged();}else systemPalette();}
-    else if(kind=="authUrl"){openLink(d["url"].toString());}
     else if(kind=="searchBuilt"){if(quint64(id)!=searchRequest||quint64(id)<viewRequest)return;applySearch(d);}
     else if(kind=="viewReset"){if(quint64(id)<viewRequest)return;m_inbox.replace({});m_messages.replace({});m_readerOpen=false;m_reader.clear();emit readerChanged();}
     else if(kind=="rows"){if(quint64(d["generation"].toInteger())<viewRequest)return;if(d["reset"].toBool())m_inbox.replace(d["items"].toArray());else m_inbox.append(d["items"].toArray());m_more=d["more"].toBool();m_activity="Your inbox, with room to breathe";m_activityKind="idle";emit activityChanged();emit viewChanged();}

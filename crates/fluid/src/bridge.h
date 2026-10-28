@@ -14,6 +14,7 @@
 #include <QUrl>
 #include <atomic>
 #include <memory>
+#include <functional>
 class ProfileImages;
 class AttachmentPreview;
 
@@ -22,6 +23,7 @@ class Bridge : public QObject {
     Q_PROPERTY(RecordModel* inbox READ inbox CONSTANT)
     Q_PROPERTY(RecordModel* messages READ messages CONSTANT)
     Q_PROPERTY(RecordModel* accounts READ accounts CONSTANT)
+    Q_PROPERTY(QVariantMap authState READ authState NOTIFY authChanged)
     Q_PROPERTY(QVariantMap settings READ settings NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap reader READ reader NOTIFY readerChanged)
     Q_PROPERTY(QVariantMap composer READ composer NOTIFY composerChanged)
@@ -53,6 +55,11 @@ public:
     void setAttachmentPreview(AttachmentPreview*preview){attachmentPreview=preview;}
     RecordModel* inbox(){return &m_inbox;} RecordModel* messages(){return &m_messages;}
     RecordModel* accounts(){return &m_accounts;}
+    QVariantMap authState()const{return m_authState;}
+    Q_INVOKABLE void openAuthBrowser();
+    Q_INVOKABLE void copyAuthLink();
+    Q_INVOKABLE void cancelAuth();
+    Q_INVOKABLE void retryAuth();
     QVariantMap settings()const{return m_settings;} QVariantMap reader()const{return m_reader;} QVariantMap composer()const{return m_composer;}
     QVariantMap palette()const{return m_palette;}
     QVariantMap sync()const{return m_sync;}
@@ -109,6 +116,7 @@ public:
     Q_INVOKABLE void clearError(){m_error.clear();emit errorChanged();}
     Q_INVOKABLE void quit(int exitCode=0);
 signals:
+    void authChanged();
     void settingsChanged(); void readerChanged(); void composerChanged(); void viewChanged();
     void paletteChanged();
     void syncChanged();
@@ -136,6 +144,10 @@ private:
     friend class ComposerSmoke;
     friend class SyncSmoke;
     friend class ThreadSmoke;
+    friend class AuthSmoke;
+    QVariantMap m_authState,authOptions;quint64 authRequest=0;QList<quint64>cancelledAuth;
+    std::function<bool(const QUrl&)>authOpener;
+    bool authEvent(const QString&kind,const QJsonObject&data,quint64 id);
     void consume(); void receive(const QJsonObject &event);
     void systemPalette();
     void pruneSelection();

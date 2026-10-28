@@ -240,27 +240,61 @@ fn ensure_composer_closed(app: &App, account: &str) -> Result<()> {
     Ok(())
 }
 pub async fn auth(app: &Arc<App>, c: &Command) -> Result<()> {
-    if app.preview {
+    let fixture = app.preview && std::env::var("LUMA_PREVIEW_AUTH").as_deref() == Ok("1");
+    if app.preview && !fixture {
         return Err(Error::Invalid(
             "Sign-in is disabled in the isolated design preview".into(),
         ));
     }
-    if app
-        .auth_busy
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
+    if c.id == 0
+        || app
+            .auth_busy
+            .compare_exchange(0, c.id, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
     {
         return Err(Error::Invalid(
             "Finish the current Google sign-in first".into(),
         ));
     }
-    struct Busy(Arc<std::sync::atomic::AtomicBool>);
+    struct Busy {
+        app: Arc<App>,
+        id: u64,
+    }
     impl Drop for Busy {
         fn drop(&mut self) {
-            self.0.store(false, Ordering::SeqCst)
+            let _ =
+                self.app
+                    .auth_busy
+                    .compare_exchange(self.id, 0, Ordering::SeqCst, Ordering::SeqCst);
+            let _ = self.app.auth_committing.compare_exchange(
+                self.id,
+                0,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            );
         }
     }
-    let _busy = Busy(app.auth_busy.clone());
+    let _busy = Busy {
+        app: app.clone(),
+        id: c.id,
+    };
+    if fixture {
+        app.events.emit(c.id,"authUrl",json!({"url":"https://accounts.google.com/o/oauth2/v2/auth?client_id=synthetic&state=synthetic","expiresSeconds":300})).await;
+        while app.preview_auth_approved.load(Ordering::SeqCst) != c.id {
+            app.preview_auth_notify.notified().await;
+        }
+        app.begin_auth_commit(c.id)?;
+        app.events.emit(c.id, "authFinishing", json!({})).await;
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        app.events
+            .emit(
+                c.id,
+                "authComplete",
+                json!({"account":"preview","synthetic":true}),
+            )
+            .await;
+        return Ok(());
+    }
     let config = crate::registration::client_config()?;
     let existing = app.settings.lock().unwrap().accounts.clone();
     let expected = existing.iter().find(|a| a.id == c.text("account"));
@@ -296,6 +330,8 @@ pub async fn auth(app: &Arc<App>, c: &Command) -> Result<()> {
         .find(|a| a.email.eq_ignore_ascii_case(&profile.email_address))
         .map(|a| a.id.clone())
         .unwrap_or_else(luma_core::composer::new_id);
+    app.begin_auth_commit(c.id)?;
+    app.events.emit(c.id, "authFinishing", json!({})).await;
     if let Some(refresh) = &token.refresh_token {
         SystemVault
             .store(

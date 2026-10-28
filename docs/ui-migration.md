@@ -159,6 +159,11 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   period releases recreatable graphics resources without polling or disk writes.
   Compact rows, saved main-window size and visible unified-account badges use the
   existing preferences and metadata. Linux memory verification remains pending.
+- Sign-in recovery now has a spring sheet with the real request lifecycle,
+  system-browser retry, explicit copy link and cancellation. Empty-account
+  onboarding requests the existing optional connections in one Google flow.
+  Cancel/Quit cannot interrupt an accepted credential commit; shutdown also waits
+  for accepted provider writes. Browser/clipboard-isolated native tests pass.
 - Pending: remaining rich-text/forwarding and layout flows, final
   lifecycle/resource hardening, two-account acceptance,
   Linux packaging and sustained resource audits. The preview has incomplete

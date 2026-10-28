@@ -9,6 +9,7 @@ mod compose;
 mod compose_commands;
 mod draft_conflict;
 mod labels;
+mod lifecycle;
 mod mail;
 mod mail_commands;
 mod photos;
