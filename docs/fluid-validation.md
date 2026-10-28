@@ -868,3 +868,39 @@ validation/fluid-ci-0.10.0-dev.3.json and fluid-release-0.10.0-dev.3.json.
 The 150/200-MiB goals, sustained real-mailbox and target-desktop acceptance remain
 open. The earlier local Windows audit is still labeled with its own binary;
 CI and local/private-working-set and Linux/PSS numbers are not interchangeable.
+
+
+## 0.11 cross-platform hardening and authoring
+
+Published source `d04f531b748ab707a5751f9391dba3f1cbc4654e` passes [CI 40718748514](https://github.com/SleepyZzed/luma-mail/actions/runs/40718748514): eight
+component groups per platform, fifteen portable groups (305 Linux/308 Windows),
+131 core / 41 engine / 17 protocol tests on Linux and two Windows HTML/notification
+adapter tests. Strict Clippy and the encoding guard pass. Public tag and all nine
+asset digests match; source tar and Windows clean provenance match this commit.
+
+Live Windows two-account checks pass all 29 assertions for draft/reopen/send,
+inline/ordinary attachment roles, actual recipient delivery, replies/unread,
+whole-thread forward and scoped mailbox actions. Sent draft cleanup succeeds;
+fixtures were moved to Trash and zero-cache writes remain zero. Reports contain
+no account addresses, message IDs, message bodies or tokens. These transport
+checks do not certify phone rendering or a real Linux keyring/desktop.
+
+The original single-instance acknowledgment race reproduced locally; keeping the
+server alive until the client reads/closes fixes it. A local stress run performs
+400 successive activations plus crash recovery. Native motion checks record zero
+idle frames; the programmatic fixture excludes external desktop hover, while
+production retains normal input. Software-rendered native motion also passes.
+
+Exact CI resource reports include all descendants. Windows private working set
+is 66.7 MiB baseline, 80.0 after 1,000-row scrolling, 142.3 with HTML, 84.7 after
+release and 58.3 backgrounded. Linux software Mesa / Chromium GPU-disabled PSS is
+227.8 baseline, 240.7 after scrolling, 402.5 with HTML, 345.4 after release and
+329.4 backgrounded. The page renderer exits, but retained Chromium/framework
+allocations and helpers still need work. Settled sampled CPU is 0.000% of one
+core. Do not compare Windows private working set directly with Linux PSS or label
+these short synthetic measurements sustained acceptance. Linux 150/200-MiB goals
+and the actual hardware Vulkan path remain open. The earlier local Qt 6.12/debug
+profile is separately labeled with source 9f780b9 and its own binary hash.
+
+See validation/fluid-ci-0.11.0-dev.1.json, fluid-release-0.11.0-dev.1.json,
+fluid-live-two-0.11.0-dev.1.json and the canonical package/resource reports.

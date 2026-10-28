@@ -1,12 +1,12 @@
 {
-  "version": "0.10.0-preview.bbc341a",
-  "source_commit": "bbc341ad9788e41a25b91f985214fd15ca9f6dbb",
+  "version": "0.11.0-preview.d04f531",
+  "source_commit": "d04f531b748ab707a5751f9391dba3f1cbc4654e",
   "source_dirty": false,
-  "archive_bytes": 102405965,
-  "installed_logical_bytes": 277162052,
+  "archive_bytes": 102679235,
+  "installed_logical_bytes": 278037034,
   "files": 934,
   "packages": 85,
-  "sha256": "9125921f1ca56c0fcafbc981cd7609fe25572f0e1ded87ea08cbab477342d891",
+  "sha256": "aa316f89d27498bb7f20c310ed0a496df32ad4d1217e4e611ced8e6dc71cfabd",
   "mailbox_bytes": 0,
   "note": "Package bytes only. Runtime/settings/cache allocation is measured separately; no account data is copied."
 }

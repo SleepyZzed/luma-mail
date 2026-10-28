@@ -1,0 +1,129 @@
+{
+  "source_commit": "d04f531b748ab707a5751f9391dba3f1cbc4654e",
+  "platform": "Windows",
+  "live_accounts": 2,
+  "cache_mib": 0,
+  "fixture_only": true,
+  "raw_mail_saved": false,
+  "checks": [
+    {
+      "check": "registered app configuration",
+      "passed": true
+    },
+    {
+      "check": "inline and ordinary attachments have distinct roles",
+      "passed": true
+    },
+    {
+      "check": "Gmail owns saved draft",
+      "passed": true
+    },
+    {
+      "check": "one saved draft after attachment edits",
+      "passed": true
+    },
+    {
+      "check": "inline thumbnail restored from online draft",
+      "passed": true
+    },
+    {
+      "check": "online draft retains both attachment roles",
+      "passed": true
+    },
+    {
+      "check": "draft Send confirmed by Gmail",
+      "passed": true
+    },
+    {
+      "check": "recipient inbox receives first send",
+      "passed": true
+    },
+    {
+      "check": "received ordinary attachment excludes inline picture",
+      "passed": true
+    },
+    {
+      "check": "received inline bytes resolve in authored order",
+      "passed": true
+    },
+    {
+      "check": "reply routes to original sender",
+      "passed": true
+    },
+    {
+      "check": "history stays outside authored document",
+      "passed": true
+    },
+    {
+      "check": "new reply is visibly unread",
+      "passed": true
+    },
+    {
+      "check": "reply joins original conversation",
+      "passed": true
+    },
+    {
+      "check": "whole conversation includes both messages",
+      "passed": true
+    },
+    {
+      "check": "forward preserves pictures as ordinary attachments",
+      "passed": true
+    },
+    {
+      "check": "whole-conversation forward accepted",
+      "passed": true
+    },
+    {
+      "check": "forward arrives in second mailbox",
+      "passed": true
+    },
+    {
+      "check": "second-account star action accepted",
+      "passed": true
+    },
+    {
+      "check": "second-account unstar action accepted",
+      "passed": true
+    },
+    {
+      "check": "second-account important action accepted",
+      "passed": true
+    },
+    {
+      "check": "second-account unimportant action accepted",
+      "passed": true
+    },
+    {
+      "check": "second-account unread action accepted",
+      "passed": true
+    },
+    {
+      "check": "second-account read action accepted",
+      "passed": true
+    },
+    {
+      "check": "archive removes only fixture from inbox",
+      "passed": true
+    },
+    {
+      "check": "move back to inbox is visible",
+      "passed": true
+    },
+    {
+      "check": "trash places fixture in Trash",
+      "passed": true
+    },
+    {
+      "check": "restore removes fixture from Trash",
+      "passed": true
+    },
+    {
+      "check": "sent draft is removed",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "fixtures_moved_to_trash": true,
+  "runtime_mail_files": 0
+}

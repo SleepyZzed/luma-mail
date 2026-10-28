@@ -1,98 +1,98 @@
 {
-    "checks": [
-        {
-            "check": "Compose has centered content with balanced horizontal breathing room",
-            "passed": true
-        },
-        {
-            "check": "right-clicking an inbox row opens a readable in-scene menu",
-            "passed": true
-        },
-        {
-            "check": "right-click targets that row without opening its body",
-            "passed": true
-        },
-        {
-            "check": "action exists: close",
-            "passed": true
-        },
-        {
-            "check": "Shift F10 opens the same inbox context actions",
-            "passed": true
-        },
-        {
-            "check": "action exists: close",
-            "passed": true
-        },
-        {
-            "check": "typed text and placeholders stay vertically centered in recipient and Subject fields",
-            "passed": true
-        },
-        {
-            "check": "editor right-click opens a themed menu with normal bounds",
-            "passed": true
-        },
-        {
-            "check": "Escape dismisses the edit menu without closing the composer",
-            "passed": true
-        },
-        {
-            "check": "action exists: requestClose",
-            "passed": true
-        },
-        {
-            "check": "save-draft question uses the rounded in-scene themed dialog",
-            "passed": true
-        },
-        {
-            "check": "asking to close has not created a Gmail draft",
-            "passed": true
-        },
-        {
-            "check": "Keep editing retains authored text without a draft",
-            "passed": true
-        },
-        {
-            "check": "action exists: clicked",
-            "passed": true
-        },
-        {
-            "check": "formatting dialogs retain a visible standard-button footer",
-            "passed": true
-        },
-        {
-            "check": "action exists: reject",
-            "passed": true
-        },
-        {
-            "check": "action exists: requestClose",
-            "passed": true
-        },
-        {
-            "check": "all temporary editing menus release with the closed composer",
-            "passed": true
-        },
-        {
-            "check": "reply starts inside the thread",
-            "passed": true
-        },
-        {
-            "check": "changing threads uses Ask policy without silently drafting or losing reply text",
-            "passed": true
-        },
-        {
-            "check": "Keep editing preserves the outgoing reply after navigation",
-            "passed": true
-        },
-        {
-            "check": "action exists: requestClose",
-            "passed": true
-        },
-        {
-            "check": "explicitly closing the outgoing reply releases its controls",
-            "passed": true
-        }
-    ],
-    "passed": true,
-    "syntheticData": true
+  "checks": [
+    {
+      "check": "Compose has centered content with balanced horizontal breathing room",
+      "passed": true
+    },
+    {
+      "check": "right-clicking an inbox row opens a readable in-scene menu",
+      "passed": true
+    },
+    {
+      "check": "right-click targets that row without opening its body",
+      "passed": true
+    },
+    {
+      "check": "action exists: close",
+      "passed": true
+    },
+    {
+      "check": "Shift F10 opens the same inbox context actions",
+      "passed": true
+    },
+    {
+      "check": "action exists: close",
+      "passed": true
+    },
+    {
+      "check": "typed text and placeholders stay vertically centered in recipient and Subject fields",
+      "passed": true
+    },
+    {
+      "check": "editor right-click opens a themed menu with normal bounds",
+      "passed": true
+    },
+    {
+      "check": "Escape dismisses the edit menu without closing the composer",
+      "passed": true
+    },
+    {
+      "check": "action exists: requestClose",
+      "passed": true
+    },
+    {
+      "check": "save-draft question uses the rounded in-scene themed dialog",
+      "passed": true
+    },
+    {
+      "check": "asking to close has not created a Gmail draft",
+      "passed": true
+    },
+    {
+      "check": "Keep editing retains authored text without a draft",
+      "passed": true
+    },
+    {
+      "check": "action exists: clicked",
+      "passed": true
+    },
+    {
+      "check": "formatting dialogs retain a visible standard-button footer",
+      "passed": true
+    },
+    {
+      "check": "action exists: reject",
+      "passed": true
+    },
+    {
+      "check": "action exists: requestClose",
+      "passed": true
+    },
+    {
+      "check": "all temporary editing menus release with the closed composer",
+      "passed": true
+    },
+    {
+      "check": "reply starts inside the thread",
+      "passed": true
+    },
+    {
+      "check": "changing threads uses Ask policy without silently drafting or losing reply text",
+      "passed": true
+    },
+    {
+      "check": "Keep editing preserves the outgoing reply after navigation",
+      "passed": true
+    },
+    {
+      "check": "action exists: requestClose",
+      "passed": true
+    },
+    {
+      "check": "explicitly closing the outgoing reply releases its controls",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "syntheticData": true
 }

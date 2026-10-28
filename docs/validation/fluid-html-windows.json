@@ -1,61 +1,61 @@
 {
-    "checks": [
-        {
-            "check": "newsletter uses full measured content height",
-            "passed": true
-        },
-        {
-            "check": "HTML creation owns exactly one native controller",
-            "passed": true
-        },
-        {
-            "check": "renderer bounds stay limited to the visible reader",
-            "passed": true
-        },
-        {
-            "check": "sender active content and unapproved image URLs are removed",
-            "passed": true
-        },
-        {
-            "check": "the themed document preserves table and safe blue links",
-            "passed": true
-        },
-        {
-            "check": "Settings suppresses the native HTML child overlay",
-            "passed": true
-        },
-        {
-            "check": "width changes remeasure and retain the reader",
-            "passed": true
-        },
-        {
-            "check": "hiding the window releases the HTML renderer",
-            "passed": true
-        },
-        {
-            "check": "hiding drops every native controller",
-            "passed": true
-        },
-        {
-            "check": "showing the window restores the opened newsletter",
-            "passed": true
-        },
-        {
-            "check": "closing the reader releases its renderer",
-            "passed": true
-        },
-        {
-            "check": "reader close leaves no orphan native controller",
-            "passed": true
-        },
-        {
-            "check": "HTML viewing creates no mailbox or draft cache",
-            "passed": true
-        }
-    ],
-    "elapsedMs": 3942,
-    "initializationMs": 8,
-    "passed": true,
-    "stage": 6,
-    "syntheticData": true
+  "checks": [
+    {
+      "check": "newsletter uses full measured content height",
+      "passed": true
+    },
+    {
+      "check": "HTML creation owns exactly one native controller",
+      "passed": true
+    },
+    {
+      "check": "renderer bounds stay limited to the visible reader",
+      "passed": true
+    },
+    {
+      "check": "sender active content and unapproved image URLs are removed",
+      "passed": true
+    },
+    {
+      "check": "the themed document preserves table and safe blue links",
+      "passed": true
+    },
+    {
+      "check": "Settings suppresses the native HTML child overlay",
+      "passed": true
+    },
+    {
+      "check": "width changes remeasure and retain the reader",
+      "passed": true
+    },
+    {
+      "check": "hiding the window releases the HTML renderer",
+      "passed": true
+    },
+    {
+      "check": "hiding drops every native controller",
+      "passed": true
+    },
+    {
+      "check": "showing the window restores the opened newsletter",
+      "passed": true
+    },
+    {
+      "check": "closing the reader releases its renderer",
+      "passed": true
+    },
+    {
+      "check": "reader close leaves no orphan native controller",
+      "passed": true
+    },
+    {
+      "check": "HTML viewing creates no mailbox or draft cache",
+      "passed": true
+    }
+  ],
+  "elapsedMs": 4297,
+  "initializationMs": 9,
+  "passed": true,
+  "stage": 6,
+  "syntheticData": true
 }

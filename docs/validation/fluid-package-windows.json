@@ -1,7 +1,7 @@
 {
   "passed": true,
   "synthetic_data": true,
-  "binary_sha256": "79151881fb9d5fcf58181e16f0e2834ce748d698800bf2829f1dde0454c054b1",
+  "binary_sha256": "b05d322b251978815f01260e98f1e20cd5126e3a23bb6ca9c5bcc0e6e260e762",
   "platform": "win32",
   "sdk_search_paths_removed": true,
   "checks": [
@@ -37,7 +37,7 @@
       "case": "composer",
       "passed": true,
       "exit_code": 0,
-      "checks": 36,
+      "checks": 45,
       "qml_warnings": []
     },
     {
@@ -111,5 +111,5 @@
       "qml_warnings": []
     }
   ],
-  "total_checks": 299
+  "total_checks": 308
 }

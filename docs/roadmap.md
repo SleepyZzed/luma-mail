@@ -202,3 +202,13 @@ The UTF-8 follow-up is published as [v0.10.0-dev.3](https://github.com/SleepyZze
 source bbc341a, with the same 296 Linux/299 Windows portable checks. The encoding
 guard advances release hardening; the implementation/acceptance priorities above
 remain open. No 1.0 gate has been marked complete from synthetic tests alone.
+
+
+The 0.11 milestone is published as [v0.11.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.1), source d04f531.
+It adds bounded whole-conversation forwarding, inline-picture authoring and Gmail
+draft round trips, direct Send, native notification actions, image preferences,
+Wayland renderer selection, chooser portals and lighter opening morphs. Portable
+checks pass 305 Linux/308 Windows; 29 real two-account Windows transport checks
+pass. Linux real-desktop/two-account acceptance, sustained resources, remaining
+Drive recovery work, independent security/privacy acceptance and Google approval
+remain gates. The Linux software CI RAM target is still unmet.

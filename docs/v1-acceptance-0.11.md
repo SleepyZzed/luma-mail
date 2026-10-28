@@ -88,3 +88,16 @@ CPU is 0.000% of one core. This short fixture is not a sustained live-mail test;
 the HTML phase exceeds the requested 200 MiB target. These counters are not Linux
 PSS, and working-set sums count shared pages differently. No zero-budget mail
 cache files were written. Package CI resource reports have their own build IDs.
+
+
+## Published source and live transport acceptance
+
+[v0.11.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.1) is built from `d04f531b748ab707a5751f9391dba3f1cbc4654e`. Eight component groups per
+platform, 305 Linux/308 Windows portable assertions and the core/protocol/Clippy
+gates pass. [The live Windows run](validation/fluid-live-two-0.11.0-dev.1.json)
+passes 29 checks on two authorized Gmail accounts, including saved draft removal,
+recipient CID/attachment delivery, reply unread state, forwarding and mailbox
+actions. Fixtures were moved to Trash; zero cache files were written. Actual
+Linux and phone UI, OS notification actions, sustained resources and Google review
+remain distinct. Canonical CI resource reports now describe this source; the
+separate earlier local debug and read-only results retain their own identities.

@@ -1,35 +1,44 @@
 # Implementation and verification status
 
-The current GTK-free preview is [v0.10.0-dev.3](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.3), built from `bbc341ad9788e41a25b91f985214fd15ca9f6dbb`.
+The current GTK-free preview is [v0.11.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.1), built from `d04f531b748ab707a5751f9391dba3f1cbc4654e`.
 It is early access and does not complete the original brief. Google verification
 was submitted on 26 October; current approval has not been confirmed. The
 unverified sign-in restrictions and any required assessment remain release gates.
 
 ## Current fluid implementation and verification
 
-Both exact Qt Quick packages pass all fifteen native groups without SDK paths:
-296 Linux checks / 299 Windows checks, with no QML warnings. The Windows package
-has clean source provenance; source/tag and all nine release asset digests match.
-Core/engine/Clippy and seven Windows/eight Linux native component groups pass.
+Both exact Qt Quick packages pass fifteen native groups without SDK paths:
+305 Linux / 308 Windows checks, with no QML warnings. Both platforms pass eight
+component groups. Linux CI passes 131 core, 41 engine and 17 pipe-protocol tests;
+the Windows HTML/notification adapter passes its two tests. Strict Clippy passes.
+Clean-source package provenance, all nine public asset digests and the tag match.
 
-The major existing functional groups are rewired into the Qt Quick frontend and
-private Rust engine. See [the parity audit](docs/fluid-parity.md) for coverage and
-remaining acceptance, and docs/ui-migration.md for the callback map. GTK is absent
-from these preview runtimes. The 0.9 source remains the comparison reference until
-full acceptance; no blanket 100% live/desktop parity claim is made.
+The existing functional groups are rewired into the Qt Quick frontend and Rust
+engine. See [the parity audit](docs/fluid-parity.md) and callback map in
+docs/ui-migration.md. GTK is absent from the preview runtimes. The 0.9 source is
+retained as a comparison until acceptance; 100% target-desktop parity is not claimed.
 
-This feedback pass fixes button spacing, typed/placeholder alignment, real inbox
-and editor context menus, themed spring dialogs, native pop-out handoff and
-outgoing inline reply closure. Detached replies remain independent. Keyboard
-context actions and lazy/released menus advance accessibility/resource hardening.
-The dev.3 follow-up corrects UTF-8 captions and adds a source-encoding guard.
+The 0.11 milestone adds direct Send, reply/forward modes, bounded whole-conversation
+forwarding, RAM-only CID picture authoring, native notification actions and opt-in
+ephemeral image loading. Opening morphs avoid per-frame font layout; Wayland
+startup prefers supported hardware Vulkan. Native chooser portals and themed
+fallbacks improve desktop integration. Windows activation acknowledgment now waits
+for client close; a 400-activation local stress run and CI owner recovery pass.
 
-Online-first behavior is unchanged: bounded metadata, remote search, on-demand
-bodies/attachments, server drafts and existing cache budgets. The zero-cache
-fixture retains one 51-byte settings file and no cache files. Local Windows full
-tree private working set is about 134.6 MiB idle / 255.4 with HTML / 64 backgrounded;
-Matching bbc341a Linux software CI PSS is 228.4 / 405.0 / 328.9. RAM targets, sustained real sync,
-real Hyprland/GPU/two-account acceptance and Google/security approval remain open.
+The [live two-account Windows run](docs/validation/fluid-live-two-0.11.0-dev.1.json)
+passes 29 fixture-only Gmail checks: online draft/reopen/send, CID and ordinary
+attachment delivery, reply threading/unread state, forwarding and mailbox actions.
+Sent drafts disappear and fixtures were moved to Trash. The zero-cache profile
+wrote no mail files. This is not phone visual or live Linux desktop acceptance.
+
+Online-first storage remains unchanged: bounded metadata, remote search, on-demand
+bodies/attachments, Gmail drafts and the existing cache limits. The process-tree
+CI audit records Windows private working set of 66.7 MiB idle / 142.3 with HTML,
+and Linux software-rendered PSS of 227.8 / 402.5 MiB. Settled sampled CPU is 0.000%
+of one core; this short run is not a long-term zero-CPU guarantee. Counters are not
+directly comparable across platforms. Linux RAM, sustained real usage, actual
+GPU/Wayland/Noctalia/keyring/notification behavior and Google/security approval
+remain open. See [the full current audit](docs/v1-acceptance-0.11.md).
 
 ## Legacy 0.9 implementation and acceptance history
 
