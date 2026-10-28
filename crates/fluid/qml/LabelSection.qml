@@ -29,7 +29,7 @@ Column {
     FluidMenu{id:context;objectName:"labelsContext-"+root.account;property var label:({})
         onOpened:root.navigation.overlayOpen=true
         onClosed:root.navigation.overlayOpen=false
-        FluidMenuItem{objectName:"renameLabelAction-"+root.account;text:"Rename labelâ€¦";onTriggered:root.navigation.labelActionRequested("rename",root.account,context.label)}
-        FluidMenuItem{objectName:"deleteLabelAction-"+root.account;text:"Delete labelâ€¦";onTriggered:root.navigation.labelActionRequested("delete",root.account,context.label)}
+        FluidMenuItem{objectName:"renameLabelAction-"+root.account;text:"Rename label…";onTriggered:root.navigation.labelActionRequested("rename",root.account,context.label)}
+        FluidMenuItem{objectName:"deleteLabelAction-"+root.account;text:"Delete label…";onTriggered:root.navigation.labelActionRequested("delete",root.account,context.label)}
     }
 }

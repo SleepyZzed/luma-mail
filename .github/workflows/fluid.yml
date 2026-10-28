@@ -11,6 +11,7 @@ on:
       - 'Cargo.*'
       - 'packaging/fluid*'
       - 'packaging/test-fluid-package.py'
+      - 'packaging/check-fluid-text.py'
       - 'packaging/*notices.py'
       - 'packaging/qt-source-pins.json'
       - 'packaging/audit-storage.py'
@@ -27,6 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - run: python3 packaging/check-fluid-text.py
       - run: python3 packaging/test-native-notices.py
       - uses: dtolnay/rust-toolchain@stable
         with:
