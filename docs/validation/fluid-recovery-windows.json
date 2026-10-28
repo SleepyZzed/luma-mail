@@ -1,0 +1,66 @@
+{
+    "checks": [
+        {
+            "check": "read failure preserves the loaded inbox at stage 0",
+            "passed": true
+        },
+        {
+            "check": "metadata error is actionable",
+            "passed": true
+        },
+        {
+            "check": "native retry control is visible: retryReader",
+            "passed": true
+        },
+        {
+            "check": "native retry action is wired: retryReader",
+            "passed": true
+        },
+        {
+            "check": "read failure preserves the loaded inbox at stage 1",
+            "passed": true
+        },
+        {
+            "check": "body failure clears its pending state",
+            "passed": true
+        },
+        {
+            "check": "native retry control is visible: retryBody-preview0",
+            "passed": true
+        },
+        {
+            "check": "native retry action is wired: retryBody-preview0",
+            "passed": true
+        },
+        {
+            "check": "read failure preserves the loaded inbox at stage 2",
+            "passed": true
+        },
+        {
+            "check": "HTML failure retains the loaded body and clears its pending state",
+            "passed": true
+        },
+        {
+            "check": "native retry control is visible: retryDocument-preview0",
+            "passed": true
+        },
+        {
+            "check": "native retry action is wired: retryDocument-preview0",
+            "passed": true
+        },
+        {
+            "check": "retry restores the HTML document in the same reading pane",
+            "passed": true
+        },
+        {
+            "check": "successful retry retains authored server content",
+            "passed": true
+        },
+        {
+            "check": "closing releases recovered bodies and errors",
+            "passed": true
+        }
+    ],
+    "passed": true,
+    "syntheticData": true
+}

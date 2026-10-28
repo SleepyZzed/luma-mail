@@ -11,13 +11,6 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 
-pub struct Undo {
-    pub account: String,
-    pub message: String,
-    pub key: ThreadKey,
-    pub actions: Vec<MailAction>,
-}
-
 pub async fn change_view(app: &Arc<App>, c: &Command) -> Result<()> {
     app.sync.acknowledge();
     let folder = app::folder(c.text("folder"))?;
@@ -112,6 +105,7 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
         .emit(c.id, "readerLoading", json!({"key":key}))
         .await;
     if app.preview {
+        app.preview_read_failure(1)?;
         let row = app
             .view
             .lock()
@@ -194,7 +188,7 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
                     json!({"key":key,"subject":row.subject,"messages":messages,"window":window}),
                 )
                 .await;
-            preview_body(app, c.id, &key.account, &key.id, reading).await;
+            preview_body(app, c.id, &key.account, &key.id, reading).await?;
         }
         return Ok(());
     }
@@ -240,11 +234,19 @@ pub async fn open(app: &Arc<App>, c: &Command) -> Result<()> {
     }
     Ok(())
 }
-async fn preview_body(app: &Arc<App>, id: u64, account: &str, message: &str, reading: u64) {
+async fn preview_body(
+    app: &Arc<App>,
+    id: u64,
+    account: &str,
+    message: &str,
+    reading: u64,
+) -> Result<()> {
+    app.preview_read_failure(2)?;
     let has_html =
         message == "preview0" && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1");
     let text = "This is a synthetic design preview. No Gmail account or local mailbox is used.\n\nhttps://example.com/review";
     app.events.emit(id,"body",json!({"account":account,"reading":reading,"id":message,"text":text,"links":crate::reader::links(text),"hasHtml":has_html,"externalImages":has_html,"attachments":[]})).await;
+    Ok(())
 }
 pub async fn thread_page(app: &Arc<App>, c: &Command) -> Result<()> {
     let key = app::key(&c.data["key"])?;
@@ -350,7 +352,7 @@ pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
         }
     }
     if app.preview {
-        preview_body(app, c.id, &key.account, &key.id, reading).await;
+        preview_body(app, c.id, &key.account, &key.id, reading).await?;
         return Ok(());
     }
     let client = app.client(&key.account)?;
@@ -564,7 +566,8 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
     };
     let mut changed = Vec::new();
     let mut removed = Vec::new();
-    let mut inverse = Vec::new();
+    let mut inverse = crate::undo::Journal::default();
+    let mut confirmed_writes = false;
     let mut failures = Vec::new();
     let mut needs_refresh = false;
     let mut flags = Vec::new();
@@ -622,13 +625,14 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             }
             Ok(messages) => messages,
         };
+        confirmed_writes = true;
         for m in &before.messages {
             if message.is_some_and(|id| id != m.id) {
                 continue;
             }
             let actions = operation.undo_for(m);
             if !actions.is_empty() {
-                inverse.push(Undo {
+                inverse.push(crate::undo::Entry {
                     account: key.account.clone(),
                     message: m.id.clone(),
                     key: key.clone(),
@@ -671,9 +675,11 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             removed.push(key)
         }
     }
-    if !inverse.is_empty() {
+    let overflow = inverse.overflowed();
+    if confirmed_writes {
         *app.undo.lock().unwrap() = inverse;
     }
+    let has_undo = app.undo.lock().unwrap().available();
     if app.current(generation) {
         {
             let mut v = app.view.lock().unwrap();
@@ -684,7 +690,6 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
                 }
             }
         }
-        let has_undo = !app.undo.lock().unwrap().is_empty();
         app.events.emit(c.id,"mutation",json!({"generation":generation,"removed":removed,"changed":changed,"undo":has_undo,"needsRefresh":needs_refresh,"messageFlags":flags})).await;
     }
     if !failures.is_empty() {
@@ -695,8 +700,12 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
         "idle",
         if needs_refresh {
             "Saved in Gmail · Refresh to reconcile this search"
-        } else {
+        } else if overflow {
+            "Changes saved · this batch exceeds the RAM limit for Undo"
+        } else if has_undo {
             "Changes saved · Undo available"
+        } else {
+            "Changes saved"
         },
     )
     .await;
@@ -738,40 +747,127 @@ fn confirmed_thread(
 
 pub async fn undo(app: &Arc<App>, id: u64) -> Result<()> {
     let _lock = app.mutation.lock().await;
-    let undo = std::mem::take(&mut *app.undo.lock().unwrap());
-    let mut keys = HashSet::new();
-    for item in undo {
-        let client = app.client(&item.account)?;
-        for action in item.actions {
-            client.act(&item.message, true, &action).await?;
-        }
-        keys.insert(item.key);
+    let generation = app.generation.load(Ordering::SeqCst);
+    let mut undo = std::mem::take(&mut *app.undo.lock().unwrap());
+    if !undo.available() {
+        return Err(Error::Invalid(
+            "There is no change available to undo".into(),
+        ));
     }
+    app.status(id, "saving", "Undoing your change in Gmail")
+        .await;
+    let (keys, mut failures) = undo
+        .replay(|account, message, action| async move {
+            app.client(&account)?.act(&message, true, &action).await
+        })
+        .await;
+    let pending = undo.available();
+    *app.undo.lock().unwrap() = undo;
     for key in keys {
         app.sync.track_write(key.clone());
-        let client = app.client(&key.account)?;
-        let thread = client.thread_metadata(&key.id).await?;
-        let (folder, query) = {
-            let v = app.view.lock().unwrap();
-            (v.folder.clone(), v.search.clone())
-        };
-        if client.matches_view(&thread, &folder, &query).await? == Some(true)
-            && let Some(mut row) = Conversation::from_thread(&key.account, &thread)
+        if let Err(error) = reconcile_undo(app, id, generation, &key).await
+            && failures.len() < 8
         {
-            {
-                let mut v = app.view.lock().unwrap();
-                row.attachments |= v.rows.iter().any(|old| old.key == key && old.attachments);
-                v.rows.retain(|r| r.key != row.key);
-                v.rows.push(row.clone());
-                v.rows.sort_by_key(|row| std::cmp::Reverse(row.date));
-                v.rows.truncate(1000);
-            }
-            app.events
-                .emit(id, "rowChanged", json!({"row":row,"insert":true}))
-                .await;
+            failures.push(format!("Gmail changed; refresh to reconcile: {error}"));
         }
     }
+    if !failures.is_empty() {
+        let hint = if pending {
+            "The remaining actions are available to retry with Undo.\n"
+        } else {
+            ""
+        };
+        return Err(Error::Invalid(format!("{hint}{}", failures.join("\n"))));
+    }
     app.status(id, "idle", "Change undone").await;
+    Ok(())
+}
+async fn reconcile_undo(app: &Arc<App>, id: u64, generation: u64, key: &ThreadKey) -> Result<()> {
+    let reading = app.reading.load(Ordering::SeqCst);
+    let client = app.client(&key.account)?;
+    let thread = client.thread_metadata(&key.id).await?;
+    let (folder, query, scoped) = {
+        let view = app.view.lock().unwrap();
+        (
+            view.folder.clone(),
+            view.search.clone(),
+            view.accounts
+                .as_ref()
+                .is_none_or(|ids| ids.contains(&key.account)),
+        )
+    };
+    let visible = if scoped {
+        client.matches_view(&thread, &folder, &query).await?
+    } else {
+        Some(false)
+    };
+    if !app.current(generation) {
+        return Ok(());
+    }
+    let mut changed = Vec::new();
+    let mut removed = Vec::new();
+    let mut selected = None;
+    {
+        let mut view = app.view.lock().unwrap();
+        if !app.current(generation) {
+            return Ok(());
+        }
+        if view.selected.as_ref() == Some(key) && app.reading.load(Ordering::SeqCst) == reading {
+            selected = Some((
+                thread.messages[view.headers.range(&thread.messages)]
+                    .iter()
+                    .map(message_header)
+                    .collect::<Vec<_>>(),
+                view.headers.describe(&thread.messages),
+            ));
+            view.thread = Some(thread.clone());
+        }
+        if visible == Some(true) {
+            if let Some(mut row) = Conversation::from_thread(&key.account, &thread) {
+                row.attachments |= view
+                    .rows
+                    .iter()
+                    .any(|old| old.key == *key && old.attachments);
+                view.rows.retain(|old| old.key != *key);
+                view.rows.push(row.clone());
+                view.rows.sort_by_key(|row| std::cmp::Reverse(row.date));
+                view.rows.truncate(1000);
+                changed.push(row);
+            }
+        } else if visible == Some(false) {
+            view.rows.retain(|row| row.key != *key);
+            removed.push(key.clone());
+        }
+    }
+    // This event is independent of the last mutation's list generation: the
+    // live account scope above decides where a row may be reinserted.
+    for row in changed {
+        app.events
+            .emit(
+                id,
+                "rowChanged",
+                json!({"row":row,"insert":true,"generation":generation}),
+            )
+            .await;
+    }
+    if !removed.is_empty() {
+        app.events
+            .emit(
+                id,
+                "syncRemoved",
+                json!({"keys":removed,"generation":generation}),
+            )
+            .await;
+    }
+    if let Some((messages, window)) = selected {
+        app.events
+            .emit(
+                id,
+                "threadUpdated",
+                json!({"key":key,"reading":reading,"messages":messages,"window":window}),
+            )
+            .await;
+    }
     Ok(())
 }
 pub async fn fixture(app: &App) {

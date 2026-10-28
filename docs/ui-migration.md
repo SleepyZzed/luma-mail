@@ -172,3 +172,11 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
 See [fluid-validation.md](fluid-validation.md) for reproducible checks. Keep the
 reference target until the pending groups have real functional parity; passing
 motion checks alone never authorizes removing a working feature.
+
+
+File drops, bounded retryable RAM-only Undo and inline message/HTML error recovery
+are implemented. The narrow/collapsed sidebar footer no longer overlaps. Fourteen
+native scene groups passed in this continuation (254 checks); latest reader,
+HTML, long-thread and sync tests pass. See fluid-validation.md. GTK-free packages,
+installed/runtime notices and byte audits, live Gmail/Hyprland acceptance, inline
+image authoring, whole-conversation forwarding and Linux RAM goals remain open.

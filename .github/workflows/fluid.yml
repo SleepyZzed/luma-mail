@@ -186,6 +186,21 @@ jobs:
           name: fluid-auth-linux
           path: fluid-auth-linux.json
           if-no-files-found: warn
+      - name: Native message and HTML failure recovery
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_RECOVERY_REPORT: ${{ github.workspace }}/fluid-recovery-linux.json
+          LUMA_PREVIEW_READER_FAILURES: '1'
+          LUMA_PREVIEW_HTML: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --recovery-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-recovery-linux
+          path: fluid-recovery-linux.json
+          if-no-files-found: warn
       - name: Native pop-out composer and redocking
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
@@ -437,6 +452,22 @@ jobs:
           path: |
             fluid-auth-windows.json
             auth.stderr
+          if-no-files-found: warn
+      - name: Native message and HTML failure recovery
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_RECOVERY_REPORT="$(cygpath -m "$PWD")/fluid-recovery-windows.json"
+          export LUMA_PREVIEW_READER_FAILURES=1 LUMA_PREVIEW_HTML=1 QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --recovery-test >recovery.stdout 2>recovery.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-recovery-windows
+          path: |
+            fluid-recovery-windows.json
+            recovery.stderr
           if-no-files-found: warn
       - name: Native pop-out composer and redocking
         shell: msys2 {0}

@@ -175,3 +175,11 @@ all migration checks at 063ab88; its Linux software-rendered PSS is 247.4 MiB id
 410.8 with HTML and 331.1 backgrounded. Resource goals and real desktop/Google
 acceptance remain open. Remaining parity includes file drops and read/undo recovery;
 inline images, whole-conversation forwarding and packaging remain 1.0 priorities.
+
+
+File drops, bounded retryable RAM-only Undo and inline message/HTML error recovery
+are implemented. The narrow/collapsed sidebar footer no longer overlaps. Fourteen
+native scene groups passed in this continuation (254 checks); latest reader,
+HTML, long-thread and sync tests pass. See fluid-validation.md. GTK-free packages,
+installed/runtime notices and byte audits, live Gmail/Hyprland acceptance, inline
+image authoring, whole-conversation forwarding and Linux RAM goals remain open.

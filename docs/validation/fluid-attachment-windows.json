@@ -1,6 +1,22 @@
 {
     "checks": [
         {
+            "check": "file drops reject remote URLs without creating attachments",
+            "passed": true
+        },
+        {
+            "check": "file-drop batches keep the 64-file bound",
+            "passed": true
+        },
+        {
+            "check": "native file drops are accepted as Copy and never Move",
+            "passed": true
+        },
+        {
+            "check": "file drops preserve authored text instead of inserting file URLs",
+            "passed": true
+        },
+        {
             "check": "image preview uses the native RAM provider",
             "passed": true
         },

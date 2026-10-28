@@ -33,6 +33,6 @@ void RecordModel::windowMessages(const QJsonArray&items,bool arrivals){
 void RecordModel::mergeMessages(const QJsonArray&a){for(auto value:a){auto r=value.toObject();auto id=r["id"].toString();if(indexFor(id)>=0)patch(id,r);else{r["arrived"]=true;append({r});}}}
 void RecordModel::trimBodies(const QString&keep){
     qint64 bytes=0;int count=0;for(const auto&r:rows){bytes+=(r["text"].toString().size()+r["document"].toString().size())*2;count+=r.contains("text");}
-    for(int i=0;i<rows.size()&&(bytes>16*1024*1024||count>8);++i){auto&r=rows[i];if(r["id"]==keep||!r.contains("text"))continue;bytes-=(r["text"].toString().size()+r["document"].toString().size())*2;--count;r.remove("text");r.remove("document");r.remove("links");emit dataChanged(index(i),index(i),{Qt::UserRole+1});}
+    for(int i=0;i<rows.size()&&(bytes>16*1024*1024||count>8);++i){auto&r=rows[i];if(r["id"]==keep||!r.contains("text"))continue;bytes-=(r["text"].toString().size()+r["document"].toString().size())*2;--count;r.remove("text");r.remove("document");r.remove("links");r.remove("bodyLoaded");emit dataChanged(index(i),index(i),{Qt::UserRole+1});}
 }
 

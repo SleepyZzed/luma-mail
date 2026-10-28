@@ -44,8 +44,9 @@ pub struct App {
     pub mutation: tokio::sync::Mutex<()>,
     pub mutation_serial: AtomicU64,
     pub read_revision: AtomicU64,
-    pub undo: Mutex<Vec<crate::mail::Undo>>,
+    pub undo: Mutex<crate::undo::Journal>,
     pub preview: bool,
+    preview_read_failures: AtomicU64,
     pub auth_busy: Arc<AtomicU64>,
     pub auth_committing: AtomicU64,
     pub stopping: AtomicBool,
@@ -144,8 +145,9 @@ impl App {
             mutation: tokio::sync::Mutex::new(()),
             mutation_serial: AtomicU64::new(0),
             read_revision: AtomicU64::new(0),
-            undo: Mutex::new(vec![]),
+            undo: Mutex::new(crate::undo::Journal::default()),
             preview,
+            preview_read_failures: AtomicU64::new(0),
             auth_busy: Arc::new(AtomicU64::new(0)),
             auth_committing: AtomicU64::new(0),
             stopping: AtomicBool::new(false),
@@ -495,6 +497,11 @@ impl App {
             .await;
             if matches!(command.action.as_str(), "mutate" | "undo" | "draftDelete") {
                 owner.mutation_serial.fetch_add(1, Ordering::SeqCst);
+                let available = owner.undo.lock().unwrap().available();
+                owner
+                    .events
+                    .emit(id, "undoState", json!({"available":available}))
+                    .await;
                 owner.sync.reconcile();
             }
             if let Err(e) = result {
@@ -562,6 +569,17 @@ impl App {
         if self.settings.lock().unwrap().clear_cache_on_exit {
             let _ = self.cache.lock().unwrap().clear();
         }
+    }
+    pub fn preview_read_failure(&self, stage: u64) -> Result<()> {
+        if self.preview
+            && std::env::var("LUMA_PREVIEW_READER_FAILURES").as_deref() == Ok("1")
+            && self.preview_read_failures.fetch_or(stage, Ordering::SeqCst) & stage == 0
+        {
+            return Err(Error::Invalid(
+                "Synthetic temporary connection failure. Try again.".into(),
+            ));
+        }
+        Ok(())
     }
     pub fn current(&self, generation: u64) -> bool {
         self.generation.load(Ordering::SeqCst) == generation

@@ -402,3 +402,35 @@ reader release, 331.1 backgrounded and 362.0 restored. All seven lifecycle check
 and complete-PSS checks passed. Settled CPU samples were 0.00% at counter resolution.
 Releasing the hidden scene helps, but RAM goals remain unmet; render configuration
 and CI variability must be preserved when interpreting differences between runs.
+
+
+## File drops, bounded Undo and reader recovery — 28 October continuation
+
+Compose accepts local file drops through the existing attachment/Drive pipeline.
+Drops explicitly select Copy even when the source proposes Move, reject remote
+URLs and batches above 64, and never insert paths into authored text or create a
+draft. Narrow/collapsed sidebar footer controls remain separately accessible.
+
+Undo consumes confirmed actions individually, retains failed/unattempted inverses
+for explicit retry and updates availability independently of a stale mailbox view.
+Restored rows check the live generation, account scope, folder and server search
+result; open messages receive corrected flags. Its single RAM-only batch is
+limited to 8,192 message entries and a conservative 2-MiB allocation budget. An
+oversized batch discards the entire inverse and explains why Undo is unavailable;
+no partial Undo is offered. Successful Gmail changes still complete. No inverse
+is written to disk, and accepted writes finish before application shutdown.
+
+Message-header, body and HTML errors clear their pending state and offer inline
+retry without resetting the inbox. Empty bodies are valid; evicted bodies can be
+explicitly loaded again. Retries retain the account, reader and historical header
+window. The isolated design-preview failure fixture never reaches Google. Its
+native test exercises three failures through actual QML buttons and the engine
+pipe, verifies successful recovery, then checks reader release.
+
+Fourteen native groups passed in this continuation (254 checks), including 18
+attachment, 35 navigation and 15 recovery checks. Reader/HTML/long-thread/sync
+scenes were rerun after recovery wiring changed. Six CTest groups, 37 engine unit
+and 16 real-pipe tests, strict engine Clippy and the unchanged core suite (128
+passing, one Windows platform-vault test ignored) pass. Both platforms passed the
+preceding auth/lifecycle checkpoint in run 40631799634. Synthetic acceptance does
+not establish live Gmail, Hyprland, final packaging or the unmet Linux RAM goal.

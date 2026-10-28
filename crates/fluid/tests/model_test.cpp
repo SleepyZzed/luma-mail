@@ -34,8 +34,8 @@ private slots:
         model.windowMessages({QJsonObject{{"id","older"}}},false);QCOMPARE(model.rowCount(),1);QVERIFY(!model.at(0).contains("text"));QVERIFY(!model.at(0)["arrived"].toBool());
     }
     void readerPayloadsAreEvictedWithTheirLinkMetadata(){
-        RecordModel model;QJsonArray rows;for(int i=0;i<9;++i)rows.append(QJsonObject{{"id",QString::number(i)},{"text","Opened body"},{"links",QJsonArray{QJsonObject{{"url","https://example.com"}}}}});model.replace(rows);model.trimBodies("8");
-        QVERIFY(!model.at(0).contains("text"));QVERIFY(!model.at(0).contains("links"));QCOMPARE(model.at(8)["text"].toString(),QString("Opened body"));
+        RecordModel model;QJsonArray rows;for(int i=0;i<9;++i)rows.append(QJsonObject{{"id",QString::number(i)},{"text","Opened body"},{"bodyLoaded",true},{"links",QJsonArray{QJsonObject{{"url","https://example.com"}}}}});model.replace(rows);model.trimBodies("8");
+        QVERIFY(!model.at(0).contains("text"));QVERIFY(!model.at(0).contains("links"));QVERIFY(!model.at(0).contains("bodyLoaded"));QVERIFY(model.at(8)["bodyLoaded"].toBool());QCOMPARE(model.at(8)["text"].toString(),QString("Opened body"));
     }
 };
 QTEST_GUILESS_MAIN(ModelTest)

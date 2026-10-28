@@ -131,6 +131,14 @@
         {
             "check": "comfortable density restores the same loaded rows",
             "passed": true
+        },
+        {
+            "check": "narrow sidebar footer controls do not overlap",
+            "passed": true
+        },
+        {
+            "check": "collapsed sidebar footer controls stay separate and inside the rail",
+            "passed": true
         }
     ],
     "passed": true,

@@ -30,6 +30,10 @@ impl Window {
         if revision <= self.revision {
             return Ok(());
         }
+        if direction == "current" {
+            self.revision = revision;
+            return Ok(());
+        }
         let range = self.range(messages);
         let end = match direction {
             "earlier" => range.start.max(HEADERS.min(messages.len())),
@@ -83,6 +87,19 @@ mod tests {
         assert_eq!(seen.len(), all.len());
         w.change(&all, "latest", w.revision + 1).unwrap();
         assert_eq!(w.range(&all), 2471..2503);
+    }
+    #[test]
+    fn retry_retains_a_pinned_header_window_when_new_replies_arrive() {
+        let mut all = messages(40);
+        let mut window = Window::default();
+        window.focus(&all, "message-8");
+        window.change(&all, "current", 1).unwrap();
+        all.push(Message {
+            id: "new-reply".into(),
+            ..Default::default()
+        });
+        assert_eq!(window.range(&all), 8..40);
+        assert_eq!(window.revision, 1);
     }
     #[test]
     fn reading_an_older_message_pins_the_window_until_explicit_navigation() {

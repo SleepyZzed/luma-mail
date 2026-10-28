@@ -72,6 +72,9 @@ pub async fn render(app: &Arc<App>, c: &Command) -> Result<()> {
     let reading = app.reading.load(Ordering::SeqCst);
     let appearance = appearance(c)?;
     let _lock = app.render_lock.lock().await;
+    if app.preview {
+        app.preview_read_failure(4)?;
+    }
     let mut assets = {
         let mut current = app.reader_assets.lock().unwrap();
         if current.reading == reading && current.id == key.id {

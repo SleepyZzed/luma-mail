@@ -20,6 +20,7 @@ mod search_commands;
 mod signatures;
 mod sync;
 mod thread_window;
+mod undo;
 use luma_core::registration;
 
 use luma_core::Result;

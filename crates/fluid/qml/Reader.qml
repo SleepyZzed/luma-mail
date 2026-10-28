@@ -59,6 +59,11 @@ Item {
                 FluidButton{text:"Later";glyph:"chevron-down";enabled:!!Mail.reader.window?.later&&!Mail.reader.pagePending;onClicked:root.page("later")}
                 FluidButton{text:"Latest";visible:!!Mail.reader.window?.later;enabled:!Mail.reader.pagePending;onClicked:root.page("latest")}
             }
+            Column {
+                width:parent.width;spacing:Theme.unit(10);visible:!!Mail.reader.error||Mail.messages.count===0
+                Text{textFormat:Text.PlainText;width:parent.width;text:Mail.reader.error||"Opening this conversation…";wrapMode:Text.Wrap;color:Theme.muted;font.pixelSize:Theme.unit(12)}
+                FluidButton{objectName:"retryReader";text:"Try again";glyph:"refresh";visible:!!Mail.reader.error;onClicked:Mail.retryReader()}
+            }
             Repeater {
                 id:messages
                 model:Mail.messages
@@ -91,7 +96,7 @@ Item {
                         }
                         Text {textFormat:Text.PlainText;anchors.right:parent.right;anchors.rightMargin:Theme.unit(37);anchors.top:parent.top;anchors.topMargin:Theme.unit(9);text:Theme.date(message.item.date||0);color:Theme.faint;font.pixelSize:Theme.unit(9)}
                         Rectangle{width:Theme.unit(6);height:width;radius:width/2;color:Theme.accent;visible:message.item.unread||false;anchors.right:parent.right;anchors.rightMargin:Theme.unit(37);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(11)}
-                        MouseArea{anchors.fill:parent;onClicked:{message.expanded=!message.expanded;if(message.expanded&&!message.item.text)Mail.send("message",{account:Mail.reader.key.account,id:message.item.id})}}
+                        MouseArea{anchors.fill:parent;onClicked:{message.expanded=!message.expanded;if(message.expanded&&!message.item.bodyLoaded)Mail.loadMessage(message.item.id)}}
                         FluidButton{objectName:"messageMore-"+message.item.id;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"more";tip:"Actions for this message";visible:Mail.selectionCount<=1;onClicked:{const point=mapToItem(null,0,height);root.messageMenuRequested(message.item,point.x,point.y)}}
                     }
                     Item{width:parent.width;height:Math.max(0,detailHeight.value);clip:true;visible:height>0
@@ -111,6 +116,16 @@ Item {
                             opacity:Math.max(0,Math.min(1,reveal.value))
                             y:(1-reveal.value)*Theme.unit(18)
                             Rectangle{width:parent.width;height:1;color:Theme.outline;opacity:.6}
+                            Column {
+                                width:parent.width;spacing:Theme.unit(10);visible:!message.item.bodyLoaded||!!message.item.bodyPending||!!message.item.bodyError
+                                Text{textFormat:Text.PlainText;width:parent.width;text:message.item.bodyError||(message.item.bodyPending?"Loading this message…":"Load this message to read its content.");wrapMode:Text.Wrap;color:Theme.muted;font.pixelSize:Theme.unit(12)}
+                                FluidButton{objectName:"retryBody-"+message.item.id;text:message.item.bodyError?"Try again":"Load message";glyph:"refresh";visible:!message.item.bodyPending;onClicked:Mail.loadMessage(message.item.id)}
+                            }
+                            Column {
+                                width:parent.width;spacing:Theme.unit(10);visible:!!message.item.documentError
+                                Text{textFormat:Text.PlainText;width:parent.width;text:message.item.documentError||"";wrapMode:Text.Wrap;color:Theme.muted;font.pixelSize:Theme.unit(12)}
+                                FluidButton{objectName:"retryDocument-"+message.item.id;text:"Retry HTML view";glyph:"refresh";onClicked:message.render()}
+                            }
                             Row{visible:(message.item.attachments?.length||0)>0;spacing:Theme.unit(10)
                                 Text{textFormat:Text.PlainText;anchors.verticalCenter:parent.verticalCenter;text:(message.item.attachments?.length||0)+" attachment(s)";color:Theme.muted;font.pixelSize:Theme.unit(10)}
                                 FluidButton{text:"Save all…";glyph:"download";visible:(message.item.attachments?.length||0)>1;enabled:!AttachmentViewer.downloading;onClicked:{const sources=message.item.attachments.map(a=>({account:Mail.reader.key.account,id:message.item.id,part:a.part}));AttachmentViewer.saveMany(sources)}}
@@ -137,7 +152,7 @@ Item {
                                     onLoaded:{item.objectName="mailHtml-"+message.item.id;item.page=Qt.binding(()=>message.item.document||"");item.uiScale=Qt.binding(()=>Theme.scale);item.paused=Qt.binding(()=>root.nativeBlocked);item.masks=Qt.binding(()=>root.nativeMasks);htmlHost.lastHeight=item.implicitHeight}
                                 }
                                 Connections{target:htmlLoader.item;function onImplicitHeightChanged(){htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;root.followingMessage="";scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
-                                Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active}
+                                Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active&&!message.item.documentError}
                             }
                             TextArea {
                                 id:plainText;objectName:"readBody-"+message.item.id

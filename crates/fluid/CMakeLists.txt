@@ -13,7 +13,7 @@ target_sources(luma-mail-fluid PRIVATE src/attachment_preview.cpp src/attachment
 target_sources(luma-mail-fluid PRIVATE src/attachment_smoke.cpp)
 target_sources(luma-mail-fluid PRIVATE src/single_instance.cpp src/single_instance.h)
 target_sources(luma-mail-fluid PRIVATE src/resource_smoke.cpp)
-target_sources(luma-mail-fluid PRIVATE src/signature_smoke.cpp src/thread_smoke.cpp src/popout_smoke.cpp src/auth.cpp src/auth_smoke.cpp)
+target_sources(luma-mail-fluid PRIVATE src/signature_smoke.cpp src/thread_smoke.cpp src/popout_smoke.cpp src/auth.cpp src/auth_smoke.cpp src/recovery_smoke.cpp)
 target_include_directories(luma-mail-fluid PRIVATE src)
 target_link_libraries(luma-mail-fluid PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Svg Qt6::Multimedia Qt6::Network)
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)

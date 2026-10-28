@@ -74,7 +74,7 @@ public:
     Q_INVOKABLE void refreshView();Q_INVOKABLE void searchCurrent(const QString&query);
     Q_INVOKABLE void cancelSearch();
     QString activity()const{return m_activity;} QString activityKind()const{return m_activityKind;} QString error()const{return m_error;}
-    bool readerOpen()const{return m_readerOpen;} bool more()const{return m_more;} bool canUndo()const{return m_canUndo;}
+    bool readerOpen()const{return m_readerOpen;} bool more()const{return m_more;} bool canUndo()const{return m_canUndo&&mutationRequests.isEmpty();}
     int selectionCount()const{return m_selection.size();} bool selecting()const{return m_selecting;} bool preview()const{return m_preview;}
     bool clipboardBusy()const{return !clipboardToken.isEmpty();}
     bool windowVisible()const{return m_windowVisible;}
@@ -97,6 +97,8 @@ public:
     Q_INVOKABLE QVariantMap actionState(const QVariantMap&row={})const;
     Q_INVOKABLE void composeFor(const QString&mode,const QVariantMap&key);
     Q_INVOKABLE void mutateMessage(const QString&action,const QVariantMap&message);
+    Q_INVOKABLE void retryReader();
+    Q_INVOKABLE void loadMessage(const QString&message);
     Q_INVOKABLE void pageReader(const QString&direction);
     Q_INVOKABLE void closeReader();
     Q_INVOKABLE void openThread(const QString&account,const QString&thread);
@@ -105,6 +107,7 @@ public:
     Q_INVOKABLE void renderMessage(const QVariantMap&parameters);
     Q_INVOKABLE void openLink(const QString &url);
     Q_INVOKABLE void attachFiles();
+    Q_INVOKABLE bool attachUrls(const QVariantList&urls);
     Q_INVOKABLE void chooseSignaturePicture(const QString&session);
     Q_INVOKABLE void chooseColour(bool background=false);
     Q_INVOKABLE bool interceptImagePaste();
@@ -164,9 +167,10 @@ private:
     QString m_notificationStatus;
     bool m_windowVisible=true,m_mainWindowVisible=true,m_composerWindowVisible=false;
     void updateWindowVisibility(){const bool visible=m_mainWindowVisible||m_composerWindowVisible;if(visible==m_windowVisible)return;m_windowVisible=visible;emit windowVisibleChanged();}
+    QSet<quint64> mutationRequests;
     QSet<QString> m_selection; int anchor=-1; bool m_selecting=false,m_readerOpen=false,m_more=false,m_canUndo=false,m_preview;
     quint64 serial=0,viewRequest=0,readerRequest=0,headerRequest=0; QString openedKey,anchorKey;
-    QHash<QString,quint64> documentRequests;
+    QHash<QString,quint64> documentRequests,bodyRequests;
     bool quitting=false,quitWaiting=false; int quitCode=0;
     QString clipboardSession,clipboardToken;QByteArray clipboardBytes;
     quint64 clipboardRequest=0;qint64 clipboardOffset=0;

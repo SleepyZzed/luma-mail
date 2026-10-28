@@ -3,6 +3,19 @@
 #include <QUrl>
 #include <QFileDialog>
 #include <QFileInfo>
+bool Bridge::attachUrls(const QVariantList&urls){
+    const auto session=m_composer.value("session").toString();const auto phase=m_composer.value("state").toString();
+    if(session.isEmpty()||m_composer.value("locked").toBool()||m_composer.value("inputBusy").toBool()||clipboardBusy()||(phase!="editing"&&phase!="uploading"))return false;
+    auto reject=[this](const QString&message){m_error=message;emit errorChanged();return false;};
+    if(urls.isEmpty()||urls.size()>64)return reject("Drop between one and 64 local files.");
+    QStringList paths;
+    for(const auto&value:urls){const auto url=value.toUrl();
+        if(!url.isValid()||!url.isLocalFile()||!url.host().isEmpty()||url.hasQuery()||url.hasFragment()||url.toEncoded().size()>65536)return reject("Only local files can be attached by dragging. Choose remote files with the file picker.");
+        const auto path=url.toLocalFile();if(path.contains(QChar(0))||!QFileInfo(path).isFile())return reject("One dropped item is not an available file.");
+        if(!paths.contains(path))paths.append(path);
+    }
+    return send("composeAttach",{{"session",session},{"paths",paths}})!=0;
+}
 void Bridge::chooseSignaturePicture(const QString&session){auto dialog=new QFileDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Choose a signature picture");dialog->setFileMode(QFileDialog::ExistingFile);dialog->setNameFilter("Pictures (*.png *.jpg *.jpeg *.webp *.gif)");dialog->setWindowModality(Qt::ApplicationModal);connect(dialog,&QFileDialog::fileSelected,this,[this,session](const QString&path){emit signaturePictureChosen(session,path,QFileInfo(path).fileName());});dialog->open();}
 QVariantMap Bridge::actionState(const QVariantMap&requested)const{
     QVariantList rows;

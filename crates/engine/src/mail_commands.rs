@@ -73,13 +73,15 @@ pub async fn delete_drafts(app: &Arc<App>, c: &Command) -> Result<()> {
             Err(e) => failures.push(e.to_string()),
         }
     }
+    if !removed.is_empty() {
+        app.undo.lock().unwrap().clear();
+    }
     if app.current(generation) {
         app.view
             .lock()
             .unwrap()
             .rows
             .retain(|r| !removed.contains(&r.key));
-        app.undo.lock().unwrap().clear();
         app.events
             .emit(
                 c.id,

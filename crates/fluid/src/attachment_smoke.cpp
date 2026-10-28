@@ -9,6 +9,12 @@
 #include <QJsonDocument>
 #include <QMetaEnum>
 #include <QtEndian>
+#include <QMimeData>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QQuickTextDocument>
+#include <QTextDocument>
 class AttachmentSmoke:public QObject {
     Bridge*mail;AttachmentPreview*preview;QQuickWindow*window;QJsonArray checks;QTimer poll;bool failed=false,finished=false;int stage=0;QString session;QVariantMap imageSource,textSource,audioSource,videoSource;
     QString thumbKey;
@@ -21,7 +27,17 @@ class AttachmentSmoke:public QObject {
         QByteArray wave;auto u32=[&](quint32 n){char out[4];qToLittleEndian(n,out);wave.append(out,4);};auto u16=[&](quint16 n){char out[2];qToLittleEndian(n,out);wave.append(out,2);};const quint32 samples=320000;
         wave.append("RIFF");u32(samples+36);wave.append("WAVEfmt ");u32(16);u16(1);u16(1);u32(8000);u32(8000);u16(1);u16(8);wave.append("data");u32(samples);wave.append(QByteArray(samples,char(128)));QFile audio(path+"/tone.wav");if(!audio.open(QIODevice::WriteOnly)){check("synthetic audio fixture opens",false);finish();return;}audio.write(wave);audio.close();
         QFile video(path+"/video.mp4");if(!video.open(QIODevice::WriteOnly)){check("synthetic video fixture opens",false);finish();return;}video.write(QByteArray::fromBase64(AttachmentVideo));video.close();
-        mail->send("composeAttach",{{"session",session},{"paths",QStringList{path+"/image.png",path+"/notes.txt",path+"/tone.wav",path+"/video.mp4"}}});
+        check("file drops reject remote URLs without creating attachments",!mail->attachUrls({QUrl("https://example.invalid/file")})&&mail->composer()["attachments"].toList().isEmpty());mail->clearError();
+        QVariantList tooMany;for(int i=0;i<65;++i)tooMany.append(QUrl::fromLocalFile(path+"/notes.txt"));check("file-drop batches keep the 64-file bound",!mail->attachUrls(tooMany));mail->clearError();
+        QTimer::singleShot(800,this,[this,path]{
+            auto card=find(window->contentItem(),"composer");if(!card){check("file-drop composer exists",false);finish();return;}
+            QMimeData mime;mime.setUrls({QUrl::fromLocalFile(path+"/image.png"),QUrl::fromLocalFile(path+"/notes.txt"),QUrl::fromLocalFile(path+"/tone.wav"),QUrl::fromLocalFile(path+"/video.mp4")});
+            const auto point=card->mapToScene(QPointF(card->width()/2,card->height()/2));
+            QDragEnterEvent enter(point.toPoint(),Qt::CopyAction|Qt::MoveAction,&mime,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(window,&enter);
+            QDragMoveEvent move(point.toPoint(),Qt::CopyAction|Qt::MoveAction,&mime,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(window,&move);
+            QDropEvent drop(point,Qt::CopyAction|Qt::MoveAction,&mime,Qt::LeftButton,Qt::NoModifier);drop.setDropAction(Qt::MoveAction);QCoreApplication::sendEvent(window,&drop);
+            check("native file drops are accepted as Copy and never Move",enter.isAccepted()&&drop.isAccepted()&&drop.dropAction()==Qt::CopyAction);
+        });
     }
 public:
     AttachmentSmoke(Bridge*m,AttachmentPreview*p,QQuickWindow*w):QObject(w),mail(m),preview(p),window(w){
@@ -30,6 +46,7 @@ public:
         connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(finished)return;if(kind=="error"){check("attachment commands succeed: "+data.value("message").toString(),false);finish();return;}
             if(kind=="composeOpened"&&stage==0){stage=1;session=data["session"].toString();inputs();}
             else if(kind=="compose"&&stage==1&&data["attachments"].toList().size()==4){
+                auto body=find(window->contentItem(),"composeBody");auto document=body?qvariant_cast<QQuickTextDocument*>(body->property("textDocument")):nullptr;check("file drops preserve authored text instead of inserting file URLs",document&&document->textDocument()->toPlainText().isEmpty());
                 stage=2;auto rows=data["attachments"].toList();auto owner=QVariantMap{{"session",session},{"generation",data["attachmentGeneration"]}};
                 imageSource=owner;imageSource["attachment"]=rows[0].toMap()["id"];textSource=owner;textSource["attachment"]=rows[1].toMap()["id"];audioSource=owner;audioSource["attachment"]=rows[2].toMap()["id"];
                 videoSource=owner;videoSource["attachment"]=rows[3].toMap()["id"];

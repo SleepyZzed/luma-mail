@@ -102,9 +102,12 @@ Item {
         }
     }
     Item {
-        id:footer;x:Theme.unit(16);width:parent.width-2*x;height:Theme.unit(72);anchors.bottom:parent.bottom
+        id:footer;x:Theme.unit(16);width:parent.width-2*x;height:footerDepth.value;anchors.bottom:parent.bottom
+        Motion{id:footerDepth;target:Theme.unit(root.collapsed?110:72);enabled:Theme.motion}
+        Motion{id:settingsY;target:Theme.unit(root.collapsed?12:20);enabled:Theme.motion}
+        Motion{id:collapseY;target:Theme.unit(root.collapsed?60:20);enabled:Theme.motion}
         Rectangle{height:1;width:parent.width;color:Theme.outline;opacity:.55}
-        FluidButton {y:Theme.unit(20);glyph:"settings";text:root.collapsed?"":"Settings";tip:"Settings";onClicked:root.settingsRequested()}
-        FluidButton {anchors.right:parent.right;y:Theme.unit(20);glyph:root.collapsed?"chevron-right":"chevron-left";tip:"Collapse navigation";onClicked:root.collapsed=!root.collapsed}
+        FluidButton {objectName:"sidebarSettings";x:root.collapsed?(footer.width-width)/2:0;y:settingsY.value;width:root.collapsed?Theme.unit(34):Math.max(Theme.unit(34),footer.width-Theme.unit(42));labelWidth:Math.max(0,width-Theme.unit(61));glyph:"settings";text:root.collapsed?"":"Settings";tip:"Settings";onClicked:root.settingsRequested()}
+        FluidButton {objectName:"sidebarCollapse";anchors.right:parent.right;anchors.rightMargin:root.collapsed?(footer.width-width)/2:0;y:collapseY.value;glyph:root.collapsed?"chevron-right":"chevron-left";tip:root.collapsed?"Expand navigation":"Collapse navigation";onClicked:root.collapsed=!root.collapsed}
     }
 }

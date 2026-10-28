@@ -64,6 +64,18 @@ Item {
     Motion{id:breadth;target:root.goalWidth;enabled:Theme.motion&&root.hostVisible}
     Motion{id:depth;target:root.goalHeight;enabled:Theme.motion&&root.hostVisible}
     Rectangle{anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:Theme.motion&&root.hostVisible}}
+    DropArea {
+        id:fileDrop;objectName:"composeFileDrop";anchors.fill:parent;z:30
+        enabled:root.shown&&root.attachmentEditable&&!root.inputBusy&&!root.modalOpen&&!root.statusMode
+        onEntered:drag=>{if(!drag.hasUrls||drag.urls.length<1||drag.urls.length>64||!(drag.supportedActions&Qt.CopyAction))drag.accepted=false;else drag.accept(Qt.CopyAction)}
+        onDropped:drop=>{if((drop.supportedActions&Qt.CopyAction)&&Mail.attachUrls(drop.urls))drop.accept(Qt.CopyAction);else drop.accepted=false}
+    }
+    Rectangle {
+        anchors.fill:parent;anchors.margins:Theme.unit(5);z:31;radius:Theme.unit(18);color:Theme.selected;border.width:2;border.color:Theme.accent
+        visible:fileDrop.containsDrag||dropPresence.running;opacity:Math.max(0,Math.min(1,dropPresence.value))
+        Motion{id:dropPresence;target:fileDrop.containsDrag?.95:0;epsilon:.002;enabled:Theme.motion&&root.hostVisible}
+        Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:"Drop files to attach";color:Theme.text;font.pixelSize:Theme.unit(20);font.weight:Font.DemiBold}
+    }
     component Field:TextField {
         Accessible.name:placeholderText
         color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;font.pixelSize:Theme.unit(12)
