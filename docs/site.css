@@ -29,3 +29,11 @@ footer { border-top: 1px solid var(--line); padding-block: 24px 40px; font-size:
 footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } main { padding-top: 40px; } .wrap { padding-inline: 20px; } }
 @media (prefers-color-scheme: light) { :root { --bg: #faf9fd; --surface: #efedf5; --ink: #1c2130; --muted: #535e70; --accent: #6541b7; --line: #d6d5e1; } .button { color: #fff; } }
+
+.desktop-preview { margin: 38px 0; }
+.desktop-preview img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 18px; }
+figcaption { color: var(--muted); font-size: .85rem; margin-top: 10px; }
+.grid h2 { margin: 0; font-size: 1.3rem; }
+.permission { padding-block: 24px; border-bottom: 1px solid var(--line); }
+.permission h2 { margin-top: 12px; }
+code { overflow-wrap: anywhere; font-size: .88em; }
