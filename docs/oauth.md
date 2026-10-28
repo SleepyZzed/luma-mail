@@ -141,8 +141,8 @@ unverified early access. This is separate from verification and does not remove
 Google's warning or cap. The full-release goal remains verified, uncapped
 consent, backed by domain ownership, scope justification and a demonstration of
 real consent and the mail features that need each scope. Public project pages
-are hosted at [sleepyzzed.github.io/luma-mail](https://sleepyzzed.github.io/luma-mail/),
-with linked privacy and terms information also saved in this repository.
+are hosted at [lumamail.app](https://lumamail.app/),
+with linked privacy and terms information also saved in this repository. The domain is verified through a DNS TXT record as a Search Console Domain property, and the Cloud branding URLs use lumamail.app. Keep the ownership TXT record and domain registration active; OAuth verification itself remains pending.
 
 Luma connects directly from the user's desktop to Google and has no mail-handling
 application server. Google's restricted-scope guidance ties annual independent

@@ -17,10 +17,10 @@ The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptan
 criteria to implementation evidence and the remaining code/desktop checks.
 
 Repository: [SleepyZzed/luma-mail](https://github.com/SleepyZzed/luma-mail).
-[Project homepage](https://sleepyzzed.github.io/luma-mail/) ·
-[Privacy policy](https://sleepyzzed.github.io/luma-mail/privacy.html) ·
-[Terms](https://sleepyzzed.github.io/luma-mail/terms.html).
-[Download the 0.9 early-access Linux AppImage or Windows x64 ZIP](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.9.0-dev.1)
+[Project homepage](https://lumamail.app/) ·
+[Privacy policy](https://lumamail.app/privacy.html) ·
+[Terms](https://lumamail.app/terms.html).
+[Download the 0.11 early-access Linux AppImage or Windows x64 ZIP](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2)
 and its SHA-256 checksum. Release publication requires both platform build gates.
 Linux remains primary; both versions share the mail engine and features, with
 a Windows title bar and platform-specific rendering/tray/keyring backends. See
