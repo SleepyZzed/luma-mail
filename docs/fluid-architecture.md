@@ -31,7 +31,7 @@ existing private Drive path. Clipboard images now travel in acknowledged
 bitmap encoding runs off the UI thread with bounded output and cancellation;
 the engine validates the raster before attaching it. Save/Send waits for input
 and sender settings; failed/cancelled input cancels queued Send. No image spool,
-body resource or clipboard autosave is created. Media adapters remain pending.
+body resource or clipboard autosave is created.
 Quoted history and online signatures are separate from authored reply text and
 round-trip in Gmail's MIME draft, without local sidecars. Save/send operations
 serialize, reuse one draft ID and do not retry uncertain writes. Quitting uses
@@ -43,7 +43,7 @@ Only the visible vertical slice receives a compositor surface. Scrolling beyond
 an HTML body or closing the reader releases its renderer. Windows native child
 regions exclude the floating composer and hide for Settings/menus/modal editors.
 These paths have Windows native synthetic coverage; Linux CI and live acceptance
-are separate gates. Attachment previews/media remain pending.
+are separate gates. Attachment previews/media use the bounded RAM-only adapter described below.
 
 One message's inert PNG image map retains at most 4 MiB of encoded keys/data in
 RAM and clears on reader changes. The native message model retains at most eight
@@ -101,3 +101,24 @@ body text is escaped, privacy preferences apply before transport, and no Qt
 balloon fallback is invoked on Linux. Windows uses its native tray transport.
 Native plain readers format validated UTF-16 link spans in a resource-blocked
 text document, so ordinary linked text does not create another web renderer.
+
+Native desktop activation uses a per-user local socket/named pipe and owner lock,
+separate from the Rust engine's inherited anonymous pipes. It accepts only one
+bounded mailto URI or a show-window request, uses OS user-only access, and recovers
+only its own stale endpoint. Incoming mail links wait in RAM for an enabled
+account; a link never replaces an active composer or invokes attachment/send
+parameters. No TCP listener or local mail index is introduced.
+
+Save/send completion retains at most eight distinct thread-ID hints for metadata
+reconciliation. Both ends of a provider write advance the reconciliation fence;
+a read started during a write cannot replace the confirmed result afterward.
+Advanced search keeps its enabled-account subset across manual refresh and raw
+query edits; cancelling its builder fences late results. Account row reconciliation
+uses stable identities instead of resetting the sidebar for preference changes.
+
+Conflict comparison holds only one explicit in-memory review, with bounded plain
+previews and the existing 16-MiB attachment editing cap. Cancelling/closing drops
+it. Resolution creates a separate unsaved composer with a new Message-ID and
+explicit field/attachment choices. It never writes or deletes a Gmail draft by
+itself. The original remains online. Unsupported merged HTML retains source mode
+until the user explicitly converts it.

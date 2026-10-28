@@ -40,6 +40,7 @@ public:
     void setMass(qreal value);
     void setEpsilon(qreal value);
     Q_INVOKABLE void snap(qreal value);
+    Q_INVOKABLE void rebase(qreal value);
     Q_INVOKABLE void resume();
 signals:
     void valueChanged();

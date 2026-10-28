@@ -143,6 +143,49 @@ jobs:
           name: fluid-navigation-linux
           path: fluid-navigation-linux.json
           if-no-files-found: warn
+      - name: Native scoped search and mail links
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_SEARCH_REPORT: ${{ github.workspace }}/fluid-search-linux.json
+          LUMA_PREVIEW_TWO_ACCOUNTS: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --search-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-search-linux
+          path: fluid-search-linux.json
+          if-no-files-found: warn
+      - name: Native three-way Gmail draft comparison
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_CONFLICT_REPORT: ${{ github.workspace }}/fluid-conflict-linux.json
+          LUMA_PREVIEW_CONFLICT: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s xvfb-run -a -s '-screen 0 1920x1080x24' build-fluid/luma-mail-fluid --design-preview --conflict-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-conflict-linux
+          path: fluid-conflict-linux.json
+          if-no-files-found: warn
+      - name: Complete synthetic process-tree resource audit
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_RESOURCE_REPORT: ${{ github.workspace }}/fluid-resource-linux/lifecycle.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          mkdir -p fluid-resource-linux
+          timeout 220s xvfb-run -a -s '-screen 0 1920x1080x24' python3 packaging/profile-processes.py build-fluid/luma-mail-fluid fluid-resource-linux/processes.json --fluid
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-resource-linux
+          path: fluid-resource-linux
+          if-no-files-found: warn
   windows-scene:
     runs-on: windows-latest
     steps:
@@ -168,6 +211,7 @@ jobs:
           cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-fluid --parallel 2
           ctest --test-dir build-fluid --output-on-failure
+          echo "LUMA_QT_BIN=$(cygpath -m /ucrt64/bin)" >> "$GITHUB_ENV"
       - name: Native synthetic scene and real pipe test
         shell: msys2 {0}
         run: |
@@ -284,4 +328,53 @@ jobs:
           path: |
             fluid-navigation-windows.json
             navigation.stderr
+          if-no-files-found: warn
+      - name: Native scoped search and mail links
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_SEARCH_REPORT="$(cygpath -m "$PWD")/fluid-search-windows.json"
+          export LUMA_PREVIEW_TWO_ACCOUNTS=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --search-test >search.stdout 2>search.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-search-windows
+          path: |
+            fluid-search-windows.json
+            search.stderr
+          if-no-files-found: warn
+      - name: Native three-way Gmail draft comparison
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_CONFLICT_REPORT="$(cygpath -m "$PWD")/fluid-conflict-windows.json"
+          export LUMA_PREVIEW_CONFLICT=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --conflict-test >conflict.stdout 2>conflict.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-conflict-windows
+          path: |
+            fluid-conflict-windows.json
+            conflict.stderr
+          if-no-files-found: warn
+      - name: Complete synthetic process-tree resource audit
+        shell: pwsh
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine.exe
+          LUMA_WEBVIEW: ${{ github.workspace }}/target/debug/luma_webview.dll
+          QT_FORCE_STDERR_LOGGING: '1'
+        run: |
+          $env:PATH=$env:LUMA_QT_BIN+";"+$env:PATH
+          ./packaging/test-windows-performance.ps1 -Fluid -Binary ./build-fluid/luma-mail-fluid.exe -Evidence ./fluid-resource-windows
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-resource-windows
+          path: fluid-resource-windows
           if-no-files-found: warn

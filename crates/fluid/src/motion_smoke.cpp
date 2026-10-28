@@ -63,7 +63,7 @@ void MotionSmoke::begin() {
         auto projected=visualItem(window->contentItem(),"projectedAvatar");
         auto actual=visualItem(window->contentItem(),"readerAvatar-0");
         check("avatar handoff matches reader geometry",projected&&actual&&QLineF(projected->mapToScene(QPointF()),actual->mapToScene(QPointF())).length()<1&&std::abs(projected->width()-actual->width())<.5);
-        const qreal compact=window->width()<1000?0:qMin(qreal(450),(window->width()-navigation->width())*.4);
+        const qreal compact=window->width()<1000?0:qMin(bridge->settings().value("list_width",450).toReal(),qMax(qreal(0),window->width()-navigation->width()-380));
         check("compact inbox keeps its responsive bounds",std::abs(inbox->width()-compact)<.5);
         bridge->closeReader();
         check("back reverses the shared projection",morph->property("active").toBool()&&!morph->property("opening").toBool());
@@ -87,7 +87,7 @@ void MotionSmoke::begin() {
         check("reduced-motion preference reached the engine",bridge->settings().value("reduced_motion").toBool());
         open(2);
         check("reduced motion opens without projection",!morph->property("active").toBool());
-        const qreal compact=window->width()<1000?0:qMin(qreal(450),(window->width()-navigation->width())*.4);
+        const qreal compact=window->width()<1000?0:qMin(bridge->settings().value("list_width",450).toReal(),qMax(qreal(0),window->width()-navigation->width()-380));
         check("reduced motion settles pane immediately",std::abs(inbox->width()-compact)<.5);
         QTimer::singleShot(200,this,[this]{
             check("received body belongs to selected reader",bridge->messages()->at(0).value("id")=="preview2"&&bridge->messages()->at(0).value("text").isValid());
@@ -120,7 +120,9 @@ void MotionSmoke::begin() {
             QMetaObject::invokeMethod(composer,"close");
             check("close starts a downward movement",composer->property("moving").toBool());
         });
-        QTimer::singleShot(3200,this,[this,composer]{
+        QTimer::singleShot(2470,this,[this,composer]{const auto before=composer->position();const auto size=composer->size();QMetaObject::invokeMethod(composer,"open",Q_ARG(QVariant,"new"));check("reopening during close preserves current bounds",QLineF(before,composer->position()).length()<.1&&std::abs(composer->width()-size.width())<.1&&std::abs(composer->height()-size.height())<.1);});
+        QTimer::singleShot(3100,this,[composer]{QMetaObject::invokeMethod(composer,"close");});
+        QTimer::singleShot(4000,this,[this,composer]{
             check("closed composer releases its visible surface",!composer->isVisible()&&!composer->property("moving").toBool());
             const auto atRest=totalFrames;
             QTimer::singleShot(300,this,[this,atRest]{

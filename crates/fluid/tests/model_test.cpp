@@ -5,6 +5,15 @@ class ModelTest:public QObject {
     Q_OBJECT
     static QJsonObject row(int id,int date){return {{"key",QJsonObject{{"account","a"},{"id",QString::number(id)}}},{"date",date},{"subject","Synthetic"}};}
 private slots:
+    void accountUpdatesKeepIdentityAndOrderWithoutResettingDelegates(){
+        RecordModel model;QAbstractItemModelTester tester(&model,QAbstractItemModelTester::FailureReportingMode::Fatal);QSignalSpy resets(&model,&QAbstractItemModel::modelReset);
+        const QJsonObject a{{"id","a"},{"name","First"}},b{{"id","b"},{"name","Second"}};
+        model.reconcileOrdered({a,b});QPersistentModelIndex second(model.index(1));
+        model.reconcileOrdered({QJsonObject{{"id","b"},{"name","Renamed"}},a});
+        QVERIFY(second.isValid());QCOMPARE(second.row(),0);QCOMPARE(model.at(0)["name"].toString(),QString("Renamed"));QCOMPARE(resets.size(),0);
+        QSignalSpy changes(&model,&QAbstractItemModel::dataChanged);model.reconcileOrdered({QJsonObject{{"id","b"},{"name","Renamed"}},a});QCOMPARE(changes.size(),0);
+        model.reconcileOrdered({a});QVERIFY(!second.isValid());QCOMPARE(model.indexFor("a"),0);
+    }
     void incomingRowsMoveAndStayWithinTheLoadedLimit(){
         RecordModel model;QAbstractItemModelTester tester(&model,QAbstractItemModelTester::FailureReportingMode::Fatal);QJsonArray rows;for(int i=0;i<1000;++i)rows.append(row(i,1000-i));model.replace(rows);
         auto key=RecordModel::key(row(500,0));model.update(row(500,2000),true);QCOMPARE(model.rowCount(),1000);QCOMPARE(model.indexFor(key),0);QCOMPARE(model.at(0)["key"].toMap()["id"].toString(),QString("500"));

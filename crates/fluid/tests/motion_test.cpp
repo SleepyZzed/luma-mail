@@ -41,6 +41,12 @@ private slots:
         QCOMPARE(motion.value(), 15);
         QVERIFY(!motion.running());
     }
+    void reparentingCoordinatesKeepTheExistingMomentum(){
+        Motion motion;motion.componentComplete();motion.setTarget(900);QTRY_VERIFY_WITH_TIMEOUT(motion.value()>50,500);
+        const auto speed=motion.velocity(),position=motion.value();motion.rebase(position+200);
+        QCOMPARE(motion.value(),position+200);QCOMPARE(motion.velocity(),speed);QVERIFY(motion.running());
+        QTRY_VERIFY_WITH_TIMEOUT(!motion.running(),2500);QCOMPARE(motion.value(),900);
+    }
     void settledSpringDoesNoFurtherWork() {
         Motion motion;
         motion.componentComplete();

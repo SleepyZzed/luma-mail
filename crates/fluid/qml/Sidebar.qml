@@ -19,7 +19,7 @@ Item {
     onWidthChanged:Qt.callLater(refreshPill)
     onUnifiedOpenChanged:Qt.callLater(refreshPill)
     onAccountOpenChanged:Qt.callLater(refreshPill)
-    Connections{target:Mail;function onViewChanged(){Qt.callLater(root.refreshPill)}function onSettingsChanged(){if(root.accountOpen&&!((Mail.settings.accounts||[]).find(a=>a.id===root.accountOpen&&a.enabled!==false)))root.accountOpen=""}}
+    Connections{target:Mail;function onViewChanged(){if(Mail.account)root.accountOpen=Mail.account;Qt.callLater(root.refreshPill)}function onSettingsChanged(){if(root.accountOpen&&!((Mail.settings.accounts||[]).find(a=>a.id===root.accountOpen&&a.enabled!==false)))root.accountOpen=""}}
     signal composeAt(real x,real y,real w,real h)
     signal settingsRequested()
     signal labelActionRequested(string operation,string account,var label)
@@ -37,6 +37,8 @@ Item {
     }
     Flickable {
         id:scroll;objectName:"navigationScroll";x:Theme.unit(12);y:fixedHeader.y+fixedHeader.height+Theme.unit(25);width:parent.width-2*x;height:footer.y-y-Theme.unit(14);clip:true;contentHeight:nav.height;boundsBehavior:Flickable.StopAtBounds
+        onContentHeightChanged:contentY=Math.max(0,Math.min(contentY,contentHeight-height))
+        onHeightChanged:contentY=Math.max(0,Math.min(contentY,contentHeight-height))
         ScrollBar.vertical:ScrollBar{policy:ScrollBar.AsNeeded;implicitWidth:5}
         Rectangle {
             id:selectionPill
@@ -69,30 +71,30 @@ Item {
             Item{width:1;height:Theme.unit(23)}
             Text {textFormat:Text.PlainText;x:Theme.unit(12);text:"YOUR ACCOUNTS";font.pixelSize:Theme.unit(9);font.letterSpacing:1.2;font.weight:Font.DemiBold;color:Theme.faint;visible:!root.collapsed}
             Repeater {
-                model:Mail.settings.accounts||[]
+                model:Mail.accounts
                 delegate:Column {
-                    id:accountCard;required property var modelData;width:nav.width
+                    id:accountCard;required property var item;width:nav.width
                     Item {
                         width:parent.width;height:Theme.unit(62)
-                        Avatar{objectName:"accountAvatar-"+accountCard.modelData.id;x:Theme.unit(10);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(32);height:width;sender:accountCard.modelData.name||accountCard.modelData.email;photoSender:accountCard.modelData.email;account:accountCard.modelData.id;active:accountCard.y+parent.height>scroll.contentY&&accountCard.y<scroll.contentY+scroll.height}
+                        Avatar{objectName:"accountAvatar-"+accountCard.item.id;x:Theme.unit(10);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(32);height:width;sender:accountCard.item.name||accountCard.item.email;photoSender:accountCard.item.email;account:accountCard.item.id;active:accountCard.y+parent.height>scroll.contentY&&accountCard.y<scroll.contentY+scroll.height}
                         Column {x:Theme.unit(53);anchors.verticalCenter:parent.verticalCenter;visible:!root.collapsed;width:parent.width-x-Theme.unit(28);spacing:3
-                            Text {textFormat:Text.PlainText;text:accountCard.modelData.name||accountCard.modelData.email;color:Theme.text;font.pixelSize:Theme.unit(12);elide:Text.ElideRight;width:parent.width}
-                            Text {textFormat:Text.PlainText;text:accountCard.modelData.email;color:Theme.faint;font.pixelSize:Theme.unit(10);elide:Text.ElideMiddle;width:parent.width}
+                            Text {textFormat:Text.PlainText;text:accountCard.item.name||accountCard.item.email;color:Theme.text;font.pixelSize:Theme.unit(12);elide:Text.ElideRight;width:parent.width}
+                            Text {textFormat:Text.PlainText;text:accountCard.item.email;color:Theme.faint;font.pixelSize:Theme.unit(10);elide:Text.ElideMiddle;width:parent.width}
                         }
                         Text{textFormat:Text.PlainText;anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);y:Theme.unit(39)
-                            text:{const count=Mail.sync.unread?.[accountCard.modelData.id]||0;return count>999?"999+":String(count)}
+                            text:{const count=Mail.sync.unread?.[accountCard.item.id]||0;return count>999?"999+":String(count)}
                             visible:text!=="0"&&!root.collapsed;color:Theme.accent;font.pixelSize:Theme.unit(9)
                         }
-                        Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:accountArrow.value;Motion{id:accountArrow;target:root.accountOpen===accountCard.modelData.id?90:0;enabled:Theme.motion}}
-                        MouseArea{anchors.fill:parent;enabled:accountCard.modelData.enabled!==false;onClicked:{root.accountOpen=root.accountOpen===accountCard.modelData.id?"":accountCard.modelData.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.modelData.id)}}
+                        Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(9);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:accountArrow.value;Motion{id:accountArrow;target:root.accountOpen===accountCard.item.id?90:0;enabled:Theme.motion}}
+                        MouseArea{anchors.fill:parent;enabled:accountCard.item.enabled!==false;onClicked:{root.accountOpen=root.accountOpen===accountCard.item.id?"":accountCard.item.id;if(root.accountOpen!=="")Mail.setView("inbox",accountCard.item.id)}}
                     }
                     Item {
                         width:parent.width;height:Math.max(0,accountHeight.value);clip:true
-                        Motion{id:accountHeight;target:root.accountOpen===accountCard.modelData.id?accountFolders.implicitHeight:0;enabled:Theme.motion}
+                        Motion{id:accountHeight;target:root.accountOpen===accountCard.item.id?accountFolders.implicitHeight:0;enabled:Theme.motion}
                         onHeightChanged:Qt.callLater(root.refreshPill)
                         Column {id:accountFolders;width:parent.width
-                            Repeater{model:["inbox","all_mail","unread","starred","sent","drafts","archive","spam","trash"];delegate:NavigationEntry{required property string modelData;navigation:root;folder:modelData;scope:accountCard.modelData.id;disclosed:root.accountOpen===accountCard.modelData.id}}
-                            LabelSection{account:accountCard.modelData.id;navigation:root;disclosed:root.accountOpen===accountCard.modelData.id}
+                            Repeater{model:["inbox","all_mail","unread","starred","sent","drafts","archive","spam","trash"];delegate:NavigationEntry{required property string modelData;navigation:root;folder:modelData;scope:accountCard.item.id;disclosed:root.accountOpen===accountCard.item.id}}
+                            LabelSection{account:accountCard.item.id;navigation:root;disclosed:root.accountOpen===accountCard.item.id}
                         }
                     }
                 }

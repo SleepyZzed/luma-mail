@@ -14,6 +14,7 @@ public:
     QHash<int,QByteArray> roleNames() const override {return {{Qt::UserRole+1,"item"}};}
     Q_INVOKABLE QVariantMap at(int i) const {return i>=0&&i<rows.size()?rows[i].toVariantMap():QVariantMap{};}
     void replace(const QJsonArray &items);
+    void reconcileOrdered(const QJsonArray &items);
     void append(const QJsonArray &items);
     void update(const QJsonObject &item,bool insert=false);
     void removeKeys(const QJsonArray &keys);

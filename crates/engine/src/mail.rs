@@ -177,7 +177,13 @@ pub fn message_header(m: &Message) -> Value {
         })
         .map(|p| json!({"name":p.filename,"mime":p.mime_type,"size":p.body.size,"part":p.part_id}))
         .collect();
-    json!({"id":m.id,"from":m.payload.header("From"),"to":m.payload.header("To"),"cc":m.payload.header("Cc"),"date":m.date(),"subject":m.payload.header("Subject"),"unread":m.has("UNREAD"),"starred":m.has("STARRED"),"important":m.has("IMPORTANT"),"draft":m.has("DRAFT"),"attachments":attachments})
+    let mut value = json!({"id":m.id,"from":m.payload.header("From"),"to":m.payload.header("To"),"cc":m.payload.header("Cc"),"date":m.date(),"subject":m.payload.header("Subject"),"unread":m.has("UNREAD"),"starred":m.has("STARRED"),"important":m.has("IMPORTANT"),"draft":m.has("DRAFT"),"attachments":attachments});
+    // Metadata projections do not contain MIME structure. Absence is unknown,
+    // not an empty attachment set that may erase an already-opened strip.
+    if m.payload.mime_type.is_empty() {
+        value.as_object_mut().unwrap().remove("attachments");
+    }
+    value
 }
 pub async fn body(app: &Arc<App>, c: &Command) -> Result<()> {
     let key = app::key(&c.data)?;
@@ -334,13 +340,28 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
         return Err(Error::Invalid("Select loaded conversations first".into()));
     }
     let action = action(c.text("action"), c.text("label"))?;
+    let message = c.data["message"].as_str().filter(|id| !id.is_empty());
+    if message.is_some() && keys.len() != 1 {
+        return Err(Error::Invalid(
+            "An individual message action needs one conversation".into(),
+        ));
+    }
     let _lock = app.mutation.lock().await;
     let generation = app.generation.load(Ordering::SeqCst);
     app.status(c.id, "saving", "Saving your changes to Gmail")
         .await;
     if app.preview {
+        if let Some(message) = message {
+            let view = app.view.lock().unwrap();
+            if view.selected.as_ref() != keys.first() || message != keys[0].id {
+                return Err(Error::Invalid(
+                    "The message is no longer in the open conversation".into(),
+                ));
+            }
+        }
         let mut changed = Vec::new();
         let mut removed = Vec::new();
+        let mut flags = Vec::new();
         {
             let mut v = app.view.lock().unwrap();
             for key in &keys {
@@ -355,7 +376,8 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
                         MailAction::Unimportant => row.important = false,
                         _ => (),
                     };
-                    changed.push(row.clone())
+                    changed.push(row.clone());
+                    flags.push(json!({"account":key.account,"thread":key.id,"message":{"id":key.id,"unread":row.unread,"starred":row.starred,"important":row.important}}));
                 }
             }
             v.rows.retain(|r| !removed.contains(&r.key));
@@ -364,7 +386,7 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             .emit(
                 c.id,
                 "mutation",
-                json!({"generation":generation,"removed":removed,"changed":changed,"undo":false}),
+                json!({"generation":generation,"removed":removed,"changed":changed,"undo":false,"messageFlags":flags}),
             )
             .await;
         app.status(c.id, "idle", "Preview updated").await;
@@ -430,7 +452,14 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
                 continue;
             }
         };
-        let confirmed = match client.act_confirmed(&key.id, false, &operation).await {
+        if message.is_some_and(|id| !before.messages.iter().any(|m| m.id == id)) {
+            failures.push("The message no longer belongs to this conversation".into());
+            continue;
+        }
+        let confirmed = match client
+            .act_confirmed(message.unwrap_or(&key.id), message.is_some(), &operation)
+            .await
+        {
             Err(e) => {
                 failures.push(e.to_string());
                 continue;
@@ -438,6 +467,9 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
             Ok(messages) => messages,
         };
         for m in &before.messages {
+            if message.is_some_and(|id| id != m.id) {
+                continue;
+            }
             let actions = operation.undo_for(m);
             if !actions.is_empty() {
                 inverse.push(Undo {
@@ -448,8 +480,19 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
                 })
             }
         }
-        let after = confirmed_thread(before, &confirmed, &operation);
-        flags.extend(after.messages.iter().map(message_header));
+        let after = confirmed_thread(before, &confirmed, &operation, message);
+        flags.extend(
+            after.messages.iter().map(
+                |m| json!({"account":key.account,"thread":key.id,"message":message_header(m)}),
+            ),
+        );
+        {
+            let mut view = app.view.lock().unwrap();
+            if view.selected.as_ref() == Some(&key) {
+                view.thread = Some(after.clone());
+            }
+        }
+        app.sync.track_write(key.clone());
         let (folder, query, attached) = {
             let v = app.view.lock().unwrap();
             (
@@ -507,8 +550,16 @@ pub async fn mutate(app: &Arc<App>, c: &Command) -> Result<()> {
     .await;
     Ok(())
 }
-fn confirmed_thread(mut before: Thread, confirmed: &[Message], action: &MailAction) -> Thread {
+fn confirmed_thread(
+    mut before: Thread,
+    confirmed: &[Message],
+    action: &MailAction,
+    only: Option<&str>,
+) -> Thread {
     for m in &mut before.messages {
+        if only.is_some_and(|id| m.id != id) {
+            continue;
+        }
         if let Some(after) = confirmed.iter().find(|a| a.id == m.id) {
             m.label_ids = after.label_ids.clone();
             continue;
@@ -545,6 +596,7 @@ pub async fn undo(app: &Arc<App>, id: u64) -> Result<()> {
         keys.insert(item.key);
     }
     for key in keys {
+        app.sync.track_write(key.clone());
         let client = app.client(&key.account)?;
         let thread = client.thread_metadata(&key.id).await?;
         let (folder, query) = {
@@ -552,10 +604,11 @@ pub async fn undo(app: &Arc<App>, id: u64) -> Result<()> {
             (v.folder.clone(), v.search.clone())
         };
         if client.matches_view(&thread, &folder, &query).await? == Some(true)
-            && let Some(row) = Conversation::from_thread(&key.account, &thread)
+            && let Some(mut row) = Conversation::from_thread(&key.account, &thread)
         {
             {
                 let mut v = app.view.lock().unwrap();
+                row.attachments |= v.rows.iter().any(|old| old.key == key && old.attachments);
                 v.rows.retain(|r| r.key != row.key);
                 v.rows.push(row.clone());
                 v.rows.sort_by_key(|row| std::cmp::Reverse(row.date));
@@ -570,6 +623,9 @@ pub async fn undo(app: &Arc<App>, id: u64) -> Result<()> {
     Ok(())
 }
 pub async fn fixture(app: &App) {
+    fixture_with_count(app, 8).await;
+}
+pub async fn fixture_with_count(app: &App, count: usize) {
     let samples = [
         (
             "Linear",
@@ -615,6 +671,8 @@ pub async fn fixture(app: &App) {
     let now = chrono::Utc::now().timestamp_millis();
     let rows: Vec<_> = samples
         .iter()
+        .cycle()
+        .take(count.clamp(1, 1000))
         .enumerate()
         .map(|(i, (sender, subject, snippet))| Conversation {
             key: ThreadKey {
@@ -634,4 +692,57 @@ pub async fn fixture(app: &App) {
         .collect();
     app.view.lock().unwrap().rows = rows.clone();
     app.events.emit(0,"rows",json!({"items":rows,"reset":true,"more":false,"generation":app.generation.load(Ordering::SeqCst)})).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn projected_headers_do_not_clear_previously_opened_attachment_strips() {
+        let metadata = Message {
+            id: "m".into(),
+            ..Default::default()
+        };
+        assert!(message_header(&metadata).get("attachments").is_none());
+        let plain = Message {
+            payload: Part {
+                mime_type: "text/plain".into(),
+                ..Default::default()
+            },
+            ..metadata
+        };
+        assert_eq!(message_header(&plain)["attachments"], json!([]));
+    }
+    #[test]
+    fn confirmed_single_message_changes_do_not_modify_sibling_labels() {
+        let before = Thread {
+            id: "thread".into(),
+            messages: vec![
+                Message {
+                    id: "first".into(),
+                    label_ids: vec!["INBOX".into(), "UNREAD".into()],
+                    ..Default::default()
+                },
+                Message {
+                    id: "second".into(),
+                    label_ids: vec!["INBOX".into(), "UNREAD".into()],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let updated = Message {
+            id: "first".into(),
+            label_ids: vec!["UNREAD".into(), "TRASH".into()],
+            ..Default::default()
+        };
+        let after = confirmed_thread(before, &[updated], &MailAction::Trash, Some("first"));
+        assert!(after.messages[0].has("TRASH"));
+        assert!(!after.messages[0].has("INBOX"));
+        assert!(after.messages[1].has("INBOX"));
+        assert!(!after.messages[1].has("TRASH"));
+        let after = confirmed_thread(after, &[], &MailAction::Star, Some("second"));
+        assert!(!after.messages[0].has("STARRED"));
+        assert!(after.messages[1].has("STARRED"));
+    }
 }

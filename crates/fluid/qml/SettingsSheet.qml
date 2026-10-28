@@ -24,45 +24,49 @@ Item {
         ScrollView{id:settingsScroll;x:Theme.unit(30);y:Theme.unit(93);width:parent.width-2*x;height:parent.height-y-Theme.unit(24);contentWidth:availableWidth;clip:true
         Column{width:settingsScroll.availableWidth;spacing:Theme.unit(20)
             Text {textFormat:Text.PlainText;text:"ACCOUNTS";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
-            Repeater{model:Mail.settings.accounts||[];delegate:Column{
-                id:accountSettings;required property var modelData;required property int index;width:parent.width;spacing:Theme.unit(8)
+            Repeater{model:Mail.accounts;delegate:Column{
+                id:accountSettings;required property var item;required property int index;width:parent.width;spacing:Theme.unit(8)
+                property bool initialized:false
+                property string remoteName:""
+                Component.onCompleted:{remoteName=item.name||"";accountName.text=remoteName;initialized=true}
+                onItemChanged:if(initialized&&item.name!==remoteName){remoteName=item.name||"";if(!accountName.activeFocus)accountName.text=remoteName}
                 Row{width:parent.width;spacing:Theme.unit(14)
-                    Avatar{sender:accountSettings.modelData.name||accountSettings.modelData.email;account:accountSettings.modelData.id;photoSender:accountSettings.modelData.email;active:root.opened}
+                    Avatar{sender:accountSettings.item.name||accountSettings.item.email;account:accountSettings.item.id;photoSender:accountSettings.item.email;active:root.opened}
                     Column{width:parent.width-Theme.unit(54);spacing:5
-                        Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideRight;text:accountSettings.modelData.name||accountSettings.modelData.email;color:Theme.text;font.pixelSize:Theme.unit(13)}
-                        Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideMiddle;text:accountSettings.modelData.email;color:Theme.muted;font.pixelSize:Theme.unit(11)}
+                        Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideRight;text:accountSettings.item.name||accountSettings.item.email;color:Theme.text;font.pixelSize:Theme.unit(13)}
+                        Text{textFormat:Text.PlainText;width:parent.width;elide:Text.ElideMiddle;text:accountSettings.item.email;color:Theme.muted;font.pixelSize:Theme.unit(11)}
                     }
                 }
                 Flow{width:parent.width;spacing:Theme.unit(8)
-                    FluidCheck{text:"Enabled";checked:accountSettings.modelData.enabled!==false;onToggled:Mail.send("accountUpdate",{account:accountSettings.modelData.id,enabled:checked})}
-                    FluidButton{text:Mail.settings.default_account===accountSettings.modelData.id?"Default sender":"Use as default";enabled:accountSettings.modelData.enabled!==false;onClicked:Mail.send("settingsUpdate",{default_account:accountSettings.modelData.id})}
-                    FluidCheck{text:"Notifications";checked:accountSettings.modelData.notifications||false;onToggled:Mail.send("accountUpdate",{account:accountSettings.modelData.id,notifications:checked})}
-                    FluidCheck{text:"Contact photos";checked:accountSettings.modelData.contact_photos||false;onToggled:{if(checked)Mail.send("authStart",{account:accountSettings.modelData.id,photos:true});else Mail.send("accountUpdate",{account:accountSettings.modelData.id,contact_photos:false})}}
-                    FluidButton{text:"Reconnect";tip:"Reconnect this Google account and its enabled features";onClicked:Mail.send("authStart",{account:accountSettings.modelData.id})}
-                    FluidCheck{text:"Drive links";checked:accountSettings.modelData.drive_enabled||false;onToggled:{if(checked)Mail.send("authStart",{account:accountSettings.modelData.id,drive:true});else Mail.send("accountUpdate",{account:accountSettings.modelData.id,drive_enabled:false})}}
-                    FluidButton{text:accountSettings.modelData.sender_controls?"Blocked senders":"Connect Gmail sender controls";onClicked:{if(accountSettings.modelData.sender_controls)root.rulesAccount=root.rulesAccount===accountSettings.modelData.id?"":accountSettings.modelData.id;else Mail.send("authStart",{account:accountSettings.modelData.id,settings:true})}}
+                    FluidCheck{text:"Enabled";checked:accountSettings.item.enabled!==false;onToggled:Mail.send("accountUpdate",{account:accountSettings.item.id,enabled:checked})}
+                    FluidButton{text:Mail.settings.default_account===accountSettings.item.id?"Default sender":"Use as default";enabled:accountSettings.item.enabled!==false;onClicked:Mail.send("settingsUpdate",{default_account:accountSettings.item.id})}
+                    FluidCheck{text:"Notifications";checked:accountSettings.item.notifications||false;onToggled:Mail.send("accountUpdate",{account:accountSettings.item.id,notifications:checked})}
+                    FluidCheck{text:"Contact photos";checked:accountSettings.item.contact_photos||false;onToggled:{if(checked)Mail.send("authStart",{account:accountSettings.item.id,photos:true});else Mail.send("accountUpdate",{account:accountSettings.item.id,contact_photos:false})}}
+                    FluidButton{text:"Reconnect";tip:"Reconnect this Google account and its enabled features";onClicked:Mail.send("authStart",{account:accountSettings.item.id})}
+                    FluidCheck{text:"Drive links";checked:accountSettings.item.drive_enabled||false;onToggled:{if(checked)Mail.send("authStart",{account:accountSettings.item.id,drive:true});else Mail.send("accountUpdate",{account:accountSettings.item.id,drive_enabled:false})}}
+                    FluidButton{text:accountSettings.item.sender_controls?"Blocked senders":"Connect Gmail sender controls";onClicked:{if(accountSettings.item.sender_controls)root.rulesAccount=root.rulesAccount===accountSettings.item.id?"":accountSettings.item.id;else Mail.send("authStart",{account:accountSettings.item.id,settings:true})}}
                 }
                 Row{width:parent.width;spacing:Theme.unit(8)
-                    FluidField{id:accountName;objectName:"accountName-"+accountSettings.modelData.id;width:parent.width-Theme.unit(120);text:accountSettings.modelData.name||"";placeholderText:"Account display name";maximumLength:256;onAccepted:Mail.send("accountUpdate",{account:accountSettings.modelData.id,name:text})}
-                    FluidButton{text:"Rename";onClicked:Mail.send("accountUpdate",{account:accountSettings.modelData.id,name:accountName.text})}
+                    FluidField{id:accountName;objectName:"accountName-"+accountSettings.item.id;width:parent.width-Theme.unit(120);placeholderText:"Account display name";maximumLength:256;onAccepted:Mail.send("accountUpdate",{account:accountSettings.item.id,name:text})}
+                    FluidButton{text:"Rename";onClicked:Mail.send("accountUpdate",{account:accountSettings.item.id,name:accountName.text})}
                 }
                 Flow{width:parent.width;spacing:Theme.unit(8)
-                    FluidButton{glyph:"chevron-up";tip:"Move account up";enabled:accountSettings.index>0;onClicked:root.moveAccount(accountSettings.modelData.id,-1)}
-                    FluidButton{glyph:"chevron-down";tip:"Move account down";enabled:accountSettings.index<(Mail.settings.accounts||[]).length-1;onClicked:root.moveAccount(accountSettings.modelData.id,1)}
-                    FluidButton{text:"Clear account cache";onClicked:Mail.send("cacheClear",{account:accountSettings.modelData.id})}
-                    FluidButton{text:"Remove account…";onClicked:root.confirmationRequested("Remove account from Luma?","Disconnect "+accountSettings.modelData.email+" and clear its disposable cache and recent-recipient metadata. Mail and drafts stay in Gmail.","Remove account","accountRemove",{account:accountSettings.modelData.id,confirmed:true})}
+                    FluidButton{glyph:"chevron-up";tip:"Move account up";enabled:accountSettings.index>0;onClicked:root.moveAccount(accountSettings.item.id,-1)}
+                    FluidButton{glyph:"chevron-down";tip:"Move account down";enabled:accountSettings.index<(Mail.settings.accounts||[]).length-1;onClicked:root.moveAccount(accountSettings.item.id,1)}
+                    FluidButton{text:"Clear account cache";onClicked:Mail.send("cacheClear",{account:accountSettings.item.id})}
+                    FluidButton{text:"Remove account…";onClicked:root.confirmationRequested("Remove account from Luma?","Disconnect "+accountSettings.item.email+" and clear its disposable cache and recent-recipient metadata. Mail and drafts stay in Gmail.","Remove account","accountRemove",{account:accountSettings.item.id,confirmed:true})}
                 }
-                Text{textFormat:Text.PlainText;text:"Allocated account cache: "+((root.accountCache[accountSettings.modelData.id]||0)/1048576).toFixed(2)+" MiB";color:Theme.faint;font.pixelSize:Theme.unit(10)}
-                Column{width:parent.width;spacing:Theme.unit(8);visible:root.rulesAccount===accountSettings.modelData.id
+                Text{textFormat:Text.PlainText;text:"Allocated account cache: "+((root.accountCache[accountSettings.item.id]||0)/1048576).toFixed(2)+" MiB";color:Theme.faint;font.pixelSize:Theme.unit(10)}
+                Column{width:parent.width;spacing:Theme.unit(8);visible:root.rulesAccount===accountSettings.item.id
                     Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"These Gmail filters move future mail to Trash even when Luma is closed. Unblock removes only the unchanged rule Luma created.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
-                    ListView{id:rules;width:parent.width;height:Math.min(count,5)*Theme.unit(46);model:accountSettings.modelData.blocked_senders||[];clip:true;reuseItems:true;cacheBuffer:Theme.unit(46)
+                    ListView{id:rules;width:parent.width;height:Math.min(count,5)*Theme.unit(46);model:accountSettings.item.blocked_senders||[];clip:true;reuseItems:true;cacheBuffer:Theme.unit(46)
                         ScrollBar.vertical:ScrollBar{implicitWidth:3}
                         delegate:Item{required property var modelData;width:rules.width;height:Theme.unit(46)
                             Text{textFormat:Text.PlainText;width:parent.width-Theme.unit(100);anchors.verticalCenter:parent.verticalCenter;text:modelData.address;elide:Text.ElideMiddle;color:Theme.text;font.pixelSize:Theme.unit(11)}
-                            FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;text:"Unblock";onClicked:Mail.send("senderRule",{account:accountSettings.modelData.id,sender:modelData.address,operation:"unblock",confirmed:true})}
+                            FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;text:"Unblock";onClicked:Mail.send("senderRule",{account:accountSettings.item.id,sender:modelData.address,operation:"unblock",confirmed:true})}
                         }
                     }
-                    Text{textFormat:Text.PlainText;text:"No sender rules saved by Luma";visible:(accountSettings.modelData.blocked_senders||[]).length===0;color:Theme.faint;font.pixelSize:Theme.unit(11)}
+                    Text{textFormat:Text.PlainText;text:"No sender rules saved by Luma";visible:(accountSettings.item.blocked_senders||[]).length===0;color:Theme.faint;font.pixelSize:Theme.unit(11)}
                 }
             }}
             FluidButton {text:"Sign in with Google";glyph:"add";primary:true;onClicked:Mail.send("authStart",{drive:true,settings:true,photos:true})}

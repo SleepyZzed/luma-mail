@@ -91,6 +91,9 @@ pub struct Data {
     pub close_pending: bool,
     pub status: String,
     pub attachment_generation: u64,
+    pub written_thread: Option<String>,
+    pub comparison: Option<Arc<crate::draft_conflict::Prepared>>,
+    pub comparison_ticket: u64,
 }
 pub struct Session {
     pub input_ready: tokio::sync::Notify,
@@ -155,7 +158,14 @@ impl Session {
             source_mode,
             document: initial_document,
         } = init;
-        let base = Fields::of(&form);
+        let base = if let Some(html) = &original_html {
+            let mut original = form.clone();
+            original.text = html.clone();
+            original.html = true;
+            Fields::of(&original)
+        } else {
+            Fields::of(&form)
+        };
         let identities = vec![SendAs::primary(&primary)];
         let (progress, progress_lifetime) = tokio::sync::watch::channel(Default::default());
         Arc::new(Self {
@@ -191,6 +201,9 @@ impl Session {
                 close_pending: false,
                 status: String::new(),
                 attachment_generation: 0,
+                written_thread: None,
+                comparison: None,
+                comparison_ticket: 0,
             }),
             operation: tokio::sync::Mutex::new(()),
             uploads: Default::default(),
@@ -273,6 +286,8 @@ impl Session {
         if changed {
             d.revision += 1;
             d.close_question = None;
+            d.comparison = None;
+            d.comparison_ticket += 1;
         }
         Ok(())
     }
@@ -509,6 +524,9 @@ impl Session {
         {
             let mut d = self.data.lock().unwrap();
             d.draft = Some(draft.clone());
+            if !draft.message.thread_id.is_empty() {
+                d.written_thread = Some(draft.message.thread_id.clone());
+            }
             d.saved_revision = revision;
             d.base = fields;
             // Only merge attachment/upload results; never replace text typed
@@ -533,12 +551,18 @@ impl Session {
                 self.data.lock().unwrap().status = "Waiting for Gmail confirmation".into();
             }
             self.check_cancelled()?;
-            if let Err(error) = transport.send(&draft).await {
-                self.failed_write(&error);
-                return Err(error);
-            }
+            let sent = match transport.send(&draft).await {
+                Ok(sent) => sent,
+                Err(error) => {
+                    self.failed_write(&error);
+                    return Err(error);
+                }
+            };
             let mut d = self.data.lock().unwrap();
             clear(&mut d, Phase::Sent);
+            if !sent.thread_id.is_empty() {
+                d.written_thread = Some(sent.thread_id);
+            }
             d.sent_recipients = Some(Compose {
                 to: form.to,
                 cc: form.cc,
@@ -713,7 +737,7 @@ fn stamp(mut draft: Draft) -> Draft {
     draft.message.snippet.clear();
     draft
 }
-fn clear(d: &mut Data, phase: Phase) {
+pub(crate) fn clear(d: &mut Data, phase: Phase) {
     d.clipboard = None;
     d.input_busy = false;
     d.input_token.clear();
@@ -733,8 +757,10 @@ fn clear(d: &mut Data, phase: Phase) {
     d.identities.clear();
     d.file_sizes.clear();
     d.sent_recipients = None;
+    d.comparison = None;
+    d.comparison_ticket += 1;
 }
-fn delivery(d: &Data) -> Result<Compose> {
+pub(crate) fn delivery(d: &Data) -> Result<Compose> {
     let mut form = d.form.clone();
     if let Some(html) = &d.original_html {
         form.text = html.clone();

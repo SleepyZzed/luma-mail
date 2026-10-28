@@ -16,6 +16,7 @@ pub mod http;
 pub mod lists;
 pub mod local_compose;
 pub mod mail_images;
+pub mod mailto;
 pub mod model;
 pub mod notifications;
 pub mod pagination;

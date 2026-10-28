@@ -22,6 +22,9 @@ struct Api {
 Api&api(){static Api instance;return instance;}
 }
 #endif
+namespace {int nativeSurfaceCount=0;}
+int HtmlSurface::liveNativeSurfaces(){return nativeSurfaceCount;}
+void HtmlSurface::setActive(bool value){if(lifetimeActive==value)return;lifetimeActive=value;emit activeChanged();updateSurface();}
 HtmlSurface::HtmlSurface(QQuickItem*parent):QQuickItem(parent){
     connect(qApp,&QCoreApplication::aboutToQuit,this,[this]{release();runtime.reset();});
     debounce.setSingleShot(true);debounce.setInterval(80);connect(&debounce,&QTimer::timeout,this,&HtmlSurface::measure);
@@ -49,27 +52,37 @@ void HtmlSurface::ancestors(){
     }
     if(window()){connections.append(connect(window(),&QWindow::visibleChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::visibilityChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::screenChanged,this,&HtmlSurface::updateSurface));}
 }
-void HtmlSurface::release(){debounce.stop();ready=false;
+void HtmlSurface::release(){debounce.stop();ready=false;if(creating){releasePending=true;return;}
 #ifdef Q_OS_WIN
-    if(surface){api().destroy(surface);surface=nullptr;}
+    if(surface){api().destroy(surface);surface=nullptr;--nativeSurfaceCount;}
 #endif
     if(displayed){displayed=false;emit nativeVisibleChanged();}
 }
 void HtmlSurface::updateSurface(){
-    if(!complete||!window())return;
+    if(!complete||!window()||creating)return;
     auto bounds=mapRectToScene(boundingRect());auto clip=bounds.intersected(QRectF(QPointF(),window()->size()));
     for(auto p=parentItem();p;p=p->parentItem())if(p->clip())clip=clip.intersected(p->mapRectToScene(p->boundingRect()));
     if(!isVisible()||!window()->isVisible()||window()->visibility()==QWindow::Minimized||clip.isEmpty())clip={};
     const auto nextTop=std::max(qreal(0),clip.y()-bounds.y()),nextSpan=std::max(qreal(0),clip.height());
     if(top!=nextTop||span!=nextSpan){top=nextTop;span=nextSpan;emit viewportChanged();}
 #ifdef Q_OS_WIN
+    if(!lifetimeActive||!isVisible()||!window()->isVisible()||window()->visibility()==QWindow::Minimized||clip.isEmpty()||page.isEmpty()){release();return;}
     const bool show=isVisible()&&window()->isVisible()&&!covered&&!clip.isEmpty()&&width()>1&&!page.isEmpty();
     if(!surface&&show&&failure.isEmpty()){
         if(!runtime)runtime=std::make_unique<ReaderRuntime>();
         if(!api().valid()||!runtime->isValid()){failure="HTML preview component is unavailable: "+api().library.errorString();emit errorChanged();return;}
         auto bytes=page.toUtf8(),directory=runtime->path().toUtf8();
+        // WebView2 creation pumps native messages. Geometry/visibility callbacks
+        // can reenter this function before create returns; never create a second
+        // controller and overwrite the only pointer that owns the first one.
+        creating=true;releasePending=false;const auto version=generation;
         surface=api().create(qintptr(window()->winId()),reinterpret_cast<const unsigned char*>(bytes.constData()),bytes.size(),reinterpret_cast<const unsigned char*>(directory.constData()),directory.size(),&HtmlSurface::callback,this);
+        creating=false;
         if(!surface){failure="Could not create the HTML view. Microsoft Edge WebView2 Runtime is required.";emit errorChanged();return;}
+        ++nativeSurfaceCount;
+        if(releasePending||!lifetimeActive){releasePending=false;release();return;}
+        if(version!=generation){const auto current=page.toUtf8();api().document(surface,reinterpret_cast<const unsigned char*>(current.constData()),current.size());}
+        QTimer::singleShot(0,this,[this]{updateSurface();if(ready)measure();});
     }
     if(!surface)return;
     const auto dpr=window()->devicePixelRatio();QList<int> rects;

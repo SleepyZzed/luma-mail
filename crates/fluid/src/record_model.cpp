@@ -5,6 +5,17 @@ QString RecordModel::key(const QJsonObject&r){auto k=r["key"].toObject();return 
 void RecordModel::reindex(){positions.clear();for(int i=0;i<rows.size();++i)positions.insert(key(rows[i]),i);}
 int RecordModel::indexFor(const QString&key)const{return positions.value(key,-1);}
 void RecordModel::replace(const QJsonArray&a){beginResetModel();rows.clear();for(auto v:a){if(rows.size()==1000)break;rows.append(v.toObject());}reindex();endResetModel();emit countChanged();}
+void RecordModel::reconcileOrdered(const QJsonArray&items){
+    QList<QJsonObject>wanted;QSet<QString>keys;for(const auto&value:items){auto row=value.toObject();auto id=key(row);if(id.isEmpty()||keys.contains(id))continue;keys.insert(id);wanted.append(row);if(wanted.size()==1000)break;}
+    const auto before=rows.size();
+    for(int i=rows.size()-1;i>=0;--i)if(!keys.contains(key(rows[i]))){beginRemoveRows({},i,i);rows.removeAt(i);reindex();endRemoveRows();}
+    reindex();
+    for(int i=0;i<wanted.size();++i){const auto at=indexFor(key(wanted[i]));
+        if(at<0){beginInsertRows({},i,i);rows.insert(i,wanted[i]);reindex();endInsertRows();}
+        else{if(at!=i){beginMoveRows({},at,at,{},at>i?i:i+1);rows.move(at,i);reindex();endMoveRows();}if(rows[i]!=wanted[i]){rows[i]=wanted[i];emit dataChanged(index(i),index(i),{Qt::UserRole+1});}}
+    }
+    if(rows.size()!=before)emit countChanged();
+}
 void RecordModel::append(const QJsonArray&a){QList<QJsonObject>fresh;QSet<QString>seen;for(auto&r:rows)seen.insert(key(r));for(auto v:a){auto r=v.toObject();auto k=key(r);if(!seen.contains(k)&&rows.size()+fresh.size()<1000){fresh.append(r);seen.insert(k);}}if(fresh.isEmpty())return;beginInsertRows({},rows.size(),rows.size()+fresh.size()-1);rows.append(fresh);reindex();endInsertRows();emit countChanged();}
 void RecordModel::update(const QJsonObject&r,bool insert){
     const auto k=key(r);const auto existing=indexFor(k);int at=0;

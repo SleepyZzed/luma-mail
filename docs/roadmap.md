@@ -120,3 +120,15 @@ constraints. See ui-redesign.md. No framework migration is part of 0.9.
 Only after Gmail 1.0 is polished and accepted, add complete providers behind the
 existing provider abstraction. IMAP/SMTP/JMAP/Outlook must keep remote search,
 on-demand message/attachment access and enforced cache budgets; no offline mirror.
+
+## Fluid replacement progress — 28 October
+
+Advanced remote search/account subsets, native mailto/single-instance activation,
+three-way draft comparison, per-message actions, stable account delegates,
+keyboard shortcuts and adjustable panes are now implemented in the replacement.
+Save/send reconciles the affected remote conversation IDs without a view reload.
+Windows process-tree auditing caught a reentrant duplicate HTML-controller leak;
+the replacement now guards construction and explicitly releases inactive readers.
+The migration retains the original GTK release until full signature/editor and
+remaining parity, packaging, resource and target-desktop gates pass. See
+ui-migration.md and fluid-validation.md for current evidence and open work.

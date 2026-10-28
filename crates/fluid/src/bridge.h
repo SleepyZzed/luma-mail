@@ -11,6 +11,7 @@
 #include <QPointer>
 #include <QMimeData>
 #include <QElapsedTimer>
+#include <QUrl>
 #include <atomic>
 #include <memory>
 class ProfileImages;
@@ -20,6 +21,7 @@ class Bridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(RecordModel* inbox READ inbox CONSTANT)
     Q_PROPERTY(RecordModel* messages READ messages CONSTANT)
+    Q_PROPERTY(RecordModel* accounts READ accounts CONSTANT)
     Q_PROPERTY(QVariantMap settings READ settings NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap reader READ reader NOTIFY readerChanged)
     Q_PROPERTY(QVariantMap composer READ composer NOTIFY composerChanged)
@@ -30,6 +32,8 @@ class Bridge : public QObject {
     Q_PROPERTY(QString folder READ folder NOTIFY viewChanged)
     Q_PROPERTY(QString account READ account NOTIFY viewChanged)
     Q_PROPERTY(QString search READ search NOTIFY viewChanged)
+    Q_PROPERTY(QVariantList searchAccounts READ searchAccounts NOTIFY viewChanged)
+    Q_PROPERTY(bool searchAllAccounts READ searchAllAccounts NOTIFY viewChanged)
     Q_PROPERTY(QString activity READ activity NOTIFY activityChanged)
     Q_PROPERTY(QString activityKind READ activityKind NOTIFY activityChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
@@ -40,6 +44,7 @@ class Bridge : public QObject {
     Q_PROPERTY(bool selecting READ selecting NOTIFY selectionChanged)
     Q_PROPERTY(bool preview READ preview CONSTANT)
     Q_PROPERTY(bool windowVisible READ windowVisible NOTIFY windowVisibleChanged)
+    Q_PROPERTY(bool mailLinkWaiting READ mailLinkWaiting NOTIFY mailLinkWaitingChanged)
     Q_PROPERTY(bool clipboardBusy READ clipboardBusy NOTIFY clipboardChanged)
 public:
     explicit Bridge(bool preview,QObject *parent=nullptr);
@@ -47,6 +52,7 @@ public:
     void setProfileImages(ProfileImages*images){profileImages=images;profileClock.start();}
     void setAttachmentPreview(AttachmentPreview*preview){attachmentPreview=preview;}
     RecordModel* inbox(){return &m_inbox;} RecordModel* messages(){return &m_messages;}
+    RecordModel* accounts(){return &m_accounts;}
     QVariantMap settings()const{return m_settings;} QVariantMap reader()const{return m_reader;} QVariantMap composer()const{return m_composer;}
     QVariantMap palette()const{return m_palette;}
     QVariantMap sync()const{return m_sync;}
@@ -56,11 +62,19 @@ public:
     void setNotificationStatus(const QString&value){if(m_notificationStatus==value)return;m_notificationStatus=value;emit notificationStatusChanged();}
     QString folder()const{return m_folder;} QString search()const{return m_search;}
     QString account()const{return m_account;}
+    QVariantList searchAccounts()const;
+    bool searchAllAccounts()const{return !searchSubset&&m_account.isEmpty();}
+    Q_INVOKABLE void refreshView();Q_INVOKABLE void searchCurrent(const QString&query);
+    Q_INVOKABLE void cancelSearch();
     QString activity()const{return m_activity;} QString activityKind()const{return m_activityKind;} QString error()const{return m_error;}
     bool readerOpen()const{return m_readerOpen;} bool more()const{return m_more;} bool canUndo()const{return m_canUndo;}
     int selectionCount()const{return m_selection.size();} bool selecting()const{return m_selecting;} bool preview()const{return m_preview;}
     bool clipboardBusy()const{return !clipboardToken.isEmpty();}
     bool windowVisible()const{return m_windowVisible;}
+    bool mailLinkWaiting()const{return !pendingMailto.isEmpty();}
+    Q_INVOKABLE void queueMailto(const QString&uri);
+    Q_INVOKABLE void releaseComposerView(const QString&session);
+    Q_INVOKABLE void handleMailto(const QUrl&uri);
     void setWindowVisible(bool value){if(m_windowVisible==value)return;m_windowVisible=value;emit windowVisibleChanged();}
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
     Q_INVOKABLE void setView(const QString &folder,const QString &account=QString(),const QString &search=QString());
@@ -71,6 +85,7 @@ public:
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE QVariantMap actionState(const QVariantMap&row={})const;
     Q_INVOKABLE void composeFor(const QString&mode,const QVariantMap&key);
+    Q_INVOKABLE void mutateMessage(const QString&action,const QVariantMap&message);
     Q_INVOKABLE void closeReader();
     Q_INVOKABLE void openThread(const QString&account,const QString&thread);
     Q_INVOKABLE void mutate(const QString &action,const QVariantMap &row={},const QString&label=QString());
@@ -94,6 +109,7 @@ signals:
     void labelsChanged();
     void notificationStatusChanged();
     void windowVisibleChanged();
+    void mailLinkWaitingChanged();
     void activityChanged(); void errorChanged(); void selectionChanged();
     void projectRow(QVariantMap row,qreal x,qreal y,qreal width,qreal height);
     void openRowRequested(int index);
@@ -105,6 +121,10 @@ signals:
     void profileChanged(QString key);void profilesReset();
     void received(QString event,QVariantMap data); void ready();
 private:
+    QVariantList scopedAccounts;bool searchSubset=false;quint64 searchRequest=0;
+    void startView(const QString&folder,const QString&account,const QString&query,const QVariant&scope);
+    void applySearch(const QJsonObject&data);
+    QString pendingMailto;bool engineReady=false;void flushMailto();
     QVariantMap m_labels;QHash<QString,quint64>labelRequests;
     friend class ComposerSmoke;
     friend class SyncSmoke;
@@ -115,7 +135,7 @@ private:
     void clipboardEvent(const QString&kind,const QJsonObject&data,quint64 id);
     void releaseProfileEntry(const QString&key);void resetProfiles();bool profileEvent(const QString&kind,const QJsonObject&data,quint64 id);
     bool eventFilter(QObject *object,QEvent *event) override;
-    RecordModel m_inbox{this},m_messages{this}; QProcess process; QByteArray pending;
+    RecordModel m_inbox{this},m_messages{this},m_accounts{this}; QProcess process; QByteArray pending;
     QVariantMap m_settings,m_reader,m_composer,m_palette,m_sync; QString m_folder="inbox",m_account,m_search;
     QVariantMap m_openedRow;
     QFileSystemWatcher paletteWatcher; QTimer *paletteDebounce=nullptr;

@@ -50,6 +50,7 @@ impl DraftTransport for Remote {
         }
         Ok(Message {
             id: "sent1".into(),
+            thread_id: "confirmed-thread".into(),
             ..Default::default()
         })
     }
@@ -193,6 +194,10 @@ async fn saves_reuse_one_remote_draft_and_send_once_without_late_recreation() {
     );
     assert_eq!(remote.sends.load(Ordering::SeqCst), 1);
     assert_eq!(s.data.lock().unwrap().phase, Phase::Sent);
+    assert_eq!(
+        s.data.lock().unwrap().written_thread.as_deref(),
+        Some("confirmed-thread")
+    );
     assert!(s.data.lock().unwrap().form.text.is_empty());
     assert!(s.queue(7, Intent::Send).is_err());
     assert!(s.update(&json!({"text":"late callback"}), 8).is_err());

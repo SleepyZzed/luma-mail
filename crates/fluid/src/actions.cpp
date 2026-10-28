@@ -1,5 +1,6 @@
 #include "bridge.h"
 #include <QRegularExpression>
+#include <QUrl>
 QVariantMap Bridge::actionState(const QVariantMap&requested)const{
     QVariantList rows;
     if(!m_selection.isEmpty()){for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))rows.append(row);}}
@@ -17,3 +18,16 @@ QVariantMap Bridge::actionState(const QVariantMap&requested)const{
     return {{"count",keys.size()},{"keys",keys},{"key",key},{"account",key.value("account")},{"sender",sender},{"address",address},{"ruleConnected",connected},{"blocked",blocked},{"unread",unread},{"starred",starred},{"important",important}};
 }
 void Bridge::composeFor(const QString&mode,const QVariantMap&key){if(m_selection.size()>1||key.isEmpty())return;send("composeStart",{{"mode",mode},{"key",key},{"account",key.value("account")}});}
+void Bridge::mutateMessage(const QString&action,const QVariantMap&message){const auto key=m_reader.value("key").toMap();if(m_selection.size()>1||key.isEmpty()||message.value("id").toString().isEmpty()||m_messages.indexFor(message.value("id").toString())<0)return;send("mutate",{{"keys",QVariantList{key}},{"message",message.value("id")},{"action",action}});}
+void Bridge::handleMailto(const QUrl&uri){queueMailto(uri.toString(QUrl::FullyEncoded));}
+void Bridge::releaseComposerView(const QString&session){if(m_composer.value("session").toString()==session&&(m_composer.value("state")=="sent"||m_composer.value("state")=="closed")){m_composer.clear();emit composerChanged();}}
+void Bridge::queueMailto(const QString&uri){
+    if(!uri.startsWith("mailto:",Qt::CaseInsensitive)||uri.toUtf8().size()>65536){m_error="Invalid or oversized email link.";emit errorChanged();return;}
+    if(!pendingMailto.isEmpty()&&pendingMailto!=uri){m_error="Another email link is already waiting. Open it before trying a second link.";emit errorChanged();return;}
+    pendingMailto=uri;emit mailLinkWaitingChanged();emit showRequested();flushMailto();
+}
+void Bridge::flushMailto(){
+    if(!engineReady||pendingMailto.isEmpty())return;
+    bool connected=false;for(const auto&value:m_settings.value("accounts").toList())connected|=value.toMap().value("enabled").toBool();if(!connected)return;
+    const auto uri=pendingMailto;pendingMailto.clear();emit mailLinkWaitingChanged();send("composeStart",{{"mode","new"},{"mailto",uri},{"account",m_account}});
+}

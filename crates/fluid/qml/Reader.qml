@@ -17,6 +17,7 @@ Item {
     }
     signal replyAt(string mode,var message)
     signal contextRequested(var row,real x,real y)
+    signal messageMenuRequested(var message,real x,real y)
     clip:true
     Rectangle{width:1;height:parent.height;color:Theme.outline;opacity:.5}
     Flickable {
@@ -65,9 +66,10 @@ Item {
                             Text {textFormat:Text.PlainText;text:(message.item.from||"").replace(/<.*>/g,"").trim();color:Theme.text;font.pixelSize:Theme.unit(12);font.weight:Font.DemiBold;width:parent.width;elide:Text.ElideRight}
                             Text {textFormat:Text.PlainText;text:"to "+(message.item.to||"");color:Theme.faint;font.pixelSize:Theme.unit(10);width:parent.width;elide:Text.ElideRight}
                         }
-                        Text {textFormat:Text.PlainText;anchors.right:parent.right;anchors.top:parent.top;anchors.topMargin:Theme.unit(9);text:Theme.date(message.item.date||0);color:Theme.faint;font.pixelSize:Theme.unit(9)}
-                        Rectangle{width:Theme.unit(6);height:width;radius:width/2;color:Theme.accent;visible:message.item.unread||false;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(11)}
+                        Text {textFormat:Text.PlainText;anchors.right:parent.right;anchors.rightMargin:Theme.unit(37);anchors.top:parent.top;anchors.topMargin:Theme.unit(9);text:Theme.date(message.item.date||0);color:Theme.faint;font.pixelSize:Theme.unit(9)}
+                        Rectangle{width:Theme.unit(6);height:width;radius:width/2;color:Theme.accent;visible:message.item.unread||false;anchors.right:parent.right;anchors.rightMargin:Theme.unit(37);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(11)}
                         MouseArea{anchors.fill:parent;onClicked:{message.expanded=!message.expanded;if(message.expanded&&!message.item.text)Mail.send("message",{account:Mail.reader.key.account,id:message.item.id})}}
+                        FluidButton{objectName:"messageMore-"+message.item.id;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"more";tip:"Actions for this message";visible:Mail.selectionCount<=1;onClicked:{const point=mapToItem(null,0,height);root.messageMenuRequested(message.item,point.x,point.y)}}
                     }
                     Item {
                         width:parent.width;height:Math.max(0,expansion.value);clip:true
@@ -140,7 +142,7 @@ Item {
         replyScrollGoal=Math.max(0,inlineSlot.y+inlineSlot.height-scroll.height+Theme.unit(20))
     }
     function dockInline(card) {
-        card.inlineDock=inlineSlot;card.inlineMode=true;card.parent=inlineSlot
+        card.dockTo(inlineSlot)
         followingReply=true;replyScroll.snap(scroll.contentY)
         Qt.callLater(()=>{scrollToReply();replyScroll.resume()})
     }

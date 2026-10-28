@@ -118,11 +118,32 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   name/notification changes no longer reset photo caches or token managers, and
   unchanged palettes no longer rerender opened newsletters. One allocation report
   scans cache headers once for all account totals, without a new index/sidecar.
-- Pending: three-way conflict-resolution UI, full
-  visual signature editing, mailto and remaining rich-text keyboard flows,
-  advanced search, per-message actions and remaining keyboard/layout flows,
-  lifecycle reclamation, two-account acceptance, Linux packaging and resource
-  audits. The preview has incomplete controls and must not replace 0.9 yet.
+- Search and desktop links: advanced Gmail operators, validated dates, account
+  subsets that survive refresh/raw-query edits, cancellation of stale builders,
+  and bounded RFC 6068 mailto input. Plus signs are preserved; link parameters
+  cannot attach local files, save or send. A per-user native local socket/pipe
+  forwards a second launch to the existing window, with bounded frames, a process
+  lock and stale-owner recovery. It has no TCP listener and carries no tokens.
+- Draft comparison: six-field three-way resolution, separate read-only previews,
+  explicit body/attachment choices, revision/cancel guards and a fresh unsaved
+  merged copy. Gmail's original draft is untouched. Closed comparison/editor
+  view models release their content; Save/Send hint only the affected thread IDs
+  to the bounded metadata reconciler for immediate Drafts/Sent updates.
+- Per-message controls now target one message without modifying sibling labels;
+  reader flags merge immediately without replacing bodies or attachment strips.
+  Account rows reconcile in place. Internal pane handles and keyboard resizing
+  retain the user's bounded layout preferences, alongside search/account/action
+  shortcuts and input-safe Delete/Select all behavior. Tray activation restores
+  minimized windows and preserves maximized state.
+- Renderer auditing found a Windows reentrancy defect: native creation can pump
+  geometry callbacks before returning. Creation is now guarded against duplicate
+  controllers, and inactive readers explicitly release their controller. Native
+  checks assert one live controller and zero after hide/close; process-tree
+  resource measurements are a separate gate.
+- Pending: full visual signature editing, remaining rich-text/forwarding and
+  layout flows, final lifecycle/resource hardening, two-account acceptance,
+  Linux packaging and sustained resource audits. The preview has incomplete
+  controls and must not replace 0.9 yet.
 
 See [fluid-validation.md](fluid-validation.md) for reproducible checks. Keep the
 reference target until the pending groups have real functional parity; passing

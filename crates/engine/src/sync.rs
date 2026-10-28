@@ -24,6 +24,7 @@ pub struct Service {
     flags: AtomicU8,
     worker: Mutex<Option<tokio::task::AbortHandle>>,
     updates: AtomicBool,
+    writes: Mutex<VecDeque<ThreadKey>>,
 }
 #[derive(Default)]
 struct Pending {
@@ -45,6 +46,10 @@ impl Pending {
     fn remove(&mut self, key: &ThreadKey) {
         self.seen.remove(key);
         self.keys.retain(|k| k != key);
+    }
+    fn retain_accounts(&mut self, accounts: &HashSet<String>) {
+        self.keys.retain(|key| accounts.contains(&key.account));
+        self.seen.retain(|key| accounts.contains(&key.account));
     }
 }
 impl Service {
@@ -138,6 +143,13 @@ impl Service {
                     last_checked = chrono::Utc::now().timestamp();
                     next = tokio::time::Instant::now() + interval;
                 }
+                let writes = std::mem::take(&mut *service.writes.lock().unwrap());
+                for key in writes {
+                    if !pending.insert(key) {
+                        service.updates.store(true, Ordering::SeqCst);
+                    }
+                }
+                pending.retain_accounts(&app.clients.lock().unwrap().keys().cloned().collect());
                 if !pending.keys.is_empty() {
                     reconcile(&app, &mut pending).await;
                 }
@@ -162,6 +174,21 @@ impl Service {
         self.signal(CONFIG);
     }
     pub fn reconcile(&self) {
+        self.signal(RECONCILE);
+    }
+    pub fn track_write(&self, key: ThreadKey) {
+        if self.worker.lock().unwrap().is_none() {
+            return;
+        }
+        let mut writes = self.writes.lock().unwrap();
+        if !writes.contains(&key) {
+            if writes.len() < 8 {
+                writes.push_back(key);
+            } else {
+                self.updates.store(true, Ordering::SeqCst);
+            }
+        }
+        drop(writes);
         self.signal(RECONCILE);
     }
     pub fn acknowledge(&self) {
@@ -248,7 +275,7 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
             pending.remove(&key);
             continue;
         }
-        let Some(row) = Conversation::from_thread(&key.account, &thread) else {
+        let Some(mut row) = Conversation::from_thread(&key.account, &thread) else {
             pending.remove(&key);
             continue;
         };
@@ -256,6 +283,10 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
         let mut selected = false;
         {
             let mut view = app.view.lock().unwrap();
+            row.attachments |= view
+                .rows
+                .iter()
+                .any(|old| old.key == key && old.attachments);
             apply(&mut view.rows, row.clone(), visible);
             if view.selected.as_ref() == Some(&key) {
                 view.thread = Some(thread.clone());
@@ -357,6 +388,13 @@ mod tests {
             id: "0".into(),
         });
         assert_eq!(p.keys.len(), 127);
+        p.retain_accounts(&HashSet::from(["another".to_owned()]));
+        assert!(p.keys.is_empty());
+        assert!(p.seen.is_empty());
+        assert!(p.insert(ThreadKey {
+            account: "another".into(),
+            id: "new".into()
+        }));
     }
     #[test]
     fn private_notifications_contain_no_sender_or_subject() {

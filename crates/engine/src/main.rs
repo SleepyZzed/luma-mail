@@ -7,6 +7,7 @@ mod attachment_source;
 mod clipboard;
 mod compose;
 mod compose_commands;
+mod draft_conflict;
 mod labels;
 mod mail;
 mod mail_commands;
@@ -14,6 +15,7 @@ mod photos;
 mod protocol;
 mod reader;
 mod resident;
+mod search_commands;
 mod sync;
 use luma_core::registration;
 

@@ -1,55 +1,71 @@
 {
-  "checks": [
-    {
-      "check": "incoming reply moves one existing conversation",
-      "passed": true
-    },
-    {
-      "check": "incoming metadata preserves open body and reader",
-      "passed": true
-    },
-    {
-      "check": "selection follows the conversation after reordering",
-      "passed": true
-    },
-    {
-      "check": "Shift range uses the moved anchor",
-      "passed": true
-    },
-    {
-      "check": "reply headers keep the opened message content",
-      "passed": true
-    },
-    {
-      "check": "new reply starts unread without downloading its body",
-      "passed": true
-    },
-    {
-      "check": "silent checks leave the loading indicator and selection intact",
-      "passed": true
-    },
-    {
-      "check": "incoming reply leaves the current message expanded",
-      "passed": true
-    },
-    {
-      "check": "incoming reply waits for explicit opening",
-      "passed": true
-    },
-    {
-      "check": "incremental updates create no mail or draft store",
-      "passed": true
-    },
-    {
-      "check": "received URL has a native hit target",
-      "passed": true
-    },
-    {
-      "check": "Ctrl click opens one safe received link",
-      "passed": true
-    }
-  ],
-  "note": "Native incremental-event wiring through the real preview pipe. Provider history requests and notification transport have separate tests.",
-  "passed": true,
-  "syntheticData": true
+    "checks": [
+        {
+            "check": "incoming reply moves one existing conversation",
+            "passed": true
+        },
+        {
+            "check": "incoming metadata preserves open body and reader",
+            "passed": true
+        },
+        {
+            "check": "selection follows the conversation after reordering",
+            "passed": true
+        },
+        {
+            "check": "Shift range uses the moved anchor",
+            "passed": true
+        },
+        {
+            "check": "reply headers keep the opened message content",
+            "passed": true
+        },
+        {
+            "check": "new reply starts unread without downloading its body",
+            "passed": true
+        },
+        {
+            "check": "silent checks leave the loading indicator and selection intact",
+            "passed": true
+        },
+        {
+            "check": "incoming reply leaves the current message expanded",
+            "passed": true
+        },
+        {
+            "check": "incoming reply waits for explicit opening",
+            "passed": true
+        },
+        {
+            "check": "incremental updates create no mail or draft store",
+            "passed": true
+        },
+        {
+            "check": "received URL has a native hit target",
+            "passed": true
+        },
+        {
+            "check": "Ctrl click opens one safe received link",
+            "passed": true
+        },
+        {
+            "check": "individual-message actions have a dedicated menu",
+            "passed": true
+        },
+        {
+            "check": "single-message actions immediately update reader flags",
+            "passed": true
+        },
+        {
+            "check": "tray and notification activation restore a minimized window",
+            "passed": true
+        },
+        {
+            "check": "tray activation preserves a maximized window",
+            "passed": true
+        }
+    ],
+    "note": "Native incremental-event wiring through the real preview pipe. Provider history requests and notification transport have separate tests.",
+    "passed": true,
+    "syntheticData": true
 }

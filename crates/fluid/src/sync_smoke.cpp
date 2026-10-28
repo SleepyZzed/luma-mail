@@ -19,8 +19,9 @@ class SyncSmoke:public QObject {
         bool located=text&&QMetaObject::invokeMethod(text,"positionToRectangle",Q_RETURN_ARG(QRectF,rectangle),Q_ARG(int,offset));check("received URL has a native hit target",located);if(!located){finish();return;}
         auto point=text->mapToScene(rectangle.center());
         QMouseEvent down(QEvent::MouseButtonPress,point,QPointF(window->mapToGlobal(point.toPoint())),Qt::LeftButton,Qt::LeftButton,Qt::ControlModifier);QCoreApplication::sendEvent(window,&down);QMouseEvent up(QEvent::MouseButtonRelease,point,QPointF(window->mapToGlobal(point.toPoint())),Qt::LeftButton,Qt::NoButton,Qt::ControlModifier);QCoreApplication::sendEvent(window,&up);
-        QTimer::singleShot(150,this,[this]{check("Ctrl click opens one safe received link",openedLinks==QStringList{"https://example.com/review"});finish();});
+        QTimer::singleShot(150,this,[this]{check("Ctrl click opens one safe received link",openedLinks==QStringList{"https://example.com/review"});mail->clearSelection();auto menu=window->findChild<QObject*>("messageActionsMenu");check("individual-message actions have a dedicated menu",menu);if(!menu){finish();return;}menu->setProperty("message",mail->messages()->at(0));menu->setProperty("threadKey",mail->reader()["key"]);QMetaObject::invokeMethod(menu,"perform",Q_ARG(QVariant,QString("unstar")));});
     }
+    void restoreWindow(){window->showMinimized();QTimer::singleShot(200,this,[this]{emit mail->showRequested();QTimer::singleShot(300,this,[this]{check("tray and notification activation restore a minimized window",window->isVisible()&&window->visibility()==QWindow::Windowed);window->showMaximized();QTimer::singleShot(200,this,[this]{window->hide();emit mail->showRequested();QTimer::singleShot(300,this,[this]{check("tray activation preserves a maximized window",window->isVisible()&&window->visibility()==QWindow::Maximized);finish();});});});});}
     void inject(const QString&event,const QJsonObject&data){mail->receive({{"id",0},{"event",event},{"data",data}});}
     void exercise(){
         const auto body=mail->messages()->at(0)["text"].toString();const auto reader=mail->reader()["key"].toMap();const auto activity=mail->activityKind();const auto row=mail->inbox()->at(5);
@@ -43,7 +44,7 @@ public:
     SyncSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){QTimer::singleShot(12000,this,[this]{if(!finished){check("sync test completes within deadline",false);finish();}});
         QDesktopServices::setUrlHandler("https",this,"handle");
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(350,this,[this]{auto inbox=window->findChild<QQuickItem*>("inboxPane");QMetaObject::invokeMethod(inbox,"openIndex",Q_ARG(QVariant,1),Q_ARG(QVariant,0));});});
-        connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(finished)return;if(kind=="error"){check("sync wiring commands succeed: "+data.value("message").toString(),false);finish();}else if(kind=="body"&&!started){started=true;QTimer::singleShot(1000,this,[this]{exercise();});}});
+        connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(finished)return;if(kind=="error"){check("sync wiring commands succeed: "+data.value("message").toString(),false);finish();}else if(kind=="mutation"){check("single-message actions immediately update reader flags",!mail->messages()->at(0)["starred"].toBool()&&!mail->messages()->at(0)["text"].toString().isEmpty());restoreWindow();}else if(kind=="body"&&!started){started=true;QTimer::singleShot(1000,this,[this]{exercise();});}});
     }
 };
 void startSyncSmoke(Bridge*m,QQuickWindow*w){new SyncSmoke(m,w);}

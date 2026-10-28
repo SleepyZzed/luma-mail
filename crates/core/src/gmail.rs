@@ -169,6 +169,9 @@ impl Gmail {
             ("fields", "id,messages(id,threadId,labelIds,snippet,internalDate,payload(headers(name,value)))".into()),
             ("metadataHeaders", "From".into()), ("metadataHeaders", "Subject".into()),
             ("metadataHeaders", "Message-ID".into()),
+            ("metadataHeaders", "To".into()), ("metadataHeaders", "Cc".into()),
+            ("metadataHeaders", "Date".into()), ("metadataHeaders", "Reply-To".into()),
+            ("metadataHeaders", "References".into()),
         ], None).await?).await
     }
     /// Consume Gmail's mutation response for immediate label reconciliation.

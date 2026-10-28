@@ -1,15 +1,27 @@
 import QtQuick
 import QtQuick.Controls
+import QtQml.Models
 ApplicationWindow {
     id:window
     width:1440;height:900;minimumWidth:760;minimumHeight:560;visible:true;title:"Luma Mail";color:Theme.window
     flags:isWindows?Qt.Window:Qt.Window|Qt.FramelessWindowHint
     font.family:Theme.family
+    readonly property bool appModal:settings.visible||searchSheet.shown||comparison.visible||confirmation.visible||labelDialog.visible||attachmentPane.shown
+    function accountShortcut(index){const accounts=(Mail.settings.accounts||[]).filter(account=>account.enabled!==false);if(index<accounts.length)Mail.setView("inbox",accounts[index].id)}
+    function scaleBy(delta){Mail.send("settingsUpdate",{ui_scale_percent:Math.max(75,Math.min(200,(Mail.settings.ui_scale_percent||100)+delta))})}
+    property int restoredVisibility:Window.Windowed
+    onVisibilityChanged:state=>{if(state===Window.Windowed||state===Window.Maximized||state===Window.FullScreen)restoredVisibility=state}
+    function restoreWindow(){
+        if(restoredVisibility===Window.Maximized)showMaximized()
+        else if(restoredVisibility===Window.FullScreen)showFullScreen()
+        else showNormal()
+        raise();requestActivate()
+    }
     onClosing:(close)=>{if((Mail.settings.close_to_tray===undefined||Mail.settings.close_to_tray)&&trayAvailable){close.accepted=false;window.hide()}else{close.accepted=false;Mail.quit()}}
     Item {
         id:scene;anchors.fill:parent
-        readonly property real railGoal:Theme.unit(rail.collapsed?76:240)
-        readonly property real inboxGoal:Mail.readerOpen?(width<Theme.unit(1000)?0:Math.min(Theme.unit(450),(width-railGoal)*.4)):width-railGoal
+        readonly property real railGoal:Theme.unit(rail.collapsed?76:railHandle.value)
+        readonly property real inboxGoal:Mail.readerOpen?(width<Theme.unit(1000)?0:Math.min(Theme.unit(inboxHandle.value),Math.max(0,width-railGoal-Theme.unit(380)))):width-railGoal
         readonly property real readerGoalX:railGoal+inboxGoal
         readonly property real readerGoalWidth:Mail.readerOpen?width-readerGoalX:reader.lastLayoutWidth
         function projectionSpec(){return reader.projectionSpec(readerGoalX,readerGoalWidth)}
@@ -22,24 +34,31 @@ ApplicationWindow {
             onLabelActionRequested:(operation,account,label)=>labelDialog.edit(operation,account,label)
         }
         Inbox {
-            id:inbox;scene:scene;x:rail.width;height:parent.height-Theme.unit(44)
+            id:inbox;scene:scene;searchMorphed:searchSheet.shown;
+            onSearchRequested:origin=>searchSheet.openFrom(origin)
+            x:rail.width;height:parent.height-Theme.unit(44)
             width:Math.max(0,inboxMotion.value)
             onContextRequested:(row,x,y)=>{context.row=row;context.x=x;context.y=y;context.open()}
         }
         Reader {
             id:reader;x:inbox.x+inbox.width;width:Math.max(0,scene.width-x);height:parent.height-Theme.unit(44);layoutWidth:scene.readerGoalWidth;projected:morph.active;inlineComposer:composer;visible:width>1
             onReplyAt:(mode,message)=>Mail.requestCompose(mode,message)
+            onMessageMenuRequested:(message,x,y)=>{messageMenu.message=message;messageMenu.threadKey=Mail.reader.key;messageMenu.x=x;messageMenu.y=y;messageMenu.open()}
             onContextRequested:(row,x,y)=>{context.row=row;context.x=x;context.y=y;context.open()}
-            nativeBlocked:settings.visible||context.visible||rail.overlayOpen||errorToast.visible||composer.modalOpen||attachmentPane.shown||labelDialog.visible||confirmation.visible
+            nativeBlocked:settings.visible||context.visible||messageMenu.visible||rail.overlayOpen||errorToast.visible||composer.modalOpen||attachmentPane.shown||labelDialog.visible||confirmation.visible||searchSheet.shown||comparison.visible
             nativeMasks:(composer.shown&&!composer.inlineMode?[Qt.rect(composer.x,composer.y,composer.width,composer.height)]:[]).concat(downloadPill.visible?[Qt.rect(downloadPill.x,downloadPill.y,downloadPill.width,downloadPill.height)]:[])
         }
+        PaneHandle{id:railHandle;objectName:"navigationResize";x:rail.width-width/2;height:parent.height;z:50;visible:!rail.collapsed;initial:Math.max(160,Math.min(480,Mail.settings.sidebar_width||240));minimum:160;maximum:Math.min(480,scene.width/Theme.scale*.4);onCommitted:value=>Mail.send("settingsUpdate",{sidebar_width:Math.round(value)})}
+        PaneHandle{id:inboxHandle;objectName:"inboxResize";x:reader.x-width/2;height:parent.height;z:50;visible:Mail.readerOpen&&inbox.width>1;initial:Math.max(180,Math.min(1200,Mail.settings.list_width||450));minimum:180;maximum:Math.min(1200,Math.max(180,(scene.width-scene.railGoal)/Theme.scale-380));onCommitted:value=>Mail.send("settingsUpdate",{list_width:Math.round(value)})}
         ActivityPill{x:rail.width+Theme.unit(28);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(13)}
         FluidButton{anchors.right:parent.right;anchors.rightMargin:Theme.unit(20);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(9);text:"Undo";glyph:"undo";visible:Mail.canUndo;onClicked:Mail.send("undo")}
         RowMorph{id:morph}
-        Composer{id:composer;scene:scene;shown:false;externalModal:labelDialog.opened||settings.opened||confirmation.opened||context.visible||rail.overlayOpen}
+        Composer{id:composer;scene:scene;shown:false;externalModal:labelDialog.opened||settings.opened||confirmation.opened||context.visible||messageMenu.visible||rail.overlayOpen||searchSheet.shown||comparison.visible;onComparisonRequested:(session,form)=>comparison.begin(session,form)}
         SettingsSheet{id:settings;anchors.fill:parent;onCloseRequested:opened=false;onConfirmationRequested:(heading,message,buttonText,command,parameters)=>confirmation.ask(heading,message,buttonText,command,parameters)}
         LabelDialog{id:labelDialog;anchors.fill:parent}
         ConfirmSheet{id:confirmation;anchors.fill:parent}
+        SearchSheet{id:searchSheet;anchors.fill:parent}
+        DraftCompareSheet{id:comparison;anchors.fill:parent}
         AttachmentPane{id:attachmentPane;anchors.fill:parent}
         DownloadPill{id:downloadPill;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:Theme.unit(18)}
         Rectangle {
@@ -48,6 +67,7 @@ ApplicationWindow {
             FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"close";onClicked:Mail.clearError()}
         }
         MailActionsMenu{id:context;objectName:"mailActionsMenu";onConfirmationRequested:(heading,message,buttonText,command,parameters)=>confirmation.ask(heading,message,buttonText,command,parameters)}
+        MessageActionsMenu{id:messageMenu}
 
     }
     Connections {
@@ -59,19 +79,32 @@ ApplicationWindow {
             if(morph.active&&morph.opening&&Mail.readerOpen)morph.destination=scene.projectionSpec()
             const key=Mail.composer.key,reading=Mail.reader.key
             if(composer.inlineMode&&composer.shown&&(!Mail.readerOpen||!key||!reading||key.id!==reading.id||key.account!==reading.account)){
-                const at=composer.mapToItem(scene,0,0);composer.inlineDock=null;composer.parent=scene;composer.inlineMode=false;composer.manualPosition=false
+                composer.inlineDock=null;composer.floatToScene()
             }
         }
         function onComposeRequested(mode){
+            composer.openingSurface=composer.visible
             const key=Mail.composer.key,reading=Mail.reader.key
             if((mode==="reply"||mode==="replyAll"||mode==="forward")&&key&&reading&&key.id===reading.id&&key.account===reading.account)reader.dockInline(composer)
-            else{composer.inlineDock=null;composer.parent=scene;composer.inlineMode=false}
+            else{composer.inlineDock=null;if(composer.parent!==scene)composer.floatToScene();composer.inlineMode=false}
             composer.open(mode)
         }
         function onComposeFocused(){composer.focusEditor();if(composer.inlineMode)reader.dockInline(composer)}
-        function onShowRequested(){window.show();window.raise();window.requestActivate()}
+        function onShowRequested(){window.restoreWindow()}
     }
-    Shortcut{sequence:"Ctrl+N";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened;onActivated:Mail.requestCompose("new")}
-    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen;onActivated:{if(confirmation.opened)confirmation.opened=false;else if(labelDialog.opened){if(!labelDialog.pending)labelDialog.opened=false}else if(attachmentPane.shown)attachmentPane.close();else if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
-    Shortcut{sequence:"Ctrl+R";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened;onActivated:Mail.setView(Mail.folder,Mail.account,Mail.search)}
+    Shortcut{sequence:"Ctrl+N";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened&&!searchSheet.shown&&!comparison.visible;onActivated:Mail.requestCompose("new")}
+    Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen||searchSheet.shown||comparison.visible;onActivated:{if(comparison.opened){if(!comparison.pending)comparison.close()}else if(searchSheet.shown)searchSheet.close();else if(confirmation.opened)confirmation.opened=false;else if(labelDialog.opened){if(!labelDialog.pending)labelDialog.opened=false}else if(attachmentPane.shown)attachmentPane.close();else if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}
+    Shortcut{sequence:"Ctrl+R";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened&&!searchSheet.shown&&!comparison.visible;onActivated:Mail.refreshView()}
+    Shortcut{sequence:"Ctrl+F";enabled:!window.appModal&&!composer.shown;onActivated:inbox.focusSearch()}
+    Shortcut{sequence:"Ctrl+,";enabled:!window.appModal;onActivated:settings.opened=true}
+    Shortcut{sequence:"Ctrl+Q";onActivated:Mail.quit()}
+    Shortcut{sequence:"Ctrl+W";enabled:!window.appModal;onActivated:if(composer.shown)composer.requestClose();else window.close()}
+    Shortcut{sequences:["Ctrl++","Ctrl+="];enabled:!window.appModal;onActivated:window.scaleBy(10)}
+    Shortcut{sequence:"Ctrl+-";enabled:!window.appModal;onActivated:window.scaleBy(-10)}
+    Shortcut{sequence:"Ctrl+0";enabled:!window.appModal;onActivated:Mail.send("settingsUpdate",{ui_scale_percent:100})}
+    Instantiator{model:9;delegate:Shortcut{required property int index;sequence:"Ctrl+"+(index+1);enabled:!window.appModal&&!composer.shown;onActivated:window.accountShortcut(index)}}
+    Shortcut{sequence:"Alt+0";enabled:!window.appModal&&!composer.shown;onActivated:Mail.setView("inbox","")}
+    Shortcut{sequence:"Ctrl+E";enabled:!window.appModal&&!composer.shown&&(inbox.listFocused||Mail.selecting);onActivated:Mail.mutate("archive")}
+    Shortcut{sequence:"Ctrl+Shift+U";enabled:!window.appModal&&!composer.shown&&(inbox.listFocused||Mail.selecting);onActivated:Mail.mutate("unread")}
+    Shortcut{sequence:"Delete";enabled:!window.appModal&&!composer.shown&&inbox.listFocused;onActivated:Mail.mutate("trash")}
 }

@@ -4,6 +4,10 @@ Item {
     id:root;objectName:"inboxPane"
     property Item scene
     property bool compact:Mail.readerOpen
+    property bool searchMorphed:false
+    readonly property bool listFocused:list.activeFocus
+    function focusSearch(){search.forceActiveFocus();search.selectAll()}
+    signal searchRequested(rect origin)
     signal contextRequested(var row,real x,real y)
     clip:true
     Item {
@@ -11,14 +15,14 @@ Item {
         Text {textFormat:Text.PlainText;id:eyebrow;visible:Mail.preview;text:Mail.preview?"ISOLATED DESIGN PREVIEW":"";font.pixelSize:Theme.unit(9);font.letterSpacing:1.4;color:Theme.faint}
         Text {textFormat:Text.PlainText;y:Theme.unit(19);text:Mail.folder==="inbox"?"Your inbox":Theme.folderTitle(Mail.folder);font.pixelSize:Theme.unit(21);font.weight:Font.DemiBold;color:Theme.text}
         Row {anchors.right:parent.right;y:Theme.unit(23);spacing:Theme.unit(5)
-            FluidButton {glyph:"refresh";tint:Mail.sync.updatesAvailable?Theme.accent:Theme.muted;tip:Mail.sync.updatesAvailable?"Mailbox changes available · refresh now":"Refresh now · automatic checks run silently";onClicked:{Mail.send("pollNow");Mail.setView(Mail.folder,Mail.account,Mail.search)}}
+            FluidButton {glyph:"refresh";tint:Mail.sync.updatesAvailable?Theme.accent:Theme.muted;tip:Mail.sync.updatesAvailable?"Mailbox changes available · refresh now":"Refresh now · automatic checks run silently";onClicked:{Mail.send("pollNow");Mail.refreshView()}}
             FluidButton {glyph:"check";tip:"Select conversations";onClicked:Mail.selectionMode(!Mail.selecting)}
         }
         Rectangle {
-            id:searchSurface;y:Theme.unit(61);height:Theme.unit(37);width:parent.width;radius:Theme.unit(13);color:search.activeFocus?Theme.raised:Theme.surface;border.width:1;border.color:search.activeFocus?Theme.accent:Theme.outline
+            id:searchSurface;opacity:root.searchMorphed?0:1;y:Theme.unit(61);height:Theme.unit(37);width:parent.width;radius:Theme.unit(13);color:search.activeFocus?Theme.raised:Theme.surface;border.width:1;border.color:search.activeFocus?Theme.accent:Theme.outline
             Icon{x:Theme.unit(13);anchors.verticalCenter:parent.verticalCenter;name:"search";color:Theme.muted}
-            TextField {id:search;anchors.fill:parent;leftPadding:Theme.unit(41);rightPadding:Theme.unit(43);placeholderText:"Search your mail";font.pixelSize:Theme.unit(12);color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;background:Item{} text:Mail.search;onAccepted:Mail.setView(Mail.folder,Mail.account,text)}
-            FluidButton {anchors.right:parent.right;anchors.rightMargin:5;anchors.verticalCenter:parent.verticalCenter;glyph:"filter";tip:"Search options";onClicked:filters.open()}
+            TextField {id:search;objectName:"quickSearch";anchors.fill:parent;leftPadding:Theme.unit(41);rightPadding:Theme.unit(43);placeholderText:"Search your mail";font.pixelSize:Theme.unit(12);color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;background:Item{} text:Mail.search;onAccepted:Mail.searchCurrent(text)}
+            FluidButton {anchors.right:parent.right;anchors.rightMargin:5;anchors.verticalCenter:parent.verticalCenter;glyph:"filter";tip:"Search options";onClicked:{const p=searchSurface.mapToItem(null,0,0);root.searchRequested(Qt.rect(p.x,p.y,searchSurface.width,searchSurface.height))}}
         }
         Text {textFormat:Text.PlainText;y:Theme.unit(107);text:Mail.selecting?Mail.selectionCount+" selected":Mail.inbox.count+" conversations · online first";font.pixelSize:Theme.unit(10);color:Theme.faint}
         Row {anchors.right:parent.right;y:Theme.unit(98);visible:Mail.selecting
@@ -31,6 +35,13 @@ Item {
     ListView {
         id:list;objectName:"mailList";x:Theme.unit(12);y:header.y+header.height+Theme.unit(14);width:parent.width-2*x;height:parent.height-y-Theme.unit(62);model:Mail.inbox;clip:true;spacing:Theme.unit(5);cacheBuffer:Theme.unit(350);reuseItems:true;boundsBehavior:Flickable.StopAtBounds
         ScrollBar.vertical:ScrollBar{implicitWidth:5;policy:ScrollBar.AsNeeded}
+        keyNavigationEnabled:true;keyNavigationWraps:false
+        Keys.onPressed:event=>{
+            if(event.key===Qt.Key_A&&(event.modifiers&Qt.ControlModifier)){Mail.selectAll();event.accepted=true}
+            else if(event.key===Qt.Key_Return||event.key===Qt.Key_Enter){root.openIndex(currentIndex,0);event.accepted=true}
+            else if(event.key===Qt.Key_Space&&currentIndex>=0){root.openIndex(currentIndex,Qt.ControlModifier);event.accepted=true}
+            else if(event.key===Qt.Key_Up||event.key===Qt.Key_Down){currentIndex=Math.max(0,Math.min(count-1,currentIndex+(event.key===Qt.Key_Up?-1:1)));positionViewAtIndex(currentIndex,ListView.Contain);forceLayout();if((event.modifiers&Qt.ShiftModifier)||(Mail.readerOpen&&!Mail.selecting))root.openIndex(currentIndex,event.modifiers);event.accepted=true}
+        }
         add:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
         addDisplaced:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
 
@@ -66,7 +77,7 @@ Item {
                 Text {textFormat:Text.PlainText;id:subjectText;width:parent.width;text:row.item.subject||"(No subject)";font.pixelSize:Theme.unit(12);font.weight:row.item.unread?Font.DemiBold:Font.Normal;color:row.item.unread?Theme.text:Theme.muted;elide:Text.ElideRight}
                 Text {textFormat:Text.PlainText;id:snippetText;width:parent.width;text:row.item.snippet;font.pixelSize:Theme.unit(10);color:Theme.faint;elide:Text.ElideRight}
             }
-            MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:(mouse)=>{let p=row.mapToItem(root.scene,0,0);if(mouse.button===Qt.RightButton){if(Mail.selectionCount&&!Mail.isSelected(row.item))Mail.clearSelection();root.contextRequested(row.item,p.x+mouse.x,p.y+mouse.y);}else Mail.selectRow(row.index,mouse.modifiers,p.x,p.y,row.width,row.height,row.projection())}}
+            MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:(mouse)=>{list.forceActiveFocus();list.currentIndex=row.index;let p=row.mapToItem(root.scene,0,0);if(mouse.button===Qt.RightButton){if(Mail.selectionCount&&!Mail.isSelected(row.item))Mail.clearSelection();root.contextRequested(row.item,p.x+mouse.x,p.y+mouse.y);}else Mail.selectRow(row.index,mouse.modifiers,p.x,p.y,row.width,row.height,row.projection())}}
             Row {x:row.width-width-Theme.unit(12)+(1-rowHover.value)*Theme.unit(12);y:Theme.unit(29);spacing:Theme.unit(1);opacity:Math.max(0,Math.min(1,rowHover.value));enabled:hover.hovered;visible:!Mail.selecting
                 FluidButton {glyph:row.item.starred?"star-filled":"star";tip:row.item.starred?"Remove star":"Star";onClicked:Mail.mutate(row.item.starred?"unstar":"star",row.item)}
                 FluidButton {glyph:"archive";tip:"Archive";onClicked:Mail.mutate("archive",row.item)}
@@ -89,19 +100,10 @@ Item {
     function openIndex(index, modifiers) {
         const row=list.itemAtIndex(index)
         if(!row)return
+        list.currentIndex=index
         const p=row.mapToItem(root.scene,0,0)
         Mail.selectRow(index,modifiers,p.x,p.y,row.width,row.height,row.projection())
     }
     function revealIndex(index){list.positionViewAtIndex(index,ListView.Contain);list.forceLayout();Qt.callLater(()=>openIndex(index,0))}
-    Popup {
-        id:filters;x:header.x;y:header.y+Theme.unit(131);width:header.width;padding:Theme.unit(18)
-        background:Rectangle{radius:Theme.unit(16);color:Theme.raised;border.width:1;border.color:Theme.outline}
-        Column{spacing:Theme.unit(12);width:parent.width
-            Text {textFormat:Text.PlainText;text:"Search in Gmail";color:Theme.text;font.pixelSize:Theme.unit(14);font.weight:Font.DemiBold}
-            FluidField{id:from;placeholderText:"From address";width:parent.width}
-            FluidField{id:subject;placeholderText:"Subject contains";width:parent.width}
-            FluidCheck{id:attachment;text:"Has attachments"}
-            FluidButton{text:"Search";primary:true;onClicked:{let q=(from.text?"from:"+from.text+" ":"")+(subject.text?"subject:("+subject.text+") ":"")+(attachment.checked?"has:attachment":"");search.text=q;Mail.setView(Mail.folder,Mail.account,q);filters.close()}}
-        }
-    }
+    function scrollToIndex(index){list.positionViewAtIndex(index,ListView.Center);list.forceLayout()}
 }

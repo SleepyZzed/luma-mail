@@ -237,6 +237,9 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
             Ok(())
         }
         "composeRetryUpload" => upload(app, c.id, &s).await,
+        "composeCompare" | "composeMerge" | "composeCompareCancel" => {
+            crate::draft_conflict::run(app, c, &s).await
+        }
         "composeSaveCopy" => {
             if app.preview {
                 return Err(Error::Invalid(
@@ -254,6 +257,8 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
                 d.form.message_id = format!("<{}@luma.local>", luma_core::composer::new_id());
                 d.phase = Phase::Editing;
                 d.revision += 1;
+                d.comparison = None;
+                d.comparison_ticket += 1;
             }
             if s.queue(c.id, Intent::Save)? {
                 write(app, c.id, &s).await?;
@@ -438,6 +443,12 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         app.events
             .emit(c.id, "composeFocus", json!({"session":s.id}))
             .await;
+        if !c.text("mailto").is_empty() {
+            return Err(Error::Invalid(
+                "A message is already open. Finish or close it, then open this email link again."
+                    .into(),
+            ));
+        }
         return Ok(());
     }
     let mode = c.text("mode");
@@ -481,19 +492,59 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         source_mode: false,
         document: json!({"kind":"plain","text":""}),
     };
+    if mode == "new" && !c.text("mailto").is_empty() {
+        let link = luma_core::mailto::parse(c.text("mailto"))?;
+        init.form.to = link.to;
+        init.form.cc = link.cc;
+        init.form.bcc = link.bcc;
+        init.form.subject = link.subject;
+        init.form.text = link.body;
+        init.document = json!({"kind":"plain","text":init.form.text});
+    }
     if mode != "new" {
         let key = key
             .as_ref()
             .ok_or_else(|| Error::Invalid("Choose a message first".into()))?;
-        let id = c.data["message"]["id"].as_str().unwrap_or(&key.id);
-        let original = if app.preview {
-            synthetic(id, &key.id)
+        let id = if let Some(id) = c.data["message"]["id"].as_str() {
+            id.to_owned()
+        } else if app.preview {
+            key.id.clone()
         } else {
-            let cached = app.view.lock().unwrap().bodies.get(id);
+            let resident = {
+                let view = app.view.lock().unwrap();
+                if view.selected.as_ref() == Some(key) {
+                    view.thread.clone()
+                } else {
+                    None
+                }
+            };
+            let thread = match resident {
+                Some(t) => t,
+                None => app.client(&key.account)?.thread_metadata(&key.id).await?,
+            };
+            thread
+                .messages
+                .iter()
+                .filter(|m| mode != "draft" || m.has("DRAFT"))
+                .max_by_key(|m| m.date())
+                .ok_or_else(|| {
+                    Error::Invalid(if mode == "draft" {
+                        "This conversation no longer contains a Gmail draft".into()
+                    } else {
+                        "This conversation has no message to reply to".into()
+                    })
+                })?
+                .id
+                .clone()
+        };
+        let original = if app.preview {
+            synthetic(&id, &key.id)
+        } else {
+            let cached = app.view.lock().unwrap().bodies.get(&id);
             if let Some(m) = cached {
                 (*m).clone()
             } else {
-                app.client(&key.account)?.message(id).await?
+                app.client(&key.account)?.message(&id).await?
             }
         };
         if original.thread_id != key.id {
@@ -541,21 +592,70 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         }
     }
     init.form.account = Some(account.id.clone());
+    if app.preview && std::env::var("LUMA_PREVIEW_CONFLICT").as_deref() == Ok("1") {
+        crate::draft_conflict::fixture_init(&mut init);
+    }
+    install(app, c.id, init, None).await
+}
+pub(crate) async fn install(
+    app: &Arc<App>,
+    id: u64,
+    init: Init,
+    replacing: Option<(&Arc<Session>, u64, u64)>,
+) -> Result<()> {
+    let account = app
+        .settings
+        .lock()
+        .unwrap()
+        .accounts
+        .iter()
+        .find(|a| Some(&a.id) == init.form.account.as_ref() && a.enabled)
+        .cloned()
+        .ok_or_else(|| Error::Invalid("Reconnect this account before opening the draft".into()))?;
     let s = Session::new(init);
+    if s.data.lock().unwrap().mode == "merged" {
+        let mut d = s.data.lock().unwrap();
+        d.revision = 1;
+        d.status = "Merged copy · original Gmail draft preserved".into();
+    }
+    if app.preview
+        && std::env::var("LUMA_PREVIEW_CONFLICT").as_deref() == Ok("1")
+        && s.data.lock().unwrap().draft.is_some()
+    {
+        let mut d = s.data.lock().unwrap();
+        d.phase = Phase::Conflict;
+        d.form.text = "My edited message".into();
+        d.revision = 1;
+        d.initial_document = json!({"kind":"plain","text":d.form.text});
+    }
     if account.sender_controls && !app.preview {
         s.data.lock().unwrap().identity_loading = true;
     }
-    *app.composer.lock().unwrap() = Some(s.clone());
-    app.events
-        .emit(c.id, "composeOpened", s.snapshot(true))
-        .await;
+    {
+        let mut current = app.composer.lock().unwrap();
+        if let Some((old, revision, ticket)) = replacing {
+            let mut data = old.data.lock().unwrap();
+            if !current.as_ref().is_some_and(|at| Arc::ptr_eq(at, old))
+                || data.phase != Phase::Conflict
+                || data.revision != revision
+                || data.comparison_ticket != ticket
+            {
+                return Err(Error::Invalid(
+                    "The draft changed while preparing the merge; your editor is preserved".into(),
+                ));
+            }
+            crate::compose::clear(&mut data, Phase::Closed);
+        }
+        *current = Some(s.clone());
+    }
+    app.events.emit(id, "composeOpened", s.snapshot(true)).await;
     if account.sender_controls && !app.preview {
-        refresh_sender(app, c.id, &s, 0, true, false).await
+        refresh_sender(app, id, &s, 0, true, false).await
     } else {
         Ok(())
     }
 }
-fn from_draft(
+pub(crate) fn from_draft(
     account: &Account,
     draft: luma_core::gmail::Draft,
     retained: Vec<luma_core::composer::RetainedAttachment>,
@@ -755,6 +855,14 @@ async fn watch_operation<T>(
     }
 }
 async fn write(app: &Arc<App>, id: u64, s: &Arc<Session>) -> Result<()> {
+    let previous_thread = s
+        .data
+        .lock()
+        .unwrap()
+        .draft
+        .as_ref()
+        .map(|d| d.message.thread_id.clone())
+        .filter(|id| !id.is_empty());
     let (account, drive) = {
         let d = s.data.lock().unwrap();
         let account = d.form.account.clone().unwrap_or_default();
@@ -768,9 +876,25 @@ async fn write(app: &Arc<App>, id: u64, s: &Arc<Session>) -> Result<()> {
         (account, drive)
     };
     let client = app.client(&account)?;
+    app.mutation_serial.fetch_add(1, Ordering::SeqCst);
     let mut uploading = (*client).clone();
     uploading.http = client.http.with_upload_progress(s.transfer.clone());
     let result = watch_operation(app, id, s, s.persist(&uploading, Some(&client), drive, id)).await;
+    app.mutation_serial.fetch_add(1, Ordering::SeqCst);
+    let written = s.data.lock().unwrap().written_thread.take();
+    if let Some(thread) = written {
+        app.sync.track_write(luma_core::model::ThreadKey {
+            account: account.clone(),
+            id: thread.clone(),
+        });
+        if let Some(previous) = previous_thread.filter(|old| old != &thread) {
+            app.sync.track_write(luma_core::model::ThreadKey {
+                account: account.clone(),
+                id: previous,
+            });
+        }
+    }
+    app.sync.reconcile();
     let phase = s.data.lock().unwrap().phase;
     if phase == Phase::Sent {
         let recent = s.data.lock().unwrap().sent_recipients.take();

@@ -234,7 +234,13 @@ impl App {
             let cancellable = jobs.get(&request).is_some_and(|(kind, _)| {
                 matches!(
                     kind.as_str(),
-                    "view" | "page" | "select" | "message" | "authStart" | "attachmentThumbnail"
+                    "view"
+                        | "page"
+                        | "select"
+                        | "message"
+                        | "authStart"
+                        | "attachmentThumbnail"
+                        | "searchBuild"
                 )
             });
             if cancellable && let Some((_, job)) = jobs.remove(&request) {
@@ -328,7 +334,16 @@ impl App {
                         Ok(())
                     }
                     "view" => crate::mail::change_view(&owner, &command).await,
+                    "searchBuild" => crate::search_commands::build(&owner, &command).await,
                     "page" => crate::mail::page(&owner, command.id, false).await,
+                    "previewRows" if owner.preview => {
+                        crate::mail::fixture_with_count(
+                            &owner,
+                            command.data["count"].as_u64().unwrap_or(8).min(1000) as usize,
+                        )
+                        .await;
+                        Ok(())
+                    }
                     "select" => crate::mail::open(&owner, &command).await,
                     "message" => crate::mail::body(&owner, &command).await,
                     "renderMessage" => crate::reader::render(&owner, &command).await,
@@ -415,6 +430,7 @@ impl App {
             }
             .await;
             if matches!(command.action.as_str(), "mutate" | "undo" | "draftDelete") {
+                owner.mutation_serial.fetch_add(1, Ordering::SeqCst);
                 owner.sync.reconcile();
             }
             if let Err(e) = result {

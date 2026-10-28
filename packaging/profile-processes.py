@@ -24,10 +24,12 @@ if attached:
     process = None
 else:
     anchor = None
-    duration = 150
+    fluid = '--fluid' in sys.argv[3:]
+    duration = 210 if fluid else 150
     output = sys.argv[2]
-    process = subprocess.Popen([sys.argv[1], '--performance-diagnostics'],
-                               env={**os.environ, 'APPIMAGE_EXTRACT_AND_RUN': '1'},
+    arguments = ['--design-preview', '--resource-test'] if fluid else ['--performance-diagnostics']
+    process = subprocess.Popen([sys.argv[1], *arguments],
+                               env={**os.environ, 'APPIMAGE_EXTRACT_AND_RUN': '1', **({'LUMA_PREVIEW_HTML':'1'} if fluid else {})},
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 def readout():
@@ -65,8 +67,8 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
             fields = raw[raw.rfind(')')+2:].split()
             pid = int(entry.name)
             stats[pid] = (int(fields[1]), int(fields[11])+int(fields[12]), fields[19], entry)
-            if anchor is None and Path(os.readlink(entry/'exe')).name == 'luma-mail':
-                if b'--performance-diagnostics' in (entry/'cmdline').read_bytes():
+            if anchor is None and Path(os.readlink(entry/'exe')).name in {'luma-mail','luma-mail-fluid'}:
+                if (b'--resource-test' if fluid else b'--performance-diagnostics') in (entry/'cmdline').read_bytes():
                     anchor = pid
         except (FileNotFoundError, PermissionError, ProcessLookupError):
             pass
@@ -134,5 +136,7 @@ if attached:
     report['description'] = 'Read-only attachment to the live Luma main process and descendants. No mail, tokens, titles or arguments recorded. Luma is not stopped or reconfigured. CPU is percentage of one core; RSS includes shared mappings and PSS apportions them.'
 Path(output).write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
 print(json.dumps(report['phases'], indent=2))
-required = {'baseline', 'inbox_1000', 'scrolled_1000', 'newsletter', 'three_html_messages', 'released', 'reclaimed_background'}
+required = {'baseline', 'inbox_1000', 'scrolled_1000', 'newsletter', 'released', 'reclaimed_background'}
+if not attached and not fluid:
+    required.add('three_html_messages')
 assert attached or required <= report['phases'].keys(), 'All resource lifecycle phases must be measured'

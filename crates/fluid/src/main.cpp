@@ -1,4 +1,7 @@
 #include "bridge.h"
+#include "single_instance.h"
+#include <QStandardPaths>
+#include <QDesktopServices>
 #include "motion_smoke.h"
 #include "profiles.h"
 #include "reader_profile.h"
@@ -26,6 +29,9 @@ void startProfileSmoke(Bridge*,QQuickWindow*);
 void startHtmlSmoke(Bridge*,QQuickWindow*);
 void startSyncSmoke(Bridge*,QQuickWindow*);
 void startNavigationSmoke(Bridge*,QQuickWindow*);
+void startSearchSmoke(Bridge*,QQuickWindow*);
+void startConflictSmoke(Bridge*,QQuickWindow*);
+void startResourceSmoke(Bridge*,QQuickWindow*);
 void startAttachmentSmoke(Bridge*,AttachmentPreview*,QQuickWindow*);
 
 int main(int argc,char**argv){
@@ -40,8 +46,12 @@ int main(int argc,char**argv){
     QApplication app(argc,argv);app.setApplicationName("Luma Mail");app.setOrganizationName("Luma Mail");app.setApplicationVersion("0.10.0");
     app.setDesktopFileName("io.github.lumamail.Luma");
     app.setStyle("Fusion");app.setWindowIcon(QIcon(":/brand/io.github.lumamail.Luma.svg"));
+    app.setQuitOnLastWindowClosed(false);
     ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
+    QString mailto;for(const auto&argument:app.arguments())if(argument.startsWith("mailto:",Qt::CaseInsensitive)){mailto=argument;break;}
+    std::unique_ptr<SingleInstance>instance;
+    if(!preview){instance=std::make_unique<SingleInstance>(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));const auto result=instance->start(mailto);if(result==SingleInstance::Forwarded)return 0;if(result==SingleInstance::Busy){qWarning()<<"The existing Luma window is busy. Try opening it again shortly.";return 1;}}
     QTemporaryDir isolated;if(preview&&qEnvironmentVariableIsEmpty("LUMA_TEST_ROOT"))qputenv("LUMA_TEST_ROOT",isolated.path().toUtf8());
     Bridge bridge(preview);AttachmentPreview attachmentPreview(&bridge);bridge.setAttachmentPreview(&attachmentPreview);QQmlApplicationEngine engine;
     QObject::connect(&app,&QCoreApplication::aboutToQuit,&attachmentPreview,&AttachmentPreview::close);
@@ -61,17 +71,23 @@ int main(int argc,char**argv){
     );
     engine.loadFromModule("Luma.Fluid","Main");if(engine.rootObjects().isEmpty())return 1;
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+    QDesktopServices::setUrlHandler("mailto",&bridge,"handleMailto");
+    if(instance)QObject::connect(instance.get(),&SingleInstance::activated,&bridge,[&bridge](const QString&uri){if(uri.isEmpty())emit bridge.showRequested();else bridge.queueMailto(uri);});
+    if(!mailto.isEmpty())bridge.queueMailto(mailto);
     auto visibility=[&]{const bool shown=window->isVisible()&&window->visibility()!=QWindow::Minimized;bridge.setWindowVisible(shown);if(!shown&&attachmentPreview.kind()=="Video")attachmentPreview.pause();};
     visibility();QObject::connect(window,&QWindow::visibleChanged,&bridge,visibility);QObject::connect(window,&QWindow::visibilityChanged,&bridge,visibility);
     if(preview&&app.arguments().contains("--motion-test"))new MotionSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--photo-test"))startProfileSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--html-test"))startHtmlSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--search-test"))startSearchSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--conflict-test"))startConflictSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--resource-test"))startResourceSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--navigation-test"))startNavigationSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--attachment-test"))startAttachmentSmoke(&bridge,&attachmentPreview,window);
-    QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",window,[window]{window->show();window->raise();window->requestActivate();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
-    QObject::connect(&tray,&QSystemTrayIcon::activated,window,[window](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick){window->show();window->raise();window->requestActivate();}});tray.show();
+    QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",&bridge,[&bridge]{emit bridge.showRequested();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
+    QObject::connect(&tray,&QSystemTrayIcon::activated,&bridge,[&bridge](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick)emit bridge.showRequested();});tray.show();
     engine.rootContext()->setContextProperty("trayAvailable",QSystemTrayIcon::isSystemTrayAvailable());
 #ifdef Q_OS_LINUX
     LinuxNotifications notifications;

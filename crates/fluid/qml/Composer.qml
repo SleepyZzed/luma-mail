@@ -3,6 +3,7 @@ import QtQuick.Controls
 Item {
     id:root;objectName:"composer"
     property bool shown:false
+    signal comparisonRequested(string session,var form)
     property bool expanded:false
     property bool inlineMode:false
     property string phase:"editing"
@@ -14,6 +15,9 @@ Item {
     property point dragStart:Qt.point(0,0)
     property bool formLoading:false
     property string loadedSession:""
+    property bool showCc:false
+    property bool showBcc:false
+    property var openingSurface:undefined
     property bool includeQuote:true
     property bool includeSignature:true
     property string localError:""
@@ -59,7 +63,7 @@ Item {
     }
     Item {
         id:header;width:parent.width;height:Theme.unit(52)
-        Text{textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending Â· waiting for Gmailâ€¦":root.phase==="sent"?"Sent Â· confirmed by Gmail":root.state.mode==="draft"?"Gmail draft":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
+        Text{textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending · waiting for Gmail…":root.phase==="sent"?"Sent · confirmed by Gmail":root.state.mode==="draft"?"Gmail draft":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
         Row{anchors.right:parent.right;anchors.rightMargin:Theme.unit(12);anchors.verticalCenter:parent.verticalCenter;visible:!root.statusMode
             FluidButton{glyph:root.expanded?"minimize":"maximize";tip:root.expanded?"Restore composer":"Expand composer";onClicked:root.toggleExpanded()}
             FluidButton{glyph:"close";tip:"Close composer";onClicked:root.requestClose()}
@@ -82,26 +86,32 @@ Item {
         Row{width:parent.width;height:Theme.unit(35);z:3
             Text{textFormat:Text.PlainText;width:Theme.unit(38);anchors.verticalCenter:parent.verticalCenter;text:"To";font.pixelSize:Theme.unit(11);color:Theme.faint}
             RecipientField{id:to;objectName:"composeTo";width:parent.width-Theme.unit(118);height:parent.height;placeholderText:"Recipients";KeyNavigation.tab:cc.visible?cc:bcc.visible?bcc:subject;session:root.loadedSession;account:root.state.account||"";enabled:!root.state.locked;onEdited:root.schedule();z:3}
-            FluidButton{text:"Cc";onClicked:{cc.visible=!cc.visible;if(cc.visible)cc.forceActiveFocus()}}
-            FluidButton{text:"Bcc";onClicked:{bcc.visible=!bcc.visible;if(bcc.visible)bcc.forceActiveFocus()}}
+            FluidButton{text:"Cc";onClicked:{if(root.showCc&&!cc.text.trim())root.showCc=false;else{root.showCc=true;cc.forceActiveFocus()}}}
+            FluidButton{text:"Bcc";onClicked:{if(root.showBcc&&!bcc.text.trim())root.showBcc=false;else{root.showBcc=true;bcc.forceActiveFocus()}}}
         }
-        RecipientField{id:cc;objectName:"composeCc";width:parent.width;height:visible?Theme.unit(34):0;visible:false;placeholderText:"Cc";KeyNavigation.tab:bcc.visible?bcc:subject;KeyNavigation.backtab:to;session:root.loadedSession;account:root.state.account||"";enabled:!root.state.locked;onEdited:root.schedule();z:2}
-        RecipientField{id:bcc;objectName:"composeBcc";width:parent.width;height:visible?Theme.unit(34):0;visible:false;placeholderText:"Bcc";KeyNavigation.tab:subject;KeyNavigation.backtab:cc.visible?cc:to;session:root.loadedSession;account:root.state.account||"";enabled:!root.state.locked;onEdited:root.schedule();z:1}
+        Row{width:parent.width;height:root.showCc?Theme.unit(34):0;visible:root.showCc;z:2
+            Text{textFormat:Text.PlainText;width:Theme.unit(38);anchors.verticalCenter:parent.verticalCenter;text:"Cc";font.pixelSize:Theme.unit(11);color:Theme.faint}
+            RecipientField{id:cc;objectName:"composeCc";width:parent.width-Theme.unit(38);height:parent.height;placeholderText:"Cc recipients";KeyNavigation.tab:bcc.visible?bcc:subject;KeyNavigation.backtab:to;session:root.loadedSession;account:root.state.account||"";enabled:!root.state.locked;onEdited:root.schedule()}
+        }
+        Row{width:parent.width;height:root.showBcc?Theme.unit(34):0;visible:root.showBcc;z:1
+            Text{textFormat:Text.PlainText;width:Theme.unit(38);anchors.verticalCenter:parent.verticalCenter;text:"Bcc";font.pixelSize:Theme.unit(11);color:Theme.faint}
+            RecipientField{id:bcc;objectName:"composeBcc";width:parent.width-Theme.unit(38);height:parent.height;placeholderText:"Bcc recipients";KeyNavigation.tab:subject;KeyNavigation.backtab:cc.visible?cc:to;session:root.loadedSession;account:root.state.account||"";enabled:!root.state.locked;onEdited:root.schedule()}
+        }
         Rectangle{height:1;width:parent.width;color:Theme.outline}
         Field{id:subject;objectName:"composeSubject";width:parent.width;height:Theme.unit(38);placeholderText:"Subject";font.weight:Font.DemiBold;KeyNavigation.tab:body;KeyNavigation.backtab:bcc.visible?bcc:cc.visible?cc:to}
         Rectangle{height:1;width:parent.width;color:Theme.outline}
         Flickable{width:parent.width;height:Theme.unit(38);contentWidth:tools.width;clip:true;boundsBehavior:Flickable.StopAtBounds;enabled:!root.locked
             Row{id:tools;spacing:Theme.unit(1);height:parent.height
-                FluidButton{glyph:"bold";tip:"Bold Â· Ctrl+B";tint:rich.bold?Theme.accent:Theme.text;onClicked:rich.toggle("bold")}
-                FluidButton{glyph:"italic";tip:"Italic Â· Ctrl+I";tint:rich.italic?Theme.accent:Theme.text;onClicked:rich.toggle("italic")}
-                FluidButton{glyph:"underline";tip:"Underline Â· Ctrl+U";tint:rich.underline?Theme.accent:Theme.text;onClicked:rich.toggle("underline")}
-                FluidButton{text:"â€¢";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
+                FluidButton{glyph:"bold";tip:"Bold · Ctrl+B";tint:rich.bold?Theme.accent:Theme.text;onClicked:rich.toggle("bold")}
+                FluidButton{glyph:"italic";tip:"Italic · Ctrl+I";tint:rich.italic?Theme.accent:Theme.text;onClicked:rich.toggle("italic")}
+                FluidButton{glyph:"underline";tip:"Underline · Ctrl+U";tint:rich.underline?Theme.accent:Theme.text;onClicked:rich.toggle("underline")}
+                FluidButton{text:"•";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
                 FluidButton{text:"1.";tip:"Numbered paragraphs";onClicked:rich.list(true)}
-                FluidButton{glyph:"link";tip:"Insert hyperlink Â· Ctrl+K";onClicked:linkDialog.open()}
+                FluidButton{glyph:"link";tip:"Insert hyperlink · Ctrl+K";onClicked:linkDialog.open()}
                 FluidButton{glyph:"attachment";tip:"Attach files";enabled:root.attachmentEditable;onClicked:Mail.attachFiles()}
                 FluidButton{text:"A";tip:"Font colour";onClicked:Mail.chooseColour(false)}
-                FluidButton{text:"â–°";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
-                FluidButton{text:"Â·Â·Â·";tip:"More formatting";onClicked:formatMenu.open()}
+                FluidButton{text:"▰";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
+                FluidButton{text:"···";tip:"More formatting";onClicked:formatMenu.open()}
                 FluidCombo{width:Theme.unit(126);model:rich.fonts;displayText:rich.fontFamily;onActivated:rich.family(currentText)}
                 FluidCombo{width:Theme.unit(65);model:[8,9,10,11,12,14,16,18,24,32,48,72];currentIndex:3;displayText:Math.round(rich.fontPointSize)+" pt";onActivated:rich.pointSize(Number(currentText))}
             }
@@ -122,7 +132,7 @@ Item {
         id:bodyScroll;x:Theme.unit(22);y:fields.y+fields.height;width:parent.width-2*x;height:Math.max(0,historyToggles.y-y-Theme.unit(7));clip:true;contentWidth:width;contentHeight:body.height;visible:!root.statusMode
         TextArea{
             id:body;objectName:"composeBody";width:bodyScroll.width;height:Math.max(bodyScroll.height,contentHeight+Theme.unit(12));padding:0;color:Theme.text
-            placeholderText:"A little space for your thoughtsâ€¦";placeholderTextColor:Theme.faint;textFormat:TextEdit.RichText;wrapMode:TextEdit.Wrap;selectByMouse:true;persistentSelection:true;selectionColor:Theme.selected;selectedTextColor:Theme.text;background:Item{} readOnly:root.locked
+            placeholderText:"A little space for your thoughts…";placeholderTextColor:Theme.faint;textFormat:TextEdit.RichText;wrapMode:TextEdit.Wrap;selectByMouse:true;persistentSelection:true;selectionColor:Theme.selected;selectedTextColor:Theme.text;background:Item{} readOnly:root.locked
             onSelectionStartChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
             onSelectionEndChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
             onCursorPositionChanged:{rich.selection(selectionStart,selectionEnd,cursorPosition);if(cursorRectangle.y<bodyScroll.contentY)bodyScroll.contentY=cursorRectangle.y;else if(cursorRectangle.y+cursorRectangle.height>bodyScroll.contentY+bodyScroll.height)bodyScroll.contentY=Math.max(0,cursorRectangle.y+cursorRectangle.height-bodyScroll.height)}
@@ -156,12 +166,13 @@ Item {
         id:footer;x:Theme.unit(18);y:parent.height-Theme.unit(65);width:parent.width-2*x;height:Theme.unit(55);visible:!root.statusMode
         ProgressBar{width:parent.width;height:Theme.unit(3);visible:root.busy;from:0;to:Math.max(1,root.state.progress?.total||0);value:root.state.progress?.done||0;indeterminate:root.busy&&!(root.state.progress?.total>0)}
         Row{y:Theme.unit(12);spacing:Theme.unit(5)
-            FluidButton{text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send Â· Ctrl+Enter";onClicked:root.submit("composeSend")}
+            FluidButton{text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send · Ctrl+Enter";onClicked:root.submit("composeSend")}
             FluidButton{glyph:"save";tip:"Save to Gmail drafts";enabled:!!root.loadedSession&&!root.busy&&!root.state.locked&&root.state.state!=="conflict";onClicked:root.submit("composeSave")}
             FluidButton{text:root.inputBusy?"Cancel image":"Cancel upload";visible:root.inputBusy||root.state.state==="uploading";onClicked:root.inputBusy?Mail.cancelClipboard():Mail.send("composeCancelUpload",{session:root.loadedSession})}
             FluidButton{text:"Save separate copy";visible:root.state.state==="conflict";onClicked:{root.sync();Mail.send("composeSaveCopy",{session:root.loadedSession})}}
+            FluidButton{text:"Compare versions";visible:root.state.state==="conflict";onClicked:{inputDelay.stop();root.comparisonRequested(root.loadedSession,root.form())}}
         }
-        Text{textFormat:Text.PlainText;anchors.right:parent.right;y:Theme.unit(24);width:Math.max(0,parent.width-Theme.unit(240));text:root.localError||(root.inputBusy?"Preparing clipboard imageâ€¦":root.state.status)||"Changes stay in memory until saved";color:Theme.muted;elide:Text.ElideRight;font.pixelSize:Theme.unit(9);horizontalAlignment:Text.AlignRight}
+        Text{textFormat:Text.PlainText;anchors.right:parent.right;y:Theme.unit(24);width:Math.max(0,parent.width-Theme.unit(240));visible:root.state.state!=="conflict";text:root.localError||(root.inputBusy?"Preparing clipboard image…":root.state.status)||"Changes stay in memory until saved";color:Theme.muted;elide:Text.ElideRight;font.pixelSize:Theme.unit(9);horizontalAlignment:Text.AlignRight}
     }
     FluidMenu{id:formatMenu
         MenuItem{text:"Strikethrough";onTriggered:rich.toggle("strike")}
@@ -182,7 +193,7 @@ Item {
     Dialog{id:linkDialog;title:"Insert hyperlink";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(420,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:12
             TextField{id:linkLabel;width:parent.width;placeholderText:"Text to display"}
-            TextField{id:linkUrl;width:parent.width;placeholderText:"https://â€¦"}
+            TextField{id:linkUrl;width:parent.width;placeholderText:"https://…"}
         }
         onOpened:{linkLabel.text=body.selectedText;linkUrl.text="";linkUrl.forceActiveFocus()}
         onAccepted:rich.link(linkUrl.text,linkLabel.text)
@@ -196,7 +207,7 @@ Item {
         }
         onOpened:findText.forceActiveFocus()
     }
-    Dialog{id:historyDialog;title:"Quoted history Â· read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(600,root.scene.width-50);height:Math.min(400,root.scene.height-70);standardButtons:Dialog.Close
+    Dialog{id:historyDialog;title:"Quoted history · read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(600,root.scene.width-50);height:Math.min(400,root.scene.height-70);standardButtons:Dialog.Close
         ScrollView{anchors.fill:parent;TextArea{text:root.state.quote||"";readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText}}
     }
     Dialog{id:closeDialog;property var question:({});title:question.uncertain?"Gmail confirmation is uncertain":question.conflict?"This draft changed in Gmail":"Save this draft to Gmail?";modal:true;closePolicy:Popup.NoAutoClose;anchors.centerIn:Overlay.overlay;width:Math.min(540,root.scene.width-40)
@@ -214,7 +225,7 @@ Item {
     Shortcut{sequence:"Ctrl+Enter";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSend")}
     Shortcut{sequence:"Ctrl+S";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSave")}
     Timer{id:sentDelay;interval:1100;onTriggered:root.close()}
-    Timer{id:releaseDelay;interval:800;onTriggered:if(!root.shown){root.formLoading=true;to.clear();cc.clear();bcc.clear();subject.clear();rich.load({kind:"plain",text:""});root.loadedSession="";root.formLoading=false}}
+    Timer{id:releaseDelay;interval:800;onTriggered:if(!root.shown){root.formLoading=true;to.clear();cc.clear();bcc.clear();root.showCc=false;root.showBcc=false;subject.clear();rich.load({kind:"plain",text:""});Mail.releaseComposerView(root.loadedSession);root.loadedSession="";root.formLoading=false}}
     function schedule(){if(!formLoading&&shown&&loadedSession)inputDelay.restart()}
     function chooseSender(choice){root.sync();if(choice.account===state.account)Mail.send("composeIdentity",{session:loadedSession,address:choice.address});else Mail.send("composeAccount",{session:loadedSession,account:choice.account})}
     function form(){let value={to:to.text,cc:cc.text,bcc:bcc.text,subject:subject.text,includeQuote:includeQuote,includeSignature:includeSignature};if(!state.sourceMode){const p=rich.payload();value.text=p.text;value.html=p.html}return value}
@@ -224,20 +235,28 @@ Item {
     function answerClose(answer){Mail.send("composeCloseAnswer",{session:loadedSession,revision:closeDialog.question.revision,answer:answer});closeDialog.close()}
     function focusEditor(){Qt.callLater(()=>{if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
     function open(mode){
+        const activeSurface=openingSurface===undefined?visible:openingSurface;openingSurface=undefined
         releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
-        if(Theme.motion&&!inlineMode){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
+        if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
     }
     function close(){inputDelay.stop();shown=false;closeDialog.close();releaseDelay.restart()}
     function toggleExpanded(){
         const position=mapToItem(scene,0,0)
-        if(inlineMode){inlineMode=false;parent=scene;expanded=true;horizontal.snap(position.x);vertical.snap(position.y);horizontal.resume();vertical.resume()}
-        else if(expanded&&inlineDock){const dock=inlineDock.mapToItem(scene,0,0);parent=inlineDock;inlineMode=true;expanded=false;horizontal.snap(position.x-dock.x);vertical.snap(position.y-dock.y);horizontal.resume();vertical.resume()}
+        if(inlineMode){inlineMode=false;parent=scene;expanded=true;horizontal.rebase(position.x);vertical.rebase(position.y)}
+        else if(expanded&&inlineDock){const dock=inlineDock.mapToItem(scene,0,0);parent=inlineDock;inlineMode=true;expanded=false;horizontal.rebase(position.x-dock.x);vertical.rebase(position.y-dock.y)}
         else expanded=!expanded
+    }
+    function floatToScene(){const at=mapToItem(scene,0,0);parent=scene;inlineMode=false;manualPosition=false;horizontal.rebase(at.x);vertical.rebase(at.y)}
+    function dockTo(dock){
+        const activeSurface=openingSurface===undefined?visible:openingSurface
+        const at=mapToItem(dock,0,0);inlineDock=dock;parent=dock;inlineMode=true
+        if(activeSurface){horizontal.rebase(at.x);vertical.rebase(at.y)}
+        else{horizontal.snap(0);vertical.snap(0);breadth.snap(dock.width);depth.snap(0);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
     }
     function dockBottomRight(){manualPosition=false}
     Connections{target:Mail
-        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";cc.visible=!!cc.text;bcc.visible=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;formLoading=false;if(c.state==="sent")sentDelay.restart()}
+        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;formLoading=false;if(c.state==="sent")sentDelay.restart()}
         function onComposeClosed(){root.close()}
         function onComposeCloseQuestion(data){closeDialog.question=data;closeDialog.open()}
         function onFlushComposer(){root.sync()}

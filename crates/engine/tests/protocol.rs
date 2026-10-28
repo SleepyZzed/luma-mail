@@ -23,12 +23,16 @@ impl Client {
         Self::features(two_accounts, photos, false)
     }
     fn features(two_accounts: bool, photos: bool, html: bool) -> Self {
+        Self::fixture(two_accounts, photos, html, false)
+    }
+    fn fixture(two_accounts: bool, photos: bool, html: bool, conflict: bool) -> Self {
         let root = tempfile::tempdir().unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_luma-engine"))
             .arg("--design-preview")
             .env("LUMA_TEST_ROOT", root.path())
             .env("LUMA_PREVIEW_PHOTOS", if photos { "1" } else { "0" })
             .env("LUMA_PREVIEW_HTML", if html { "1" } else { "0" })
+            .env("LUMA_PREVIEW_CONFLICT", if conflict { "1" } else { "0" })
             .env(
                 "LUMA_PREVIEW_TWO_ACCOUNTS",
                 if two_accounts { "1" } else { "0" },
@@ -667,4 +671,121 @@ fn concurrent_preferences_preserve_other_fields_and_account_controls_stay_scoped
     assert_eq!(usage["bytes"], 0);
     assert!(usage["accounts"].as_object().unwrap().is_empty());
     assert!(!c.root.path().join("cache").exists());
+}
+
+#[test]
+fn mail_links_prefill_a_new_composer_without_autosave_or_replacing_active_input() {
+    let mut c = Client::new();
+    c.until("ready");
+    c.until("rows");
+    c.send(1,"composeStart",json!({"mode":"new","account":"preview","mailto":"mailto:alex+tag%40example.com?subject=Coffee%20plans&body=Hi%0Athere&attach=file:///private"}));
+    let opened = c.until("composeOpened");
+    assert_eq!(opened["to"], "alex+tag@example.com");
+    assert_eq!(opened["subject"], "Coffee plans");
+    assert_eq!(opened["document"]["text"], "Hi\nthere");
+    assert!(opened["attachments"].as_array().unwrap().is_empty());
+    c.send(
+        2,
+        "composeStart",
+        json!({"mode":"new","account":"preview","mailto":"mailto:other@example.com"}),
+    );
+    assert!(
+        c.expect_error(2)["message"]
+            .as_str()
+            .unwrap()
+            .contains("already open")
+    );
+    c.send(3, "settingsUpdate", json!({"draft_mode":"manual"}));
+    c.until("settings");
+    c.send(4, "composeClose", json!({"session":opened["session"]}));
+    c.until("composeClosed");
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
+}
+
+#[test]
+fn advanced_search_validates_dates_and_preserves_the_selected_account_subset() {
+    let mut c = Client::configured(true);
+    c.until("ready");
+    c.until("rows");
+    c.send(1,"searchBuild",json!({"folder":"all_mail","accounts":["preview-b"],"from":"Maya Chen","to":"alex@example.com","subject":"launch","words":"project","after":"2026-01-01","before":"2026-02-01","unread":true,"attachments":true}));
+    let search = c.until("searchBuilt");
+    let query = search["query"].as_str().unwrap();
+    assert!(query.contains("from:\"Maya Chen\""));
+    assert!(query.contains("after:2026/01/01"));
+    assert!(query.contains("is:unread has:attachment project"));
+    assert_eq!(search["accounts"], json!(["preview-b"]));
+    c.send(
+        2,
+        "searchBuild",
+        json!({"folder":"all_mail","allAccounts":true,"after":"2026-04-01","before":"2026-03-01"}),
+    );
+    assert!(
+        c.expect_error(2)["message"]
+            .as_str()
+            .unwrap()
+            .contains("later")
+    );
+    c.send(
+        3,
+        "searchBuild",
+        json!({"folder":"all_mail","accounts":["missing"]}),
+    );
+    assert!(
+        c.expect_error(3)["message"]
+            .as_str()
+            .unwrap()
+            .contains("enabled")
+    );
+    c.send(
+        4,
+        "view",
+        json!({"folder":"label:Label_work","accounts":["preview"]}),
+    );
+    c.until("rows");
+    c.send(
+        5,
+        "searchBuild",
+        json!({"folder":"label:Label_work","allAccounts":true}),
+    );
+    assert!(
+        c.expect_error(5)["message"]
+            .as_str()
+            .unwrap()
+            .contains("owns")
+    );
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
+}
+
+#[test]
+fn conflict_review_requires_current_choices_and_opens_only_an_unsaved_copy() {
+    let mut c = Client::fixture(false, false, false, true);
+    c.until("ready");
+    c.send(1, "composeStart", json!({"mode":"new"}));
+    let original = c.until("composeOpened");
+    let session = original["session"].clone();
+    assert_eq!(original["state"], "conflict");
+    c.send(2, "composeCompare", json!({"session":session}));
+    let first = c.until("composeComparison");
+    assert_eq!(first["fields"][4]["resolution"], "gmail");
+    assert_eq!(first["fields"][5]["resolution"], "choose");
+    c.send(3, "composeCompareCancel", json!({"session":session}));
+    c.send(4,"composeMerge",json!({"session":session,"ticket":first["ticket"],"choices":[null,null,null,null,null,"mine"],"attachments":"mine"}));
+    c.expect_error(4);
+    c.send(5, "composeCompare", json!({"session":session}));
+    let second = c.until("composeComparison");
+    assert!(second["ticket"].as_u64() > first["ticket"].as_u64());
+    c.send(6,"composeMerge",json!({"session":session,"ticket":second["ticket"],"choices":[null,null,null,null,null,"mine"],"attachments":"mine"}));
+    let merged = c.until("composeOpened");
+    assert_ne!(merged["session"], session);
+    assert_eq!(merged["state"], "editing");
+    assert!(merged["draftId"].is_null());
+    assert_eq!(merged["dirty"], true);
+    assert_eq!(merged["subject"], "Gmail subject");
+    assert_eq!(merged["document"]["text"], "My edited message");
+    c.send(7, "composeSave", json!({"session":merged["session"]}));
+    c.expect_error(7);
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
 }

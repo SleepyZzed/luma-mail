@@ -163,3 +163,61 @@ scope guards, concurrent preference preservation, account reorder/disable/remove
 and zero-cache usage reporting. Core's allocation report matches the existing
 total/per-account accounting and adds no disk index. Live Google/desktop and
 whole-process resource acceptance remain outstanding.
+
+## 28 October continuation
+
+Current local checks: core 128 passed/one OS-vault test intentionally ignored;
+engine 28 unit and 13 real-pipe tests; strict Clippy; six Windows native CTest
+suites. The native scene groups pass: motion 33, composer 28, navigation 31,
+search 13, draft comparison 13, incremental sync/message actions 16, attachment
+14, photos five, and Windows HTML 13 (Linux HTML has ten platform-neutral checks).
+The single-instance suite also passed 20 consecutive local runs after fixing
+acknowledgement/disconnect and already-buffered input races.
+
+`--design-preview --search-test` needs `LUMA_PREVIEW_TWO_ACCOUNTS=1` and
+`LUMA_SEARCH_REPORT`. It validates actual search fields, account-scope persistence,
+cancellation and mailto prefilling/Bcc visibility/close-time content release.
+`--conflict-test` needs `LUMA_PREVIEW_CONFLICT=1` and `LUMA_CONFLICT_REPORT`.
+It uses a synthetic conflicting draft through the actual engine and verifies
+field choices, a fresh unsaved copy, original preservation and review release.
+Neither path can send or write Gmail mail in design-preview mode.
+
+`--design-preview --resource-test` is an exposed-window lifecycle fixture with
+20-second settled phases: baseline, 1,000 loaded records, scrolling, newsletter,
+reader release, background hiding and restoration. Phase transitions have a
+separate marker so renderer startup is not counted as settled inbox CPU. The
+fixture uses single-shot phase boundaries, with no in-app sampling timer during
+idle. It asserts row virtualization, complete body release and no orphan Windows
+native controllers. Lifecycle assertions alone are not RAM/CPU evidence.
+
+Sample all descendants with:
+
+```sh
+LUMA_ENGINE="$PWD/target/debug/luma-engine" LUMA_PREVIEW_HTML=1 \
+  python3 packaging/profile-processes.py build-fluid/luma-mail-fluid resources.json --fluid
+```
+
+Windows: run `packaging/test-windows-performance.ps1 -Fluid -Binary <exe>
+-Evidence <new-output-directory>` with `LUMA_ENGINE`/`LUMA_WEBVIEW` set. It records
+private working set, private commit, shared-inclusive working set and per-process
+attribution. Linux uses RSS/PSS/private pages from `/proc`; the metrics are not
+interchangeable. These short synthetic runs do not establish long-term real sync,
+Hyprland/GPU performance, installed-package footprint, or universal RAM targets.
+The first Windows audit exposed a duplicate-controller lifetime defect; its
+counter assertions now prevent accepting a closed reader that still owns one.
+
+The 28 October Windows release-host/debug-engine synthetic process-tree run
+recorded approximately 136 MiB private working set at fresh idle, 150 MiB after
+scrolling 1,000 metadata records, 254 MiB with the newsletter open, and 155 MiB
+after closing/hiding (154 MiB after restoration). The corrected reader returns
+to three application/helper processes, with zero native HTML controllers; the
+previous faulty version retained nine processes after closing. The native tree
+has at most 23 recycled row widgets for the 1,000 loaded records. Settled CPU
+samples rounded to 0.00% of one core at this sampling resolution. These are
+Windows private-working-set values, not Linux PSS or an absolute CPU guarantee.
+The active HTML target of 200 MiB is not met. Raw per-process counters, separate
+private commit/shared-inclusive working set, executable hash and six lifecycle
+assertions are in validation/fluid-resource-windows.json and
+validation/fluid-resource-lifecycle-windows.json. Linux/real-sync results remain
+separate required gates; no memory trimming API or degraded HTML renderer is used
+to make the measurement appear lower.

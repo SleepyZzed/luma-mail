@@ -63,6 +63,10 @@ void Motion::snap(qreal value) {
     speed = 0;
     emit valueChanged();
 }
+void Motion::rebase(qreal value){
+    if(!std::isfinite(value))return;
+    position=value;emit valueChanged();resume();
+}
 
 void Motion::settle() {
     clock.stop();

@@ -56,24 +56,28 @@ void Bridge::start(){
         ;
     process.setProgram(binary);process.setArguments(m_preview?QStringList{"--design-preview"}:QStringList{});process.start();
 }
-quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!=QProcess::Running)return 0;auto id=++serial;if(a=="labels")labelRequests[data.value("account").toString()]=id;QJsonObject c{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(c).toJson(QJsonDocument::Compact);if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}process.write(bytes+'\n');return id;}
+quint64 Bridge::send(const QString&a,const QVariantMap&data){if(process.state()!=QProcess::Running)return 0;auto id=++serial;if(a=="searchBuild")searchRequest=id;if(a=="labels")labelRequests[data.value("account").toString()]=id;QJsonObject c{{"id",qint64(id)},{"action",a},{"data",QJsonObject::fromVariantMap(data)}};auto bytes=QJsonDocument(c).toJson(QJsonDocument::Compact);if(bytes.size()>4*1024*1024){m_error="The editor input exceeds its memory safety limit.";emit errorChanged();return 0;}process.write(bytes+'\n');return id;}
 void Bridge::consume(){pending+=process.readAllStandardOutput();while(true){auto n=pending.indexOf('\n');if(n<0)break;if(n>16*1024*1024){process.kill();pending.clear();return;}auto bytes=pending.left(n);pending.remove(0,n+1);QJsonParseError e;auto event=QJsonDocument::fromJson(bytes,&e);if(e.error==QJsonParseError::NoError)receive(event.object());}if(pending.size()>16*1024*1024){process.kill();pending.clear();}}
 void Bridge::receive(const QJsonObject&e){
     const auto kind=e["event"].toString();const auto d=e["data"].toObject();const auto id=e["id"].toInteger();
     if(attachmentPreview&&attachmentPreview->consume(kind,d,quint64(id))){emit received(kind=="error"?"attachmentError":kind,QVariantMap{{"token",d["token"].toString()}});return;}
     if(kind.startsWith("clipboard")||kind=="error")clipboardEvent(kind,d,quint64(id));
     if(profileEvent(kind,d,quint64(id))){emit received(kind=="error"?"photoError":kind,d.toVariantMap());return;}
-    if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();configRoot=d["configPath"].toString();if(QDir(configRoot).exists()){paletteWatcher.addPath(configRoot);auto file=configRoot+"/noctalia.toml";if(QFileInfo::exists(file))paletteWatcher.addPath(file);}systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();emit ready();if(!m_preview)setView("inbox");}
+    if(kind=="ready"){m_settings=d["settings"].toObject().toVariantMap();m_accounts.reconcileOrdered(d["settings"].toObject()["accounts"].toArray());configRoot=d["configPath"].toString();if(QDir(configRoot).exists()){paletteWatcher.addPath(configRoot);auto file=configRoot+"/noctalia.toml";if(QFileInfo::exists(file))paletteWatcher.addPath(file);}systemPalette();if(m_settings["theme"]=="noctalia")send("themeReload");emit settingsChanged();engineReady=true;emit ready();if(!m_preview)setView("inbox");flushMailto();}
     else if(kind=="settings"){
         auto enabled=[](const QVariantMap&settings){QSet<QString>ids;for(const auto&value:settings.value("accounts").toList()){const auto account=value.toMap();if(account.value("enabled").toBool())ids.insert(account.value("id").toString());}return ids;};
-        const auto previous=enabled(m_settings);m_settings=d.toVariantMap();const auto current=enabled(m_settings);
+        const auto previous=enabled(m_settings);m_settings=d.toVariantMap();m_accounts.reconcileOrdered(d["accounts"].toArray());const auto current=enabled(m_settings);
         QSet<QString>present;for(const auto&value:m_settings.value("accounts").toList())present.insert(value.toMap().value("id").toString());
         for(auto i=m_labels.begin();i!=m_labels.end();){if(!present.contains(i.key()))i=m_labels.erase(i);else ++i;}
         systemPalette();emit settingsChanged();emit labelsChanged();
-        if(previous!=current)setView(m_folder,current.contains(m_account)?m_account:QString(),m_search);
+        if(previous!=current){
+            if(searchSubset){scopedAccounts.removeIf([&current](const QVariant&v){return !current.contains(v.toString());});m_account=scopedAccounts.size()==1?scopedAccounts.first().toString():QString();if(scopedAccounts.isEmpty())setView("inbox");else refreshView();}
+            else setView(m_folder.startsWith("label:")&&!current.contains(m_account)?"inbox":m_folder,current.contains(m_account)?m_account:QString(),m_search);
+        }flushMailto();
     }
     else if(kind=="theme"){if(d.contains("background")){m_palette=d.toVariantMap();emit paletteChanged();}else systemPalette();}
     else if(kind=="authUrl"){openLink(d["url"].toString());}
+    else if(kind=="searchBuilt"){if(quint64(id)!=searchRequest||quint64(id)<viewRequest)return;applySearch(d);}
     else if(kind=="viewReset"){if(quint64(id)<viewRequest)return;m_inbox.replace({});m_messages.replace({});m_readerOpen=false;m_reader.clear();emit readerChanged();}
     else if(kind=="rows"){if(quint64(d["generation"].toInteger())<viewRequest)return;if(d["reset"].toBool())m_inbox.replace(d["items"].toArray());else m_inbox.append(d["items"].toArray());m_more=d["more"].toBool();m_activity="Your inbox, with room to breathe";m_activityKind="idle";emit activityChanged();emit viewChanged();}
     else if(kind=="thread"){if(quint64(id)<readerRequest)return;documentRequests.clear();m_reader=d.toVariantMap();m_messages.replace(d["messages"].toArray());emit readerChanged();}
@@ -94,15 +98,15 @@ void Bridge::receive(const QJsonObject&e){
     else if(kind=="messageState"){if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest)return;m_messages.patch(d["id"].toString(),d);}
     else if(kind=="sync"){m_sync=d.toVariantMap();emit syncChanged();}
     else if(kind=="labels"){const auto account=d["account"].toString();if(labelRequests.value(account)>quint64(id))return;labelRequests.remove(account);m_labels[account]=d["items"].toArray().toVariantList();emit labelsChanged();if(d["operation"].toString()=="delete"&&m_account==account&&m_folder=="label:"+d["label"].toString())setView("inbox",account);}
-    else if(kind=="mutation"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
+    else if(kind=="mutation"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;const auto key=m_reader.value("key").toMap();for(const auto flag:d["messageFlags"].toArray()){auto row=flag.toObject();if(m_readerOpen&&row["account"].toString()==key.value("account").toString()&&row["thread"].toString()==key.value("id").toString()){auto message=row["message"].toObject();m_messages.patch(message["id"].toString(),message);}}m_inbox.removeKeys(d["removed"].toArray());for(auto v:d["changed"].toArray())m_inbox.update(v.toObject());m_canUndo=d["undo"].toBool();clearSelection();emit activityChanged();}
     else if(kind=="activity"){m_activity=d["text"].toString();m_activityKind=d["kind"].toString();emit activityChanged();}
     else if(kind=="error"){if(labelRequests.removeIf([id](auto entry){return entry.value()==quint64(id);}))emit labelsChanged();quitWaiting=false;m_error=d["message"].toString();m_activityKind="error";emit errorChanged();emit activityChanged();}
     else if(kind=="composeOpened"){m_composer=d.toVariantMap();emit composerChanged();emit composeRequested(d["mode"].toString());}
     else if(kind=="compose"||kind=="composeClosed"){
         if(d["session"].toString()!=m_composer.value("session").toString())return;
         m_composer.remove("document");
-        if(kind=="composeClosed"||d["state"].toString()=="sent")m_composer.clear();
-        for(auto i=d.begin();i!=d.end();++i)m_composer[i.key()]=i.value().toVariant();
+        if(kind=="composeClosed")m_composer.clear();
+        else{if(d["state"].toString()=="sent")m_composer.clear();for(auto i=d.begin();i!=d.end();++i)m_composer[i.key()]=i.value().toVariant();}
         emit composerChanged();if(kind=="composeClosed")emit composeClosed();
     }
     else if(kind=="composeFocus"){if(d["session"].toString()==m_composer.value("session").toString())emit composeFocused();}
@@ -115,7 +119,6 @@ void Bridge::receive(const QJsonObject&e){
     else if(kind=="notification"){emit notification(d.toVariantMap());}
     emit received(kind,d.toVariantMap());
 }
-void Bridge::setView(const QString&folder,const QString&account,const QString&query){m_folder=folder;m_account=account;m_search=query;clearSelection();m_readerOpen=false;openedKey.clear();m_reader.clear();emit readerChanged();emit viewChanged();QVariantMap d{{"folder",folder},{"search",query}};if(!account.isEmpty())d["accounts"]=QVariantList{account};viewRequest=send("view",d);}
 void Bridge::selectRow(int row,int modifiers,qreal x,qreal y,qreal w,qreal h,const QVariantMap &projection){
     auto item=m_inbox.at(row);if(item.isEmpty())return;
     auto key=RecordModel::key(QJsonObject::fromVariantMap(item));
@@ -150,7 +153,7 @@ void Bridge::openThread(const QString&account,const QString&thread){if(account.i
 void Bridge::mutate(const QString&a,const QVariantMap&r,const QString&label){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a},{"label",label}});}
 void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}
 void Bridge::renderMessage(const QVariantMap&parameters){const auto message=parameters.value("id").toString();documentRequests[message]=send("renderMessage",parameters);m_messages.patch(message,{{"documentPending",true}});}
-void Bridge::openLink(const QString&raw){QUrl u(raw);if(u.isValid()&&(u.scheme()=="https"||u.scheme()=="http"||u.scheme()=="mailto"))QDesktopServices::openUrl(u);}
+void Bridge::openLink(const QString&raw){QUrl u(raw);if(u.scheme()=="mailto"){queueMailto(raw);return;}if(u.isValid()&&(u.scheme()=="https"||u.scheme()=="http"||u.scheme()=="mailto"))QDesktopServices::openUrl(u);}
 void Bridge::quit(int exitCode){
     if(quitting||quitWaiting)return;quitWaiting=true;quitCode=exitCode;
     if(process.state()==QProcess::NotRunning){QCoreApplication::exit(exitCode);return;}

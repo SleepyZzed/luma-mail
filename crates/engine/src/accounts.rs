@@ -57,6 +57,10 @@ pub async fn update(app: &App, c: &Command) -> Result<()> {
     let mut settings: Settings = serde_json::from_value(value)?;
     settings.ui_scale_percent = settings.ui_scale_percent.clamp(75, 200);
     settings.poll_seconds = settings.poll_seconds.clamp(30, 3600);
+    settings.sidebar_width = settings.sidebar_width.clamp(160, 480);
+    settings.list_width = settings.list_width.clamp(180, 1200);
+    settings.window_width = settings.window_width.clamp(760, 8192);
+    settings.window_height = settings.window_height.clamp(560, 8192);
     if settings.cache_mib > 1_048_576 || settings.cache_ttl_hours > 87_600 {
         return Err(Error::Invalid(
             "Cache value exceeds the supported limit".into(),
