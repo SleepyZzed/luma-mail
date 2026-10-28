@@ -1,1180 +1,1762 @@
 {
+  "metric": "Windows private working set and private commit; not Linux PSS",
+  "lifecycle_passed": true,
+  "exit_code": 0,
+  "html_hold_seconds": 20,
+  "includes": "Luma and recursively discovered child renderer/helper processes",
   "phases": {
-    "newsletter": {
-      "samples": 1,
-      "working_set_sum_mib": 637.156,
-      "private_commit_mib": 522.098,
-      "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 251.348
-    },
     "inbox_1000": {
-      "samples": 2,
-      "working_set_sum_mib": 288.023,
-      "private_commit_mib": 353.402,
       "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 140.703
-    },
-    "reclaimed_background": {
-      "samples": 1,
-      "working_set_sum_mib": 222.547,
-      "private_commit_mib": 194.734,
-      "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 98.645
+      "private_working_set_mib": 74.346,
+      "working_set_sum_mib": 150.682,
+      "samples": 3,
+      "private_commit_mib": 134.815
     },
     "scrolled_1000": {
-      "samples": 2,
-      "working_set_sum_mib": 291.311,
-      "private_commit_mib": 356.975,
       "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 143.975
+      "private_working_set_mib": 76.371,
+      "working_set_sum_mib": 152.719,
+      "samples": 2,
+      "private_commit_mib": 138.602
     },
     "restored": {
-      "samples": 2,
-      "working_set_sum_mib": 283.469,
-      "private_commit_mib": 353.27,
       "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 128.586
+      "private_working_set_mib": 72.809,
+      "working_set_sum_mib": 156.465,
+      "samples": 2,
+      "private_commit_mib": 137.574
     },
     "baseline": {
-      "samples": 1,
-      "working_set_sum_mib": 276.043,
-      "private_commit_mib": 341.188,
       "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 128.816
+      "private_working_set_mib": 65.538,
+      "working_set_sum_mib": 141.762,
+      "samples": 3,
+      "private_commit_mib": 126.863
     },
     "released": {
-      "samples": 1,
-      "working_set_sum_mib": 304.648,
-      "private_commit_mib": 363.539,
       "cpu_one_core_percent": 0.0,
-      "private_working_set_mib": 149.875
+      "private_working_set_mib": 82.766,
+      "working_set_sum_mib": 166.988,
+      "samples": 2,
+      "private_commit_mib": 146.051
+    },
+    "newsletter": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 135.836,
+      "working_set_sum_mib": 424.5,
+      "samples": 2,
+      "private_commit_mib": 231.049
+    },
+    "reclaimed_background": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 54.77,
+      "working_set_sum_mib": 128.277,
+      "samples": 2,
+      "private_commit_mib": 107.898
     }
   },
-  "metric": "Windows private working set and private commit; not Linux PSS",
-  "includes": "Luma and recursively discovered child renderer/helper processes",
+  "cpu": "Settled per-process CPU deltas, one-core and whole-machine percentages; short-lived exited helpers can be missed",
+  "binary_sha256": "79151881fb9d5fcf58181e16f0e2834ce748d698800bf2829f1dde0454c054b1",
   "samples": [
     {
       "cpu_machine_percent": null,
-      "private_commit_bytes": 357863424,
+      "cpu_one_core_percent": null,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1269760,
-          "working_set_bytes": 7299072,
-          "private_working_set_bytes": 851968,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1323008,
+          "private_working_set_bytes": 901120,
+          "working_set_bytes": 7098368,
+          "cpu_one_core_percent": null,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 2478080,
-          "working_set_bytes": 13467648,
-          "private_working_set_bytes": 1687552,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2125824,
+          "private_working_set_bytes": 1478656,
+          "working_set_bytes": 13090816,
+          "cpu_one_core_percent": null,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 354115584,
-          "working_set_bytes": 268685312,
-          "private_working_set_bytes": 132579328,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 129671168,
+          "private_working_set_bytes": 66396160,
+          "working_set_bytes": 128466944,
+          "cpu_one_core_percent": null,
+          "role": "",
+          "cpu_seconds": 1.46875
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 135118848,
-      "working_set_sum_bytes": 289452032,
-      "elapsed_seconds": 11.72,
-      "processes": 3,
+      "working_set_sum_bytes": 148656128,
       "phase": "baseline",
-      "cpu_one_core_percent": null
+      "private_commit_bytes": 133120000,
+      "private_working_set_bytes": 68775936,
+      "elapsed_seconds": 6.76,
+      "sample_utc_ms": 1793194330095,
+      "phase_started_utc_ms": 1793194327172,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 357761024,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1269760,
-          "working_set_bytes": 7299072,
-          "private_working_set_bytes": 851968,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1323008,
+          "private_working_set_bytes": 901120,
+          "working_set_bytes": 7098368,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 2375680,
-          "working_set_bytes": 13463552,
-          "private_working_set_bytes": 1642496,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2031616,
+          "private_working_set_bytes": 1437696,
+          "working_set_bytes": 13090816,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 354115584,
-          "working_set_bytes": 268685312,
-          "private_working_set_bytes": 132579328,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 129671168,
+          "private_working_set_bytes": 66396160,
+          "working_set_bytes": 128471040,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.46875
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 135073792,
-      "working_set_sum_bytes": 289447936,
-      "elapsed_seconds": 17.4,
-      "processes": 3,
+      "working_set_sum_bytes": 148660224,
       "phase": "baseline",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 133025792,
+      "private_working_set_bytes": 68734976,
+      "elapsed_seconds": 12.14,
+      "sample_utc_ms": 1793194335471,
+      "phase_started_utc_ms": 1793194327172,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 357761024,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1269760,
-          "working_set_bytes": 7299072,
-          "private_working_set_bytes": 851968,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1323008,
+          "private_working_set_bytes": 901120,
+          "working_set_bytes": 7098368,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 2375680,
-          "working_set_bytes": 13463552,
-          "private_working_set_bytes": 1642496,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2031616,
+          "private_working_set_bytes": 1437696,
+          "working_set_bytes": 13090816,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 354115584,
-          "working_set_bytes": 268689408,
-          "private_working_set_bytes": 132579328,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 129671168,
+          "private_working_set_bytes": 66375680,
+          "working_set_bytes": 128450560,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.515625
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 135073792,
-      "working_set_sum_bytes": 289452032,
-      "elapsed_seconds": 23.06,
-      "processes": 3,
+      "working_set_sum_bytes": 148639744,
       "phase": "baseline",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 133025792,
+      "private_working_set_bytes": 68714496,
+      "elapsed_seconds": 17.52,
+      "sample_utc_ms": 1793194340836,
+      "phase_started_utc_ms": 1793194327172,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 371064832,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1269760,
-          "working_set_bytes": 7299072,
-          "private_working_set_bytes": 851968,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1323008,
+          "private_working_set_bytes": 901120,
+          "working_set_bytes": 7098368,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 4112384,
-          "working_set_bytes": 14602240,
-          "private_working_set_bytes": 2768896,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2031616,
+          "private_working_set_bytes": 1437696,
+          "working_set_bytes": 13090816,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 365682688,
-          "working_set_bytes": 280367104,
-          "private_working_set_bytes": 144175104,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 129671168,
+          "private_working_set_bytes": 66375680,
+          "working_set_bytes": 128454656,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.53125
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 147795968,
-      "working_set_sum_bytes": 302268416,
-      "elapsed_seconds": 28.69,
+      "working_set_sum_bytes": 148643840,
+      "phase": "baseline",
+      "private_commit_bytes": 133025792,
+      "private_working_set_bytes": 68714496,
+      "elapsed_seconds": 22.86,
+      "sample_utc_ms": 1793194346184,
+      "phase_started_utc_ms": 1793194327172,
+      "settled": true
+    },
+    {
+      "cpu_machine_percent": 0.0,
+      "cpu_one_core_percent": 0.0,
       "processes": 3,
+      "members": [
+        {
+          "name": "conhost",
+          "id": 8932,
+          "private_commit_bytes": 1323008,
+          "private_working_set_bytes": 901120,
+          "working_set_bytes": 7098368,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "luma-engine",
+          "id": 8244,
+          "private_commit_bytes": 3764224,
+          "private_working_set_bytes": 2715648,
+          "working_set_bytes": 14381056,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
+        },
+        {
+          "name": "luma-mail-fluid",
+          "id": 8536,
+          "private_commit_bytes": 136568832,
+          "private_working_set_bytes": 74543104,
+          "working_set_bytes": 136695808,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.671875
+        }
+      ],
+      "working_set_sum_bytes": 158175232,
       "phase": "inbox_1000",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 141656064,
+      "private_working_set_bytes": 78159872,
+      "elapsed_seconds": 28.2,
+      "sample_utc_ms": 1793194351523,
+      "phase_started_utc_ms": 1793194348759,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 370659328,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 4018176,
-          "working_set_bytes": 14557184,
-          "private_working_set_bytes": 2723840,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3706880,
+          "private_working_set_bytes": 2691072,
+          "working_set_bytes": 14356480,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 365412352,
-          "working_set_bytes": 280211456,
-          "private_working_set_bytes": 144015360,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 136404992,
+          "private_working_set_bytes": 74444800,
+          "working_set_bytes": 136626176,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.6875
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 147570688,
-      "working_set_sum_bytes": 302047232,
-      "elapsed_seconds": 34.35,
-      "processes": 3,
+      "working_set_sum_bytes": 158064640,
       "phase": "inbox_1000",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 141393920,
+      "private_working_set_bytes": 78020608,
+      "elapsed_seconds": 33.55,
+      "sample_utc_ms": 1793194356872,
+      "phase_started_utc_ms": 1793194348759,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 370569216,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3928064,
-          "working_set_bytes": 14524416,
-          "private_working_set_bytes": 2691072,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3661824,
+          "private_working_set_bytes": 2674688,
+          "working_set_bytes": 14340096,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 365412352,
-          "working_set_bytes": 280211456,
-          "private_working_set_bytes": 144015360,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 136404992,
+          "private_working_set_bytes": 74444800,
+          "working_set_bytes": 136626176,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.703125
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 147537920,
-      "working_set_sum_bytes": 302014464,
-      "elapsed_seconds": 39.99,
-      "processes": 3,
+      "working_set_sum_bytes": 158048256,
       "phase": "inbox_1000",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 141348864,
+      "private_working_set_bytes": 78004224,
+      "elapsed_seconds": 38.9,
+      "sample_utc_ms": 1793194362220,
+      "phase_started_utc_ms": 1793194348759,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 370569216,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3928064,
-          "working_set_bytes": 14524416,
-          "private_working_set_bytes": 2691072,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3661824,
+          "private_working_set_bytes": 2674688,
+          "working_set_bytes": 14340096,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 365412352,
-          "working_set_bytes": 280211456,
-          "private_working_set_bytes": 144015360,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 136404992,
+          "private_working_set_bytes": 74289152,
+          "working_set_bytes": 136470528,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 1.71875
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 147537920,
-      "working_set_sum_bytes": 302014464,
-      "elapsed_seconds": 45.66,
-      "processes": 3,
+      "working_set_sum_bytes": 157892608,
       "phase": "inbox_1000",
-      "cpu_one_core_percent": 0.0
-    },
-    {
-      "cpu_machine_percent": 0.8047,
-      "private_commit_bytes": 374423552,
-      "members": [
-        {
-          "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
-        },
-        {
-          "name": "luma-engine",
-          "private_commit_bytes": 3928064,
-          "working_set_bytes": 14524416,
-          "private_working_set_bytes": 2691072,
-          "id": 12240
-        },
-        {
-          "name": "luma-mail-fluid",
-          "private_commit_bytes": 369266688,
-          "working_set_bytes": 283713536,
-          "private_working_set_bytes": 147505152,
-          "id": 15448
-        }
-      ],
-      "settled": false,
-      "private_working_set_bytes": 151027712,
-      "working_set_sum_bytes": 305516544,
-      "elapsed_seconds": 51.31,
-      "processes": 3,
-      "phase": "scrolled_1000",
-      "cpu_one_core_percent": 17.703
+      "private_commit_bytes": 141348864,
+      "private_working_set_bytes": 77848576,
+      "elapsed_seconds": 44.25,
+      "sample_utc_ms": 1793194367570,
+      "phase_started_utc_ms": 1793194348759,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 374423552,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3928064,
-          "working_set_bytes": 14524416,
-          "private_working_set_bytes": 2691072,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3661824,
+          "private_working_set_bytes": 2674688,
+          "working_set_bytes": 14340096,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 369266688,
-          "working_set_bytes": 283713536,
-          "private_working_set_bytes": 147505152,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 140500992,
+          "private_working_set_bytes": 76873728,
+          "working_set_bytes": 139067392,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 2.1875
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 151027712,
-      "working_set_sum_bytes": 305516544,
-      "elapsed_seconds": 56.95,
-      "processes": 3,
+      "working_set_sum_bytes": 160489472,
       "phase": "scrolled_1000",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 145444864,
+      "private_working_set_bytes": 80433152,
+      "elapsed_seconds": 49.59,
+      "sample_utc_ms": 1793194372915,
+      "phase_started_utc_ms": 1793194371397,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 374312960,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3928064,
-          "working_set_bytes": 14524416,
-          "private_working_set_bytes": 2691072,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3661824,
+          "private_working_set_bytes": 2674688,
+          "working_set_bytes": 14340096,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 369156096,
-          "working_set_bytes": 283652096,
-          "private_working_set_bytes": 147443712,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 140500992,
+          "private_working_set_bytes": 76623872,
+          "working_set_bytes": 138817536,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 2.21875
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 150966272,
-      "working_set_sum_bytes": 305455104,
-      "elapsed_seconds": 62.59,
-      "processes": 3,
+      "working_set_sum_bytes": 160239616,
       "phase": "scrolled_1000",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 145444864,
+      "private_working_set_bytes": 80183296,
+      "elapsed_seconds": 54.93,
+      "sample_utc_ms": 1793194378251,
+      "phase_started_utc_ms": 1793194371397,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 374317056,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3928064,
-          "working_set_bytes": 14524416,
-          "private_working_set_bytes": 2691072,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3661824,
+          "private_working_set_bytes": 2674688,
+          "working_set_bytes": 14340096,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 369160192,
-          "working_set_bytes": 283664384,
-          "private_working_set_bytes": 147447808,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 140390400,
+          "private_working_set_bytes": 76521472,
+          "working_set_bytes": 138715136,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 2.21875
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 150970368,
-      "working_set_sum_bytes": 305467392,
-      "elapsed_seconds": 68.27,
-      "processes": 3,
+      "working_set_sum_bytes": 160137216,
       "phase": "scrolled_1000",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 145334272,
+      "private_working_set_bytes": 80080896,
+      "elapsed_seconds": 60.27,
+      "sample_utc_ms": 1793194383586,
+      "phase_started_utc_ms": 1793194371397,
+      "settled": true
     },
     {
-      "cpu_machine_percent": 1.6114,
-      "private_commit_bytes": 548048896,
+      "cpu_machine_percent": 0.0,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 4042752,
-          "working_set_bytes": 16363520,
-          "private_working_set_bytes": 2789376,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3661824,
+          "private_working_set_bytes": 2674688,
+          "working_set_bytes": 14340096,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375824384,
-          "working_set_bytes": 295325696,
-          "private_working_set_bytes": 153034752,
-          "id": 15448
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 23666688,
-          "working_set_bytes": 57638912,
-          "private_working_set_bytes": 14888960,
-          "id": 12712
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 11931648,
-          "working_set_bytes": 38744064,
-          "private_working_set_bytes": 6590464,
-          "id": 14820
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 7737344,
-          "working_set_bytes": 20627456,
-          "private_working_set_bytes": 2916352,
-          "id": 17624
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 83689472,
-          "working_set_bytes": 103747584,
-          "private_working_set_bytes": 52346880,
-          "id": 18756
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 37322752,
-          "working_set_bytes": 118128640,
-          "private_working_set_bytes": 29044736,
-          "id": 22052
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 2605056,
-          "working_set_bytes": 10506240,
-          "private_working_set_bytes": 1642496,
-          "id": 24668
+          "id": 8536,
+          "private_commit_bytes": 140390400,
+          "private_working_set_bytes": 76521472,
+          "working_set_bytes": 138715136,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 2.234375
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 264085504,
-      "working_set_sum_bytes": 668360704,
-      "elapsed_seconds": 73.91,
+      "working_set_sum_bytes": 160137216,
+      "phase": "scrolled_1000",
+      "private_commit_bytes": 145334272,
+      "private_working_set_bytes": 80080896,
+      "elapsed_seconds": 65.6,
+      "sample_utc_ms": 1793194388921,
+      "phase_started_utc_ms": 1793194371397,
+      "settled": true
+    },
+    {
+      "cpu_machine_percent": 4.6697,
+      "cpu_one_core_percent": 18.679,
       "processes": 9,
+      "members": [
+        {
+          "name": "conhost",
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7081984,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "luma-engine",
+          "id": 8244,
+          "private_commit_bytes": 3039232,
+          "private_working_set_bytes": 2445312,
+          "working_set_bytes": 15904768,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "luma-mail-fluid",
+          "id": 8536,
+          "private_commit_bytes": 148856832,
+          "private_working_set_bytes": 82821120,
+          "working_set_bytes": 151703552,
+          "cpu_one_core_percent": 18.679,
+          "role": "",
+          "cpu_seconds": 3.09375
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 1344,
+          "private_commit_bytes": 9539584,
+          "private_working_set_bytes": 4509696,
+          "working_set_bytes": 33116160,
+          "cpu_one_core_percent": null,
+          "role": "utility:network.mojom.NetworkService",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 2020,
+          "private_commit_bytes": 2519040,
+          "private_working_set_bytes": 1605632,
+          "working_set_bytes": 9707520,
+          "cpu_one_core_percent": null,
+          "role": "crashpad-handler",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 3280,
+          "private_commit_bytes": 13565952,
+          "private_working_set_bytes": 6967296,
+          "working_set_bytes": 36839424,
+          "cpu_one_core_percent": null,
+          "role": "gpu-process",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 4308,
+          "private_commit_bytes": 20537344,
+          "private_working_set_bytes": 11833344,
+          "working_set_bytes": 54829056,
+          "cpu_one_core_percent": null,
+          "role": "renderer",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6552,
+          "private_commit_bytes": 7684096,
+          "private_working_set_bytes": 2875392,
+          "working_set_bytes": 19562496,
+          "cpu_one_core_percent": null,
+          "role": "utility:storage.mojom.StorageService",
+          "cpu_seconds": 0.046875
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6560,
+          "private_commit_bytes": 35610624,
+          "private_working_set_bytes": 29319168,
+          "working_set_bytes": 107958272,
+          "cpu_one_core_percent": null,
+          "role": "browser",
+          "cpu_seconds": 0.4375
+        }
+      ],
+      "working_set_sum_bytes": 436703232,
       "phase": "transition",
-      "cpu_one_core_percent": 35.451
+      "private_commit_bytes": 242634752,
+      "private_working_set_bytes": 143261696,
+      "elapsed_seconds": 70.95,
+      "sample_utc_ms": 1793194394274,
+      "phase_started_utc_ms": 1793194391409,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 548052992,
-      "members": [
-        {
-          "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
-        },
-        {
-          "name": "luma-engine",
-          "private_commit_bytes": 4042752,
-          "working_set_bytes": 16363520,
-          "private_working_set_bytes": 2789376,
-          "id": 12240
-        },
-        {
-          "name": "luma-mail-fluid",
-          "private_commit_bytes": 375824384,
-          "working_set_bytes": 295325696,
-          "private_working_set_bytes": 153034752,
-          "id": 15448
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 23670784,
-          "working_set_bytes": 57651200,
-          "private_working_set_bytes": 14893056,
-          "id": 12712
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 11931648,
-          "working_set_bytes": 38744064,
-          "private_working_set_bytes": 6590464,
-          "id": 14820
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 7737344,
-          "working_set_bytes": 20627456,
-          "private_working_set_bytes": 2916352,
-          "id": 17624
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 83783680,
-          "working_set_bytes": 103817216,
-          "private_working_set_bytes": 52416512,
-          "id": 18756
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 37228544,
-          "working_set_bytes": 118063104,
-          "private_working_set_bytes": 28966912,
-          "id": 22052
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 2605056,
-          "working_set_bytes": 10506240,
-          "private_working_set_bytes": 1642496,
-          "id": 24668
-        }
-      ],
-      "settled": false,
-      "private_working_set_bytes": 264081408,
-      "working_set_sum_bytes": 668377088,
-      "elapsed_seconds": 79.56,
+      "cpu_one_core_percent": 0.0,
       "processes": 9,
-      "phase": "newsletter",
-      "cpu_one_core_percent": 0.0
-    },
-    {
-      "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 547459072,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 3039232,
+          "private_working_set_bytes": 2445312,
+          "working_set_bytes": 15904768,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375824384,
-          "working_set_bytes": 295325696,
-          "private_working_set_bytes": 153034752,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 146993152,
+          "private_working_set_bytes": 82489344,
+          "working_set_bytes": 151166976,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.09375
         },
         {
           "name": "msedgewebview2",
-          "private_commit_bytes": 23007232,
-          "working_set_bytes": 57036800,
-          "private_working_set_bytes": 14278656,
-          "id": 12712
+          "id": 1344,
+          "private_commit_bytes": 9891840,
+          "private_working_set_bytes": 4849664,
+          "working_set_bytes": 34832384,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:network.mojom.NetworkService",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "msedgewebview2",
-          "private_commit_bytes": 11943936,
-          "working_set_bytes": 38817792,
+          "id": 2020,
+          "private_commit_bytes": 2519040,
+          "private_working_set_bytes": 1605632,
+          "working_set_bytes": 9707520,
+          "cpu_one_core_percent": 0.0,
+          "role": "crashpad-handler",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 3280,
+          "private_commit_bytes": 13225984,
           "private_working_set_bytes": 6602752,
-          "id": 14820
+          "working_set_bytes": 36483072,
+          "cpu_one_core_percent": 0.0,
+          "role": "gpu-process",
+          "cpu_seconds": 0.078125
         },
         {
           "name": "msedgewebview2",
-          "private_commit_bytes": 7737344,
-          "working_set_bytes": 20627456,
-          "private_working_set_bytes": 2916352,
-          "id": 17624
+          "id": 4308,
+          "private_commit_bytes": 20434944,
+          "private_working_set_bytes": 11743232,
+          "working_set_bytes": 54546432,
+          "cpu_one_core_percent": 0.0,
+          "role": "renderer",
+          "cpu_seconds": 0.078125
         },
         {
           "name": "msedgewebview2",
-          "private_commit_bytes": 83783680,
-          "working_set_bytes": 103817216,
-          "private_working_set_bytes": 52416512,
-          "id": 18756
+          "id": 6552,
+          "private_commit_bytes": 7696384,
+          "private_working_set_bytes": 2891776,
+          "working_set_bytes": 19877888,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:storage.mojom.StorageService",
+          "cpu_seconds": 0.046875
         },
         {
           "name": "msedgewebview2",
-          "private_commit_bytes": 37339136,
-          "working_set_bytes": 118190080,
-          "private_working_set_bytes": 29069312,
-          "id": 22052
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 2605056,
-          "working_set_bytes": 10506240,
-          "private_working_set_bytes": 1642496,
-          "id": 24668
+          "id": 6560,
+          "private_commit_bytes": 35926016,
+          "private_working_set_bytes": 29188096,
+          "working_set_bytes": 109752320,
+          "cpu_one_core_percent": 0.0,
+          "role": "browser",
+          "cpu_seconds": 0.5
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 263557120,
-      "working_set_sum_bytes": 667938816,
-      "elapsed_seconds": 85.22,
-      "processes": 9,
+      "working_set_sum_bytes": 439332864,
       "phase": "newsletter",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 241008640,
+      "private_working_set_bytes": 142700544,
+      "elapsed_seconds": 76.32,
+      "sample_utc_ms": 1793194399639,
+      "phase_started_utc_ms": 1793194397694,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 547459072,
-      "members": [
-        {
-          "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
-        },
-        {
-          "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
-        },
-        {
-          "name": "luma-mail-fluid",
-          "private_commit_bytes": 375824384,
-          "working_set_bytes": 295325696,
-          "private_working_set_bytes": 153034752,
-          "id": 15448
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 23007232,
-          "working_set_bytes": 57036800,
-          "private_working_set_bytes": 14278656,
-          "id": 12712
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 11943936,
-          "working_set_bytes": 38817792,
-          "private_working_set_bytes": 6602752,
-          "id": 14820
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 7737344,
-          "working_set_bytes": 20627456,
-          "private_working_set_bytes": 2916352,
-          "id": 17624
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 83783680,
-          "working_set_bytes": 103817216,
-          "private_working_set_bytes": 52416512,
-          "id": 18756
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 37339136,
-          "working_set_bytes": 118358016,
-          "private_working_set_bytes": 29069312,
-          "id": 22052
-        },
-        {
-          "name": "msedgewebview2",
-          "private_commit_bytes": 2605056,
-          "working_set_bytes": 10506240,
-          "private_working_set_bytes": 1642496,
-          "id": 24668
-        }
-      ],
-      "settled": true,
-      "private_working_set_bytes": 263557120,
-      "working_set_sum_bytes": 668106752,
-      "elapsed_seconds": 90.86,
+      "cpu_one_core_percent": 0.0,
       "processes": 9,
+      "members": [
+        {
+          "name": "conhost",
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "luma-engine",
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "luma-mail-fluid",
+          "id": 8536,
+          "private_commit_bytes": 146993152,
+          "private_working_set_bytes": 82489344,
+          "working_set_bytes": 151166976,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.09375
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 1344,
+          "private_commit_bytes": 10289152,
+          "private_working_set_bytes": 5124096,
+          "working_set_bytes": 35373056,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:network.mojom.NetworkService",
+          "cpu_seconds": 0.125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 2020,
+          "private_commit_bytes": 2519040,
+          "private_working_set_bytes": 1605632,
+          "working_set_bytes": 9707520,
+          "cpu_one_core_percent": 0.0,
+          "role": "crashpad-handler",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 3280,
+          "private_commit_bytes": 13230080,
+          "private_working_set_bytes": 6606848,
+          "working_set_bytes": 36364288,
+          "cpu_one_core_percent": 0.0,
+          "role": "gpu-process",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 4308,
+          "private_commit_bytes": 20439040,
+          "private_working_set_bytes": 11747328,
+          "working_set_bytes": 54550528,
+          "cpu_one_core_percent": 0.0,
+          "role": "renderer",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6552,
+          "private_commit_bytes": 7778304,
+          "private_working_set_bytes": 2957312,
+          "working_set_bytes": 20164608,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:storage.mojom.StorageService",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6560,
+          "private_commit_bytes": 38555648,
+          "private_working_set_bytes": 30101504,
+          "working_set_bytes": 115716096,
+          "cpu_one_core_percent": 0.0,
+          "role": "browser",
+          "cpu_seconds": 0.578125
+        }
+      ],
+      "working_set_sum_bytes": 445984768,
       "phase": "newsletter",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 244072448,
+      "private_working_set_bytes": 143937536,
+      "elapsed_seconds": 81.67,
+      "sample_utc_ms": 1793194404987,
+      "phase_started_utc_ms": 1793194397694,
+      "settled": false
     },
     {
-      "cpu_machine_percent": 0.7973,
-      "private_commit_bytes": 381198336,
+      "cpu_machine_percent": 0.0,
+      "cpu_one_core_percent": 0.0,
+      "processes": 9,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375980032,
-          "working_set_bytes": 295817216,
-          "private_working_set_bytes": 153559040,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 146993152,
+          "private_working_set_bytes": 82333696,
+          "working_set_bytes": 151011328,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.109375
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 1344,
+          "private_commit_bytes": 10358784,
+          "private_working_set_bytes": 5193728,
+          "working_set_bytes": 35643392,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:network.mojom.NetworkService",
+          "cpu_seconds": 0.125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 2020,
+          "private_commit_bytes": 2519040,
+          "private_working_set_bytes": 1605632,
+          "working_set_bytes": 9707520,
+          "cpu_one_core_percent": 0.0,
+          "role": "crashpad-handler",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 3280,
+          "private_commit_bytes": 13230080,
+          "private_working_set_bytes": 6606848,
+          "working_set_bytes": 36364288,
+          "cpu_one_core_percent": 0.0,
+          "role": "gpu-process",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 4308,
+          "private_commit_bytes": 20439040,
+          "private_working_set_bytes": 11730944,
+          "working_set_bytes": 54546432,
+          "cpu_one_core_percent": 0.0,
+          "role": "renderer",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6552,
+          "private_commit_bytes": 7778304,
+          "private_working_set_bytes": 2957312,
+          "working_set_bytes": 20164608,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:storage.mojom.StorageService",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6560,
+          "private_commit_bytes": 38584320,
+          "private_working_set_bytes": 30130176,
+          "working_set_bytes": 115974144,
+          "cpu_one_core_percent": 0.0,
+          "role": "browser",
+          "cpu_seconds": 0.59375
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 157155328,
-      "working_set_sum_bytes": 319434752,
-      "elapsed_seconds": 96.57,
-      "processes": 3,
+      "working_set_sum_bytes": 446353408,
+      "phase": "newsletter",
+      "private_commit_bytes": 244170752,
+      "private_working_set_bytes": 143863808,
+      "elapsed_seconds": 87.02,
+      "sample_utc_ms": 1793194410344,
+      "phase_started_utc_ms": 1793194397694,
+      "settled": true
+    },
+    {
+      "cpu_machine_percent": 0.0,
+      "cpu_one_core_percent": 0.0,
+      "processes": 9,
+      "members": [
+        {
+          "name": "conhost",
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "luma-engine",
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "luma-mail-fluid",
+          "id": 8536,
+          "private_commit_bytes": 143122432,
+          "private_working_set_bytes": 79532032,
+          "working_set_bytes": 148205568,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.109375
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 1344,
+          "private_commit_bytes": 10416128,
+          "private_working_set_bytes": 5242880,
+          "working_set_bytes": 35909632,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:network.mojom.NetworkService",
+          "cpu_seconds": 0.140625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 2020,
+          "private_commit_bytes": 2519040,
+          "private_working_set_bytes": 1605632,
+          "working_set_bytes": 9707520,
+          "cpu_one_core_percent": 0.0,
+          "role": "crashpad-handler",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 3280,
+          "private_commit_bytes": 13230080,
+          "private_working_set_bytes": 6606848,
+          "working_set_bytes": 36364288,
+          "cpu_one_core_percent": 0.0,
+          "role": "gpu-process",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 4308,
+          "private_commit_bytes": 20439040,
+          "private_working_set_bytes": 11620352,
+          "working_set_bytes": 54435840,
+          "cpu_one_core_percent": 0.0,
+          "role": "renderer",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6552,
+          "private_commit_bytes": 7778304,
+          "private_working_set_bytes": 2957312,
+          "working_set_bytes": 20164608,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:storage.mojom.StorageService",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6560,
+          "private_commit_bytes": 38600704,
+          "private_working_set_bytes": 30134272,
+          "working_set_bytes": 116158464,
+          "cpu_one_core_percent": 0.0,
+          "role": "browser",
+          "cpu_seconds": 0.625
+        }
+      ],
+      "working_set_sum_bytes": 443887616,
+      "phase": "newsletter",
+      "private_commit_bytes": 240373760,
+      "private_working_set_bytes": 141004800,
+      "elapsed_seconds": 92.38,
+      "sample_utc_ms": 1793194415699,
+      "phase_started_utc_ms": 1793194397694,
+      "settled": true
+    },
+    {
+      "cpu_machine_percent": 0.0,
+      "cpu_one_core_percent": 0.0,
+      "processes": 8,
+      "members": [
+        {
+          "name": "conhost",
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "luma-engine",
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "luma-mail-fluid",
+          "id": 8536,
+          "private_commit_bytes": 147734528,
+          "private_working_set_bytes": 82096128,
+          "working_set_bytes": 150884352,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.15625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 1344,
+          "private_commit_bytes": 10272768,
+          "private_working_set_bytes": 5148672,
+          "working_set_bytes": 36233216,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:network.mojom.NetworkService",
+          "cpu_seconds": 0.15625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 2020,
+          "private_commit_bytes": 2564096,
+          "private_working_set_bytes": 1626112,
+          "working_set_bytes": 9732096,
+          "cpu_one_core_percent": 0.0,
+          "role": "crashpad-handler",
+          "cpu_seconds": 0.015625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 3280,
+          "private_commit_bytes": 13230080,
+          "private_working_set_bytes": 6606848,
+          "working_set_bytes": 36110336,
+          "cpu_one_core_percent": 0.0,
+          "role": "gpu-process",
+          "cpu_seconds": 0.078125
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6552,
+          "private_commit_bytes": 7712768,
+          "private_working_set_bytes": 2904064,
+          "working_set_bytes": 20033536,
+          "cpu_one_core_percent": 0.0,
+          "role": "utility:storage.mojom.StorageService",
+          "cpu_seconds": 0.0625
+        },
+        {
+          "name": "msedgewebview2",
+          "id": 6560,
+          "private_commit_bytes": 35012608,
+          "private_working_set_bytes": 26853376,
+          "working_set_bytes": 115404800,
+          "cpu_one_core_percent": 0.0,
+          "role": "browser",
+          "cpu_seconds": 0.640625
+        }
+      ],
+      "working_set_sum_bytes": 391340032,
       "phase": "transition",
-      "cpu_one_core_percent": 17.541
+      "private_commit_bytes": 220794880,
+      "private_working_set_bytes": 128540672,
+      "elapsed_seconds": 97.73,
+      "sample_utc_ms": 1793194421051,
+      "phase_started_utc_ms": 1793194417914,
+      "settled": false
     },
     {
-      "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 381198336,
+      "cpu_machine_percent": 4.6702,
+      "cpu_one_core_percent": 18.681,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375980032,
-          "working_set_bytes": 295829504,
-          "private_working_set_bytes": 153559040,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 148877312,
+          "private_working_set_bytes": 83480576,
+          "working_set_bytes": 152158208,
+          "cpu_one_core_percent": 18.681,
+          "role": "",
+          "cpu_seconds": 3.6875
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 157155328,
-      "working_set_sum_bytes": 319447040,
-      "elapsed_seconds": 102.19,
-      "processes": 3,
+      "working_set_sum_bytes": 175099904,
       "phase": "released",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 153145344,
+      "private_working_set_bytes": 86786048,
+      "elapsed_seconds": 103.09,
+      "sample_utc_ms": 1793194426404,
+      "phase_started_utc_ms": 1793194421463,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 381198336,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375980032,
-          "working_set_bytes": 295829504,
-          "private_working_set_bytes": 153559040,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 148877312,
+          "private_working_set_bytes": 83480576,
+          "working_set_bytes": 152158208,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.6875
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 157155328,
-      "working_set_sum_bytes": 319447040,
-      "elapsed_seconds": 107.83,
-      "processes": 3,
+      "working_set_sum_bytes": 175099904,
       "phase": "released",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 153145344,
+      "private_working_set_bytes": 86786048,
+      "elapsed_seconds": 108.41,
+      "sample_utc_ms": 1793194431729,
+      "phase_started_utc_ms": 1793194421463,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 381198336,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375980032,
-          "working_set_bytes": 295829504,
-          "private_working_set_bytes": 153559040,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 148877312,
+          "private_working_set_bytes": 83480576,
+          "working_set_bytes": 152158208,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.703125
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 157155328,
-      "working_set_sum_bytes": 319447040,
-      "elapsed_seconds": 113.46,
-      "processes": 3,
+      "working_set_sum_bytes": 175099904,
       "phase": "released",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 153145344,
+      "private_working_set_bytes": 86786048,
+      "elapsed_seconds": 113.74,
+      "sample_utc_ms": 1793194437059,
+      "phase_started_utc_ms": 1793194421463,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 381206528,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 375988224,
-          "working_set_bytes": 295862272,
-          "private_working_set_bytes": 153567232,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 148885504,
+          "private_working_set_bytes": 83488768,
+          "working_set_bytes": 148889600,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.703125
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 157163520,
-      "working_set_sum_bytes": 319479808,
-      "elapsed_seconds": 119.26,
-      "processes": 3,
+      "working_set_sum_bytes": 171831296,
       "phase": "transition",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 153153536,
+      "private_working_set_bytes": 86794240,
+      "elapsed_seconds": 119.07,
+      "sample_utc_ms": 1793194442386,
+      "phase_started_utc_ms": 1793194441503,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 316993536,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 311775232,
-          "working_set_bytes": 226422784,
-          "private_working_set_bytes": 116527104,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 123568128,
+          "private_working_set_bytes": 62361600,
+          "working_set_bytes": 119803904,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.703125
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 120123392,
-      "working_set_sum_bytes": 250040320,
-      "elapsed_seconds": 124.92,
-      "processes": 3,
+      "working_set_sum_bytes": 142745600,
       "phase": "reclaimed_background",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 127836160,
+      "private_working_set_bytes": 65667072,
+      "elapsed_seconds": 124.4,
+      "sample_utc_ms": 1793194447720,
+      "phase_started_utc_ms": 1793194445132,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 204226560,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 199008256,
-          "working_set_bytes": 209756160,
-          "private_working_set_bytes": 99856384,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 108339200,
+          "private_working_set_bytes": 54153216,
+          "working_set_bytes": 111595520,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.703125
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 103452672,
-      "working_set_sum_bytes": 233373696,
-      "elapsed_seconds": 130.56,
-      "processes": 3,
+      "working_set_sum_bytes": 134537216,
       "phase": "reclaimed_background",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 112607232,
+      "private_working_set_bytes": 57458688,
+      "elapsed_seconds": 129.75,
+      "sample_utc_ms": 1793194453073,
+      "phase_started_utc_ms": 1793194445132,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 204193792,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 198975488,
-          "working_set_bytes": 209739776,
-          "private_working_set_bytes": 99840000,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 108871680,
+          "private_working_set_bytes": 54124544,
+          "working_set_bytes": 111566848,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.703125
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 103436288,
-      "working_set_sum_bytes": 233357312,
-      "elapsed_seconds": 136.21,
-      "processes": 3,
+      "working_set_sum_bytes": 134508544,
       "phase": "reclaimed_background",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 113139712,
+      "private_working_set_bytes": 57430016,
+      "elapsed_seconds": 135.1,
+      "sample_utc_ms": 1793194458414,
+      "phase_started_utc_ms": 1793194445132,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 365924352,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 360706048,
-          "working_set_bytes": 245252096,
-          "private_working_set_bytes": 99840000,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 108871680,
+          "private_working_set_bytes": 54124544,
+          "working_set_bytes": 111566848,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 3.703125
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 103436288,
-      "working_set_sum_bytes": 268869632,
-      "elapsed_seconds": 142.05,
-      "processes": 3,
-      "phase": "transition",
-      "cpu_one_core_percent": 0.0
+      "working_set_sum_bytes": 134508544,
+      "phase": "reclaimed_background",
+      "private_commit_bytes": 113139712,
+      "private_working_set_bytes": 57430016,
+      "elapsed_seconds": 140.43,
+      "sample_utc_ms": 1793194463750,
+      "phase_started_utc_ms": 1793194445132,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 374632448,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 369414144,
-          "working_set_bytes": 277880832,
-          "private_working_set_bytes": 135495680,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 139988992,
+          "private_working_set_bytes": 76333056,
+          "working_set_bytes": 145108992,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 4.140625
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 139091968,
-      "working_set_sum_bytes": 301498368,
-      "elapsed_seconds": 147.7,
-      "processes": 3,
+      "working_set_sum_bytes": 168050688,
       "phase": "restored",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 144257024,
+      "private_working_set_bytes": 79638528,
+      "elapsed_seconds": 145.76,
+      "sample_utc_ms": 1793194469078,
+      "phase_started_utc_ms": 1793194468650,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 370036736,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 364818432,
-          "working_set_bytes": 273289216,
-          "private_working_set_bytes": 130904064,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 139988992,
+          "private_working_set_bytes": 76075008,
+          "working_set_bytes": 144158720,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 4.140625
         }
       ],
-      "settled": false,
-      "private_working_set_bytes": 134500352,
-      "working_set_sum_bytes": 296906752,
-      "elapsed_seconds": 153.36,
-      "processes": 3,
+      "working_set_sum_bytes": 167100416,
       "phase": "restored",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 144257024,
+      "private_working_set_bytes": 79380480,
+      "elapsed_seconds": 151.1,
+      "sample_utc_ms": 1793194474417,
+      "phase_started_utc_ms": 1793194468650,
+      "settled": false
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 370429952,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 365211648,
-          "working_set_bytes": 273620992,
-          "private_working_set_bytes": 131235840,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 139988992,
+          "private_working_set_bytes": 74170368,
+          "working_set_bytes": 142254080,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 4.140625
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 134832128,
-      "working_set_sum_bytes": 297238528,
-      "elapsed_seconds": 159.0,
-      "processes": 3,
+      "working_set_sum_bytes": 165195776,
       "phase": "restored",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 144257024,
+      "private_working_set_bytes": 77475840,
+      "elapsed_seconds": 156.43,
+      "sample_utc_ms": 1793194479747,
+      "phase_started_utc_ms": 1793194468650,
+      "settled": true
     },
     {
       "cpu_machine_percent": 0.0,
-      "private_commit_bytes": 370429952,
+      "cpu_one_core_percent": 0.0,
+      "processes": 3,
       "members": [
         {
           "name": "conhost",
-          "private_commit_bytes": 1228800,
-          "working_set_bytes": 7278592,
-          "private_working_set_bytes": 831488,
-          "id": 4780
+          "id": 8932,
+          "private_commit_bytes": 1282048,
+          "private_working_set_bytes": 884736,
+          "working_set_bytes": 7061504,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.015625
         },
         {
           "name": "luma-engine",
-          "private_commit_bytes": 3989504,
-          "working_set_bytes": 16338944,
-          "private_working_set_bytes": 2764800,
-          "id": 12240
+          "id": 8244,
+          "private_commit_bytes": 2985984,
+          "private_working_set_bytes": 2420736,
+          "working_set_bytes": 15880192,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 0.0625
         },
         {
           "name": "luma-mail-fluid",
-          "private_commit_bytes": 365211648,
-          "working_set_bytes": 273620992,
-          "private_working_set_bytes": 131235840,
-          "id": 15448
+          "id": 8536,
+          "private_commit_bytes": 139988992,
+          "private_working_set_bytes": 71909376,
+          "working_set_bytes": 139993088,
+          "cpu_one_core_percent": 0.0,
+          "role": "",
+          "cpu_seconds": 4.140625
         }
       ],
-      "settled": true,
-      "private_working_set_bytes": 134832128,
-      "working_set_sum_bytes": 297238528,
-      "elapsed_seconds": 164.65,
-      "processes": 3,
+      "working_set_sum_bytes": 162934784,
       "phase": "restored",
-      "cpu_one_core_percent": 0.0
+      "private_commit_bytes": 144257024,
+      "private_working_set_bytes": 75214848,
+      "elapsed_seconds": 161.78,
+      "sample_utc_ms": 1793194485096,
+      "phase_started_utc_ms": 1793194468650,
+      "settled": true
     }
-  ],
-  "exit_code": 0,
-  "cpu": "Settled per-process CPU deltas, one-core and whole-machine percentages; short-lived exited helpers can be missed",
-  "binary_sha256": "e0bf8ff8ee341925a0360dc0f2cdb4c4a45fe433671843da1b2dce0a09afc381"
+  ]
 }

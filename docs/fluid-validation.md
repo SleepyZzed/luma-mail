@@ -847,3 +847,24 @@ The AppImage is 175,069,688 bytes; its installed logical/allocation totals are
 these fixed framework/application bytes. New menus are constructed only when
 opened and released after their exit transition; no mailbox/draft/image archive
 or additional persistent store is introduced.
+
+
+## 0.10.0-dev.3 UTF-8 follow-up
+
+Published source `bbc341ad9788e41a25b91f985214fd15ca9f6dbb` adds only three corrected UI captions and a static
+encoding guard after dev.2. The guard passes all 63 checked source/doc files;
+an isolated old-caption fixture fails and corrected UTF-8 succeeds. Local
+navigation passes 43 checks with the corrected captions.
+
+The exact-source CI run [40696005653](https://github.com/SleepyZzed/luma-mail/actions/runs/40696005653) passes core/engine tests,
+strict Clippy, seven Windows/eight Linux component groups and all fifteen
+portable groups: 299 Windows / 296 Linux checks. SDK search paths are removed
+and no QML warnings are recorded. Windows provenance is clean; its host hash
+matches the package test. The Linux AppImage hash and source-tar commit match.
+All nine public asset digests and the release tag were verified. Canonical
+fluid case/package/resource reports now describe this source. See
+validation/fluid-ci-0.10.0-dev.3.json and fluid-release-0.10.0-dev.3.json.
+
+The 150/200-MiB goals, sustained real-mailbox and target-desktop acceptance remain
+open. The earlier local Windows audit is still labeled with its own binary;
+CI and local/private-working-set and Linux/PSS numbers are not interchangeable.

@@ -53,8 +53,8 @@
             "passed": true
         }
     ],
-    "elapsedMs": 4048,
-    "initializationMs": 9,
+    "elapsedMs": 3942,
+    "initializationMs": 8,
     "passed": true,
     "stage": 6,
     "syntheticData": true

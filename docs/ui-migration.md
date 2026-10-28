@@ -224,3 +224,9 @@ menus/dialogs and pop-out handoff. Outgoing inline replies follow the configured
 close policy; detached replies retain their document and drop their old inline
 anchor on navigation. All fifteen exact portable groups pass (296 Linux/299
 Windows). Full target-desktop/live parity is still pending; see fluid-parity.md.
+
+
+The current preview is v0.10.0-dev.3 at bbc341a. It retains dev.2 wiring and fixes
+three UTF-8 captions with a CI source guard. Both complete portable gates pass.
+The GTK source remains a reference until full target-desktop parity acceptance;
+it is absent from the distributed replacement runtimes.

@@ -1,7 +1,7 @@
 {
   "passed": true,
   "synthetic_data": true,
-  "binary_sha256": "42c58ae65c87cca3b42172828625b55707e287023cd0fe6374bd6fb603171e20",
+  "binary_sha256": "79151881fb9d5fcf58181e16f0e2834ce748d698800bf2829f1dde0454c054b1",
   "platform": "win32",
   "sdk_search_paths_removed": true,
   "checks": [

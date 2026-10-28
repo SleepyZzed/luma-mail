@@ -226,3 +226,18 @@ Windows CI host's 66.1 / 136.4 / 51.6 private-WS result is not a direct comparis
 with local graphics. Settled CPU counters read 0.00% at measurement resolution;
 real long-duration syncing is still required. See fluid-validation.md for phase
 measurement corrections, exact binary/source identity and installation bytes.
+
+
+## 0.10.0-dev.3 matching resource checkpoint
+
+The bbc341a Linux software-rendered process tree reports 228.4
+MiB PSS idle / 405.0 with HTML / 328.9 backgrounded.
+The separate Windows CI process tree reports 65.5
+MiB private working set idle / 135.8 with HTML /
+54.8 backgrounded. These are different
+host/graphics configurations and different metrics, not a platform comparison.
+All ten lifecycle assertions pass, including fewer than 80 row delegates while
+scrolling 1,000 loaded records. The canonical fluid-resource-linux/windows and
+lifecycle reports now describe this build. Earlier local Windows measurements
+above retain their own binary identity. The Linux RAM goals remain unmet;
+synthetic settled CPU samples are not a live-mailbox or zero-CPU guarantee.

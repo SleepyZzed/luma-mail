@@ -185,3 +185,9 @@ The callback/feature audit and exact resource evidence are recorded; next code
 priorities remain inline-image authoring, whole-conversation forwarding and Drive
 interruption/permission/existing-file recovery. Target desktop, RAM, independent
 security and Google approval remain release gates.
+
+
+The UTF-8 follow-up is published as [v0.10.0-dev.3](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.3),
+source bbc341a, with the same 296 Linux/299 Windows portable checks. The encoding
+guard advances release hardening; the implementation/acceptance priorities above
+remain open. No 1.0 gate has been marked complete from synthetic tests alone.

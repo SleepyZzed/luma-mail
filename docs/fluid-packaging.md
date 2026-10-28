@@ -83,8 +83,8 @@ version from its tray before testing; the new frontend reuses the core account/
 keyring/cache policy. The source retains the 0.9 reference until full acceptance.
 
 
-The current feedback preview is [v0.10.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2)
-(a23a207). Both packages pass fifteen portable groups (296 Linux/299 Windows).
+The current feedback preview is [v0.10.0-dev.3](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.3)
+(bbc341a). Both packages pass fifteen portable groups (296 Linux/299 Windows).
 Matching source, native dependency source inventory, separate installation reports
 and checksums accompany the binaries. The release tag remains on the tested code;
 subsequent documentation-only commits record validation without changing binaries.

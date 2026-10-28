@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-The current GTK-free preview is [v0.10.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2), built from `a23a207a91d85e48f03609ebf7db66c7736abcc9`.
+The current GTK-free preview is [v0.10.0-dev.3](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.3), built from `bbc341ad9788e41a25b91f985214fd15ca9f6dbb`.
 It is early access and does not complete the original brief. Google verification
 was submitted on 26 October; current approval has not been confirmed. The
 unverified sign-in restrictions and any required assessment remain release gates.
@@ -22,12 +22,13 @@ This feedback pass fixes button spacing, typed/placeholder alignment, real inbox
 and editor context menus, themed spring dialogs, native pop-out handoff and
 outgoing inline reply closure. Detached replies remain independent. Keyboard
 context actions and lazy/released menus advance accessibility/resource hardening.
+The dev.3 follow-up corrects UTF-8 captions and adds a source-encoding guard.
 
 Online-first behavior is unchanged: bounded metadata, remote search, on-demand
 bodies/attachments, server drafts and existing cache budgets. The zero-cache
 fixture retains one 51-byte settings file and no cache files. Local Windows full
 tree private working set is about 134.6 MiB idle / 255.4 with HTML / 64 backgrounded;
-Linux software CI PSS is 226.4 / 402.4 / 326.5. RAM targets, sustained real sync,
+Matching bbc341a Linux software CI PSS is 228.4 / 405.0 / 328.9. RAM targets, sustained real sync,
 real Hyprland/GPU/two-account acceptance and Google/security approval remain open.
 
 ## Legacy 0.9 implementation and acceptance history

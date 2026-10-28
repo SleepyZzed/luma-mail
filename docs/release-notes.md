@@ -27,3 +27,12 @@ Published a23a207 packages pass 296 Linux/299 Windows portable checks and both
 platform/component/core gates. Storage/cache policy is unchanged. This is an
 EA preview; real Linux/two-account, remaining authoring/Drive, RAM and Google/
 security acceptance still precede 1.0. See docs/fluid-parity.md and roadmap.md.
+
+
+## v0.10.0-dev.3 — UTF-8 caption follow-up
+
+Includes the dev.2 button/menu/composer fixes and corrects three captions damaged
+by Windows codepage text I/O. A source guard now rejects those encoding mistakes
+in the QML, README and Markdown documentation. The mail engine, cache policy and
+feature behavior are unchanged. Clean-source bbc341a packages pass all fifteen
+portable groups (296 Linux / 299 Windows) and native/core/Clippy gates.

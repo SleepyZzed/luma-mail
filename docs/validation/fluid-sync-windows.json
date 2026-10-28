@@ -91,7 +91,7 @@
     "windowTrace": [
         {
             "event": "windowStateChanged",
-            "ms": 3292,
+            "ms": 3268,
             "remembered": 0,
             "state": 1,
             "visibility": 2,
@@ -99,7 +99,7 @@
         },
         {
             "event": "visibilityChanged",
-            "ms": 3294,
+            "ms": 3270,
             "remembered": 0,
             "state": 1,
             "visibility": 3,
@@ -107,7 +107,7 @@
         },
         {
             "event": "windowStateChanged",
-            "ms": 3458,
+            "ms": 3430,
             "remembered": 0,
             "state": 0,
             "visibility": 3,
@@ -115,7 +115,7 @@
         },
         {
             "event": "visibilityChanged",
-            "ms": 3460,
+            "ms": 3431,
             "remembered": 0,
             "state": 0,
             "visibility": 2,
@@ -123,7 +123,7 @@
         },
         {
             "event": "windowStateChanged",
-            "ms": 3615,
+            "ms": 3585,
             "remembered": 2,
             "state": 2,
             "visibility": 2,
@@ -131,7 +131,7 @@
         },
         {
             "event": "visibilityChanged",
-            "ms": 3615,
+            "ms": 3585,
             "remembered": 2,
             "state": 2,
             "visibility": 4,
@@ -139,7 +139,7 @@
         },
         {
             "event": "before maximized hide",
-            "ms": 3765,
+            "ms": 3737,
             "remembered": 2,
             "state": 2,
             "visibility": 4,
@@ -147,7 +147,7 @@
         },
         {
             "event": "visibleChanged",
-            "ms": 3767,
+            "ms": 3740,
             "remembered": 2,
             "state": 2,
             "visibility": 4,
@@ -155,7 +155,7 @@
         },
         {
             "event": "visibilityChanged",
-            "ms": 3767,
+            "ms": 3740,
             "remembered": 2,
             "state": 2,
             "visibility": 0,
@@ -163,7 +163,7 @@
         },
         {
             "event": "after maximized hide",
-            "ms": 3774,
+            "ms": 3745,
             "remembered": 2,
             "state": 2,
             "visibility": 0,
@@ -171,7 +171,7 @@
         },
         {
             "event": "windowStateChanged",
-            "ms": 3774,
+            "ms": 3745,
             "remembered": 2,
             "state": 0,
             "visibility": 0,
@@ -179,7 +179,7 @@
         },
         {
             "event": "windowStateChanged",
-            "ms": 3774,
+            "ms": 3745,
             "remembered": 2,
             "state": 2,
             "visibility": 0,
@@ -187,7 +187,7 @@
         },
         {
             "event": "visibleChanged",
-            "ms": 3776,
+            "ms": 3746,
             "remembered": 2,
             "state": 2,
             "visibility": 0,
@@ -195,7 +195,7 @@
         },
         {
             "event": "visibilityChanged",
-            "ms": 3776,
+            "ms": 3747,
             "remembered": 2,
             "state": 2,
             "visibility": 4,
@@ -203,7 +203,7 @@
         },
         {
             "event": "after tray activation",
-            "ms": 3788,
+            "ms": 3763,
             "remembered": 2,
             "state": 2,
             "visibility": 4,
