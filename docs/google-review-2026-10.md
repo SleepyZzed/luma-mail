@@ -3,7 +3,30 @@
 Google requested DNS-verifiable website ownership and a new comprehensive live
 demonstration. This record describes corrections, not an approval or 1.0 release.
 
-## Website and ownership
+## Current domain: lumamail.app
+
+The maintainer purchased `lumamail.app` in Cloudflare and explicitly selected
+that spelling. This supersedes the temporary DuckDNS website below.
+
+- GitHub Pages now publishes the existing site at `https://lumamail.app/`.
+  Four root A records use GitHub's published IPv4 addresses, with a DNS-only
+  `www` CNAME pointing to `sleepyzzed.github.io`. HTTPS is enforced.
+- The homepage, `/privacy.html`, `/permissions.html` and `/terms.html` each
+  returned HTTP 200 over valid HTTPS after migration.
+- The project-owner account successfully verified `sc-domain:lumamail.app`
+  through Google's root DNS TXT challenge. Keep that TXT record and the
+  domain registration active.
+- Cloud project `luma-mail-512718` saved the new homepage, privacy and terms
+  URLs and replaced the authorized domain with `lumamail.app`. Cloud confirmed
+  “Branding changes saved.” The client, four scopes and In production audience
+  were not changed.
+- The maintainer will record the replacement demonstration personally. The
+  agent-made video remains private and is not the submitted demonstration.
+  The Cloud demo URL was not replaced and no verification reply was sent.
+  Completing the maintainer's video, updating its URL and replying to the
+  original reviewer thread remain required.
+
+## Previous temporary website and ownership
 
 - Registered `luma-mail.duckdns.org` in the maintainer's account with approval.
 - Pointed its IPv4 record at GitHub Pages and published `docs/CNAME`.
