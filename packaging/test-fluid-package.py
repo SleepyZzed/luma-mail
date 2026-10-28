@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-CASES = ['auth', 'popout', 'navigation', 'composer', 'motion', 'photo', 'html',
+CASES = ['auth', 'popout', 'popup', 'navigation', 'composer', 'motion', 'photo', 'html',
          'thread', 'search', 'conflict', 'sync', 'attachment', 'signature', 'recovery']
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary', type=Path, required=True)

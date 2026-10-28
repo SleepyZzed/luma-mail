@@ -109,8 +109,8 @@ public:
                 stage=9;session=data["session"].toString();check("reply has read-only history outside the editor",!data["quote"].toString().isEmpty()&&(!document||document->nativeDocument()->isEmpty()));
                 check("reply keeps its account ownership",data["accountLocked"].toBool());
                 QTimer::singleShot(750,this,[this]{check("reply docks inside the reading thread",card->property("inlineMode").toBool()&&!card->property("expanded").toBool());check("reply focuses authored body",window->activeFocusItem()==window->findChild<QQuickItem*>("composeBody"));mail->requestCompose("reply",mail->messages()->at(0));});
-            }else if(event=="composeFocus"&&stage==9){stage=10;check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());invoke("requestClose");}
-            else if(event=="composeClosed"&&stage==10){stage=11;afterClosed([this]{check("inline close collapses and releases the surface",!card->isVisible());finish();});}
+            }else if(event=="composeFocus"&&stage==9){stage=10;check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());mail->selectRow(1,0,240,173,450,68);}
+            else if(event=="composeClosed"&&stage==10){stage=11;afterClosed([this]{check("switching conversations closes the inline reply and releases the surface",!card->isVisible());finish();});}
         });
         QTimer::singleShot(22000,this,[this]{if(!finished){check("composer smoke completes within deadline",false);finish();}});
     }

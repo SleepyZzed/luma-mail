@@ -40,7 +40,7 @@ Item {
                                     delegate:Rectangle{required property var modelData;width:(parent.width-Theme.unit(12))/2;height:field.index===5?Theme.unit(190):Theme.unit(78);radius:Theme.unit(10);color:Theme.raised;border.width:1;border.color:Theme.outline
                                         Text{textFormat:Text.PlainText;x:Theme.unit(12);y:Theme.unit(8);text:modelData.heading;color:Theme.faint;font.pixelSize:Theme.unit(10)}
                                         ScrollView{x:Theme.unit(12);y:Theme.unit(27);width:parent.width-2*x;height:parent.height-y-Theme.unit(8);clip:true
-                                            TextArea{text:modelData.text;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;color:Theme.text;font.pixelSize:Theme.unit(11);padding:0;background:Item{}}
+                                            FluidTextArea{text:modelData.text;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;color:Theme.text;font.pixelSize:Theme.unit(11);padding:0;background:Item{}}
                                         }
                                     }
                                 }

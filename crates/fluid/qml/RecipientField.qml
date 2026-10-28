@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
-TextField {
+FluidField {
     id:field
     Accessible.name:placeholderText||"Recipients"
     property string session:""

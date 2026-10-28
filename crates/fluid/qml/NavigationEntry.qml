@@ -16,6 +16,7 @@ Item {
     onYChanged: Qt.callLater(navigation.refreshPill)
     FluidButton {
         anchors.fill: parent
+        alignLeading:!root.navigation.collapsed
         anchors.leftMargin: Theme.unit(3)
         glyph: ({inbox:"inbox",all_mail:"mail",unread:"unread",starred:"star",sent:"send",drafts:"compose",archive:"archive",spam:"spam",trash:"trash"})[root.folder] || "label"
         text: root.navigation.collapsed ? "" : Theme.folderTitle(root.folder)

@@ -1,5 +1,10 @@
 # Fluid frontend migration
 
+Current implementation/acceptance coverage is recorded in [fluid-parity.md](fluid-parity.md).
+The major legacy functional groups have replacement wiring and native tests;
+complete target-desktop and real-account parity is not yet certified. The dated
+checkpoints below describe progress, rather than overriding the latest evidence.
+
 The 0.9 release is the preserved reference. The replacement uses a custom Qt
 Quick scene graph and QML, with the existing Rust provider/cache/security engine.
 The frontend communicates with one private Rust child through anonymous pipes;

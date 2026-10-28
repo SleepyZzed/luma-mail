@@ -96,7 +96,7 @@ Item {
                 FluidButton{glyph:"redo";tip:"Redo";enabled:rich.canRedo;onClicked:rich.redo()}
             }
             ScrollView{id:scroll;y:tools.height+Theme.unit(12);width:parent.width;height:parent.height-y;clip:true;contentWidth:availableWidth
-                TextArea{id:body;objectName:"signatureBody";readOnly:!root.visual||!root.editable||root.busy;selectByMouse:true;persistentSelection:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.RichText;color:Theme.text;selectionColor:Theme.selected;font.pixelSize:Theme.unit(13);padding:Theme.unit(12);background:Rectangle{color:Theme.raised;radius:Theme.unit(12);border.width:1;border.color:body.activeFocus?Theme.accent:Theme.outline}
+                FluidTextArea{id:body;objectName:"signatureBody";richDocument:rich;readOnly:!root.visual||!root.editable||root.busy;selectByMouse:true;persistentSelection:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.RichText;color:Theme.text;selectionColor:Theme.selected;font.pixelSize:Theme.unit(13);padding:Theme.unit(12);background:Rectangle{color:Theme.raised;radius:Theme.unit(12);border.width:1;border.color:body.activeFocus?Theme.accent:Theme.outline}
                     onSelectionStartChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
                     onSelectionEndChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
                     onCursorPositionChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
@@ -120,31 +120,31 @@ Item {
             }
         }
     }
-    Dialog{id:linkDialog;title:"Insert signature link";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(440,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+    FluidDialog{id:linkDialog;title:"Insert signature link";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(440,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:10;FluidField{id:linkLabel;width:parent.width;placeholderText:"Text to display"}FluidField{id:linkUrl;width:parent.width;placeholderText:"https://…"}}
         onAccepted:if(root.editor)root.editor.hyperlink(linkUrl.text,linkLabel.text)
     }
-    Dialog{id:sourceDialog;title:"Signature HTML · read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(700,root.width-50);height:Math.min(480,root.height-60);standardButtons:Dialog.Close
-        ScrollView{anchors.fill:parent;TextArea{id:sourceText;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText}}
+    FluidDialog{id:sourceDialog;title:"Signature HTML · read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(700,root.width-50);height:Math.min(480,root.height-60);standardButtons:Dialog.Close
+        ScrollView{anchors.fill:parent;FluidTextArea{id:sourceText;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText}}
         onOpened:sourceText.text=root.html()
         onClosed:sourceText.clear()
     }
-    Dialog{id:pictureDialog;title:"Insert hosted HTTPS picture";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(480,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+    FluidDialog{id:pictureDialog;title:"Insert hosted HTTPS picture";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(480,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:12;Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"Gmail stores the public image URL. Preview loading is explicit and anonymous.";color:Theme.muted}FluidField{id:pictureUrl;width:parent.width;placeholderText:"https://example.com/logo.png"}}
         onAccepted:root.insertPicture(pictureUrl.text)
     }
-    Dialog{id:tableDialog;title:"Insert table";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(360,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+    FluidDialog{id:tableDialog;title:"Insert table";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(360,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Row{spacing:12;FluidField{id:tableRows;width:120;text:"2";placeholderText:"Rows";validator:IntValidator{bottom:1;top:10}}FluidField{id:tableColumns;width:120;text:"2";placeholderText:"Columns";validator:IntValidator{bottom:1;top:10}}}
         onAccepted:if(root.editor)root.editor.insertTable(Number(tableRows.text),Number(tableColumns.text))
     }
-    Dialog{id:colourDialog;property bool highlight:false;title:highlight?"Highlight colour":"Font colour";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(420,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+    FluidDialog{id:colourDialog;property bool highlight:false;title:highlight?"Highlight colour":"Font colour";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(420,root.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:12;Flow{width:parent.width;spacing:8;Repeater{model:["#171717","#ffffff","#1677ff","#ba36a5","#cb3234","#1c8a62","#e7b43e"];delegate:Rectangle{required property string modelData;width:30;height:30;radius:15;color:modelData;border.width:1;border.color:Theme.outline;MouseArea{anchors.fill:parent;onClicked:colourValue.text=parent.modelData}}}}FluidField{id:colourValue;width:parent.width;text:"#1677ff";placeholderText:"#RRGGBB"}}
         onAccepted:if(root.editor)root.editor.colour(colourValue.text,highlight)
     }
     ConfirmSheet{id:publicQuestion;objectName:"signaturePublicQuestion";anchors.fill:parent
         function open(){ask("Upload a public signature picture?","An optimized copy of "+root.pictureName+" will be uploaded to your Google Drive. Anyone with its link can view it, including people outside Gmail. Your original file stays unchanged. Removing the signature picture does not delete the Drive copy.","Upload public copy","signatureUploadPicture",{session:root.session,path:root.picturePath,publicConfirmed:true})}
     }
-    Dialog{id:closeQuestion;objectName:"signatureCloseQuestion";title:"Save the signature before closing?";modal:true;closePolicy:Popup.NoAutoClose;anchors.centerIn:Overlay.overlay;width:Math.min(510,root.width-40)
+    FluidDialog{id:closeQuestion;objectName:"signatureCloseQuestion";title:"Save the signature before closing?";modal:true;closePolicy:Popup.NoAutoClose;anchors.centerIn:Overlay.overlay;width:Math.min(510,root.width-40)
         Column{width:parent.width;spacing:16;Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;color:Theme.text;text:"Your changes exist only in this editor. Gmail’s saved signature is kept until Save succeeds."}Flow{width:parent.width;spacing:8;FluidButton{text:"Keep editing";onClicked:{Mail.send("signatureKeepEditing",{session:root.session});closeQuestion.close()}}FluidButton{text:"Discard changes";onClicked:root.discard()}FluidButton{text:"Save and close";primary:true;onClicked:root.save(true)}}}
     }
     Shortcut{sequence:"Ctrl+S";enabled:root.opened&&!root.dialogsOpen&&root.dirty&&!root.busy;onActivated:root.save()}

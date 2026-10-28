@@ -31,7 +31,7 @@ Item {
         Image {id:logo;source:root.collapsed?"qrc:/brand/io.github.lumamail.Luma.svg":"qrc:/brand/luma-wordmark.png";width:root.collapsed?Theme.unit(32):Theme.unit(105);height:Theme.unit(36);fillMode:Image.PreserveAspectFit}
         Text {textFormat:Text.PlainText;x:root.collapsed?0:Theme.unit(1);y:Theme.unit(40);text:"Online-first mail";color:Theme.muted;font.pixelSize:Theme.unit(10);visible:!root.collapsed}
         FluidButton {
-            id:composeButton;objectName:"newMessageButton";y:Theme.unit(63);width:parent.width;height:Theme.unit(41);primary:true;glyph:"compose";text:root.collapsed?"":"Compose";tip:"New message · Ctrl+N"
+            id:composeButton;objectName:"newMessageButton";y:Theme.unit(63);width:parent.width;height:Theme.unit(41);primary:true;glyph:"compose";text:root.collapsed?"":"Compose";tip:"New message Â· Ctrl+N"
             onClicked:{let p=mapToItem(null,0,0);root.composeAt(p.x,p.y,width,height)}
         }
     }
@@ -50,7 +50,7 @@ Item {
         Column {
             id:nav;width:scroll.width;spacing:Theme.unit(6)
             FluidButton {
-                width:parent.width;text:root.collapsed?"":"Unified mail";glyph:"inbox";quiet:false;tip:root.unifiedOpen?"Collapse unified folders":"Expand unified folders";onClicked:root.unifiedOpen=!root.unifiedOpen
+                alignLeading:!root.collapsed;rightPadding:Theme.unit(root.collapsed?8:30);width:parent.width;text:root.collapsed?"":"Unified mail";glyph:"inbox";quiet:false;tip:root.unifiedOpen?"Collapse unified folders":"Expand unified folders";onClicked:root.unifiedOpen=!root.unifiedOpen
                 Icon{anchors.right:parent.right;anchors.rightMargin:Theme.unit(13);anchors.verticalCenter:parent.verticalCenter;width:Theme.unit(12);height:width;name:"chevron-right";color:Theme.muted;visible:!root.collapsed;rotation:unifiedArrow.value;Motion{id:unifiedArrow;target:root.unifiedOpen?90:0;enabled:Theme.motion}}
             }
             Item {
@@ -117,7 +117,7 @@ Item {
         Motion{id:settingsY;target:Theme.unit(root.collapsed?12:20);enabled:Theme.motion}
         Motion{id:collapseY;target:Theme.unit(root.collapsed?60:20);enabled:Theme.motion}
         Rectangle{height:1;width:parent.width;color:Theme.outline;opacity:.55}
-        FluidButton {objectName:"sidebarSettings";x:root.collapsed?(footer.width-width)/2:0;y:settingsY.value;width:root.collapsed?Theme.unit(34):Math.max(Theme.unit(34),footer.width-Theme.unit(42));labelWidth:Math.max(0,width-Theme.unit(61));glyph:"settings";text:root.collapsed?"":"Settings";tip:"Settings";onClicked:root.settingsRequested()}
+        FluidButton {objectName:"sidebarSettings";alignLeading:!root.collapsed;x:root.collapsed?(footer.width-width)/2:0;y:settingsY.value;width:root.collapsed?Theme.unit(34):Math.max(Theme.unit(34),footer.width-Theme.unit(42));labelWidth:Math.max(0,width-Theme.unit(61));glyph:"settings";text:root.collapsed?"":"Settings";tip:"Settings";onClicked:root.settingsRequested()}
         FluidButton {objectName:"sidebarCollapse";anchors.right:parent.right;anchors.rightMargin:root.collapsed?(footer.width-width)/2:0;y:collapseY.value;glyph:root.collapsed?"chevron-right":"chevron-left";tip:root.collapsed?"Expand navigation":"Collapse navigation";onClicked:root.collapsed=!root.collapsed}
     }
 }

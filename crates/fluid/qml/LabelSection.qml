@@ -21,7 +21,7 @@ Column {
             ScrollBar.vertical:ScrollBar{implicitWidth:3}
             delegate:Item{required property var modelData;objectName:"label-"+modelData.id;width:list.width;height:Theme.unit(34)
                 Rectangle{anchors.fill:parent;anchors.margins:Theme.unit(2);radius:Theme.unit(10);color:Theme.selected;visible:Mail.account===root.account&&Mail.folder==="label:"+modelData.id}
-                FluidButton{anchors.fill:parent;glyph:"label";text:root.navigation.collapsed?"":modelData.name;labelWidth:Math.max(0,width-Theme.unit(58));tip:modelData.name;tint:Mail.account===root.account&&Mail.folder==="label:"+modelData.id?Theme.accent:Theme.muted;onClicked:Mail.setView("label:"+modelData.id,root.account)}
+                FluidButton{anchors.fill:parent;alignLeading:!root.navigation.collapsed;glyph:"label";text:root.navigation.collapsed?"":modelData.name;labelWidth:Math.max(0,width-Theme.unit(58));tip:modelData.name;tint:Mail.account===root.account&&Mail.folder==="label:"+modelData.id?Theme.accent:Theme.muted;onClicked:Mail.setView("label:"+modelData.id,root.account)}
                 MouseArea{anchors.fill:parent;acceptedButtons:Qt.RightButton;onClicked:{context.label=modelData;context.popup()}}
             }
         }
@@ -29,7 +29,7 @@ Column {
     FluidMenu{id:context;objectName:"labelsContext-"+root.account;property var label:({})
         onOpened:root.navigation.overlayOpen=true
         onClosed:root.navigation.overlayOpen=false
-        MenuItem{objectName:"renameLabelAction-"+root.account;text:"Rename label…";onTriggered:root.navigation.labelActionRequested("rename",root.account,context.label)}
-        MenuItem{objectName:"deleteLabelAction-"+root.account;text:"Delete label…";onTriggered:root.navigation.labelActionRequested("delete",root.account,context.label)}
+        FluidMenuItem{objectName:"renameLabelAction-"+root.account;text:"Rename labelâ€¦";onTriggered:root.navigation.labelActionRequested("rename",root.account,context.label)}
+        FluidMenuItem{objectName:"deleteLabelAction-"+root.account;text:"Delete labelâ€¦";onTriggered:root.navigation.labelActionRequested("delete",root.account,context.label)}
     }
 }

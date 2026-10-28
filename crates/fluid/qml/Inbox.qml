@@ -24,7 +24,7 @@ Item {
         Rectangle {
             id:searchSurface;opacity:root.searchMorphed?0:1;y:Theme.unit(61);height:Theme.unit(37);width:parent.width;radius:Theme.unit(13);color:search.activeFocus?Theme.raised:Theme.surface;border.width:1;border.color:search.activeFocus?Theme.accent:Theme.outline
             Icon{x:Theme.unit(13);anchors.verticalCenter:parent.verticalCenter;name:"search";color:Theme.muted}
-            TextField {id:search;objectName:"quickSearch";anchors.fill:parent;leftPadding:Theme.unit(41);rightPadding:Theme.unit(43);placeholderText:"Search your mail";font.pixelSize:Theme.unit(12);color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;background:Item{} text:Mail.search;onAccepted:Mail.searchCurrent(text)}
+            FluidField{id:search;objectName:"quickSearch";anchors.fill:parent;leftPadding:Theme.unit(41);rightPadding:Theme.unit(43);placeholderText:"Search your mail";font.pixelSize:Theme.unit(12);color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;background:Item{} text:Mail.search;onAccepted:Mail.searchCurrent(text)}
             FluidButton {anchors.right:parent.right;anchors.rightMargin:5;anchors.verticalCenter:parent.verticalCenter;glyph:"filter";tip:"Search options";onClicked:{const p=searchSurface.mapToItem(null,0,0);root.searchRequested(Qt.rect(p.x,p.y,searchSurface.width,searchSurface.height))}}
         }
         Text {textFormat:Text.PlainText;y:Theme.unit(107);text:Mail.selecting?Mail.selectionCount+" selected":Mail.inbox.count+" conversations · online first";font.pixelSize:Theme.unit(10);color:Theme.faint}
@@ -43,6 +43,7 @@ Item {
             if(event.key===Qt.Key_A&&(event.modifiers&Qt.ControlModifier)){Mail.selectAll();event.accepted=true}
             else if(event.key===Qt.Key_Return||event.key===Qt.Key_Enter){root.openIndex(currentIndex,0);event.accepted=true}
             else if(event.key===Qt.Key_Space&&currentIndex>=0){root.openIndex(currentIndex,Qt.ControlModifier);event.accepted=true}
+            else if(event.key===Qt.Key_Menu||(event.key===Qt.Key_F10&&(event.modifiers&Qt.ShiftModifier))){root.contextIndex(currentIndex);event.accepted=true}
             else if(event.key===Qt.Key_Up||event.key===Qt.Key_Down){currentIndex=Math.max(0,Math.min(count-1,currentIndex+(event.key===Qt.Key_Up?-1:1)));positionViewAtIndex(currentIndex,ListView.Contain);forceLayout();if((event.modifiers&Qt.ShiftModifier)||(Mail.readerOpen&&!Mail.selecting))root.openIndex(currentIndex,event.modifiers);event.accepted=true}
         }
         add:Transition {enabled:Theme.motion;SpringAnimation{property:"y";spring:4;damping:.45;epsilon:.3}}
@@ -124,6 +125,13 @@ Item {
         list.currentIndex=index
         const p=row.mapToItem(root.scene,0,0)
         Mail.selectRow(index,modifiers,p.x,p.y,row.width,row.height,row.projection())
+    }
+    function contextIndex(index) {
+        const row=list.itemAtIndex(index)
+        if(!row)return
+        if(Mail.selectionCount&&!Mail.isSelected(row.item))Mail.clearSelection()
+        const p=row.mapToItem(root.scene,Theme.unit(60),row.height)
+        root.contextRequested(row.item,p.x,p.y)
     }
     function revealIndex(index){list.positionViewAtIndex(index,ListView.Contain);list.forceLayout();Qt.callLater(()=>openIndex(index,0))}
     function scrollToIndex(index){list.positionViewAtIndex(index,ListView.Center);list.forceLayout()}

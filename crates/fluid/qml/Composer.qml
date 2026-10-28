@@ -71,7 +71,7 @@ Item {
     readonly property bool recipientSuggestionsOpen:!!to?.suggestionsOpen||!!cc?.suggestionsOpen||!!bcc?.suggestionsOpen
     visible:shown||moving;clip:true;z:70
     property bool externalModal:false
-    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||!!closeDialog?.visible||!!linkDialog?.visible||!!tableDialog?.visible||!!findDialog?.visible||!!historyDialog?.visible||!!formatMenu?.visible
+    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||!!body?.editMenu?.visible||!!to?.editMenu?.visible||!!cc?.editMenu?.visible||!!bcc?.editMenu?.visible||!!subject?.editMenu?.visible||!!closeDialog?.visible||!!linkDialog?.visible||!!tableDialog?.visible||!!findDialog?.visible||!!historyDialog?.visible||!!formatMenu?.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
     Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
@@ -91,7 +91,7 @@ Item {
         Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:"Drop files to attach";color:Theme.text;font.pixelSize:Theme.unit(20);font.weight:Font.DemiBold}
     }
     component FormatButton:FluidButton {enabled:!root.locked}
-    component Field:TextField {
+    component Field:FluidField {
         Accessible.name:placeholderText
         color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;font.pixelSize:Theme.unit(12)
         leftPadding:0;rightPadding:0;topPadding:Theme.unit(4);bottomPadding:Theme.unit(4);background:Item{}
@@ -184,8 +184,9 @@ Item {
     }
     Flickable{
         id:bodyScroll;x:Theme.unit(22);y:fields.y+fields.height;width:parent.width-2*x;height:Math.max(0,historyToggles.y-y-Theme.unit(7));clip:true;contentWidth:width;contentHeight:body.height;visible:!root.statusMode
-        TextArea{
+        FluidTextArea{
             id:body;objectName:"composeBody";width:bodyScroll.width;height:Math.max(bodyScroll.height,contentHeight+Theme.unit(12));padding:0;color:Theme.text
+            richDocument:rich;pasteAction:()=>{if(!Mail.interceptImagePaste())body.paste()}
             placeholderText:"A little space for your thoughts…";placeholderTextColor:Theme.faint;textFormat:TextEdit.RichText;wrapMode:TextEdit.Wrap;selectByMouse:true;persistentSelection:true;selectionColor:Theme.selected;selectedTextColor:Theme.text;background:Item{} readOnly:root.locked
             onSelectionStartChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
             onSelectionEndChanged:rich.selection(selectionStart,selectionEnd,cursorPosition)
@@ -233,38 +234,38 @@ Item {
         Text{textFormat:Text.PlainText;anchors.right:parent.right;y:Theme.unit(24);width:Math.max(0,parent.width-Theme.unit(240));visible:root.state.state!=="conflict";text:root.localError||(root.inputBusy?"Preparing clipboard image…":root.state.status)||"Changes stay in memory until saved";color:Theme.muted;elide:Text.ElideRight;font.pixelSize:Theme.unit(9);horizontalAlignment:Text.AlignRight}
     }
     FluidMenu{id:formatMenu
-        MenuItem{text:"Strikethrough";onTriggered:rich.toggle("strike")}
-        MenuItem{text:"Superscript";onTriggered:rich.toggle("super")}
-        MenuItem{text:"Subscript";onTriggered:rich.toggle("sub")}
-        MenuItem{text:"Code font";onTriggered:rich.toggle("code")}
+        FluidMenuItem{text:"Strikethrough";onTriggered:rich.toggle("strike")}
+        FluidMenuItem{text:"Superscript";onTriggered:rich.toggle("super")}
+        FluidMenuItem{text:"Subscript";onTriggered:rich.toggle("sub")}
+        FluidMenuItem{text:"Code font";onTriggered:rich.toggle("code")}
         FluidMenu{title:"Line spacing"
-            MenuItem{text:"Single";onTriggered:rich.lineSpacing(1)}
-            MenuItem{text:"1.15";onTriggered:rich.lineSpacing(1.15)}
-            MenuItem{text:"1.5";onTriggered:rich.lineSpacing(1.5)}
-            MenuItem{text:"Double";onTriggered:rich.lineSpacing(2)}
+            FluidMenuItem{text:"Single";onTriggered:rich.lineSpacing(1)}
+            FluidMenuItem{text:"1.15";onTriggered:rich.lineSpacing(1.15)}
+            FluidMenuItem{text:"1.5";onTriggered:rich.lineSpacing(1.5)}
+            FluidMenuItem{text:"Double";onTriggered:rich.lineSpacing(2)}
         }
-        MenuSeparator{}
-        MenuItem{text:"Align left";onTriggered:rich.align(Qt.AlignLeft)}
-        MenuItem{text:"Align centre";onTriggered:rich.align(Qt.AlignCenter)}
-        MenuItem{text:"Align right";onTriggered:rich.align(Qt.AlignRight)}
-        MenuItem{text:"Justify";onTriggered:rich.align(Qt.AlignJustify)}
-        MenuItem{text:"Indent";onTriggered:rich.indent(1)}
-        MenuItem{text:"Outdent";onTriggered:rich.indent(-1)}
-        MenuItem{text:"Clear formatting";onTriggered:rich.clearFormat()}
-        MenuSeparator{}
-        MenuItem{text:"Undo";enabled:rich.canUndo;onTriggered:rich.undo()}
-        MenuItem{text:"Redo";enabled:rich.canRedo;onTriggered:rich.redo()}
-        MenuItem{text:"Find and replace";onTriggered:findDialog.open()}
+        FluidMenuSeparator{}
+        FluidMenuItem{text:"Align left";onTriggered:rich.align(Qt.AlignLeft)}
+        FluidMenuItem{text:"Align centre";onTriggered:rich.align(Qt.AlignCenter)}
+        FluidMenuItem{text:"Align right";onTriggered:rich.align(Qt.AlignRight)}
+        FluidMenuItem{text:"Justify";onTriggered:rich.align(Qt.AlignJustify)}
+        FluidMenuItem{text:"Indent";onTriggered:rich.indent(1)}
+        FluidMenuItem{text:"Outdent";onTriggered:rich.indent(-1)}
+        FluidMenuItem{text:"Clear formatting";onTriggered:rich.clearFormat()}
+        FluidMenuSeparator{}
+        FluidMenuItem{text:"Undo";enabled:rich.canUndo;onTriggered:rich.undo()}
+        FluidMenuItem{text:"Redo";enabled:rich.canRedo;onTriggered:rich.redo()}
+        FluidMenuItem{text:"Find and replace";onTriggered:findDialog.open()}
     }
-    Dialog{id:linkDialog;title:"Insert hyperlink";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(420,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+    FluidDialog{id:linkDialog;title:"Insert hyperlink";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(420,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:12
-            TextField{id:linkLabel;width:parent.width;placeholderText:"Text to display"}
-            TextField{id:linkUrl;width:parent.width;placeholderText:"https://…"}
+            FluidField{id:linkLabel;width:parent.width;placeholderText:"Text to display"}
+            FluidField{id:linkUrl;width:parent.width;placeholderText:"https://…"}
         }
         onOpened:{linkLabel.text=body.selectedText;linkUrl.text="";linkUrl.forceActiveFocus()}
         onAccepted:rich.link(linkUrl.text,linkLabel.text)
     }
-    Dialog{id:tableDialog;objectName:"composeTableDialog";title:"Insert table";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(360,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
+    FluidDialog{id:tableDialog;objectName:"composeTableDialog";title:"Insert table";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(360,root.scene.width-40);standardButtons:Dialog.Ok|Dialog.Cancel
         Column{width:parent.width;spacing:Theme.unit(10)
             Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"Choose up to 10 rows and columns. Tab moves between cells; Tab in the last cell adds a row.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
             Row{width:parent.width;spacing:Theme.unit(12)
@@ -275,19 +276,19 @@ Item {
         onOpened:{tableRows.selectAll();tableRows.forceActiveFocus()}
         onAccepted:if(!root.locked&&!rich.table(Number(tableRows.text),Number(tableColumns.text)))root.localError="Choose between 1 and 10 rows and columns."
     }
-    Dialog{id:findDialog;title:"Find and replace";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(430,root.scene.width-40);standardButtons:Dialog.Close
+    FluidDialog{id:findDialog;title:"Find and replace";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(430,root.scene.width-40);standardButtons:Dialog.Close
         Column{width:parent.width;spacing:8
-            TextField{id:findText;width:parent.width;placeholderText:"Find"}
-            TextField{id:replaceText;width:parent.width;placeholderText:"Replace with"}
+            FluidField{id:findText;width:parent.width;placeholderText:"Find"}
+            FluidField{id:replaceText;width:parent.width;placeholderText:"Replace with"}
             Row{FluidButton{text:"Previous";onClicked:rich.find(findText.text,true)}FluidButton{text:"Next";onClicked:rich.find(findText.text)}}
             Row{FluidButton{text:"Replace";onClicked:rich.replace(findText.text,replaceText.text)}FluidButton{text:"Replace all";onClicked:rich.replace(findText.text,replaceText.text,true)}}
         }
         onOpened:findText.forceActiveFocus()
     }
-    Dialog{id:historyDialog;title:"Quoted history · read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(600,root.scene.width-50);height:Math.min(400,root.scene.height-70);standardButtons:Dialog.Close
-        ScrollView{anchors.fill:parent;TextArea{text:root.state.quote||"";readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText}}
+    FluidDialog{id:historyDialog;title:"Quoted history · read only";modal:true;anchors.centerIn:Overlay.overlay;width:Math.min(600,root.scene.width-50);height:Math.min(400,root.scene.height-70);standardButtons:Dialog.Close
+        ScrollView{anchors.fill:parent;FluidTextArea{text:root.state.quote||"";readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText}}
     }
-    Dialog{id:closeDialog;property var question:({});title:question.uncertain?"Gmail confirmation is uncertain":question.conflict?"This draft changed in Gmail":"Save this draft to Gmail?";modal:true;closePolicy:Popup.NoAutoClose;anchors.centerIn:Overlay.overlay;width:Math.min(540,root.scene.width-40)
+    FluidDialog{id:closeDialog;property var question:({});title:question.uncertain?"Gmail confirmation is uncertain":question.conflict?"This draft changed in Gmail":"Save this draft to Gmail?";modal:true;closePolicy:Popup.NoAutoClose;anchors.centerIn:Overlay.overlay;width:Math.min(540,root.scene.width-40)
         Column{width:parent.width;spacing:12
             Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:closeDialog.question.uncertain?"Check Sent and Drafts in Gmail before trying again. Closing keeps the existing Gmail draft and clears this in-memory editor.":closeDialog.question.conflict?"The Gmail version is preserved. Keep editing to save a separate copy, or close without saving your changes.":"Your changes are in memory. Any draft already saved in Gmail will be kept.";color:Theme.text}
             Flow{width:parent.width;spacing:6
@@ -328,11 +329,15 @@ Item {
         inputDelay.stop();sync();linkDialog.close();tableDialog.close();findDialog.close();historyDialog.close();formatMenu.close()
         const at=mapToGlobal(0,0),oldWidth=width,oldHeight=height
         previousExpanded=expanded;previousInline=inlineMode
-        const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth),height:Math.max(Theme.unit(500),oldHeight),x:at.x,y:at.y})
+        const inset=Theme.unit(20)
+        const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth+2*inset),height:Math.max(Theme.unit(500),oldHeight+2*inset),x:at.x-inset,y:at.y-inset})
         if(!host)return
         Mail.trackWindow(host);popout=host;inlineMode=false;expanded=true;scene=host.contentItem;parent=scene
-        horizontal.rebase(0);vertical.rebase(0);breadth.rebase(oldWidth);depth.rebase(oldHeight)
-        host.show();host.raise();host.requestActivate();Qt.callLater(()=>body.forceActiveFocus())
+        // Show first so the springs are enabled in their new exposed window.
+        // Rebase the same editor at its original global bounds, then let its
+        // bounds/corners expand to the native host. No second editor or snapshot.
+        host.show();horizontal.rebase((host.width-oldWidth)/2);vertical.rebase((host.height-oldHeight)/2);breadth.rebase(oldWidth);depth.rebase(oldHeight)
+        host.raise();host.requestActivate();Qt.callLater(()=>{if(root.shown&&body)body.forceActiveFocus()})
     }
     function releasePopout(){
         if(!popout)return

@@ -1,5 +1,9 @@
 # Road to 1.0
 
+Current frontend coverage and remaining acceptance are tracked in
+[fluid-parity.md](fluid-parity.md). The 0.10 preview is GTK-free; the legacy source
+is retained as the reference until full acceptance.
+
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 0.9 is an early-access milestone, not a completed 1.0 release.
 
@@ -157,3 +161,19 @@ Remaining work:
 The 0.9 tag remains the reference until the full parity and target-desktop gates
 pass. See ui-migration.md, fluid-validation.md and RELEASE-CHECKLIST.md for exact
 wiring, evidence and the original twenty acceptance criteria.
+
+## Fluid feedback and keyboard accessibility
+
+- Center/pad button contents, preserving aligned navigation labels and compact rows.
+- Give all app menus/dialogs explicit themed bounds, rounded surfaces and spring
+  entrance/exit; create editor context menus only on demand and release them.
+- Restore pointer-opened inbox actions and add Shift+F10/Menu-key equivalents,
+  selection-aware editing actions and accessible text-editor names.
+- Animate pop-out handoff using the same document/session and native host, retaining
+  Windows decorations and Linux compositor control.
+- Close outgoing inline replies on conversation changes through Ask/Manual/Save-on-close;
+  keep unsaved text if Ask is declined and leave detached composition independent.
+
+These advance the keyboard/focus and UI hardening priorities. Full accessibility,
+live desktop acceptance and the remaining authoring/Drive/resource gates above
+remain open.

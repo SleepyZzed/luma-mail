@@ -39,7 +39,7 @@ Rectangle {
     MouseArea{anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:event=>{if(event.button===Qt.RightButton)context.open();else root.preview()}}
     FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:root.removable?"close":"download";tip:root.removable?"Remove attachment":"Save attachment to folder";visible:root.attachment.kind!=="drive"||root.removable;onClicked:{if(root.removable)root.removeRequested();else AttachmentViewer.save(root.parameters(),root.attachment.name)}}
     FluidMenu{id:context
-        MenuItem{text:root.attachment.kind==="drive"?"Open Drive link":"Preview";onTriggered:root.preview()}
-        MenuItem{text:"Save to folder…";visible:root.attachment.kind!=="drive";height:visible?implicitHeight:0;onTriggered:AttachmentViewer.save(root.parameters(),root.attachment.name)}
+        FluidMenuItem{text:root.attachment.kind==="drive"?"Open Drive link":"Preview";onTriggered:root.preview()}
+        FluidMenuItem{text:"Save to folder…";visible:root.attachment.kind!=="drive";height:visible?implicitHeight:0;onTriggered:AttachmentViewer.save(root.parameters(),root.attachment.name)}
     }
 }

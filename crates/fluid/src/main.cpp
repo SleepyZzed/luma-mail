@@ -37,6 +37,7 @@ void startThreadSmoke(Bridge*,QQuickWindow*);
 void startPopoutSmoke(Bridge*,QQuickWindow*);
 void startAuthSmoke(Bridge*,QQuickWindow*);
 void startRecoverySmoke(Bridge*,QQuickWindow*);
+void startPopupSmoke(Bridge*,QQuickWindow*);
 void startAttachmentSmoke(Bridge*,AttachmentPreview*,QQuickWindow*);
 
 int main(int argc,char**argv){
@@ -98,6 +99,7 @@ int main(int argc,char**argv){
     if(preview&&app.arguments().contains("--resource-test"))startResourceSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--signature-test"))startSignatureSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--navigation-test"))startNavigationSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--popup-test"))startPopupSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--auth-test"))startAuthSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--recovery-test"))startRecoverySmoke(&bridge,window);
     if(preview&&app.arguments().contains("--popout-test"))startPopoutSmoke(&bridge,window);

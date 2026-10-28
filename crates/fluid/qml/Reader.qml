@@ -101,7 +101,7 @@ Item {
                     }
                     Item{width:parent.width;height:Math.max(0,detailHeight.value);clip:true;visible:height>0
                         Motion{id:detailHeight;target:message.detailsOpen?detailLoader.implicitHeight:0;enabled:Theme.motion}
-                        Loader{id:detailLoader;width:parent.width;active:message.detailsOpen||detailHeight.running||detailHeight.value>0;sourceComponent:TextArea{objectName:"messageDetails-"+message.item.id;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;padding:Theme.unit(12);font.pixelSize:Theme.unit(11);color:Theme.muted;background:Rectangle{color:Theme.surface;radius:Theme.unit(12)}
+                        Loader{id:detailLoader;width:parent.width;active:message.detailsOpen||detailHeight.running||detailHeight.value>0;sourceComponent:FluidTextArea{objectName:"messageDetails-"+message.item.id;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;padding:Theme.unit(12);font.pixelSize:Theme.unit(11);color:Theme.muted;background:Rectangle{color:Theme.surface;radius:Theme.unit(12)}
                             text:"From: "+(message.item.from||"")+"\nTo: "+(message.item.to||"")+(message.item.cc?"\nCc: "+message.item.cc:"")+(message.item.bcc?"\nBcc: "+message.item.bcc:"")+(message.item.replyTo?"\nReply-To: "+message.item.replyTo:"")+(message.item.sentDate?"\nDate: "+message.item.sentDate:"")+(message.item.messageId?"\nMessage-ID: "+message.item.messageId:"")
                         }}
                     }
@@ -154,7 +154,7 @@ Item {
                                 Connections{target:htmlLoader.item;function onImplicitHeightChanged(){htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;root.followingMessage="";scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
                                 Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active&&!message.item.documentError}
                             }
-                            TextArea {
+                            FluidTextArea{
                                 id:plainText;objectName:"readBody-"+message.item.id
                                 visible:!message.hasHtml;height:visible?implicitHeight:0
                                 width:parent.width;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText
