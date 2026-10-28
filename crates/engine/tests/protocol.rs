@@ -789,3 +789,56 @@ fn conflict_review_requires_current_choices_and_opens_only_an_unsaved_copy() {
     assert!(!c.root.path().join("config/composer").exists());
     assert!(!c.root.path().join("cache/bodies").exists());
 }
+
+#[test]
+fn online_signature_edits_are_ephemeral_and_quit_waits_for_an_explicit_choice() {
+    let mut c = Client::new();
+    c.until("ready");
+    c.send(1, "signatureOpen", json!({"account":"preview"}));
+    let opened = c.until("signatureOpened");
+    let session = opened["session"].clone();
+    assert_eq!(opened["editable"], true);
+    c.send(
+        2,
+        "signatureUpdate",
+        json!({"session":session,"dirty":true}),
+    );
+    c.send(3, "composePrepareQuit", json!({}));
+    let question = c.until("signatureCloseQuestion");
+    assert_eq!(question["quit"], true);
+    c.send(4, "signatureKeepEditing", json!({"session":session}));
+    c.until("quitCancelled");
+    c.send(5,"signatureSave",json!({"session":session,"html":"<p style=\"color:#123abc\"><b>Name</b></p><script>bad()</script>"}));
+    let saved = c.until("signatureSaved");
+    assert!(!saved["html"].as_str().unwrap().contains("<script"));
+    assert!(saved["html"].as_str().unwrap().contains("#123abc"));
+    assert_eq!(saved["preview"], true);
+    c.until("signatureStatus");
+    c.send(
+        6,
+        "signatureUploadPicture",
+        json!({"session":session,"path":"must-not-open-this-file","publicConfirmed":false}),
+    );
+    let error = c.expect_error(6);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("Confirm public")
+    );
+    c.send(
+        7,
+        "signatureClose",
+        json!({"session":session,"dirty":false}),
+    );
+    c.until("signatureClosed");
+    c.send(
+        8,
+        "signatureUpdate",
+        json!({"session":session,"dirty":true}),
+    );
+    c.expect_error(8);
+    assert!(!c.root.path().join("config/signatures.json").exists());
+    assert!(!c.root.path().join("config/composer").exists());
+    assert!(!c.root.path().join("cache/bodies").exists());
+}

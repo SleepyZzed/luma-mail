@@ -96,7 +96,10 @@ Item {
                             HtmlSurface{
                                 id:htmlHost;width:parent.width;implicitHeight:message.hasHtml?lastHeight:0;height:implicitHeight;visible:message.hasHtml
                                 property real lastHeight:Theme.unit(80)
-                                property bool inView:viewportHeight>0
+                                property bool inView:false
+                                function updateVisibility(){inView=viewportHeight>0}
+                                onViewportChanged:Qt.callLater(updateVisibility)
+                                Component.onCompleted:Qt.callLater(updateVisibility)
                                 Loader{
                                     id:htmlLoader;anchors.fill:parent;active:message.hasHtml&&message.expanded&&Mail.readerOpen&&!root.projected&&htmlHost.inView&&(message.item.document||"")!==""
                                     source:isWindows?"WindowsReader.qml":"LinuxReader.qml"

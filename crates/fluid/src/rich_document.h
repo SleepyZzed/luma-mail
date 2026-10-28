@@ -7,13 +7,17 @@
 #include <QTextDocument>
 #include <QTimer>
 #include <QVariantMap>
+#include <QImage>
+#include <QHash>
+#include <QUrl>
 #include <QtQmlIntegration>
 
 class PrivateDocument : public QTextDocument {
 public:
     using QTextDocument::QTextDocument;
+    QHash<QUrl,QImage> approvedImages;
 protected:
-    QVariant loadResource(int,const QUrl&) override {return {};}
+    QVariant loadResource(int kind,const QUrl&url) override {return kind==QTextDocument::ImageResource&&approvedImages.contains(url)?QVariant(approvedImages.value(url)):QVariant();}
 };
 class RichDocument : public QObject {
     Q_OBJECT
@@ -56,6 +60,7 @@ public:
     Q_INVOKABLE void foreground(const QColor &colour);
     Q_INVOKABLE void highlight(const QColor &colour);
     Q_INVOKABLE void align(int alignment);
+    Q_INVOKABLE void lineSpacing(qreal multiple);
     Q_INVOKABLE void list(bool numbered);
     Q_INVOKABLE void indent(int direction);
     Q_INVOKABLE bool paragraphBreak();
@@ -63,6 +68,10 @@ public:
     Q_INVOKABLE bool link(const QString &url,const QString &label);
     Q_INVOKABLE void removeLink(const QString &url);
     Q_INVOKABLE void clearFormat();
+    Q_INVOKABLE bool picture(const QString&url,int width=192);
+    Q_INVOKABLE bool picturePreview(const QString&url,const QString&base64);
+    Q_INVOKABLE bool table(int rows,int columns);
+    Q_INVOKABLE bool tableTab(bool backwards=false);
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE bool find(const QString &term,bool backwards=false,bool matchCase=false,bool whole=false);

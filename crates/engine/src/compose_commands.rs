@@ -152,6 +152,9 @@ pub fn prepare(app: &App, c: &Command) -> Result<Prepared> {
 pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> {
     if c.action == "composePrepareQuit" {
         app.quit_pending.store(true, Ordering::SeqCst);
+        if crate::signatures::prepare_quit(app, c.id).await? {
+            return Ok(());
+        }
         let current = app.composer.lock().unwrap().clone();
         if let Some(s) = current.filter(|s| s.active()) {
             if c.data["form"].is_object() && s.data.lock().unwrap().phase.writable() {

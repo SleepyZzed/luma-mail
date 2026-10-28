@@ -6,6 +6,8 @@
 #include <QTextList>
 #include <QTextTable>
 #include <QUrl>
+#include <QBuffer>
+#include <QImageReader>
 #include <algorithm>
 #include <memory>
 
@@ -52,6 +54,7 @@ void RichDocument::toggle(const QString &style){
     else if(style=="strike")f.setFontStrikeOut(!currentFormat().fontStrikeOut());
     else if(style=="super")f.setVerticalAlignment(currentFormat().verticalAlignment()==QTextCharFormat::AlignSuperScript?QTextCharFormat::AlignNormal:QTextCharFormat::AlignSuperScript);
     else if(style=="sub")f.setVerticalAlignment(currentFormat().verticalAlignment()==QTextCharFormat::AlignSubScript?QTextCharFormat::AlignNormal:QTextCharFormat::AlignSubScript);
+    else if(style=="code"){const bool mono=currentFormat().font().fixedPitch();f.setFontFamilies({QFontDatabase::systemFont(mono?QFontDatabase::GeneralFont:QFontDatabase::FixedFont).family()});f.setFontFixedPitch(!mono);}
     else return;apply(f);
 }
 void RichDocument::family(const QString &name){if(name.isEmpty()||name.size()>128||!fonts().contains(name))return;QTextCharFormat f;f.setFontFamilies({name});apply(f);}
@@ -61,7 +64,28 @@ void RichDocument::highlight(const QColor &colour){if(!colour.isValid())return;Q
 void RichDocument::align(int alignment){
     if(readOnly)return;
     if(alignment!=Qt::AlignLeft&&alignment!=Qt::AlignRight&&alignment!=Qt::AlignCenter&&alignment!=Qt::AlignJustify)return;
-    checkpoint();rich=true;auto c=cursor();auto f=c.blockFormat();f.setAlignment(Qt::Alignment(alignment));c.mergeBlockFormat(f);checkpoint();emit placeCursor(start,end);
+    checkpoint();rich=true;auto c=cursor();QTextBlockFormat f;f.setAlignment(Qt::Alignment(alignment));c.mergeBlockFormat(f);checkpoint();emit placeCursor(start,end);
+}
+void RichDocument::lineSpacing(qreal multiple){if(readOnly||!qIsFinite(multiple)||multiple<1||multiple>3)return;checkpoint();rich=true;auto c=cursor();QTextBlockFormat format;format.setLineHeight(multiple*100,QTextBlockFormat::ProportionalHeight);c.mergeBlockFormat(format);checkpoint();emit placeCursor(start,end);}
+bool RichDocument::picturePreview(const QString&source,const QString&encoded){
+    const QUrl url(source);if(url.scheme()!="https"||url.host().isEmpty()||!url.userInfo().isEmpty()||source.size()>8192||encoded.size()>3*1024*1024)return false;
+    if(!doc->approvedImages.contains(url)&&doc->approvedImages.size()>=8){emit error("This editor retains at most eight picture previews. Reopen it to load different pictures.");return false;}
+    auto bytes=QByteArray::fromBase64(encoded.toLatin1(),QByteArray::AbortOnBase64DecodingErrors);if(bytes.isEmpty()||bytes.size()>2*1024*1024)return false;
+    QBuffer buffer(&bytes);buffer.open(QIODevice::ReadOnly);QImageReader reader(&buffer);const auto dimensions=reader.size();if(!dimensions.isValid()||dimensions.width()>768||dimensions.height()>576)return false;
+    reader.setScaledSize(dimensions.scaled(256,192,Qt::KeepAspectRatio));auto image=reader.read();if(image.isNull())return false;
+    const auto before=mute;mute=true;doc->approvedImages[url]=image;doc->addResource(QTextDocument::ImageResource,url,image);doc->markContentsDirty(0,doc->characterCount());mute=before;return true;
+}
+bool RichDocument::picture(const QString&source,int width){
+    const QUrl url(source);if(readOnly||url.scheme()!="https"||url.host().isEmpty()||!url.userInfo().isEmpty()||source.size()>8192)return false;
+    checkpoint();rich=true;auto c=cursor();QTextImageFormat image;image.setName(url.toString(QUrl::FullyEncoded));image.setWidth(std::clamp(width,16,768)*scale);const auto preview=doc->approvedImages.value(url);if(!preview.isNull())image.setHeight(image.width()*preview.height()/preview.width());c.insertImage(image);position=start=end=c.position();checkpoint();emit placeCursor(position,position);return true;
+}
+bool RichDocument::table(int rows,int columns){
+    if(readOnly||rows<1||rows>10||columns<1||columns>10)return false;checkpoint();rich=true;auto c=cursor();QTextTableFormat format;format.setBorder(1);format.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);format.setCellPadding(5*scale);format.setCellSpacing(0);format.setWidth(QTextLength(QTextLength::PercentageLength,100));c.insertTable(rows,columns,format);position=start=end=c.position();checkpoint();emit placeCursor(position,position);return true;
+}
+bool RichDocument::tableTab(bool backwards){
+    if(readOnly)return false;auto c=cursor();auto table=c.currentTable();if(!table)return false;auto cell=table->cellAt(c);int next=cell.row()*table->columns()+cell.column()+(backwards?-1:1);if(next<0)return false;
+    if(next>=table->rows()*table->columns()){if(table->rows()>=10)return true;checkpoint();table->appendRows(1);checkpoint();}
+    const auto target=table->cellAt(next/table->columns(),next%table->columns());position=start=end=target.firstCursorPosition().position();emit placeCursor(position,position);return true;
 }
 void RichDocument::list(bool numbered){
     if(readOnly)return;checkpoint();rich=true;auto c=cursor();c.beginEditBlock();
@@ -121,6 +145,7 @@ void RichDocument::scaleFonts(QTextDocument *document,qreal ratio)const {
         for(auto i=b.begin();!i.atEnd();++i){const auto fragment=i.fragment();if(!fragment.isValid())continue;
             auto f=fragment.charFormat();if(f.fontPointSize()>0)f.setFontPointSize(f.fontPointSize()*ratio);
             else if(f.font().pixelSize()>0){auto font=f.font();font.setPixelSize(qRound(font.pixelSize()*ratio));f.setFont(font,QTextCharFormat::FontPropertiesSpecifiedOnly);}
+            if(f.isImageFormat()){auto image=f.toImageFormat();if(image.width()>0)image.setWidth(image.width()*ratio);if(image.height()>0)image.setHeight(image.height()*ratio);f=image;}
             changes.append({fragment.position(),fragment.length(),f});
         }
         QTextCursor c(b);auto f=c.blockFormat();f.setLeftMargin(f.leftMargin()*ratio);f.setRightMargin(f.rightMargin()*ratio);f.setTopMargin(f.topMargin()*ratio);f.setBottomMargin(f.bottomMargin()*ratio);c.setBlockFormat(f);

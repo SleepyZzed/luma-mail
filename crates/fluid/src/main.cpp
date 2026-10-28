@@ -32,6 +32,7 @@ void startNavigationSmoke(Bridge*,QQuickWindow*);
 void startSearchSmoke(Bridge*,QQuickWindow*);
 void startConflictSmoke(Bridge*,QQuickWindow*);
 void startResourceSmoke(Bridge*,QQuickWindow*);
+void startSignatureSmoke(Bridge*,QQuickWindow*);
 void startAttachmentSmoke(Bridge*,AttachmentPreview*,QQuickWindow*);
 
 int main(int argc,char**argv){
@@ -58,7 +59,7 @@ int main(int argc,char**argv){
     engine.addImageProvider("attachment",new PreviewImageProvider(attachmentPreview.pixels()));
     engine.rootContext()->setContextProperty("AttachmentViewer",&attachmentPreview);
 #ifdef LUMA_WEBENGINE
-    engine.rootContext()->setContextProperty("ReaderProfile",createReaderProfile(&engine));
+    engine.rootContext()->setContextProperty("ReaderProfiles",new ReaderProfiles(&engine));
 #endif
     auto profiles=new ProfileImages;engine.addImageProvider("profiles",profiles);bridge.setProfileImages(profiles);
     engine.rootContext()->setContextProperty("Mail",&bridge);
@@ -83,6 +84,7 @@ int main(int argc,char**argv){
     if(preview&&app.arguments().contains("--search-test"))startSearchSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--conflict-test"))startConflictSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--resource-test"))startResourceSmoke(&bridge,window);
+    if(preview&&app.arguments().contains("--signature-test"))startSignatureSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--navigation-test"))startNavigationSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--attachment-test"))startAttachmentSmoke(&bridge,&attachmentPreview,window);

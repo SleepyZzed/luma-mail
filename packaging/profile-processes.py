@@ -80,6 +80,7 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
         family |= added
     pss = rss = private = cpu = count = unreadable_pss = 0
     current = {}
+    members = []
     now = time.monotonic()
     for pid in family:
         if pid not in stats:
@@ -103,14 +104,22 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
         rss += values.get('Rss', 0)
         private += values.get('Private_Clean', 0)+values.get('Private_Dirty', 0)
         current[(pid, birth)] = (ticks, now)
+        member_cpu=0.0
         if (pid, birth) in previous:
             old_ticks, old_time = previous[(pid, birth)]
-            cpu += (ticks-old_ticks)/clock/(now-old_time)*100
+            member_cpu=(ticks-old_ticks)/clock/(now-old_time)*100
+            cpu += member_cpu
+        try:
+            name=(entry/'comm').read_text().strip()[:64]
+        except (FileNotFoundError,PermissionError,ProcessLookupError):
+            name='exited'
+        members.append(dict(id=pid,name=name,rss_mib=round(values.get('Rss',0)/1024,3),
+            pss_mib=round(values.get('Pss',0)/1024,3),private_mib=round((values.get('Private_Clean',0)+values.get('Private_Dirty',0))/1024,3),cpu_one_core_percent=round(member_cpu,3)))
     previous = current
     if count:
         samples.append(dict(seconds=round(now-begin, 2), phase=phase[0],
             settled=now-phase[1]>=5, processes=count, unreadable_pss=unreadable_pss, rss_mib=round(rss/1024, 2),
-            pss_mib=round(pss/1024, 2), private_mib=round(private/1024, 2), cpu_one_core_percent=round(cpu, 3)))
+            pss_mib=round(pss/1024, 2), private_mib=round(private/1024, 2), cpu_one_core_percent=round(cpu, 3),members=members))
     if now-begin > duration:
         if attached:
             break
@@ -119,7 +128,7 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
 code = process.wait(timeout=5) if process else 0
 if code or not samples or errors:
     raise SystemExit(f'Performance fixture failed: exit={code}, samples={len(samples)}, errors={errors}, recent output={diagnostics}')
-report = dict(description='Release AppImage plus all descendant renderer/helper processes. RSS double-counts shared mappings; PSS apportions them. CPU is percentage of one core, sampled once per second. Synthetic fixtures, no live sync/network or real GPU compositor; targets are goals, not enforced caps.',
+report = dict(description=('Release Qt host/debug engine' if not attached and fluid else 'Release AppImage')+' plus all descendant renderer/helper processes. RSS double-counts shared mappings; PSS apportions them. CPU is percentage of one core, sampled once per second. Synthetic fixtures, no live sync/network or real GPU compositor; targets are goals, not enforced caps.',
     machine=dict(kernel=os.uname().release, cpu_count=os.cpu_count()), phases={}, samples=samples)
 for name in dict.fromkeys(s['phase'] for s in samples):
     subset = [s for s in samples if s['phase']==name and s['settled']]

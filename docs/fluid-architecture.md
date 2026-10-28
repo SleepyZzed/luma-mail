@@ -122,3 +122,22 @@ it. Resolution creates a separate unsaved composer with a new Message-ID and
 explicit field/attachment choices. It never writes or deletes a Gmail draft by
 itself. The original remains online. Unsupported merged HTML retains source mode
 until the user explicitly converts it.
+
+The online signature editor uses the existing provider-neutral SignatureStore,
+with a single server baseline held in RAM and a native text document created
+only while its sheet is open. Initial HTML is retained verbatim until explicit
+visual conversion/editing. Save checks the current Gmail baseline; typing never
+persists. Hosted-image loading is explicit, anonymous and cancellable. Native
+previews accept at most eight approved HTTPS images, each decoded no larger than
+256x192 (1.5 MiB pixels total), without direct document network/file loading.
+Local pictures are optimized in RAM and uploaded through core only after public
+link visibility is confirmed. No signature or picture sidecar is written. Quit
+waits for active operations and asks about unsaved signature edits before proceeding
+to the normal Gmail-draft close policy.
+
+Linux's browser profile is now acquired by visible HTML adapters and retired
+one second after the last adapter closes, rather than constructed at startup.
+Its privacy configuration is unchanged. The memory effect is an experiment
+pending Linux process-tree measurements; the baseline software-rendered CI
+measurement misses the resource goals. Per-process counters accompany aggregate
+PSS so UI/engine/renderer costs can be distinguished.

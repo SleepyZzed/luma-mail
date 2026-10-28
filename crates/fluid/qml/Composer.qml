@@ -49,7 +49,7 @@ Item {
     readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
     visible:shown||moving;clip:true;z:70
     property bool externalModal:false
-    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible
+    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||findDialog.visible||historyDialog.visible||formatMenu.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
     Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&!drag.active}
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&!drag.active}
@@ -178,10 +178,18 @@ Item {
         MenuItem{text:"Strikethrough";onTriggered:rich.toggle("strike")}
         MenuItem{text:"Superscript";onTriggered:rich.toggle("super")}
         MenuItem{text:"Subscript";onTriggered:rich.toggle("sub")}
+        MenuItem{text:"Code font";onTriggered:rich.toggle("code")}
+        FluidMenu{title:"Line spacing"
+            MenuItem{text:"Single";onTriggered:rich.lineSpacing(1)}
+            MenuItem{text:"1.15";onTriggered:rich.lineSpacing(1.15)}
+            MenuItem{text:"1.5";onTriggered:rich.lineSpacing(1.5)}
+            MenuItem{text:"Double";onTriggered:rich.lineSpacing(2)}
+        }
         MenuSeparator{}
         MenuItem{text:"Align left";onTriggered:rich.align(Qt.AlignLeft)}
         MenuItem{text:"Align centre";onTriggered:rich.align(Qt.AlignCenter)}
         MenuItem{text:"Align right";onTriggered:rich.align(Qt.AlignRight)}
+        MenuItem{text:"Justify";onTriggered:rich.align(Qt.AlignJustify)}
         MenuItem{text:"Indent";onTriggered:rich.indent(1)}
         MenuItem{text:"Outdent";onTriggered:rich.indent(-1)}
         MenuItem{text:"Clear formatting";onTriggered:rich.clearFormat()}

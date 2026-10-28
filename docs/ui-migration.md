@@ -140,8 +140,15 @@ installed/runtime bytes; spring support is not a 60-fps performance guarantee.
   controllers, and inactive readers explicitly release their controller. Native
   checks assert one live controller and zero after hide/close; process-tree
   resource measurements are a separate gate.
-- Pending: full visual signature editing, remaining rich-text/forwarding and
-  layout flows, final lifecycle/resource hardening, two-account acceptance,
+- Online signatures now have a lazy native editor: installed fonts, colours,
+  lists, paragraph formatting, tables, hosted pictures and explicit public-Drive
+  image-copy approval. Source remains intact until visual editing is selected.
+  Provider-neutral SignatureStore guards the Gmail baseline; typing never saves.
+  Close/quit coordinates save/discard, and closing destroys the document, previews
+  and bounded undo history. Windows native and private-pipe synthetic tests pass;
+  real Gmail/recipient-image acceptance remains required.
+- Pending: remaining rich-text/forwarding and layout flows, final
+  lifecycle/resource hardening, two-account acceptance,
   Linux packaging and sustained resource audits. The preview has incomplete
   controls and must not replace 0.9 yet.
 

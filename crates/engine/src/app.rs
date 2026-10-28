@@ -48,6 +48,7 @@ pub struct App {
     pub auth_busy: Arc<AtomicBool>,
     pub recent: luma_core::local_compose::Store,
     pub composer: Mutex<Option<Arc<crate::compose::Session>>>,
+    pub signatures: Arc<crate::signatures::Service>,
     pub compose_start: tokio::sync::Mutex<()>,
     pub photos: Arc<crate::photos::Service>,
     pub reader_assets: Mutex<crate::reader::Assets>,
@@ -142,6 +143,7 @@ impl App {
             auth_busy: Arc::new(AtomicBool::new(false)),
             recent,
             composer: Mutex::new(None),
+            signatures: Default::default(),
             compose_start: tokio::sync::Mutex::new(()),
             photos: Arc::new(crate::photos::Service::default()),
             reader_assets: Mutex::new(crate::reader::Assets::default()),
@@ -207,6 +209,16 @@ impl App {
         }
     }
     pub fn dispatch(self: Arc<Self>, command: Command) {
+        if command.action == "signatureUpdate" || command.action == "signatureCancelUpload" {
+            if let Err(error) = self.signatures.input(&command) {
+                let events = self.events.clone();
+                let id = command.id;
+                tokio::spawn(async move {
+                    events.error(id, &error.to_string()).await;
+                });
+            }
+            return;
+        }
         if command.action == "attachmentSaveCancel" {
             self.attachment_preview.cancel_save(command.text("token"));
             return;
@@ -325,6 +337,9 @@ impl App {
         let task = tokio::spawn(async move {
             let _permit = permit;
             let result = async {
+                if command.action.starts_with("signature") {
+                    return crate::signatures::run(&owner, &command).await;
+                }
                 if let Some(prepared) = compose_prepared {
                     return crate::compose_commands::run(&owner, &command, prepared?).await;
                 }

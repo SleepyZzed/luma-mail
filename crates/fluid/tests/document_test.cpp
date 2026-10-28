@@ -3,9 +3,24 @@
 #include <QtTest>
 #include <QTextBlock>
 #include <QTextList>
+#include <QTextTable>
+#include <QBuffer>
 class DocumentTest:public QObject {
     Q_OBJECT
 private slots:
+    void paragraphFormattingKeepsIndependentIndentation(){
+        RichDocument d;d.load({{"kind","plain"},{"text","First\nSecond"}});auto doc=d.nativeDocument();auto first=doc->begin();auto second=first.next();QTextCursor a(first),b(second);QTextBlockFormat af,bf;af.setLeftMargin(24);bf.setLeftMargin(48);a.setBlockFormat(af);b.setBlockFormat(bf);d.selection(0,doc->characterCount()-1,0);d.align(Qt::AlignRight);d.lineSpacing(1.5);QCOMPARE(first.blockFormat().leftMargin(),qreal(24));QCOMPARE(second.blockFormat().leftMargin(),qreal(48));QCOMPARE(second.blockFormat().lineHeight(),qreal(150));QCOMPARE(second.blockFormat().alignment(),Qt::AlignRight);
+    }
+    void hostedPicturesStayBoundedAndScaleLogically(){
+        RichDocument d;d.load({{"kind","plain"},{"text","Name"}});QImage image(768,576,QImage::Format_ARGB32);image.fill(Qt::cyan);QByteArray png;QBuffer buffer(&png);buffer.open(QIODevice::WriteOnly);QVERIFY(image.save(&buffer,"PNG"));const auto data=QString::fromLatin1(png.toBase64());
+        QVERIFY(!d.picture("file:///private/picture.png"));QVERIFY(!d.picturePreview("file:///private/picture.png",data));
+        for(int i=0;i<8;++i)QVERIFY(d.picturePreview("https://example.com/"+QString::number(i)+".png",data));QVERIFY(!d.picturePreview("https://example.com/ninth.png",data));
+        QVERIFY(d.picture("https://example.com/0.png",192));const auto before=d.html();QVERIFY(before.contains("width=\"192\""));d.setUiScale(1.5);QVERIFY(d.html().contains("width=\"192\""));QVERIFY(!d.html().contains("data:image"));
+        auto resource=d.nativeDocument()->resource(QTextDocument::ImageResource,QUrl("https://example.com/0.png"));QVERIFY(resource.value<QImage>().width()<=256);QVERIFY(resource.value<QImage>().height()<=192);
+    }
+    void tableNavigationIsBoundedAndUndoable(){
+        RichDocument d;d.load({{"kind","plain"},{"text","Hello"}});QVERIFY(!d.table(100,100));QVERIFY(d.table(1,2));auto table=QTextCursor(d.nativeDocument()->begin()).currentTable();QVERIFY(d.html().contains("<table"));QVERIFY(d.tableTab());QVERIFY(d.tableTab());QVERIFY(d.tableTab(true));d.undo();QVERIFY(d.undoBytes()<=1024*1024);Q_UNUSED(table);
+    }
     void receivedLinksAreLiteralSafeAndSelectionCompatible(){
         ReadDocument reader;const QString source=QString::fromUtf8("<b>literal</b> 🙂 https://example.com and mail@example.com");reader.setSource(source);
         const auto start=source.indexOf("https://");reader.setSpans({QVariantMap{{"start",start},{"end",start+19},{"url","https://example.com"}},QVariantMap{{"start",0},{"end",3},{"url","file:///private"}}});reader.setLinkColour(QColor("#82b5ff"));

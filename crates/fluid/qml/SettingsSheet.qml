@@ -12,6 +12,7 @@ Item {
     function moveAccount(id,offset){let ids=(Mail.settings.accounts||[]).map(a=>a.id);const index=ids.indexOf(id),target=index+offset;if(index<0||target<0||target>=ids.length)return;ids.splice(index,1);ids.splice(target,0,id);Mail.send("accountReorder",{accounts:ids})}
     onOpenedChanged:if(opened){notice="";Mail.send("cacheUsage");updatePhotoStats()}
     signal closeRequested()
+    signal signatureRequested(string account)
     signal confirmationRequested(string heading,string message,string buttonText,string command,var parameters)
     visible:opened||panel.y<height;z:100
     Motion{id:backdrop;target:root.opened?.45:0;epsilon:.002;enabled:Theme.motion}
@@ -57,6 +58,7 @@ Item {
                     FluidButton{text:"Remove account…";onClicked:root.confirmationRequested("Remove account from Luma?","Disconnect "+accountSettings.item.email+" and clear its disposable cache and recent-recipient metadata. Mail and drafts stay in Gmail.","Remove account","accountRemove",{account:accountSettings.item.id,confirmed:true})}
                 }
                 Text{textFormat:Text.PlainText;text:"Allocated account cache: "+((root.accountCache[accountSettings.item.id]||0)/1048576).toFixed(2)+" MiB";color:Theme.faint;font.pixelSize:Theme.unit(10)}
+                FluidButton{text:"Edit online signature";glyph:"compose";enabled:accountSettings.item.enabled!==false&&(accountSettings.item.sender_controls||Mail.preview);tip:"Primary Gmail signature · connect sender controls first";onClicked:root.signatureRequested(accountSettings.item.id)}
                 Column{width:parent.width;spacing:Theme.unit(8);visible:root.rulesAccount===accountSettings.item.id
                     Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"These Gmail filters move future mail to Trash even when Luma is closed. Unblock removes only the unchanged rule Luma created.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
                     ListView{id:rules;width:parent.width;height:Math.min(count,5)*Theme.unit(46);model:accountSettings.item.blocked_senders||[];clip:true;reuseItems:true;cacheBuffer:Theme.unit(46)

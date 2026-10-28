@@ -93,6 +93,7 @@ public:
     Q_INVOKABLE void renderMessage(const QVariantMap&parameters);
     Q_INVOKABLE void openLink(const QString &url);
     Q_INVOKABLE void attachFiles();
+    Q_INVOKABLE void chooseSignaturePicture(const QString&session);
     Q_INVOKABLE void chooseColour(bool background=false);
     Q_INVOKABLE bool interceptImagePaste();
     Q_INVOKABLE void cancelClipboard();
@@ -117,6 +118,7 @@ signals:
     void composeRequested(QString mode); void notification(QVariantMap data);
     void composeFocused();void composeClosed();void composeCloseQuestion(QVariantMap data);
     void flushComposer();void colourChosen(QString colour,bool background);void showRequested();
+    void signaturePictureChosen(QString session,QString path,QString name);
     void clipboardChanged();
     void profileChanged(QString key);void profilesReset();
     void received(QString event,QVariantMap data); void ready();

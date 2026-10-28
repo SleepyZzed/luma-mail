@@ -132,3 +132,13 @@ the replacement now guards construction and explicitly releases inactive readers
 The migration retains the original GTK release until full signature/editor and
 remaining parity, packaging, resource and target-desktop gates pass. See
 ui-migration.md and fluid-validation.md for current evidence and open work.
+
+The native online signature editor is implemented and Windows-tested, including
+font/colour/list/table/picture controls, source protection, public-image upload
+approval and coordinated close/quit policies. No signature/image archive was
+added. Whole-conversation forwarding, remaining layout/editor parity, packaged
+Linux/Windows acceptance and resource hardening still gate the replacement.
+The full Linux software-rendered baseline is 330.8 MiB PSS; resource targets are
+not met. Lazy browser-profile lifetime and detailed process attribution are being
+measured next rather than treating the lower Windows private-working-set result
+as a Linux result.

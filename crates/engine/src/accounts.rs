@@ -219,6 +219,11 @@ pub async fn remove(app: &App, c: &Command) -> Result<()> {
     Ok(())
 }
 fn ensure_composer_closed(app: &App, account: &str) -> Result<()> {
+    if app.signatures.account_active(account) {
+        return Err(Error::Invalid(
+            "Close this account’s signature editor before disconnecting it".into(),
+        ));
+    }
     if let Some(s) = app.composer.lock().unwrap().as_ref() {
         let d = s.data.lock().unwrap();
         if d.form.account.as_deref() == Some(account)

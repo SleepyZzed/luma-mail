@@ -1,6 +1,9 @@
 #include "bridge.h"
 #include <QRegularExpression>
 #include <QUrl>
+#include <QFileDialog>
+#include <QFileInfo>
+void Bridge::chooseSignaturePicture(const QString&session){auto dialog=new QFileDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Choose a signature picture");dialog->setFileMode(QFileDialog::ExistingFile);dialog->setNameFilter("Pictures (*.png *.jpg *.jpeg *.webp *.gif)");dialog->setWindowModality(Qt::ApplicationModal);connect(dialog,&QFileDialog::fileSelected,this,[this,session](const QString&path){emit signaturePictureChosen(session,path,QFileInfo(path).fileName());});dialog->open();}
 QVariantMap Bridge::actionState(const QVariantMap&requested)const{
     QVariantList rows;
     if(!m_selection.isEmpty()){for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))rows.append(row);}}

@@ -16,6 +16,7 @@ mod protocol;
 mod reader;
 mod resident;
 mod search_commands;
+mod signatures;
 mod sync;
 use luma_core::registration;
 

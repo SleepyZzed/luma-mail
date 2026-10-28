@@ -221,3 +221,27 @@ assertions are in validation/fluid-resource-windows.json and
 validation/fluid-resource-lifecycle-windows.json. Linux/real-sync results remain
 separate required gates; no memory trimming API or degraded HTML renderer is used
 to make the measurement appear lower.
+
+At `fefc8b3`, all fluid Linux/Windows CI jobs passed in run 40617034644. The
+Linux scene uses Xvfb plus Openbox so maximize/restore tests run against an actual
+window manager. Its complete software-rendered process-tree audit recorded
+330.8 MiB idle PSS, 338.8 MiB after scrolling and 420.7 MiB with HTML open;
+release returned to 365.3 MiB. Settled CPU was mostly 0.00% at the sample
+resolution, with a 0.062% mean during release. These Linux memory goals are not
+met. The JSON is in validation/fluid-resource-linux.json; the source artifact is
+https://github.com/SleepyZzed/luma-mail/actions/runs/40617034644/artifacts/12785473142.
+The next experiment defers creation of the private Linux browser profile until
+an actual visible HTML reader needs it, releases it after the last view retires,
+and adds per-process counters. Its memory effect is unverified until CI reruns.
+
+The signature checkpoint adds `--design-preview --signature-test` with
+`LUMA_SIGNATURE_REPORT`. Fifteen native Windows checks cover lazy creation,
+original-source protection, public-image approval, selected colour formatting,
+HTTPS picture previews, tables, sanitized preview-only saving, dirty-state updates,
+quit/keep/discard coordination and complete editor release. Its preview transport
+holds saved HTML only in RAM; it never calls Gmail or uploads a real Drive file.
+The engine now passes 28 unit/14 private-pipe tests; document CTest also checks
+picture URL/budget isolation, logical image scaling, table navigation and keeping
+independent paragraph indentation during alignment/line-spacing changes. The
+signature Linux UI checks and profile-lifetime experiment are newly queued CI
+gates, not yet live Gmail or target-desktop acceptance.

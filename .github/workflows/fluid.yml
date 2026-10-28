@@ -171,6 +171,19 @@ jobs:
           name: fluid-conflict-linux
           path: fluid-conflict-linux.json
           if-no-files-found: warn
+      - name: Native online signature editing and close policies
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_SIGNATURE_REPORT: ${{ github.workspace }}/fluid-signature-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --signature-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-signature-linux
+          path: fluid-signature-linux.json
+          if-no-files-found: warn
       - name: Complete synthetic process-tree resource audit
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
@@ -362,6 +375,22 @@ jobs:
           path: |
             fluid-conflict-windows.json
             conflict.stderr
+          if-no-files-found: warn
+      - name: Native online signature editing and close policies
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_SIGNATURE_REPORT="$(cygpath -m "$PWD")/fluid-signature-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --signature-test >signature.stdout 2>signature.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-signature-windows
+          path: |
+            fluid-signature-windows.json
+            signature.stderr
           if-no-files-found: warn
       - name: Complete synthetic process-tree resource audit
         shell: pwsh
