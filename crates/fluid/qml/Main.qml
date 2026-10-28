@@ -92,7 +92,7 @@ ApplicationWindow {
         }
         function onComposeRequested(mode){
             if(composer.detached)composer.returnHome(false)
-            composer.openingSurface=composer.visible
+            composer.openingSurface=composer.presenting
             const key=Mail.composer.key,reading=Mail.reader.key
             if((mode==="reply"||mode==="replyAll"||mode==="forward"||mode==="forwardAll")&&key&&reading&&key.id===reading.id&&key.account===reading.account)reader.dockInline(composer)
             else{composer.inlineDock=null;if(composer.parent!==scene)composer.floatToScene();composer.inlineMode=false}

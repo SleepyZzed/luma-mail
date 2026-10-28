@@ -1,6 +1,7 @@
 // Native synthetic smoke through the real QML form, bridge and Rust child.
 #include "bridge.h"
 #include "rich_document.h"
+#include "motion.h"
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QKeyEvent>
@@ -39,6 +40,11 @@ public:
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(300,this,[this]{
             auto shell=window->findChild<QQuickItem*>("composer");check("idle composer has no rich document or editor controls",shell&&!shell->property("controlsLoaded").toBool()&&!window->findChild<RichDocument*>("composeDocument")&&!window->findChild<QQuickItem*>("composeBody"));
             auto button=window->findChild<QQuickItem*>("newMessageButton");if(!button||!button->isVisible()){check("native compose button is available",false);finish();return;}
+            // Reproduce a parked/offscreen spring still moving after a window
+            // resize. Such idle motion must not suppress a new opening morph.
+            const auto springs=shell?shell->findChildren<Motion*>(QString(),Qt::FindDirectChildrenOnly):QList<Motion*>();
+            if(!springs.isEmpty())springs.first()->rebase(springs.first()->value()-20);
+            check("parked offscreen animation is not an already-open composer",shell&&!springs.isEmpty()&&shell->isVisible()&&!shell->property("presenting").toBool());
             auto form=window->findChild<QQuickItem*>("composeControlsLoader");
             if(shell&&form){connect(form,&QQuickItem::widthChanged,this,[this]{if(opening)++formResizes;});connect(shell,&QQuickItem::widthChanged,this,[this]{if(opening)++cardResizes;});}
             openingClock.start();opening=true;

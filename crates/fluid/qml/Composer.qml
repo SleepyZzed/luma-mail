@@ -71,6 +71,9 @@ Item {
     readonly property real goalX:detached&&!statusMode?0:inlineMode?0:statusMode?scene.width-goalWidth-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.width-goalWidth-Theme.unit(12),floatingPosition.x)):scene.width-goalWidth-Theme.unit(24)
     readonly property real goalY:detached&&shown&&!statusMode?0:inlineMode?0:!shown?scene.height+Theme.unit(24):statusMode?scene.height-goalHeight-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.height-goalHeight-Theme.unit(12),floatingPosition.y)):scene.height-goalHeight-Theme.unit(24)
     readonly property bool moving:horizontal.running||vertical.running||breadth.running||depth.running
+    // Idle window/layout changes can animate the parked card off screen. Only
+    // an opened card or an actual closing transition is a surface to continue.
+    readonly property bool presenting:shown||(closingPending&&visible)
     onMovingChanged:if(closingPending&&!shown&&!moving)Qt.callLater(()=>releaseDelay.restart())
     readonly property bool recipientSuggestionsOpen:!!to?.suggestionsOpen||!!cc?.suggestionsOpen||!!bcc?.suggestionsOpen
     visible:shown||moving;clip:true;z:70
@@ -389,7 +392,7 @@ Item {
     function focusEditor(){if(detached)Mail.activateWindow(popout);Qt.callLater(()=>{if(!shown||!controlsLoaded)return;if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
     function open(mode){
         ensureControls()
-        const activeSurface=openingSurface===undefined?visible:openingSurface;openingSurface=undefined
+        const activeSurface=openingSurface===undefined?presenting:openingSurface;openingSurface=undefined
         closingPending=false;sendSubmitted=false;sendAcknowledged=false;modePending=false;inlineToken="";releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
         if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
@@ -403,7 +406,7 @@ Item {
     }
     function floatToScene(){const at=mapToItem(scene,0,0);parent=scene;inlineMode=false;manualPosition=false;horizontal.rebase(at.x);vertical.rebase(at.y)}
     function dockTo(dock){
-        const activeSurface=openingSurface===undefined?visible:openingSurface
+        const activeSurface=openingSurface===undefined?presenting:openingSurface
         const at=mapToItem(dock,0,0);inlineDock=dock;parent=dock;inlineMode=true
         if(activeSurface){horizontal.rebase(at.x);vertical.rebase(at.y)}
         else{horizontal.snap(0);vertical.snap(0);breadth.snap(dock.width);depth.snap(0);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}

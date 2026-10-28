@@ -29,6 +29,8 @@ The composer now lays out its controls at the destination dimensions while the
 card's spring-driven bounds clip/reveal them. Previously those controls inherited
 the changing card dimensions and repeatedly reflowed during opening and expansion.
 The editor is still created on demand and destroyed after closing settles.
+Parked/offscreen layout motion does not count as an already-open composer;
+opening still starts its morph even during a window-layout transition.
 
 Coverage includes native background pixels and clipping without viewport resize,
 startup visibility, measured-height readiness, stale image cancellation, bounded
