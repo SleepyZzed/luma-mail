@@ -76,6 +76,7 @@ Item {
         Motion{id:dropPresence;target:fileDrop.containsDrag?.95:0;epsilon:.002;enabled:Theme.motion&&root.hostVisible}
         Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:"Drop files to attach";color:Theme.text;font.pixelSize:Theme.unit(20);font.weight:Font.DemiBold}
     }
+    component FormatButton:FluidButton {enabled:!root.locked}
     component Field:TextField {
         Accessible.name:placeholderText
         color:Theme.text;placeholderTextColor:Theme.faint;selectByMouse:true;font.pixelSize:Theme.unit(12)
@@ -122,20 +123,20 @@ Item {
         Rectangle{height:1;width:parent.width;color:Theme.outline}
         Field{id:subject;objectName:"composeSubject";width:parent.width;height:Theme.unit(38);placeholderText:"Subject";font.weight:Font.DemiBold;KeyNavigation.tab:body;KeyNavigation.backtab:bcc.visible?bcc:cc.visible?cc:to}
         Rectangle{height:1;width:parent.width;color:Theme.outline}
-        Flickable{width:parent.width;height:Theme.unit(38);contentWidth:tools.width;clip:true;boundsBehavior:Flickable.StopAtBounds;enabled:!root.locked
+        Flickable{width:parent.width;height:Theme.unit(38);contentWidth:tools.width;clip:true;boundsBehavior:Flickable.StopAtBounds;enabled:!root.state.locked
             Row{id:tools;spacing:Theme.unit(1);height:parent.height
-                FluidButton{glyph:"bold";tip:"Bold · Ctrl+B";tint:rich.bold?Theme.accent:Theme.text;onClicked:rich.toggle("bold")}
-                FluidButton{glyph:"italic";tip:"Italic · Ctrl+I";tint:rich.italic?Theme.accent:Theme.text;onClicked:rich.toggle("italic")}
-                FluidButton{glyph:"underline";tip:"Underline · Ctrl+U";tint:rich.underline?Theme.accent:Theme.text;onClicked:rich.toggle("underline")}
-                FluidButton{text:"•";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
-                FluidButton{text:"1.";tip:"Numbered paragraphs";onClicked:rich.list(true)}
-                FluidButton{glyph:"link";tip:"Insert hyperlink · Ctrl+K";onClicked:linkDialog.open()}
-                FluidButton{glyph:"attachment";tip:"Attach files";enabled:root.attachmentEditable;onClicked:Mail.attachFiles()}
-                FluidButton{text:"A";tip:"Font colour";onClicked:Mail.chooseColour(false)}
-                FluidButton{text:"▰";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
-                FluidButton{text:"···";tip:"More formatting";onClicked:formatMenu.open()}
-                FluidCombo{width:Theme.unit(126);model:rich.fonts;displayText:rich.fontFamily;onActivated:rich.family(currentText)}
-                FluidCombo{width:Theme.unit(65);model:[8,9,10,11,12,14,16,18,24,32,48,72];currentIndex:3;displayText:Math.round(rich.fontPointSize)+" pt";onActivated:rich.pointSize(Number(currentText))}
+                FormatButton{objectName:"composeBold";glyph:"bold";tip:"Bold · Ctrl+B";tint:rich.bold?Theme.accent:Theme.text;onClicked:rich.toggle("bold")}
+                FormatButton{glyph:"italic";tip:"Italic · Ctrl+I";tint:rich.italic?Theme.accent:Theme.text;onClicked:rich.toggle("italic")}
+                FormatButton{glyph:"underline";tip:"Underline · Ctrl+U";tint:rich.underline?Theme.accent:Theme.text;onClicked:rich.toggle("underline")}
+                FormatButton{text:"•";tip:"Bulleted paragraphs";onClicked:rich.list(false)}
+                FormatButton{text:"1.";tip:"Numbered paragraphs";onClicked:rich.list(true)}
+                FormatButton{glyph:"link";tip:"Insert hyperlink · Ctrl+K";onClicked:linkDialog.open()}
+                FluidButton{objectName:"composeAttachFiles";glyph:"attachment";tip:"Attach files";enabled:root.attachmentEditable&&!root.inputBusy;onClicked:Mail.attachFiles()}
+                FormatButton{text:"A";tip:"Font colour";onClicked:Mail.chooseColour(false)}
+                FormatButton{text:"▰";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
+                FormatButton{text:"···";tip:"More formatting";onClicked:formatMenu.open()}
+                FluidCombo{enabled:!root.locked;width:Theme.unit(126);model:rich.fonts;displayText:rich.fontFamily;onActivated:rich.family(currentText)}
+                FluidCombo{enabled:!root.locked;width:Theme.unit(65);model:[8,9,10,11,12,14,16,18,24,32,48,72];currentIndex:3;displayText:Math.round(rich.fontPointSize)+" pt";onActivated:rich.pointSize(Number(currentText))}
             }
             ScrollBar.horizontal:ScrollBar{implicitHeight:3}
         }

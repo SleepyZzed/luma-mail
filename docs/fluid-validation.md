@@ -32,6 +32,9 @@ LUMA_ENGINE="$PWD/target/debug/luma-engine" \
 ```
 
 On Windows use the corresponding `.exe` paths and environment-variable syntax.
+Build `luma-webview` too, then run `python packaging/webview2-loader.py --binary
+target/debug/luma-engine.exe` to stage the pinned loader required by the GNU
+Windows adapter. Repeat for the release directory before packaging.
 The host creates a temporary isolated preview root unless `LUMA_TEST_ROOT` is
 explicitly supplied. It uses only clearly synthetic Alex Morgan/example.com mail.
 The end-to-end motion test must run in an exposed native window; a hidden or
@@ -508,3 +511,17 @@ parallel PR run. The host now reasserts a remembered hidden window state before
 remapping, avoiding Qt's same-state shortcut. A 64-event synthetic trace records
 visibility/native/cache changes for diagnosis. Windows sync and pop-out checks
 pass; Linux confirmation remains required.
+
+
+The external-HTML draft toolbar now leaves Attach enabled while disabling only
+formatting controls. The form already omits body replacement in source mode, so
+adding files/headers preserves the original HTML until explicit conversion. Two
+new native checks pass (30 composer checks; 260 scene checks in this continuation).
+
+At bbf5d2c, the branch Linux native suite passed, including the tray-restore
+stress test, but packaging stopped at its legacy-library guard. The guard now
+reports actual ELF dependency paths in runtime directories, separating source
+notices from native libraries. The Windows GNU test build now explicitly stages
+the pinned WebView2 loader, includes its Python/inspection tools and saves built
+Rust dependencies before GUI tests. These are fresh-build setup corrections;
+portable CI and live acceptance remain pending.

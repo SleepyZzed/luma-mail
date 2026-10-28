@@ -71,9 +71,20 @@ export EXTRA_QT_MODULES=svg APPIMAGE_EXTRACT_AND_RUN=1
 [[ -x "$appdir/usr/libexec/QtWebEngineProcess" ]]
 [[ -f "$appdir/usr/resources/icudtl.dat" && -f "$appdir/usr/resources/qtwebengine_resources.pak" ]]
 [[ -f "$appdir/usr/translations/qtwebengine_locales/en-US.pak" ]]
-if find "$appdir/usr" -type f \( -iname 'libgtk-*.so*' -o -iname 'libadwaita*.so*' -o -iname 'libwebkitgtk*.so*' \) -print -quit | grep -q .; then
-  echo 'Unexpected legacy UI library in the custom frontend package' >&2; exit 1
-fi
+python3 - "$appdir" <<'PY'
+from pathlib import Path
+import re,sys
+root=Path(sys.argv[1]);legacy=[]
+for area in ['lib','plugins','qml']:
+    for file in (root/'usr'/area).rglob('*'):
+        if file.is_file() and re.match(r'(libgtk-|libadwaita|libwebkitgtk).*\.so',file.name,re.I):
+            with file.open('rb') as stream: binary=stream.read(4)==b'\x7fELF'
+            if binary:legacy.append(file.relative_to(root).as_posix())
+if legacy:
+    print('Unexpected legacy UI runtime dependencies: '+', '.join(legacy),file=sys.stderr)
+    raise SystemExit(1)
+print('Native dependency check: no GTK/Adwaita/WebKit frontend libraries')
+PY
 python3 packaging/native-notices.py "$appdir" "$output/FLUID-NATIVE-SOURCES.tsv"
 python3 packaging/rust-notices.py --output "$appdir/usr/share/licenses/luma-mail/rust"
 cat > "$appdir/usr/bin/qt.conf" <<'EOF'

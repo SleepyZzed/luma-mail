@@ -21,6 +21,14 @@
       "passed": true
     },
     {
+      "check": "preserved HTML keeps formatting read-only while attachments remain usable",
+      "passed": true
+    },
+    {
+      "check": "editable messages restore formatting without changing field focus",
+      "passed": true
+    },
+    {
       "check": "selected formatting produces rich outgoing markup",
       "passed": true
     },

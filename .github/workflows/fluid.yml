@@ -314,13 +314,16 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-binutils
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-qt6-declarative
             mingw-w64-ucrt-x86_64-qt6-svg
             mingw-w64-ucrt-x86_64-qt6-multimedia
             mingw-w64-ucrt-x86_64-qt6-shadertools
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: ucrt_rust_cache
         with:
           path: |
             ~/.cargo/registry
@@ -329,7 +332,18 @@ jobs:
           key: fluid-windows-ucrt-${{ hashFiles('Cargo.lock') }}
       - name: Build the native UCRT engine and HTML adapter
         shell: msys2 {0}
-        run: cargo build --locked -p luma-engine -p luma-webview
+        run: |
+          set -euo pipefail
+          cargo build --locked -p luma-engine -p luma-webview
+          python packaging/webview2-loader.py --binary target/debug/luma-engine.exe
+      - uses: actions/cache/save@v4
+        if: steps.ucrt_rust_cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: fluid-windows-ucrt-${{ hashFiles('Cargo.lock') }}
       - shell: msys2 {0}
         run: |
           set -euo pipefail

@@ -41,6 +41,11 @@ public:
                 QTimer::singleShot(750,this,[this]{
                     auto to=window->findChild<QQuickItem*>("composeTo"),subject=window->findChild<QQuickItem*>("composeSubject"),body=window->findChild<QQuickItem*>("composeBody");
                     check("new compose focuses To",window->activeFocusItem()==to);key(Qt::Key_Tab);check("Tab skips formatting controls to Subject",window->activeFocusItem()==subject);key(Qt::Key_Tab);check("Tab from Subject enters body",window->activeFocusItem()==body);key(Qt::Key_Backtab,Qt::ShiftModifier);check("Shift Tab returns to Subject",window->activeFocusItem()==subject);
+                    const auto original=mail->m_composer;mail->m_composer.remove("document");mail->m_composer.remove("replace");mail->m_composer["sourceMode"]=true;emit mail->composerChanged();
+                    auto attach=window->findChild<QQuickItem*>("composeAttachFiles"),bold=window->findChild<QQuickItem*>("composeBold");
+                    check("preserved HTML keeps formatting read-only while attachments remain usable",body->property("readOnly").toBool()&&attach&&attach->isEnabled()&&bold&&!bold->isEnabled());
+                    mail->m_composer=original;mail->m_composer.remove("document");mail->m_composer.remove("replace");emit mail->composerChanged();
+                    check("editable messages restore formatting without changing field focus",bold&&bold->isEnabled()&&!body->property("readOnly").toBool()&&window->activeFocusItem()==subject);
                     to->setProperty("text","person@example.com");subject->setProperty("text","Synthetic composer test");QTextCursor c(document->nativeDocument());c.insertText("Hello synthetic world");document->selection(0,5,5);document->toggle("bold");
                     check("selected formatting produces rich outgoing markup",document->payload()["html"].toBool()&&document->html().contains("font-weight:700"));
                     if(auto path=qEnvironmentVariable("LUMA_COMPOSER_SCREENSHOT");!path.isEmpty())window->grabWindow().save(path);
