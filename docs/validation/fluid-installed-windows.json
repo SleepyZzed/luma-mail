@@ -1,0 +1,55 @@
+{
+  "schema": 2,
+  "allocation_method": "Win32 FileStandardInfo (no reparse traversal)",
+  "categories": {
+    "installation": {
+      "logical_bytes": 275822634,
+      "allocated_bytes": 278226848,
+      "files": 956,
+      "directories": 395,
+      "links": 0,
+      "top_level": {
+        "LICENSE.txt": {
+          "logical_bytes": 34674,
+          "allocated_bytes": 36864,
+          "files": 1
+        },
+        "START-HERE.md": {
+          "logical_bytes": 4103,
+          "allocated_bytes": 8192,
+          "files": 1
+        },
+        "THIRD-PARTY.json": {
+          "logical_bytes": 82193,
+          "allocated_bytes": 86016,
+          "files": 1
+        },
+        "bin": {
+          "logical_bytes": 264434457,
+          "allocated_bytes": 264745048,
+          "files": 128
+        },
+        "licenses": {
+          "logical_bytes": 4157888,
+          "allocated_bytes": 5911104,
+          "files": 689
+        },
+        "plugins": {
+          "logical_bytes": 5215868,
+          "allocated_bytes": 5271552,
+          "files": 25
+        },
+        "qml": {
+          "logical_bytes": 1766860,
+          "allocated_bytes": 2037000,
+          "files": 110
+        },
+        "source": {
+          "logical_bytes": 126591,
+          "allocated_bytes": 126976,
+          "files": 1
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Item {
     id:root;objectName:"labelDialog";z:170;visible:opened||position.value<height
     property bool opened:false

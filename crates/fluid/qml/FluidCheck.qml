@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 CheckBox {
     id:control;implicitHeight:Theme.unit(32);spacing:Theme.unit(9);leftPadding:0;rightPadding:Theme.unit(8);hoverEnabled:true
     indicator:Rectangle{width:Theme.unit(17);height:width;y:(control.height-height)/2;radius:Theme.unit(5);color:control.checked?Theme.accent:Theme.surface;border.width:1;border.color:control.visualFocus?Theme.accent:control.checked?Theme.accent:Theme.muted

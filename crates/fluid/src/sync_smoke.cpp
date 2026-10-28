@@ -23,7 +23,8 @@ class SyncSmoke:public QObject {
         QTimer::singleShot(150,this,[this]{check("Ctrl click opens one safe received link",openedLinks==QStringList{"https://example.com/review"});mail->clearSelection();auto menu=window->findChild<QObject*>("messageActionsMenu");check("individual-message actions have a dedicated menu",menu);if(!menu){finish();return;}menu->setProperty("message",mail->messages()->at(0));menu->setProperty("threadKey",mail->reader()["key"]);QMetaObject::invokeMethod(menu,"perform",Q_ARG(QVariant,QString("unstar")));});
     }
     void awaitState(QWindow::Visibility target,const QString&name,std::function<void()> next,int attempts=40){
-        if(window->visibility()==target){QTimer::singleShot(150,this,[this,target,name,next,attempts]{if(window->visibility()==target){check(name,true);next();}else awaitState(target,name,next,attempts-1);});return;}
+        const auto expected=target==QWindow::Maximized?Qt::WindowMaximized:target==QWindow::Minimized?Qt::WindowMinimized:Qt::WindowNoState;
+        if(window->visibility()==target&&window->windowState()==expected){QTimer::singleShot(150,this,[this,target,expected,name,next,attempts]{if(window->visibility()==target&&window->windowState()==expected){check(name,true);next();}else awaitState(target,name,next,attempts-1);});return;}
         if(!attempts){check(name+QString(" (visibility %1, native state %2)").arg(int(window->visibility())).arg(int(window->windowState())),false);finish();return;}
         QTimer::singleShot(50,this,[this,target,name,next,attempts]{awaitState(target,name,next,attempts-1);});
     }

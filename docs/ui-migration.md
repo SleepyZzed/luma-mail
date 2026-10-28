@@ -180,3 +180,10 @@ native scene groups passed in this continuation (254 checks); latest reader,
 HTML, long-thread and sync tests pass. See fluid-validation.md. GTK-free packages,
 installed/runtime notices and byte audits, live Gmail/Hyprland acceptance, inline
 image authoring, whole-conversation forwarding and Linux RAM goals remain open.
+
+- Portable checkpoint: optimized Windows bundle passes all 254 native checks with
+  SDK paths removed. Direct Basic imports keep the custom design and omit unused
+  theme runtimes. Linux AppImage/native Wayland/WebEngine deployment and exact
+  source/notices checks are now wired into CI; successful Linux packaging is still
+  pending. The fixed installation is audited separately from cache/runtime data.
+  Qt 6.11.2 is used for the forthcoming Linux packaging checks. See fluid-packaging.md.

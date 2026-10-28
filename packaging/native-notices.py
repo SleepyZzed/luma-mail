@@ -35,5 +35,7 @@ for file in Path('/usr/share/common-licenses').iterdir():
         shutil.copyfile(file,target/file.name)
 manifest='\n'.join(rows)+'\n'
 (notices/'NATIVE-SOURCES.tsv').write_text(manifest,encoding='utf-8')
-Path('dist/NATIVE-SOURCES.tsv').write_text(manifest,encoding='utf-8')
+destination=Path(sys.argv[2]) if len(sys.argv)>2 else Path('dist/NATIVE-SOURCES.tsv')
+destination.parent.mkdir(parents=True,exist_ok=True)
+destination.write_text(manifest,encoding='utf-8')
 print(f'Preserved {len(packages)} distro package notices and corresponding source links')

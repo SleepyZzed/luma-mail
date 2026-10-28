@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Item {
     id:root;objectName:"readerPane"
     property bool projected:false

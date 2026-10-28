@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "synthetic_data": true,
+  "logical_bytes": 67108865,
+  "filesystem_reported_allocated_bytes": 67108872,
+  "unique_files": 2,
+  "checks": [
+    "native file-info layout returns the known file length",
+    "two hard-link paths count as one physical file",
+    "file attributes queried without reading content"
+  ],
+  "note": "Allocation is reported as observed. The original sparse-allocation assumption was not valid on this filesystem, so no sparse-space reduction is claimed."
+}

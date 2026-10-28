@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Item {
     id:root;objectName:"searchSheet";z:160;visible:shown
     property bool shown:false

@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 ComboBox {
     id:control
     implicitHeight:Theme.unit(32);leftPadding:Theme.unit(9);rightPadding:Theme.unit(25)

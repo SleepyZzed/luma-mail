@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Item {
     id:root;objectName:"signatureSheet";z:190;visible:present&&(opened||position.running)
     property bool present:false

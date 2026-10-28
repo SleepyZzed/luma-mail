@@ -183,3 +183,11 @@ native scene groups passed in this continuation (254 checks); latest reader,
 HTML, long-thread and sync tests pass. See fluid-validation.md. GTK-free packages,
 installed/runtime notices and byte audits, live Gmail/Hyprland acceptance, inline
 image authoring, whole-conversation forwarding and Linux RAM goals remain open.
+
+
+The optimized Windows portable candidate passes all 254 native checks without SDK
+paths. Its whole-process resource and native installed-allocation reports are
+committed. Linux Qt 6.11.2/AppImage/Wayland deployment, source notices and portable
+checks are implemented and awaiting CI. A remaining X11 tray-restore race now has
+a product guard and stronger state-acknowledgement test. No new release or complete
+GTK-removal claim is made before the pending packaging/live acceptance gates.

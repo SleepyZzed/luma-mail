@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 FluidMenu {
     id:root;objectName:"messageActionsMenu"
     property var message:({})

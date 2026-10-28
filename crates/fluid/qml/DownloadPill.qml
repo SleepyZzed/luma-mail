@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Rectangle {
     id:root;z:180
     visible:AttachmentViewer.downloadMessage!==""

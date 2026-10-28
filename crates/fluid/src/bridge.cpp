@@ -51,10 +51,22 @@ void Bridge::trackWindow(QObject*object){
         connect(idle,&QTimer::timeout,quick,[quick]{if(!quick->isVisible()||quick->visibility()==QWindow::Minimized){quick->setPersistentGraphics(false);quick->setPersistentSceneGraph(false);quick->releaseResources();}});
     }
 
-    connect(window,&QWindow::windowStateChanged,window,[window](Qt::WindowState state){if(window->isVisible()&&!(state&Qt::WindowMinimized))window->setProperty("lumaRestoreState",int(state));});
+    auto remember=[window]{
+        if(!window->isVisible()||window->visibility()==QWindow::Hidden||window->windowState()==Qt::WindowMinimized)return;
+        const auto state=window->windowState();
+        if(state==Qt::WindowMaximized||state==Qt::WindowFullScreen)window->setProperty("lumaRestoreState",int(state));
+        else QTimer::singleShot(0,window,[window]{
+            // X11 can report NoState while unmapping a maximized window. Only
+            // commit a stable visible Windowed state after that event completes.
+            if(window->isVisible()&&window->visibility()==QWindow::Windowed&&window->windowState()==Qt::WindowNoState)window->setProperty("lumaRestoreState",int(Qt::WindowNoState));
+        });
+    };
+    connect(window,&QWindow::windowStateChanged,window,remember);
+    connect(window,&QWindow::visibilityChanged,window,remember);
 }
 void Bridge::activateWindow(QObject*object){
     auto window=qobject_cast<QWindow*>(object);if(!window)return;
+    if(window->isVisible()&&window->visibility()!=QWindow::Minimized){window->raise();window->requestActivate();return;}
     const auto state=window->property("lumaRestoreState").toInt();
     if(state&Qt::WindowFullScreen)window->showFullScreen();else if(state&Qt::WindowMaximized)window->showMaximized();else window->showNormal();window->raise();window->requestActivate();
 }

@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Item {
     id:root;objectName:"draftCompareSheet";z:170;visible:opened||position.running
     property bool opened:false

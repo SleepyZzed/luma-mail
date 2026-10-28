@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Menu {
     padding:Theme.unit(6)
     font.family:Theme.family;font.pixelSize:Theme.unit(12)

@@ -9,6 +9,11 @@ on:
       - 'crates/core/**'
       - 'data/**'
       - 'Cargo.*'
+      - 'packaging/fluid*'
+      - 'packaging/test-fluid-package.py'
+      - 'packaging/*notices.py'
+      - 'packaging/qt-source-pins.json'
+      - 'packaging/audit-storage.py'
       - '.github/workflows/fluid.yml'
   push:
     branches: ['ui/fluid-morph']
@@ -38,7 +43,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ninja-build libdbus-1-dev libgl1 libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 xvfb pulseaudio openbox x11-utils
       - uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: '6.11.2'
           modules: 'qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning'
           cache: true
       - run: cargo build --locked -p luma-engine
@@ -258,6 +263,45 @@ jobs:
         with:
           name: fluid-resource-linux
           path: fluid-resource-linux
+          if-no-files-found: warn
+      - name: Build registered fluid preview engine
+        if: github.event_name != 'pull_request'
+        env:
+          LUMA_GOOGLE_CLIENT_ID: ${{ secrets.LUMA_GOOGLE_CLIENT_ID }}
+          LUMA_GOOGLE_CLIENT_SECRET: ${{ secrets.LUMA_GOOGLE_CLIENT_SECRET }}
+        run: cargo build --locked --release -p luma-engine --features require-google-client
+      - uses: actions/cache/restore@v4
+        id: qt_notices_cache
+        if: github.event_name != 'pull_request'
+        with:
+          path: qt-source-notices/6.11.2
+          key: qt-source-notices-6.11.2-v1
+      - name: Preserve matching Qt and Chromium notices
+        if: github.event_name != 'pull_request'
+        run: python3 packaging/qt-source-notices.py --version 6.11.2 --output qt-source-notices/6.11.2
+      - uses: actions/cache/save@v4
+        if: ${{ github.event_name != 'pull_request' && steps.qt_notices_cache.outputs.cache-hit != 'true' }}
+        with:
+          path: qt-source-notices/6.11.2
+          key: qt-source-notices-6.11.2-v1
+      - name: Build GTK-free AppImage with native Wayland support
+        if: github.event_name != 'pull_request'
+        run: |
+          bash packaging/fluid-appimage.sh --binary build-fluid/luma-mail-fluid --engine target/release/luma-engine --qt-notices qt-source-notices/6.11.2 --version "0.10.0-preview.${GITHUB_SHA:0:7}" --output dist-fluid
+      - name: Test portable AppImage without SDK paths
+        if: github.event_name != 'pull_request'
+        env:
+          QTWEBENGINE_CHROMIUM_FLAGS: '--disable-gpu'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          timeout 600s bash packaging/fluid-test-desktop.sh python3 packaging/test-fluid-package.py --binary "dist-fluid/Luma-Mail-0.10.0-preview.${GITHUB_SHA:0:7}-fluid-x86_64.AppImage" --output fluid-package-linux
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          name: fluid-preview-linux
+          path: |
+            dist-fluid
+            fluid-package-linux
           if-no-files-found: warn
   windows-scene:
     runs-on: windows-latest
@@ -532,4 +576,38 @@ jobs:
         with:
           name: fluid-resource-windows
           path: fluid-resource-windows
+          if-no-files-found: warn
+
+      - name: Build registered fluid preview engine and HTML adapter
+        if: github.event_name != 'pull_request'
+        shell: msys2 {0}
+        env:
+          LUMA_GOOGLE_CLIENT_ID: ${{ secrets.LUMA_GOOGLE_CLIENT_ID }}
+          LUMA_GOOGLE_CLIENT_SECRET: ${{ secrets.LUMA_GOOGLE_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          cargo build --locked --release -p luma-engine --features require-google-client
+          cargo build --locked --release -p luma-webview
+          python packaging/webview2-loader.py --binary target/release/luma-engine.exe
+      - name: Build GTK-free Windows portable package
+        if: github.event_name != 'pull_request'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          python packaging/fluid-windows.py --prefix /ucrt64 --binary build-fluid/luma-mail-fluid.exe --engine target/release/luma-engine.exe --webview target/release/luma_webview.dll --output dist-fluid/Luma-Mail-Fluid --version "0.10.0-preview.${GITHUB_SHA:0:7}"
+      - name: Test portable Windows package without SDK paths
+        if: github.event_name != 'pull_request'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          python packaging/test-fluid-package.py --binary dist-fluid/Luma-Mail-Fluid/bin/luma-mail.exe --output fluid-package-windows
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          name: fluid-preview-windows
+          path: |
+            dist-fluid/*.zip
+            dist-fluid/*.sha256
+            dist-fluid/*.storage.json
+            fluid-package-windows
           if-no-files-found: warn

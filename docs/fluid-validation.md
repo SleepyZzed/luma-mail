@@ -434,3 +434,45 @@ and 16 real-pipe tests, strict engine Clippy and the unchanged core suite (128
 passing, one Windows platform-vault test ignored) pass. Both platforms passed the
 preceding auth/lifecycle checkpoint in run 40631799634. Synthetic acceptance does
 not establish live Gmail, Hyprland, final packaging or the unmet Linux RAM goal.
+
+
+## Portable packaging checkpoint — 28 October continuation
+
+The Windows portable package passes all 254 native scene checks (14 groups)
+with developer engine/WebView/Qt/QML paths removed and only Windows system paths
+available. It uses the optimized private Rust engine/adapter and compiled Basic
+controls with the existing custom styling; unused Qt control themes are no longer
+deployed. The executable now embeds the supplied star icon. The launcher, forms,
+HTML, media, attachments, recovery, pop-out and motion remain functional.
+
+Local candidate D has explicit dirty-source provenance (`e6d6dc9` plus the current
+packaging/UI changes). Its ZIP is 102,134,858 bytes (97.4 MiB), installation logical
+size is 275,822,634 bytes (263.0 MiB), and native filesystem-reported allocation is
+278,226,848 bytes (265.3 MiB). These are fixed program/framework bytes, separate
+from cached emails. Complete shared-library ownership, notices, source links,
+Rust dependency/standard-library references, file hashes and archive checksum are
+included. The FFmpeg build includes its linked codec dependencies; none are
+silently removed at the cost of media support. No account files are copied.
+
+The packaged release-process tree measured private working set of 131.9 MiB idle,
+143.3 with 1,000 rows, 145.5 after scrolling, 252.9 with HTML, 151.2 after release,
+103.2 backgrounded and 134.2 restored. Settled CPU samples were 0.00% at counter
+resolution; private commit and all phase samples are reported separately. All
+seven lifecycle checks passed. The active HTML target remains unmet, and these
+Windows measurements are not Linux PSS or a live-Gmail soak.
+
+The new Linux packaging path uses pinned linuxdeploy/Qt tools, native Wayland
+plugins, WebEngine helper/resources/locales and an explicit relocatable launcher.
+Matching Qt/Chromium source notices are streamed from exact upstream archives;
+only the notices (9,645,243 bytes for eight Qt 6.11.2 modules) are retained, with
+reviewed archive and inventory hashes. It includes distro and Rust source/notices
+and an exact Git source archive. CI moves the Linux runtime from Qt 6.8.3 to
+6.11.2 before exercising the native and portable suites. AppImage validation is
+pending that CI run; no successful Linux package or new release is claimed yet.
+
+At e6d6dc9, engine and Windows CI passed. Linux passed the new attachment,
+navigation and recovery checks but caught a maximized tray-restore race. The host
+now commits Windowed restore state only after the X11 event settles, and activation
+of an already visible window preserves its current geometry. The native test now
+waits for matching visibility and window-state acknowledgement. Windows passes;
+Linux confirmation is pending. The original GTK release remains the reference.

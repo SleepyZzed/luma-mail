@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 Column {
     id:root;objectName:"labels-"+account
     required property string account
