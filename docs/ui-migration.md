@@ -4,7 +4,8 @@ The 0.9 release is the preserved reference. The replacement uses a custom Qt
 Quick scene graph and QML, with the existing Rust provider/cache/security engine.
 The frontend communicates with one private Rust child through anonymous pipes;
 credentials never enter the UI, and no network listener or disk mailbox is added.
-GTK is removed from distribution only after the parity gates below pass.
+GTK is absent from the preview packages. The legacy source remains a parity
+reference until the final acceptance gates below pass.
 
 ## Existing wiring to preserve
 
@@ -204,3 +205,9 @@ image authoring, whole-conversation forwarding and Linux RAM goals remain open.
   provenance. An isolated zero-cache live read also passes. Newer lifetime changes
   still require matching package/desktop acceptance; GTK reference removal and
   1.0 remain gated.
+
+
+The GTK-free 0.10 preview is published as v0.10.0-dev.1 at d4889b7. Both exact
+packages pass (269 Linux/272 Windows); all eight uploaded asset digests and the
+release tag/source archive commit were verified. The 0.9 tag/source remains the
+reference; 1.0 and target-desktop acceptance are still open.

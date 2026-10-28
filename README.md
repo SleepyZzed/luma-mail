@@ -2,14 +2,14 @@
 
 <img src="data/luma-wordmark.png" alt="Luma Mail" width="320">
 
-**Fluid interface migration:** the replacement uses a custom Qt Quick scene with
+**[Download the 0.10 fluid interface preview](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.1):** the replacement uses a custom Qt Quick scene with
 shared-element spring transitions and the existing Rust engine. GTK-free Linux
-and Windows preview packages pass native portable checks. See the
+and Windows packages pass 269/272 native portable checks. See the
 [interface wiring](docs/ui-migration.md), [build/packaging instructions](docs/fluid-packaging.md)
 and [validation record](docs/fluid-validation.md). The 0.9 download below remains
 the released reference while final parity and desktop acceptance continue.
 
-A native Rust / GTK4 / libadwaita Gmail client built around **online-first access**.
+The 0.9 reference uses Rust / GTK4 / libadwaita; both interfaces keep **online-first access**.
 The mailbox stays on Google. Luma loads a page of conversation metadata, then
 fetches individual message bodies only when you expand them. It never builds a
 local mail mirror, search index, or attachment archive.
@@ -193,7 +193,9 @@ work that is no longer needed. Label navigation survives unread-count updates.
 Cross-account label actions match label names in each account and report a
 missing label without applying an unrelated ID.
 
-## Build on Arch Linux / CachyOS
+## Build the 0.9 reference on Arch Linux / CachyOS
+
+For the GTK-free 0.10 frontend, use the [Qt Quick build instructions](docs/fluid-packaging.md).
 
 ```sh
 sudo pacman -S --needed base-devel rust gtk4 libadwaita webkitgtk-6.0 gst-plugins-good gst-libav pkgconf gnome-keyring

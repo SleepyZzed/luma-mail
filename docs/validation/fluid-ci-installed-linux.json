@@ -3,10 +3,10 @@
   "allocation_method": "st_blocks on Unix; 512-byte estimate elsewhere",
   "categories": {
     "installation": {
-      "logical_bytes": 495831602,
-      "allocated_bytes": 531288064,
-      "files": 6499,
-      "directories": 4352,
+      "logical_bytes": 485051067,
+      "allocated_bytes": 513130496,
+      "files": 5331,
+      "directories": 3184,
       "links": 2,
       "top_level": {
         "AppRun": {
@@ -25,9 +25,9 @@
           "files": 0
         },
         "usr": {
-          "logical_bytes": 495830828,
-          "allocated_bytes": 531275776,
-          "files": 6498
+          "logical_bytes": 485050293,
+          "allocated_bytes": 513118208,
+          "files": 5330
         }
       }
     }

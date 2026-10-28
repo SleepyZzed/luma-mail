@@ -5,6 +5,10 @@
       "passed": true
     },
     {
+      "check": "idle composer has no editor controls",
+      "passed": true
+    },
+    {
       "check": "large inbox keeps its metadata cap and virtualized rows",
       "passed": true
     },
@@ -27,8 +31,18 @@
     {
       "check": "restoration reconstructs an exposed native scene after background release",
       "passed": true
+    },
+    {
+      "check": "resource run preserves all 1000 synthetic records",
+      "passed": true
+    },
+    {
+      "check": "resource run never opens a composer",
+      "passed": true
     }
   ],
+  "htmlHoldSeconds": 20,
+  "inputDisabled": true,
   "note": "Lifecycle assertions only. RAM/CPU are sampled externally for the entire process tree.",
   "passed": true,
   "syntheticData": true

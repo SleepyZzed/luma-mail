@@ -74,3 +74,10 @@ Native distro attribution scans the deployed ELF libraries/executables. Generic
 filenames inside Qt/Rust license bundles do not select unrelated build-machine
 packages. The exact-version Qt/Chromium and Rust notice bundles remain separate;
 this reduces redundant notice files without dropping the required runtime records.
+
+
+The first public fluid preview is [v0.10.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.1),
+built from d4889b7. It includes the AppImage, Windows ZIP, source archive,
+checksums and separate installed/package storage reports. Quit an existing Luma
+version from its tray before testing; the new frontend reuses the core account/
+keyring/cache policy. The source retains the 0.9 reference until full acceptance.

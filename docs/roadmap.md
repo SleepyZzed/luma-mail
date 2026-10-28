@@ -129,7 +129,8 @@ account disclosures, selection/context actions, remote search highlighting,
 private HTML/media, inline/compact/full/pop-out composition, rich formatting,
 Gmail draft/conflict/alias flows, online signatures and sign-in recovery.
 
-Windows e27b4fd portable acceptance passes 271 checks; Linux passes 268. Both
+Published 0.10.0-dev.1 (d4889b7) portable acceptance passes 272 Windows checks
+and 269 Linux checks. Both
 packages pass without SDK search paths and the Windows provenance is clean.
 The latest local on-demand composer passes 272 native checks and destroys its
 editor, document, previews, undo and popups after closing springs settle. New
@@ -141,14 +142,13 @@ The exposed Windows full-process 60-second HTML audit passes ten lifecycle check
 private commit is recorded separately. Nine settled HTML CPU samples are 0.00%
 of one core at the measurement resolution. Zero-cache leaves only 51 logical
 bytes of settings and zero cache files. These are synthetic Windows measurements;
-Linux/GPU, longer real sync and the 150/200-MiB goals remain open. The prior Linux
-37c8178 software-rendered PSS is 234.3 MiB idle/410.1 with HTML.
+Linux/GPU, longer real sync and the 150/200-MiB goals remain open. The matching Linux
+d4889b7 software-rendered PSS is 225.8 MiB idle/400.9 with HTML.
 
 Remaining work:
 
 - Finish inline-image authoring, whole-conversation forwarding and interrupted
   Drive sharing/upload recovery with the same bounded RAM/online-only model.
-- Accept the newest on-demand/lifetime changes in matching Linux/Windows packages.
 - Complete two-account Gmail, real Hyprland/GPU/Noctalia/notification/keyring,
   suspend/reconnect, fractional scaling and sustained mailbox/resource checks.
 - Complete Google verification and the required security/privacy acceptance.

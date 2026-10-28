@@ -770,3 +770,30 @@ a fixture correction; fresh packaged acceptance is still required.
 The corrected sidebar-action fixture passes all 36 composer checks locally,
 followed by motion/pop-out checks and all seven CTest groups. A separate output
 directory allowed verification without replacing the preview open on the PC.
+
+
+## Published 0.10 fluid preview
+
+Both d4889b7 package jobs succeeded: 272 Windows and 269 Linux portable checks,
+with SDK search paths removed and no QML warnings. The corrected sidebar-button
+fixture passes on both; the input-isolated resource fixture passes all ten
+lifecycle checks. Linux PSS is 225.8 MiB idle / 400.9 with HTML / 326.4 backgrounded
+on the software-rendered CI host; these results do not meet the Linux RAM targets.
+The separate Windows CI host measured 62.5/132.7/48.5 MiB private working set;
+its different graphics environment is not treated as a direct improvement over
+the local 136.3/252.2/58.8-MiB run. Both exact environments retain their reports.
+
+Native notice attribution drops from 1,238 to 66 distro records. Compared with
+e27b4fd, installed Linux logical bytes drop from 495,831,602 to 485,051,067 and
+allocated bytes from 531,288,064 to 513,130,496; files drop from 6,499 to 5,331.
+Required Qt/Chromium, Rust and native dependency notices remain. The AppImage is
+175,000,056 bytes and the Windows ZIP 102,260,893 bytes. Their embedded/source
+archive provenance is d4889b7, with clean Windows source status.
+
+The registered release engine repeats the authorized already-read self-mail
+search/thread/body check: first page 1.641 seconds, cache disabled, no explicit
+mail mutations or raw-mail evidence files. The profile retains only settings.
+The published prerelease is v0.10.0-dev.1; GitHub confirms its d4889b7 tag and all
+eight uploaded asset SHA-256 digests match the checked local files. See the
+release evidence JSON and public release page. The tag remains a development
+preview with the roadmap/security/Google/real-desktop gates still open.
