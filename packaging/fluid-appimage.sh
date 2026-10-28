@@ -75,9 +75,11 @@ python3 - "$appdir" <<'PY'
 from pathlib import Path
 import re,sys
 root=Path(sys.argv[1]);legacy=[]
+# Qt Wayland's libadwaita.so is a Qt decoration plugin, distinct from the
+# GTK4 libadwaita-1.so runtime. Frameless Luma does not request decorations.
 for area in ['lib','plugins','qml']:
     for file in (root/'usr'/area).rglob('*'):
-        if file.is_file() and re.match(r'(libgtk-|libadwaita|libwebkitgtk).*\.so',file.name,re.I):
+        if file.is_file() and re.match(r'(libgtk-|libadwaita-[0-9]|libwebkitgtk).*\.so',file.name,re.I):
             with file.open('rb') as stream: binary=stream.read(4)==b'\x7fELF'
             if binary:legacy.append(file.relative_to(root).as_posix())
 if legacy:

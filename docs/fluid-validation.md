@@ -525,3 +525,17 @@ notices from native libraries. The Windows GNU test build now explicitly stages
 the pinned WebView2 loader, includes its Python/inspection tools and saves built
 Rust dependencies before GUI tests. These are fresh-build setup corrections;
 portable CI and live acceptance remain pending.
+
+
+## Clean-build dependency corrections
+
+At ecd32bc, Linux native acceptance passed in both the branch and PR runs.
+The branch package guard identified `usr/plugins/wayland-decoration-client/libadwaita.so`.
+This is Qt's Wayland decoration plugin, distinct from GTK4's `libadwaita-1.so`.
+The ELF guard now distinguishes those names and continues rejecting actual GTK
+runtimes. Windows packaging reached dependency/notice collection but lacked Git
+in the MSYS environment when recording provenance; the environment now explicitly
+installs Git. Registered portable acceptance remains pending these corrections.
+The parallel Windows PR HTML test hit its deadline despite reporting a measured
+824-pixel document and no surface error; cold-start event-loop timing remains
+under investigation rather than being treated as a successful acceptance run.
