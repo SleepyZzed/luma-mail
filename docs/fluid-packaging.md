@@ -68,3 +68,9 @@ files. Package/runtime size reports are separate from the email-cache budget.
 
 Qt deployment follows its [official deployment API](https://doc.qt.io/qt-6.8/qt-generate-deploy-qml-app-script.html)
 and [WebEngine deployment requirements](https://doc.qt.io/qt-6.8/qtwebengine-deploying.html).
+
+
+Native distro attribution scans the deployed ELF libraries/executables. Generic
+filenames inside Qt/Rust license bundles do not select unrelated build-machine
+packages. The exact-version Qt/Chromium and Rust notice bundles remain separate;
+this reduces redundant notice files without dropping the required runtime records.

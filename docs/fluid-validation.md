@@ -743,3 +743,30 @@ zero-cache footprint is one 51-byte settings file (56 allocated bytes), with no
 cache files. See fluid-resource-editor-*.json for binary provenance and samples.
 Latest packaged Linux acceptance, target hardware, active HTML RAM, remaining
 authoring/forwarding and external review gates still apply.
+
+
+## Native-notice package attribution
+
+The e27b4fd AppImage notice manifest contains 1,238 distro package records,
+including unrelated build-host packages. The collector compared every deployed
+filename with dpkg's inventory; generic copyright/README names in the already
+retained Qt notices could therefore select unrelated documentation. The collector
+now selects native ELF library/executable names only. Qt/QML/Chromium exact-version
+source notices, Rust dependency/standard-library notices and the selected distro
+notices/common licenses remain intact. Three regressions cover document-name
+collisions, extensionless executables/multi-owner records and invalid empty stages.
+All pass locally; Linux CI runs them before the engine checks. Package size savings
+are not claimed until a fresh AppImage and installed-tree report are measured.
+
+
+The 31f3db5 Windows composer fixture timed out after its initial idle check: direct
+QMouseEvent injection did not activate the sidebar action on that platform.
+The manually inspected native button opens the composer, and the other Windows
+scenes/component tests passed before the harness stopped. The fixture now invokes
+the actual sidebar button action, including origin/wiring/focus, instead of
+bypassing platform pointer state with fabricated window mouse events. This is
+a fixture correction; fresh packaged acceptance is still required.
+
+The corrected sidebar-action fixture passes all 36 composer checks locally,
+followed by motion/pop-out checks and all seven CTest groups. A separate output
+directory allowed verification without replacing the preview open on the PC.

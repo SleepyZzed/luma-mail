@@ -4,7 +4,6 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QKeyEvent>
-#include <QMouseEvent>
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <QTimer>
@@ -36,9 +35,9 @@ public:
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(300,this,[this]{
             auto shell=window->findChild<QQuickItem*>("composer");check("idle composer has no rich document or editor controls",shell&&!shell->property("controlsLoaded").toBool()&&!window->findChild<RichDocument*>("composeDocument")&&!window->findChild<QQuickItem*>("composeBody"));
             auto button=window->findChild<QQuickItem*>("newMessageButton");if(!button||!button->isVisible()){check("native compose button is available",false);finish();return;}
-            const auto local=button->mapToScene(QPointF(button->width()/2,button->height()/2));const QPointF global=window->mapToGlobal(local.toPoint());
-            QMouseEvent down(QEvent::MouseButtonPress,local,global,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(window,&down);
-            QMouseEvent up(QEvent::MouseButtonRelease,local,global,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(window,&up);
+            // Exercise the real sidebar action. Direct QMouseEvent injection
+            // bypasses Windows' platform pointer state and can drop the click.
+            if(!QMetaObject::invokeMethod(button,"clicked")){check("native compose action is wired",false);finish();}
         });});
         connect(mail,&Bridge::received,this,[this](const QString&event,const QVariantMap&data){
             if(finished)return;
