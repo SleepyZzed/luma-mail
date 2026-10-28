@@ -4,7 +4,7 @@ import QtQml.Models
 ApplicationWindow {
     id:window
     width:1440;height:900;minimumWidth:760;minimumHeight:560;visible:true;title:"Luma Mail";color:Theme.window
-    flags:(isWindows?Qt.Window:Qt.Window|Qt.FramelessWindowHint)|(resourceFixture?Qt.WindowDoesNotAcceptFocus:0)
+    flags:(isWindows?Qt.Window:Qt.Window|Qt.FramelessWindowHint)|(resourceFixture?Qt.WindowDoesNotAcceptFocus:0)|(motionFixture?(Qt.WindowDoesNotAcceptFocus|Qt.WindowTransparentForInput):0)
     font.family:Theme.family
     property bool geometryReady:false
     function restoreGeometry(){
@@ -87,7 +87,7 @@ ApplicationWindow {
             if(composer.shown&&(!Mail.readerOpen||!key||!reading||key.id!==reading.id||key.account!==reading.account)){
                 const wasInline=composer.inlineMode
                 composer.inlineDock=null
-                if(wasInline){composer.floatToScene();if(!composer.sendSubmitted&&!composer.busy&&!composer.statusMode)composer.requestClose()}
+                if(wasInline){composer.floatToScene();if(!composer.sendSubmitted&&!composer.statusMode)composer.requestClose()}
             }
         }
         function onComposeRequested(mode){

@@ -43,6 +43,16 @@ private slots:
         QVERIFY(d.picture("https://example.com/0.png",192));const auto before=d.html();QVERIFY(before.contains("width=\"192\""));d.setUiScale(1.5);QVERIFY(d.html().contains("width=\"192\""));QVERIFY(!d.html().contains("data:image"));
         auto resource=d.nativeDocument()->resource(QTextDocument::ImageResource,QUrl("https://example.com/0.png"));QVERIFY(resource.value<QImage>().width()<=256);QVERIFY(resource.value<QImage>().height()<=192);
     }
+    void inlinePicturesRoundTripWithoutFilesOrEmbeddedPayloads(){
+        RichDocument d;const QString source="cid:luma-inline-test@luma.invalid";QByteArray rgba(4*16*8,'\x7f');
+        QVariantMap picture{{"source",source},{"width",16},{"height",8},{"rgba",QString::fromLatin1(rgba.toBase64())}};
+        d.load({{"kind","plain"},{"text","Before"}});QVERIFY(!d.picture(source));QVERIFY(d.pictureRaster(picture));QVERIFY(d.picture(source,160));
+        const auto html=d.html();QVERIFY(html.contains(source));QVERIFY(html.contains("font-size:11pt"));QVERIFY(!html.contains("data:image"));
+        d.setUiScale(1.5);QVERIFY(d.html().contains("width=\"160\""));
+        d.load({{"kind","html"},{"text",html},{"pictures",QVariantList{picture}}});QVERIFY(!d.nativeDocument()->resource(QTextDocument::ImageResource,QUrl(source)).value<QImage>().isNull());
+        QVERIFY(!d.pictureRaster({{"source","file:///private"},{"width",16},{"height",8},{"rgba",picture["rgba"]}}));
+        QVERIFY(!d.pictureRaster({{"source",source},{"width",257},{"height",8},{"rgba",picture["rgba"]}}));
+    }
     void tableNavigationIsBoundedAndUndoable(){
         RichDocument d;d.load({{"kind","plain"},{"text","Hello"}});QVERIFY(!d.table(100,100));QVERIFY(d.table(1,2));auto table=QTextCursor(d.nativeDocument()->begin()).currentTable();QVERIFY(d.html().contains("<table"));QVERIFY(d.tableTab());QVERIFY(d.tableTab());QVERIFY(d.tableTab(true));d.undo();QVERIFY(d.undoBytes()<=1024*1024);Q_UNUSED(table);
     }

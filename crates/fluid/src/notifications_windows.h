@@ -15,13 +15,15 @@ public:
     ~WindowsNotifications();
     void notify(const QVariantMap&message);
     void activate(quint64 token,const QString&action);
+    void activateArguments(const QString&arguments);
     void clear();
 signals:
     void activated(QString account,QString thread);void copyCode(QString code);void status(QString message);
 private:
-    struct Entry{QVariantMap message;void*handle=nullptr;qint64 expires=0;};
+    struct Entry{QVariantMap message;void*handle=nullptr;qint64 expires=0;QString nonce;};
     QHash<quint64,Entry>entries;quint64 next=0;QLibrary library;QTimer expiry;bool identity=false;
     Show show=nullptr;void(*free)(void*)=nullptr;
     bool(*registerIdentity)()=nullptr;
+    unsigned long activatorCookie=0;bool apartmentOwned=false,nativeTransport=false;
     void retire(quint64 token);void expire();
 };

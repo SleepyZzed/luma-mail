@@ -1,5 +1,7 @@
 #include "motion_smoke.h"
 #include "bridge.h"
+#include "motion.h"
+#include <QQmlEngine>
 #include <QCoreApplication>
 #include <QJsonDocument>
 #include <QLineF>
@@ -21,7 +23,7 @@ MotionSmoke::MotionSmoke(Bridge *bridge,QQuickWindow *window)
     const int previewWidth=qEnvironmentVariableIntValue("LUMA_PREVIEW_WIDTH");
     if(previewWidth>=760&&previewWidth<=3840)window->setWidth(previewWidth);
     connect(bridge,&Bridge::ready,this,[this]{qInfo()<<"MOTION startup: synthetic engine ready";if(!started){started=true;QTimer::singleShot(300,this,[this]{begin();});}});
-    connect(window,&QQuickWindow::afterFrameEnd,this,[this]{if(elapsed.isValid()){++totalFrames;if(frames.size()<1000)frames.append(elapsed.elapsed());}},Qt::QueuedConnection);
+    connect(window,&QQuickWindow::afterFrameEnd,this,[this]{if(elapsed.isValid()){++totalFrames;if(frames.size()<4096)frames.append(elapsed.elapsed());}},Qt::QueuedConnection);
 }
 void MotionSmoke::check(const QString &name,bool passed) {
     checks.append(QJsonObject{{"check",name},{"passed",passed},{"atMs",elapsed.isValid()?elapsed.elapsed():0},{"exposed",window->isExposed()},{"visible",window->isVisible()},{"minimized",window->visibility()==QWindow::Minimized}});
@@ -139,7 +141,7 @@ void MotionSmoke::archiveWhenReady(int attempts){
                                 whenStill(composer,[this,composer]{
                                     check("closed composer releases its visible surface",!composer->isVisible()&&!composer->property("moving").toBool());
                                     const auto atRest=totalFrames;
-                                    QTimer::singleShot(300,this,[this,atRest]{check("settled scene stops requesting frames",totalFrames-atRest<=2);finish();});
+                                    QTimer::singleShot(300,this,[this,atRest]{window->setProperty("idleFrameCount",totalFrames-atRest);check("settled scene stops requesting frames",totalFrames-atRest<=2);finish();});
                                 });
                             });
                         });
@@ -157,9 +159,13 @@ void MotionSmoke::whenStill(QQuickItem*item,std::function<void()> next,int attem
 }
 void MotionSmoke::finish() {
     if(finished)return;finished=true;
+    QJsonArray activeSprings;QSet<Motion*>springs;for(auto spring:window->findChildren<Motion*>())springs.insert(spring);if(auto engine=qmlEngine(window))for(auto spring:engine->findChildren<Motion*>())springs.insert(spring);
+    for(auto spring:springs)if(spring->running())activeSprings.append(QJsonObject{{"parent",spring->parent()?spring->parent()->metaObject()->className():"none"},{"value",spring->value()},{"target",spring->target()}});
     QJsonArray intervals;
     for(qsizetype i=1;i<frames.size();++i){auto interval=frames[i]-frames[i-1];if(interval>0&&interval<100)intervals.append(interval);}
     QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks},{"frameIntervalsMs",intervals},{"windowExposed",window->isExposed()},{"windowWidth",window->width()},{"windowHeight",window->height()},{"elapsedMs",elapsed.isValid()?elapsed.elapsed():0},{"note","Observed frame delivery during this native smoke run; not a cross-platform frame-rate or resource guarantee."}};
+    report.insert("activeSprings",activeSprings);
+    report.insert("idleFrameCount",window->property("idleFrameCount").toInt());
     if(auto path=qEnvironmentVariable("LUMA_MOTION_REPORT");!path.isEmpty()){
         QSaveFile file(path);if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(report).toJson());file.commit();}
     }

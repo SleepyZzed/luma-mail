@@ -1,7 +1,10 @@
 # Road to 1.0
 
 The 0.11 batch adds whole-conversation forwarding, reply/forward mode switching,
-send/close separation, native notification actions and opt-in ephemeral images.
+send/close separation, native notification actions, opt-in ephemeral images and
+bounded inline-picture authoring. Wayland startup prefers supported hardware
+Vulkan; the AppImage requests the desktop's native file-picker portal. Opening
+morphs avoid repeated text layout and defer message-body layout until handoff.
 See [the current 1.0 audit](v1-acceptance-0.11.md) for all twenty criteria,
 limits and remaining code/live-desktop gates. Earlier milestones below retain
 their own build identities and do not certify the new batch.
@@ -157,7 +160,8 @@ d4889b7 software-rendered PSS is 225.8 MiB idle/400.9 with HTML.
 
 Remaining work:
 
-- Finish inline-image authoring, whole-conversation forwarding and interrupted
+- Whole-conversation forwarding and inline-picture authoring are implemented in
+  0.11; complete live recipient/draft round-trip acceptance. Finish interrupted
   Drive sharing/upload recovery with the same bounded RAM/online-only model.
 - Complete two-account Gmail, real Hyprland/GPU/Noctalia/notification/keyring,
   suspend/reconnect, fractional scaling and sustained mailbox/resource checks.
@@ -188,8 +192,9 @@ remain open.
 The feedback milestone is published as [v0.10.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2),
 source a23a207. All fifteen portable groups pass (296 Linux/299 Windows).
 The callback/feature audit and exact resource evidence are recorded; next code
-priorities remain inline-image authoring, whole-conversation forwarding and Drive
-interruption/permission/existing-file recovery. Target desktop, RAM, independent
+priorities for that milestone were inline-image authoring, whole-conversation
+forwarding and Drive interruption/permission/existing-file recovery. The first
+two are implemented in 0.11. Target desktop, RAM, independent
 security and Google approval remain release gates.
 
 

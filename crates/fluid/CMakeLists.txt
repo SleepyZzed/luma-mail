@@ -12,6 +12,7 @@ target_sources(luma-mail-fluid PRIVATE src/sync_smoke.cpp src/actions.cpp src/vi
 target_sources(luma-mail-fluid PRIVATE src/attachment_preview.cpp src/attachment_preview.h src/attachment_thumbnails.cpp)
 target_sources(luma-mail-fluid PRIVATE src/attachment_smoke.cpp)
 target_sources(luma-mail-fluid PRIVATE src/single_instance.cpp src/single_instance.h)
+target_sources(luma-mail-fluid PRIVATE src/startup_graphics.cpp src/startup_graphics.h)
 target_sources(luma-mail-fluid PRIVATE src/resource_smoke.cpp)
 target_sources(luma-mail-fluid PRIVATE src/popup_smoke.cpp)
 target_sources(luma-mail-fluid PRIVATE src/signature_smoke.cpp src/thread_smoke.cpp src/popout_smoke.cpp src/auth.cpp src/auth_smoke.cpp src/recovery_smoke.cpp)

@@ -70,6 +70,8 @@ public:
     Q_INVOKABLE void clearFormat();
     Q_INVOKABLE bool picture(const QString&url,int width=192);
     Q_INVOKABLE bool picturePreview(const QString&url,const QString&base64);
+    Q_INVOKABLE bool pictureRaster(const QVariantMap&picture);
+    Q_INVOKABLE void clearPictures(){doc->approvedImages.clear();}
     Q_INVOKABLE bool table(int rows,int columns);
     Q_INVOKABLE bool tableTab(bool backwards=false);
     Q_INVOKABLE void undo();

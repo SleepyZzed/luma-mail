@@ -69,6 +69,7 @@ Item {
         photo: root.row.photo || ""
     }
     Text {textFormat:Text.StyledText;
+        objectName:"projectedSender"
         x: root.mix(root.source.sender.x, root.destination.sender.x)
         y: root.mix(root.source.sender.y, root.destination.sender.y)
         width: Math.max(0, parent.width - x - Theme.unit(20))
@@ -79,15 +80,18 @@ Item {
         elide: Text.ElideRight
     }
     Text {textFormat:Text.StyledText;
+        objectName:"projectedSubject"
         x: root.mix(root.source.subject.x, 0)
         y: root.mix(root.source.subject.y, 0)
-        width: Math.max(0, parent.width - x - Theme.unit(20))
+        width: Math.max(0, root.destination.bounds.width - Theme.unit(20))
         text: Mail.highlightSearch(root.row.subject || "(No subject)",Mail.search,Theme.accent)
-        font.pixelSize: Theme.unit(root.mix(12, 25))
-        lineHeight:root.mix(1,1.2)
+        font.pixelSize: Theme.unit(25)
+        transformOrigin:Item.TopLeft
+        scale:root.mix(12/25,1)
+        lineHeight:1.2
         font.weight: Font.DemiBold
         color: Theme.text
-        wrapMode: root.progress > .65 ? Text.Wrap : Text.NoWrap
+        wrapMode: Text.Wrap
         elide: Text.ElideRight
     }
     Text {textFormat:Text.StyledText;

@@ -65,6 +65,7 @@ pub struct Data {
     pub clipboard: Option<crate::clipboard::Input>,
     pub input_busy: bool,
     pub input_token: String,
+    pub pending_inline: Option<luma_core::composer::RetainedAttachment>,
     pub identity_loading: bool,
     pub identity_epoch: u64,
     pub file_sizes: std::collections::HashMap<std::path::PathBuf, u64>,
@@ -178,6 +179,7 @@ impl Session {
                 clipboard: None,
                 input_busy: false,
                 input_token: String::new(),
+                pending_inline: None,
                 identity_loading: false,
                 identity_epoch: 0,
                 file_sizes: Default::default(),
@@ -645,6 +647,7 @@ impl Session {
             return false;
         }
         d.clipboard = None;
+        d.pending_inline = None;
         d.input_busy = false;
         d.input_token.clear();
         d.pending = None;
@@ -746,6 +749,7 @@ fn stamp(mut draft: Draft) -> Draft {
     draft
 }
 pub(crate) fn clear(d: &mut Data, phase: Phase) {
+    d.pending_inline = None;
     d.clipboard = None;
     d.input_busy = false;
     d.input_token.clear();
@@ -772,6 +776,24 @@ pub(crate) fn clear(d: &mut Data, phase: Phase) {
 }
 pub(crate) fn delivery(d: &Data) -> Result<Compose> {
     let mut form = d.form.clone();
+    if form.html {
+        let images = document::inline_sources(&form.text);
+        for source in &images {
+            if !form.retained.iter().any(|f| {
+                f.content_id
+                    .as_deref()
+                    .is_some_and(|id| id.trim_matches(['<', '>']) == source)
+            }) {
+                return Err(Error::Invalid("An inline picture is no longer available. Remove it and insert it again before sending.".into()));
+            }
+        }
+        form.retained.retain(|f| {
+            f.content_id.as_deref().is_none_or(|id| {
+                !id.trim_start_matches('<').starts_with("luma-inline-")
+                    || images.contains(id.trim_matches(['<', '>']))
+            })
+        });
+    }
     if let Some(html) = &d.original_html {
         form.text = html.clone();
         form.html = true;
@@ -805,7 +827,7 @@ fn attachment_rows(
         rows.push(json!({"id":format!("file:{}",path.to_string_lossy()),"name":path.file_name().unwrap_or_default().to_string_lossy(),"size":sizes.get(path).copied().unwrap_or(0),"kind":"file"}));
     }
     for (index, a) in c.retained.iter().enumerate() {
-        rows.push(json!({"id":format!("retained:{index}"),"name":a.name,"size":a.data.len(),"mime":a.mime_type,"kind":"retained"}));
+        rows.push(json!({"id":format!("retained:{index}"),"name":a.name,"size":a.data.len(),"mime":a.mime_type,"kind":"retained","contentId":a.content_id,"inline":a.content_id.as_deref().is_some_and(|id|id.contains("luma-inline-"))}));
     }
     for file in &c.drive_files {
         rows.push(json!({"id":format!("drive:{}",file.id),"name":file.name,"size":0,"kind":"drive","url":luma_core::drive::verified_link(file).unwrap_or_default()}));

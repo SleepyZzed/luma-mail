@@ -25,7 +25,7 @@ Rectangle {
     onPhotoChanged:if(ready)Qt.callLater(subscribe)
     Component.onCompleted:{ready=true;subscribe()}
     Component.onDestruction:{ready=false;if(watchedKey)Mail.releaseProfile(watchedKey)}
-    Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:Theme.initials(root.sender);font.family:Theme.family;font.pixelSize:root.width*.31;font.weight:Font.DemiBold;color:"#fff";visible:reveal.value<.99}
+    Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:Theme.initials(root.sender);font.family:Theme.family;font.pixelSize:Theme.unit(12.4);scale:root.width/Theme.unit(40);font.weight:Font.DemiBold;color:"#fff";visible:reveal.value<.99}
     Image{id:picture;objectName:root.objectName+"Picture";anchors.centerIn:parent;width:root.width*Math.max(0,Math.min(1,reveal.value));height:width;source:root.photo||root.profileSource;sourceSize:Qt.size(96,96);cache:false;asynchronous:true;fillMode:Image.PreserveAspectCrop}
     Motion{id:reveal;target:picture.status===Image.Ready&&picture.source.toString()!==""?1:0;enabled:Theme.motion;epsilon:.002}
     Connections{target:Mail

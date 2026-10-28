@@ -77,8 +77,14 @@ bool RichDocument::picturePreview(const QString&source,const QString&encoded){
     const auto before=mute;mute=true;doc->approvedImages[url]=image;doc->addResource(QTextDocument::ImageResource,url,image);doc->markContentsDirty(0,doc->characterCount());mute=before;return true;
 }
 bool RichDocument::picture(const QString&source,int width){
-    const QUrl url(source);if(readOnly||url.scheme()!="https"||url.host().isEmpty()||!url.userInfo().isEmpty()||source.size()>8192)return false;
+    const QUrl url(source);const bool inlineImage=url.scheme()=="cid"&&doc->approvedImages.contains(url);if(readOnly||(!inlineImage&&(url.scheme()!="https"||url.host().isEmpty()||!url.userInfo().isEmpty()))||source.size()>8192)return false;
     checkpoint();rich=true;auto c=cursor();QTextImageFormat image;image.setName(url.toString(QUrl::FullyEncoded));image.setWidth(std::clamp(width,16,768)*scale);const auto preview=doc->approvedImages.value(url);if(!preview.isNull())image.setHeight(image.width()*preview.height()/preview.width());c.insertImage(image);position=start=end=c.position();checkpoint();emit placeCursor(position,position);return true;
+}
+bool RichDocument::pictureRaster(const QVariantMap&picture){
+    const QUrl source(picture.value("source").toString());const int width=picture.value("width").toInt(),height=picture.value("height").toInt();const auto encoded=picture.value("rgba").toString();
+    if(source.scheme()!="cid"||!source.path().startsWith("luma-inline-")||source.toString().size()>256||width<1||height<1||width>256||height>192||encoded.size()>256*192*4/3*4+8||(!doc->approvedImages.contains(source)&&doc->approvedImages.size()>=8))return false;
+    const auto bytes=QByteArray::fromBase64(encoded.toLatin1(),QByteArray::AbortOnBase64DecodingErrors);if(bytes.size()!=width*height*4)return false;
+    const QImage image(reinterpret_cast<const uchar*>(bytes.constData()),width,height,QImage::Format_RGBA8888);doc->approvedImages[source]=image.copy();doc->addResource(QTextDocument::ImageResource,source,doc->approvedImages[source]);doc->markContentsDirty(0,doc->characterCount());return true;
 }
 bool RichDocument::table(int rows,int columns){
     if(readOnly||rows<1||rows>10||columns<1||columns>10)return false;checkpoint();rich=true;auto c=cursor();QTextTableFormat format;format.setBorder(1);format.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);format.setCellPadding(5*scale);format.setCellSpacing(0);format.setWidth(QTextLength(QTextLength::PercentageLength,100));c.insertTable(rows,columns,format);position=start=end=c.position();checkpoint();emit placeCursor(position,position);return true;
@@ -166,6 +172,7 @@ void RichDocument::load(const QVariantMap &value){
     if(text.size()>1024*1024){mute=false;emit error("The document exceeds the editor memory limit. Keep the original in Gmail.");return;}
     rich=kind!="plain";doc->clear();auto base=doc->defaultFont();base.setPointSizeF(11);doc->setDefaultFont(base);
     if(kind=="legacy")legacy(value);else if(rich)doc->setHtml(text);else doc->setPlainText(text);
+    for(const auto&picture:value.value("pictures").toList())pictureRaster(picture.toMap());
     if(scale!=1)scaleFonts(doc,scale);
     doc->setUndoRedoEnabled(false);doc->setModified(false);mute=false;
     history.clear();historyAt=-1;checkpoint();emit placeCursor(0,0);emit formatChanged();
@@ -196,7 +203,7 @@ void RichDocument::legacy(const QVariantMap &value){
 QString RichDocument::html()const {
     std::unique_ptr<QTextDocument>copy(doc->clone());copy->setUndoRedoEnabled(false);if(scale!=1)scaleFonts(copy.get(),1/scale);
     QString html=copy->toHtml();const auto begin=html.indexOf("<body");const auto open=html.indexOf('>',begin);const auto close=html.lastIndexOf("</body>");
-    if(begin>=0&&open>=0&&close>open)html=html.mid(open+1,close-open-1);
+    if(begin>=0&&open>=0&&close>open){const auto bodyTag=html.mid(begin,open-begin+1);const auto style=QRegularExpression("style=\"([^\"]*)\"").match(bodyTag).captured(1);html="<div style=\""+style+";max-width:100%;overflow-wrap:break-word;\">"+html.mid(open+1,close-open-1)+"</div>";}
     const QRegularExpression indent("-qt-block-indent:([0-9]+)");
     auto matches=indent.globalMatch(html);QList<QRegularExpressionMatch> replacements;while(matches.hasNext())replacements.append(matches.next());
     for(auto i=replacements.crbegin();i!=replacements.crend();++i)html.replace(i->capturedStart(),i->capturedLength(),"margin-left:"+QString::number(i->captured(1).toInt()*24)+"px");

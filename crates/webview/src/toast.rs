@@ -39,11 +39,17 @@ fn create(input: &[u8], callback: Callback, token: usize) -> windows::core::Resu
     })?;
     let apartment = Apartment(unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok());
     let document = XmlDocument::new()?;
-    document.LoadXml(&HSTRING::from(crate::toast_xml::document(
-        data["title"].as_str().unwrap_or("New email"),
-        data["body"].as_str().unwrap_or(""),
-        data["copyCode"].as_bool().unwrap_or(false),
-    )))?;
+    document.LoadXml(&HSTRING::from(
+        crate::toast_xml::document(
+            data["title"].as_str().unwrap_or("New email"),
+            data["body"].as_str().unwrap_or(""),
+            data["copyCode"].as_bool().unwrap_or(false),
+            data["activation"].as_str().unwrap_or(""),
+        )
+        .ok_or_else(|| {
+            windows::core::Error::from_hresult(windows::Win32::Foundation::E_INVALIDARG)
+        })?,
+    ))?;
     let notification = ToastNotification::CreateToastNotification(&document)?;
     let handler = TypedEventHandler::<ToastNotification, IInspectable>::new(move |_, args| {
         let action = args
@@ -52,6 +58,7 @@ fn create(input: &[u8], callback: Callback, token: usize) -> windows::core::Resu
             .and_then(|args| args.Arguments().ok())
             .map(|a| a.to_string_lossy())
             .unwrap_or_else(|| "open".into());
+        let action = action.split(':').next().unwrap_or("");
         if action == "open" || action == "copy" {
             callback(token, action.as_ptr(), action.len());
         }

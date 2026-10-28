@@ -18,6 +18,7 @@
 #include <functional>
 class ProfileImages;
 class AttachmentPreview;
+class QWidget;
 
 class Bridge : public QObject {
     Q_OBJECT
@@ -91,6 +92,8 @@ public:
     Q_INVOKABLE void activateWindow(QObject*window);
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
     Q_INVOKABLE void releaseMessageImages(const QString&message);
+    Q_INVOKABLE void updateDialogColours(const QVariantMap&colours){dialogColours=colours;}
+    void themeDialog(QWidget*dialog)const;
     Q_INVOKABLE void testNotification(){emit notification({{"title","Luma notification test"},{"body","Test verification code: 123456"},{"code","123456"}});}
     Q_INVOKABLE void setView(const QString &folder,const QString &account=QString(),const QString &search=QString());
     Q_INVOKABLE void selectRow(int row,int modifiers,qreal x,qreal y,qreal width,qreal height,const QVariantMap &projection={});
@@ -111,6 +114,7 @@ public:
     Q_INVOKABLE void renderMessage(const QVariantMap&parameters);
     Q_INVOKABLE void openLink(const QString &url);
     Q_INVOKABLE void attachFiles();
+    Q_INVOKABLE void insertInlineImage();
     Q_INVOKABLE bool attachUrls(const QVariantList&urls);
     Q_INVOKABLE void chooseSignaturePicture(const QString&session);
     Q_INVOKABLE void chooseColour(bool background=false);
@@ -136,6 +140,7 @@ signals:
     void openRowRequested(int index);
     void returnRow(QVariantMap row);
     void composeRequested(QString mode); void notification(QVariantMap data);
+    void inlineImageStarted(QString session,QString token);
     void composeFocused();void composeClosed();void composeCloseQuestion(QVariantMap data);
     void flushComposer();void colourChosen(QString colour,bool background);void showRequested();
     void signaturePictureChosen(QString session,QString path,QString name);
@@ -186,4 +191,5 @@ private:
     QHash<QString,Profile> profiles;QHash<QString,QString> profileTokens;QHash<quint64,QString> profileRequests;
     ProfileImages*profileImages=nullptr;QElapsedTimer profileClock;qint64 profileSerial=0;
     AttachmentPreview*attachmentPreview=nullptr;
+    QVariantMap dialogColours;
 };

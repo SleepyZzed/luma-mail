@@ -20,6 +20,8 @@ QtObject {
     readonly property color faint:muted
     readonly property color accentText:tokens.accentText||"#281c3d"
     readonly property color selected:mix(surface,accent,dark?.19:.12)
+    readonly property var dialogColours:({window:window,surface:surface,text:text,muted:muted,accent:accent,accentText:accentText})
+    onDialogColoursChanged:Mail.updateDialogColours(dialogColours)
     readonly property color link:dark?"#82b5ff":"#165fcb"
     readonly property bool compact:Mail.settings.compact||false
     readonly property real scale: Math.max(.75,Math.min(2,(Mail.settings.ui_scale_percent || 100)/100))

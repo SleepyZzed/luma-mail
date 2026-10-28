@@ -11,6 +11,7 @@ Item {
     property bool sendSubmitted:false
     property bool sendAcknowledged:false
     property bool modePending:false
+    property string inlineToken:""
     property Item scene
     property Item homeScene
     property var popout:null
@@ -171,6 +172,7 @@ Item {
                 FormatButton{glyph:"link";tip:"Insert hyperlink · Ctrl+K";onClicked:linkDialog.open()}
                 FormatButton{objectName:"composeTable";glyph:"table";tip:"Insert table";onClicked:tableDialog.open()}
                 FluidButton{objectName:"composeAttachFiles";glyph:"attachment";tip:"Attach files";enabled:root.attachmentEditable&&!root.inputBusy;onClicked:Mail.attachFiles()}
+                FluidButton{objectName:"composeInlinePicture";glyph:"image";tip:"Insert picture in the message body";enabled:root.attachmentEditable&&!root.inputBusy&&!root.inlineToken;onClicked:Mail.insertInlineImage()}
                 FormatButton{text:"A";tip:"Font colour";onClicked:Mail.chooseColour(false)}
                 FormatButton{text:"▰";tip:"Text highlight";onClicked:Mail.chooseColour(true)}
                 FormatButton{text:"···";tip:"More formatting";onClicked:formatMenu.open()}
@@ -183,9 +185,9 @@ Item {
             Text{textFormat:Text.PlainText;width:parent.width-Theme.unit(135);anchors.verticalCenter:parent.verticalCenter;text:"Original HTML is preserved. Convert to edit.";color:Theme.muted;font.pixelSize:Theme.unit(10);elide:Text.ElideRight}
             FluidButton{text:"Convert to edit";onClicked:Mail.send("composeConvert",{session:root.loadedSession,text:rich.html()})}
         }
-        Flickable{width:parent.width;height:root.state.attachments?.length?Theme.unit(74):0;contentWidth:attachmentCards.width;clip:true
+        Flickable{width:parent.width;height:(root.state.attachments||[]).some(a=>!a.inline)?Theme.unit(74):0;contentWidth:attachmentCards.width;clip:true
             Row{id:attachmentCards;spacing:Theme.unit(8)
-                Repeater{model:root.state.attachments||[];delegate:AttachmentTile{required property var modelData;attachment:modelData;owner:({session:root.loadedSession,generation:root.state.attachmentGeneration});removable:root.attachmentEditable;onRemoveRequested:Mail.send("composeRemoveAttachment",{session:root.loadedSession,attachment:modelData.id,generation:root.state.attachmentGeneration})}}
+                Repeater{model:(root.state.attachments||[]).filter(a=>!a.inline);delegate:AttachmentTile{required property var modelData;attachment:modelData;owner:({session:root.loadedSession,generation:root.state.attachmentGeneration});removable:root.attachmentEditable;onRemoveRequested:Mail.send("composeRemoveAttachment",{session:root.loadedSession,attachment:modelData.id,generation:root.state.attachmentGeneration})}}
             }
             ScrollBar.horizontal:ScrollBar{implicitHeight:3}
         }
@@ -235,7 +237,7 @@ Item {
         Row{y:Theme.unit(12);spacing:Theme.unit(5)
             FluidButton{objectName:"composeSend";text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.sendSubmitted&&!root.modePending&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send · Ctrl+Enter";onClicked:root.submit("composeSend")}
             FluidButton{glyph:"save";tip:"Save to Gmail drafts";enabled:!!root.loadedSession&&!root.busy&&!root.state.locked&&root.state.state!=="conflict";onClicked:root.submit("composeSave")}
-            FluidButton{text:root.inputBusy?"Cancel image":"Cancel upload";visible:root.inputBusy||root.state.state==="uploading";onClicked:root.inputBusy?Mail.cancelClipboard():Mail.send("composeCancelUpload",{session:root.loadedSession})}
+            FluidButton{text:root.inputBusy||root.inlineToken?"Cancel image":"Cancel upload";visible:root.inputBusy||!!root.inlineToken||root.state.state==="uploading";onClicked:root.inlineToken?Mail.send("composeInsertImageCancel",{session:root.loadedSession,token:root.inlineToken}):root.inputBusy?Mail.cancelClipboard():Mail.send("composeCancelUpload",{session:root.loadedSession})}
             FluidButton{text:"Save separate copy";visible:root.state.state==="conflict";onClicked:{root.sync();Mail.send("composeSaveCopy",{session:root.loadedSession})}}
             FluidButton{text:"Compare versions";visible:root.state.state==="conflict";onClicked:{inputDelay.stop();root.comparisonRequested(root.loadedSession,root.form())}}
         }
@@ -385,7 +387,7 @@ Item {
     function open(mode){
         ensureControls()
         const activeSurface=openingSurface===undefined?visible:openingSurface;openingSurface=undefined
-        closingPending=false;sendSubmitted=false;sendAcknowledged=false;modePending=false;releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
+        closingPending=false;sendSubmitted=false;sendAcknowledged=false;modePending=false;inlineToken="";releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
         if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
     }
@@ -405,11 +407,12 @@ Item {
     }
     function dockBottomRight(){manualPosition=false}
     Connections{target:Mail
-        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){ensureControls();loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;if(sendSubmitted){if(c.pending||c.state==="sending")sendAcknowledged=true;if(sendAcknowledged&&c.state==="editing"&&!c.pending)sendSubmitted=false}formLoading=false;if(c.state==="sent")sentDelay.restart()}
+        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){ensureControls();if(loadedSession!==c.session)rich.clearPictures();loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;if(sendSubmitted){if(c.pending||c.state==="sending")sendAcknowledged=true;if(sendAcknowledged&&c.state==="editing"&&!c.pending)sendSubmitted=false}formLoading=false;if(c.state==="sent")sentDelay.restart()}
         function onComposeClosed(){root.close()}
         function onComposeCloseQuestion(data){if(root.detached)Mail.activateWindow(root.popout);closeDialog.question=data;closeDialog.open()}
         function onFlushComposer(){root.sync()}
-        function onReceived(event,data){if(event==="error"){root.sendSubmitted=false;root.modePending=false}if(event==="compose"&&data.replace)root.modePending=false}
+        function onInlineImageStarted(session,token){if(session===root.loadedSession)root.inlineToken=token}
+        function onReceived(event,data){if(event==="error"){root.sendSubmitted=false;root.modePending=false;if(!root.state.inputBusy)root.inlineToken=""}if(event==="compose"&&data.replace)root.modePending=false;if(event==="inlineImageComplete"&&data.session===root.loadedSession&&data.token===root.inlineToken)root.inlineToken="";if(event==="inlineImageReady"){if(data.session!==root.loadedSession||data.token!==root.inlineToken||!root.rich){Mail.send("composeInsertImageCancel",{session:data.session,token:data.token});return}root.formLoading=true;const inserted=root.rich.pictureRaster(data.picture)&&root.rich.picture(data.picture.source,Math.min(320,data.picture.width));root.formLoading=false;Mail.send(inserted?"composeInsertImageAck":"composeInsertImageCancel",{session:root.loadedSession,token:root.inlineToken,form:root.form()})}}
         function onColourChosen(colour,background){if(!rich)return;if(background)rich.highlight(colour);else rich.foreground(colour)}
     }
 }

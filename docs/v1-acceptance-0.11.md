@@ -11,7 +11,7 @@ Simulated accounts are never recorded as live Linux acceptance.
   New messages and saved drafts do not offer mode switching. Authored input and
   attachments survive; source account/conversation and revisions are checked.
 - Forward all loads readable history chronologically on demand and deduplicates
-  attachments. Limits: 100 messages, the existing body budget, 32 files and 16 MiB
+  attachments. Limits: 100 messages, the existing 128 KiB quote budget, 32 files and 16 MiB
   attachment bytes. Oversized operations fail with the editor preserved; nothing
   is silently truncated. Newsletter visual styling is not reproduced inside the
   readable forwarded-history section. No history archive is written.
@@ -29,7 +29,23 @@ Simulated accounts are never recorded as live Linux acceptance.
   card. Switching conversations closes received attachment previews. No image
   disk cache is added; the existing bounded original-body cache is unchanged.
 - Windows toasts require a per-user Start Menu shortcut holding only the
-  executable path/app identity. That is OS integration, not mail/cache data.
+  executable path/app identity and a per-user COM activation registration. Action
+  arguments contain random expiring identifiers, never codes or mail content.
+  These are OS integration, not mail/cache data.
+- Insert picture in body retains at most eight images within the existing
+  16 MiB attachment RAM budget (8 MiB per input). Only small decoded thumbnails
+  cross into the editor; Gmail draft MIME holds the original bytes. Send waits
+  for insertion acknowledgement; cancellation cancels a queued Send. HTML uses
+  multipart/related for CID images, multipart/alternative for plain/HTML bodies,
+  and multipart/mixed for ordinary attachments. An ordinary attached picture may
+  appear below quoted history in other clients; insert it in the body to control
+  its authored position. Recipient clients still control wrapping and dark mode.
+- Wayland startup prefers a detected hardware Vulkan device with graphics and
+  swapchain support, with OpenGL/software preflight fallbacks. Explicit renderer
+  environment overrides remain supported. This is not a target-driver runtime
+  guarantee. Text morphs use transforms; heavy message-body layout starts after
+  the projection. The AppImage requests the installed desktop chooser portal;
+  a Qt fallback uses Luma's palette. Native portal availability is a host setting.
 
 ## Original criteria
 
@@ -41,7 +57,7 @@ Simulated accounts are never recorded as live Linux acceptance.
 | 8: Gmail drafts | Save/close policy, conflicts and stale callbacks | Linux restart/concurrent clients, complex external HTML |
 | 9–12: mail/label actions | Provider/model/account routing and Undo tests | Both real mailboxes with disposable fixtures only |
 | 13: remote search | Scoped search/highlighting/pagination | Real old/giant mailbox traffic |
-| 14: attachments | RAM-only previews/media/exports, clipboard and MIME | Inline-image authoring, actual codecs/portals |
+| 14: attachments | RAM-only previews/media/exports, clipboard, inline-picture insertion and MIME | Real recipient rendering, codecs/portals |
 | 15: Drive | Upload/progress/cancel/recipient grants | Interruption/sharing recovery, existing-file selection and recipient access |
 | 16: notifications/tray | Single owner, daemon transport/actions, Windows adapter and toast XML | Actual OS appearance/clicks, DND/suspend/bursts |
 | 17: Noctalia | Config validation, palette monitoring and theme tests | Installed Noctalia/Hyprland/wallpaper changes |

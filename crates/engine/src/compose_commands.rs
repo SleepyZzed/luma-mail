@@ -20,6 +20,7 @@ use std::{
 };
 
 pub enum Prepared {
+    Inline(Arc<Session>),
     Start,
     ComparisonCancelled,
     Update(Arc<Session>),
@@ -48,6 +49,11 @@ pub fn session(app: &App, c: &Command) -> Result<Arc<Session>> {
 }
 pub fn prepare(app: &App, c: &Command) -> Result<Prepared> {
     match c.action.as_str() {
+        "composeInsertImage" => {
+            let s = session(app, c)?;
+            s.begin_input(c.text("token"))?;
+            Ok(Prepared::Inline(s))
+        }
         "composeCompareCancel" => {
             let s = session(app, c)?;
             let mut d = s.data.lock().unwrap();
@@ -174,6 +180,7 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
         return Ok(());
     }
     match prepared {
+        Prepared::Inline(s) => return crate::compose_images::prepare(app, c, &s).await,
         Prepared::ComparisonCancelled => return Ok(()),
         Prepared::Sender(s, epoch, aliases) => {
             return refresh_sender(app, c.id, &s, epoch, aliases, true).await;
@@ -242,6 +249,9 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
             Ok(())
         }
         "composeAttach" => attach(app, c, &s).await,
+        "composeInsertImageAck" | "composeInsertImageCancel" => {
+            crate::compose_images::acknowledge(app, c, &s).await
+        }
         "composeRemoveAttachment" => remove_attachment(app, c, &s).await,
         "composeCancelUpload" => {
             s.cancel.store(true, Ordering::Relaxed);
@@ -390,7 +400,7 @@ async fn input(app: &Arc<App>, c: &Command, s: &Arc<Session>, action: InputActio
     emit(app, c.id, s, false).await;
     resume_close(app, c.id, s).await
 }
-async fn resume_close(app: &Arc<App>, id: u64, s: &Arc<Session>) -> Result<()> {
+pub(crate) async fn resume_close(app: &Arc<App>, id: u64, s: &Arc<Session>) -> Result<()> {
     let waiting = {
         let mut d = s.data.lock().unwrap();
         if !d.input_busy && !d.identity_loading && d.pending.is_none() {
@@ -655,12 +665,16 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
                 };
                 append_forward(&mut init.quote, &message)?;
                 if !app.preview {
-                    merge_attachments(
-                        &mut init.form.retained,
-                        app.client(&account.id)?
-                            .message_attachments(&message)
-                            .await?,
-                    )?;
+                    // History is forwarded as readable text, so its old inline
+                    // images become ordinary attachments instead of orphan CIDs.
+                    let mut files = app
+                        .client(&account.id)?
+                        .message_attachments(&message)
+                        .await?;
+                    for file in &mut files {
+                        file.content_id = None;
+                    }
+                    merge_attachments(&mut init.form.retained, files)?;
                 }
             }
         } else {
@@ -685,6 +699,7 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
             if Some((d.revision, d.attachment_generation)) != revision
                 || d.phase != Phase::Editing
                 || d.pending.is_some()
+                || d.close_question.is_some()
                 || d.input_busy
             {
                 return Err(Error::Invalid("Your message changed while preparing the forward. Your edits are preserved; try again.".into()));
@@ -737,7 +752,7 @@ fn append_forward(output: &mut String, message: &Message) -> Result<()> {
         .saturating_add(header.len())
         .saturating_add(text.len())
         .saturating_add(2)
-        > document::MAX_BODY
+        > document::MAX_QUOTE
     {
         return Err(Error::Invalid("Forwarded content exceeds the in-memory message limit. Forward individual messages instead.".into()));
     }
@@ -808,7 +823,7 @@ fn merge_attachments(
 pub(crate) async fn install(
     app: &Arc<App>,
     id: u64,
-    init: Init,
+    mut init: Init,
     replacing: Option<(&Arc<Session>, u64, u64)>,
 ) -> Result<()> {
     let account = app
@@ -820,6 +835,7 @@ pub(crate) async fn install(
         .find(|a| Some(&a.id) == init.form.account.as_ref() && a.enabled)
         .cloned()
         .ok_or_else(|| Error::Invalid("Reconnect this account before opening the draft".into()))?;
+    crate::compose_images::restore(&mut init).await?;
     let s = Session::new(init);
     if s.data.lock().unwrap().mode == "merged" {
         let mut d = s.data.lock().unwrap();

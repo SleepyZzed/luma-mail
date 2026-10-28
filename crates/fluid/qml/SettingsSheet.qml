@@ -113,7 +113,7 @@ Item {
             FluidButton{text:"Clear recent recipients";onClicked:Mail.send("recentClear")}
             Text{textFormat:Text.PlainText;text:root.notice;visible:text!=="";color:Theme.accent;font.pixelSize:Theme.unit(11)}
             Text {textFormat:Text.PlainText;text:"STORAGE & PRIVACY";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
-            FluidButton{objectName:"testSystemNotification";text:"Test system notification";tip:"Show a synthetic code notification with Open and Copy code actions";onClicked:Mail.testNotification()}
+            FluidButton{objectName:"testSystemNotification";text:"Test system notification";enabled:!Mail.preview;tip:"Show a synthetic code notification with Open and Copy code actions in the installed app";onClicked:Mail.testNotification()}
             FluidCheck{objectName:"autoLoadImages";text:"Automatically load images in opened emails";checked:Mail.settings.auto_load_images===true;onToggled:Mail.send("settingsUpdate",{auto_load_images:checked})}
             Text{textFormat:Text.PlainText;width:parent.width;wrapMode:Text.Wrap;text:"External image servers may learn that you opened the email. Only expanded messages are loaded, within the existing image limits. Image pixels stay in memory and are released when the email closes.";color:Theme.muted;font.pixelSize:Theme.unit(11)}
             FluidCheck{objectName:"autoPreviewAttachments";text:"Preview image attachments in opened emails";checked:Mail.settings.auto_preview_attachments!==false;onToggled:Mail.send("settingsUpdate",{auto_preview_attachments:checked})}

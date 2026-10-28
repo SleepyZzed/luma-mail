@@ -27,6 +27,18 @@ Wayland when available; the compositor owns window edges and positioning. Native
 notifications use the desktop D-Bus notification daemon. Keep Chromium's sandbox
 enabled. Its kernel/desktop requirements must be verified on the target desktop.
 
+From 0.11, startup on Wayland probes hardware Vulkan support before creating a
+Quick window, then tries an OpenGL preflight and finally software rendering when
+hardware is unavailable. Explicit `QSG_RHI_BACKEND` / `QT_QUICK_BACKEND` choices
+take precedence. This is a startup capability probe, not recovery from every
+driver or swapchain failure. `QSG_INFO=1` prints Qt's actual selected renderer for
+diagnosis; no renderer probe or animation timer runs continuously while idle.
+
+The launcher requests Qt's bundled `xdgdesktopportal` theme. The installed chooser
+portal determines whether GNOME, KDE or another desktop provides the dialog.
+Unsupported host-only Qt theme plugins are not loaded into the bundled runtime.
+When a native chooser is unavailable, the Qt fallback uses Luma's current palette.
+
 Build with `packaging/fluid-appimage.sh --binary <Qt-host> --engine <registered-engine>
 --qt-notices <matching-notices-folder> --version <preview-version>`. Generate the
 notices folder with `packaging/qt-source-notices.py --version 6.11.2 --output <folder>`.

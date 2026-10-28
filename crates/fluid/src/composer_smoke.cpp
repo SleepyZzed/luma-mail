@@ -122,6 +122,11 @@ public:
                 stage=22;QMetaObject::invokeMethod(card,"changeMode",Q_ARG(QVariant,QString("replyAll")));
             }else if(event=="compose"&&stage==22&&data["replace"].toBool()&&data["mode"]=="replyAll"){
                 check("reply all restores recipients and keeps authored response",!data["to"].toString().isEmpty()&&document->nativeDocument()->toPlainText()=="Keep my authored response");
+                stage=24;const auto path=qEnvironmentVariable("LUMA_TEST_ROOT")+"/authored-picture.png";QImage image(80,40,QImage::Format_RGBA8888);image.fill(Qt::cyan);
+                check("synthetic inline image fixture is created",image.save(path));emit mail->inlineImageStarted(session,"native-inline");mail->send("composeInsertImage",{{"session",session},{"token","native-inline"},{"path",path}});
+            }else if(event=="compose"&&stage==24&&!data["inputBusy"].toBool()&&data["attachments"].toList().size()==1){
+                check("inline image acknowledgement keeps one RAM-only MIME part",data["attachments"].toList().first().toMap().value("inline").toBool());
+                check("native editor keeps inline picture at authored position without base64 HTML",document->html().contains("cid:luma-inline-")&&!document->html().contains("data:image"));
                 stage=23;card->setProperty("sendSubmitted",true);mail->selectRow(1,0,240,173,450,68);
                 QTimer::singleShot(500,this,[this]{const auto prompt=card->property("closeDialog").value<QObject*>();check("reader updates cannot open a save-draft prompt after Send",!card->property("inlineMode").toBool()&&card->property("shown").toBool()&&prompt&&!prompt->property("visible").toBool());card->setProperty("sendSubmitted",false);stage=10;invoke("requestClose");});
             }else if(event=="composeCloseQuestion"&&stage==10){QMetaObject::invokeMethod(card,"answerClose",Q_ARG(QVariant,QString("close")));}

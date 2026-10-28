@@ -18,8 +18,9 @@ private slots:
         received(1,reinterpret_cast<const unsigned char*>("open"),4);QTRY_COMPARE(opened.size(),1);QCOMPARE(opened[0][0].toString(),QString("a"));QCOMPARE(opened[0][1].toString(),QString("first"));
         received(2,reinterpret_cast<const unsigned char*>("copy"),4);QTRY_COMPARE(copied.size(),1);QCOMPARE(copied[0][0].toString(),QString("007341"));QCOMPARE(opened.size(),1);QCOMPARE(released,2);
         adapter.activate(2,"copy");QCOMPARE(copied.size(),1);
+        adapter.notify({{"account","b"},{"thread","third"}});const auto nonce=payloads.last()["activation"].toString();adapter.activateArguments("open:00000000-0000-0000-0000-000000000000");QCOMPARE(opened.size(),1);adapter.activateArguments("open:"+nonce);QCOMPARE(opened.size(),2);QCOMPARE(opened.last()[1].toString(),QString("third"));QCOMPARE(released,3);
         for(int i=0;i<65;++i)adapter.notify({{"account","a"},{"thread",QString::number(i)}});
-        QCOMPARE(released,3);adapter.activate(3,"open");QCOMPARE(opened.size(),1);adapter.clear();QCOMPARE(released,67);
+        QCOMPARE(released,4);adapter.activate(4,"open");QCOMPARE(opened.size(),2);adapter.clear();QCOMPARE(released,68);
         QVERIFY(status.last()[0].toString().isEmpty());
     }
 };

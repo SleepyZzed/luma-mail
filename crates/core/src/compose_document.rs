@@ -5,6 +5,7 @@ use html5ever::tokenizer::{BufferQueue, Token, TokenSink, TokenSinkResult, Token
 use std::{cell::RefCell, collections::HashSet};
 
 pub const MAX_BODY: usize = 1024 * 1024;
+pub const MAX_QUOTE: usize = 128 * 1024;
 const ROOT: &str = "<div data-luma-editor=\"2\">";
 const START: &str = "<!--luma-authored-start-->";
 const END: &str = "<!--luma-authored-end-->";
@@ -20,6 +21,36 @@ pub fn escape(text: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
+pub fn inline_sources(html: &str) -> HashSet<String> {
+    struct Images(RefCell<HashSet<String>>);
+    impl TokenSink for Images {
+        type Handle = ();
+        fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+            if let Token::TagToken(tag) = token
+                && &*tag.name == "img"
+            {
+                for attribute in tag.attrs {
+                    if &*attribute.name.local == "src"
+                        && attribute.value.starts_with("cid:luma-inline-")
+                    {
+                        let mut images = self.0.borrow_mut();
+                        if images.len() < 64 {
+                            images.insert(attribute.value[4..].to_string());
+                        }
+                    }
+                }
+            }
+            TokenSinkResult::Continue
+        }
+    }
+    let sink = Images(RefCell::new(HashSet::new()));
+    let queue = BufferQueue::default();
+    queue.push_back(html.into());
+    let tokenizer = Tokenizer::new(sink, Default::default());
+    let _ = tokenizer.feed(&queue);
+    tokenizer.end();
+    tokenizer.sink.0.into_inner()
+}
 pub fn clean(html: &str) -> Result<String> {
     if html.len() > MAX_BODY {
         return Err(Error::ResponseLimit);
@@ -30,6 +61,7 @@ pub fn clean(html: &str) -> Result<String> {
         .add_generic_attributes(&["style", "align", "width", "height", "valign"])
         .add_tag_attributes("font", &["color", "face", "size"])
         .add_tag_attributes("table", &["cellpadding", "cellspacing", "border"])
+        .set_tag_attribute_value("img", "style", "max-width:100%;height:auto;")
         .url_relative(ammonia::UrlRelative::Deny)
         .url_schemes(HashSet::from(["https", "http", "mailto", "cid"]))
         .filter_style_properties(HashSet::from([
@@ -56,6 +88,7 @@ pub fn clean(html: &str) -> Result<String> {
             "height",
             "max-width",
             "white-space",
+            "overflow-wrap",
             "text-indent",
             "list-style-type",
         ]));
@@ -66,7 +99,7 @@ pub fn clean(html: &str) -> Result<String> {
     Ok(safe)
 }
 pub fn envelope(text: &str, html: bool, quote: &str, signature: &str) -> Result<String> {
-    if text.len() > MAX_BODY || quote.len() > 128 * 1024 {
+    if text.len() > MAX_BODY || quote.len() > MAX_QUOTE {
         return Err(Error::ResponseLimit);
     }
     let body = if html {
@@ -107,7 +140,6 @@ fn quote(html: &str) -> String {
         depth: usize,
         capture: usize,
         text: String,
-        chars: usize,
     }
     struct Sink(RefCell<State>);
     impl TokenSink for Sink {
@@ -131,9 +163,8 @@ fn quote(html: &str) -> String {
                     {
                         s.capture = s.depth;
                     }
-                    if s.capture > 0 && &*t.name == "br" && s.chars < 32768 {
+                    if s.capture > 0 && &*t.name == "br" && s.text.len() < MAX_QUOTE {
                         s.text.push('\n');
-                        s.chars += 1;
                     }
                 }
                 Token::TagToken(t) if t.kind == EndTag => {
@@ -143,9 +174,11 @@ fn quote(html: &str) -> String {
                     s.depth = s.depth.saturating_sub(1);
                 }
                 Token::CharacterTokens(t) if s.capture > 0 => {
-                    for c in t.chars().take(32768usize.saturating_sub(s.chars)) {
+                    for c in t.chars() {
+                        if s.text.len() + c.len_utf8() > MAX_QUOTE {
+                            break;
+                        }
                         s.text.push(c);
-                        s.chars += 1;
                     }
                 }
                 _ => {}
@@ -160,7 +193,6 @@ fn quote(html: &str) -> String {
             depth: 0,
             capture: 0,
             text: String::new(),
-            chars: 0,
         })),
         Default::default(),
     );
@@ -206,5 +238,12 @@ mod tests {
         let html = envelope("<!--luma-authored-end--><p>Safe</p>", true, "", "").unwrap();
         assert_eq!(html.matches(END).count(), 1);
         assert_eq!(sections(&html).unwrap().body, "<p>Safe</p>");
+    }
+    #[test]
+    fn forwarded_history_round_trips_up_to_the_existing_quote_budget() {
+        let history = "Forwarded message\n".repeat(5000);
+        let html = envelope("New introduction", false, &history, "").unwrap();
+        assert_eq!(sections(&html).unwrap().quote, history);
+        assert!(envelope("", false, &"x".repeat(MAX_QUOTE + 1), "").is_err());
     }
 }

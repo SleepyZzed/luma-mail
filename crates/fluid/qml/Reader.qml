@@ -77,7 +77,7 @@ Item {
                     property bool originalColours:false
                     property bool hasHtml:item.hasHtml||false
                     function render(external=Mail.settings.auto_load_images===true){
-                        if(!hasHtml||!expanded||!Mail.readerOpen)return
+                        if(!hasHtml||!expanded||!Mail.readerOpen||root.projected)return
                         function rgb(c){return [Math.round(c.r*255),Math.round(c.g*255),Math.round(c.b*255)]}
                         Mail.renderMessage({account:Mail.reader.key.account,id:item.id,original:originalColours,external:external,background:rgb(Theme.window),foreground:rgb(Theme.text),dark:Theme.dark})
                     }
@@ -86,6 +86,7 @@ Item {
                     onExpandedChanged:{if(expanded&&hasHtml)themeDelay.restart();else if(!expanded){themeDelay.stop();Mail.releaseMessageImages(item.id)}}
                     Timer{id:themeDelay;interval:180;onTriggered:message.render()}
                     Connections{target:Mail;function onPaletteChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}function onSettingsChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}}
+                    Connections{target:root;function onProjectedChanged(){if(!root.projected&&message.expanded&&message.hasHtml)Qt.callLater(()=>message.render())}}
                     width:thread.width;spacing:Theme.unit(18)
                     Item {
                         width:parent.width;height:Theme.unit(53);opacity:root.projected&&message.index===0?0:1
@@ -109,7 +110,7 @@ Item {
                         width:parent.width;height:Math.max(0,expansion.value);clip:true;visible:height>0
                         Motion{id:expansion;target:message.expanded?bodyLoader.implicitHeight:0;enabled:Theme.motion}
                         Loader {
-                            id:bodyLoader;width:parent.width;active:message.expanded||expansion.running||expansion.value>0
+                            id:bodyLoader;width:parent.width;active:!root.projected&&(message.expanded||expansion.running||expansion.value>0)
                             sourceComponent:Column {
                             id:body;width:parent.width;spacing:Theme.unit(20)
                             Motion{id:reveal;target:root.projected||!Mail.readerOpen?0:1;epsilon:.002;enabled:Theme.motion}

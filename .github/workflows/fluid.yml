@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get update && sudo apt-get install -y ninja-build libdbus-1-dev libgl1 libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 xvfb pulseaudio openbox x11-utils
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libdbus-1-dev libvulkan-dev libgl1 libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 xvfb pulseaudio openbox x11-utils
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.11.2'

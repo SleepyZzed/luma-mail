@@ -7,6 +7,7 @@ mod attachment_source;
 mod clipboard;
 mod compose;
 mod compose_commands;
+mod compose_images;
 mod draft_conflict;
 mod labels;
 mod lifecycle;

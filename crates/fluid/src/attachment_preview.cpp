@@ -24,6 +24,7 @@ void AttachmentPreview::save(const QVariantMap&value,const QString&){saveMany({v
 void AttachmentPreview::saveMany(const QVariantList&sources){
     if(saving||saveDialog||sources.isEmpty()||sources.size()>100)return;
     auto dialog=new QFileDialog;saveDialog=dialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle(sources.size()>1?"Save all attachments to folder":"Save attachment to folder");dialog->setFileMode(QFileDialog::Directory);dialog->setOption(QFileDialog::ShowDirsOnly);dialog->setWindowModality(Qt::ApplicationModal);
+    mail->themeDialog(dialog);
     connect(dialog,&QFileDialog::fileSelected,this,[this,sources](const QString&directory){saveToken=QUuid::createUuid().toString(QUuid::WithoutBraces);saving=true;stopping=false;saveProgress=0;saveMessage="Preparing attachment download…";saveRequest=mail->send("attachmentSaveAll",{{"token",saveToken},{"directory",directory},{"attachments",sources}});if(!saveRequest){saving=false;saveMessage="The mail engine is not connected.";}emit downloadChanged();});dialog->open();
 }
 void AttachmentPreview::cancelDownload(){if(!saving||stopping)return;stopping=true;saveMessage="Cancelling safely…";mail->send("attachmentSaveCancel",{{"token",saveToken}});emit downloadChanged();}

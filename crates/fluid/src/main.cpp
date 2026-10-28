@@ -1,5 +1,7 @@
 #include "bridge.h"
 #include "single_instance.h"
+#include "startup_graphics.h"
+#include "software_icons.h"
 #include <QStandardPaths>
 #include <QDesktopServices>
 #include "motion_smoke.h"
@@ -56,6 +58,9 @@ int main(int argc,char**argv){
     app.setDesktopFileName("io.github.lumamail.Luma");
     app.setStyle("Fusion");app.setWindowIcon(QIcon(":/brand/io.github.lumamail.Luma.svg"));
     app.setQuitOnLastWindowClosed(false);
+    const auto graphicsBackend=selectStartupGraphics();
+    app.setProperty("lumaGraphicsBackend",graphicsBackend);
+    if(graphicsBackend=="software-fallback")qWarning()<<"Luma: hardware graphics unavailable; using the software renderer.";
     ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
     const bool acceptance=app.arguments().contains("--acceptance-test")&&!qEnvironmentVariableIsEmpty("LUMA_TEST_ROOT");
@@ -68,6 +73,8 @@ int main(int argc,char**argv){
     Bridge bridge(preview);AttachmentPreview attachmentPreview(&bridge);bridge.setAttachmentPreview(&attachmentPreview);QQmlApplicationEngine engine;
     QObject::connect(&app,&QCoreApplication::aboutToQuit,&attachmentPreview,&AttachmentPreview::close);
     engine.addImageProvider("attachment",new PreviewImageProvider(attachmentPreview.pixels()));
+    engine.addImageProvider("software-icon",new SoftwareIcons);
+    engine.rootContext()->setContextProperty("softwareGraphics",graphicsBackend=="software-fallback"||qEnvironmentVariable("QT_QUICK_BACKEND")=="software");
     engine.rootContext()->setContextProperty("AttachmentViewer",&attachmentPreview);
 #ifdef LUMA_WEBENGINE
     engine.rootContext()->setContextProperty("ReaderProfiles",new ReaderProfiles(&engine));
@@ -75,6 +82,9 @@ int main(int argc,char**argv){
     auto profiles=new ProfileImages;engine.addImageProvider("profiles",profiles);bridge.setProfileImages(profiles);
     engine.rootContext()->setContextProperty("Mail",&bridge);
     engine.rootContext()->setContextProperty("resourceFixture",preview&&app.arguments().contains("--resource-test"));
+    // This fixture drives every action programmatically. External pointer hover
+    // must not turn an idle-frame measurement into a hover-animation measurement.
+    engine.rootContext()->setContextProperty("motionFixture",traceMotion);
     engine.rootContext()->setContextProperty("isWindows",
 #ifdef Q_OS_WIN
         true

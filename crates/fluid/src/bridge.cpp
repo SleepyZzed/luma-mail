@@ -19,6 +19,7 @@
 #include <QColorDialog>
 #include <QClipboard>
 #include <QMimeData>
+#include <QUuid>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -246,10 +247,23 @@ void Bridge::quit(int exitCode){
 void Bridge::attachFiles(){
     const auto session=m_composer.value("session").toString();if(session.isEmpty())return;
     auto dialog=new QFileDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Attach files");dialog->setFileMode(QFileDialog::ExistingFiles);dialog->setWindowModality(Qt::ApplicationModal);
-    connect(dialog,&QFileDialog::filesSelected,this,[this,session](const QStringList&files){if(m_composer.value("session")==session&&m_composer.value("state")!="closed"&&m_composer.value("state")!="sent")send("composeAttach",{{"session",session},{"paths",files}});});dialog->open();
+    themeDialog(dialog);connect(dialog,&QFileDialog::filesSelected,this,[this,session](const QStringList&files){if(m_composer.value("session")==session&&m_composer.value("state")!="closed"&&m_composer.value("state")!="sent")send("composeAttach",{{"session",session},{"paths",files}});});dialog->open();
+}
+void Bridge::insertInlineImage(){
+    const auto session=m_composer.value("session").toString();if(session.isEmpty())return;
+    auto dialog=new QFileDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Insert picture in message");dialog->setFileMode(QFileDialog::ExistingFile);dialog->setNameFilter("Pictures (*.png *.jpg *.jpeg *.gif *.webp)");dialog->setWindowModality(Qt::ApplicationModal);themeDialog(dialog);
+    connect(dialog,&QFileDialog::fileSelected,this,[this,session](const QString&path){if(m_composer.value("session")!=session||m_composer.value("locked").toBool())return;const auto token=QUuid::createUuid().toString(QUuid::WithoutBraces);emit inlineImageStarted(session,token);send("composeInsertImage",{{"session",session},{"path",path},{"token",token}});});dialog->open();
+}
+void Bridge::themeDialog(QWidget*dialog)const{
+    if(dialogColours.isEmpty())return;auto palette=dialog->palette();
+    for(const auto role:{QPalette::Window,QPalette::Button,QPalette::ToolTipBase})palette.setColor(role,dialogColours.value("window").value<QColor>());
+    for(const auto role:{QPalette::Base,QPalette::AlternateBase})palette.setColor(role,dialogColours.value("surface").value<QColor>());
+    for(const auto role:{QPalette::WindowText,QPalette::ButtonText,QPalette::Text,QPalette::ToolTipText}){palette.setColor(role,dialogColours.value("text").value<QColor>());palette.setColor(QPalette::Disabled,role,dialogColours.value("muted").value<QColor>());}
+    palette.setColor(QPalette::Highlight,dialogColours.value("accent").value<QColor>());palette.setColor(QPalette::HighlightedText,dialogColours.value("accentText").value<QColor>());dialog->setPalette(palette);
 }
 void Bridge::chooseColour(bool background){
     const auto session=m_composer.value("session").toString();auto dialog=new QColorDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowModality(Qt::ApplicationModal);
+    themeDialog(dialog);
     connect(dialog,&QColorDialog::colorSelected,this,[this,session,background](const QColor&colour){if(m_composer.value("session")==session)emit colourChosen(colour.name(),background);});dialog->open();
 }
 

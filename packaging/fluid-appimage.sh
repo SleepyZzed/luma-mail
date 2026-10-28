@@ -71,6 +71,7 @@ export EXTRA_QT_MODULES=svg APPIMAGE_EXTRACT_AND_RUN=1
 [[ -x "$appdir/usr/libexec/QtWebEngineProcess" ]]
 [[ -f "$appdir/usr/resources/icudtl.dat" && -f "$appdir/usr/resources/qtwebengine_resources.pak" ]]
 [[ -f "$appdir/usr/translations/qtwebengine_locales/en-US.pak" ]]
+[[ -f "$appdir/usr/plugins/platformthemes/libqxdgdesktopportal.so" ]]
 python3 - "$appdir" <<'PY'
 from pathlib import Path
 import re,sys
@@ -124,6 +125,14 @@ export QTWEBENGINE_RESOURCES_PATH="$APPDIR/usr/resources"
 export QTWEBENGINE_LOCALES_PATH="$APPDIR/usr/translations/qtwebengine_locales"
 export XCURSOR_PATH="${XCURSOR_PATH:-${XDG_DATA_HOME:-$HOME/.local/share}/icons:$HOME/.icons:/usr/local/share/icons:/usr/share/icons:/usr/share/pixmaps}"
 if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${QT_QPA_PLATFORM:-}" ]; then export QT_QPA_PLATFORM='wayland;xcb'; fi
+# Use the session's native file-chooser portal (GNOME/KDE/Hyprland as configured).
+# Host-only qt5ct/qt6ct plugins cannot safely load into the bundled Qt runtime.
+theme="${QT_QPA_PLATFORMTHEME:-xdgdesktopportal}"
+case "$theme" in
+  *[!a-zA-Z0-9_-]*|'') theme=xdgdesktopportal;;
+  *) [ -f "$APPDIR/usr/plugins/platformthemes/libq${theme}.so" ] || theme=xdgdesktopportal;;
+esac
+export QT_QPA_PLATFORMTHEME="$theme"
 exec "$APPDIR/usr/bin/luma-mail" "$@"
 EOF
 chmod +x "$appdir/AppRun"
