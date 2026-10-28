@@ -83,6 +83,8 @@ pub struct Settings {
     #[serde(default)]
     pub poll_version: u8,
     pub notification_privacy: bool,
+    pub auto_load_images: bool,
+    pub auto_preview_attachments: bool,
     pub close_to_tray: bool,
     pub draft_mode: DraftMode,
     // Old development builds wrote recovery copies. Retain their reader, but
@@ -112,6 +114,8 @@ impl Default for Settings {
             poll_seconds: 60,
             poll_version: 1,
             notification_privacy: false,
+            auto_load_images: false,
+            auto_preview_attachments: true,
             close_to_tray: true,
             draft_mode: DraftMode::Ask,
             local_drafts: false,

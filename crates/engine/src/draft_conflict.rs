@@ -276,6 +276,7 @@ fn merged_init(form: Compose, primary: String) -> Result<Init> {
         primary,
         mode: "merged".into(),
         key,
+        source_message: None,
         draft: None,
         quote: String::new(),
         signature: String::new(),

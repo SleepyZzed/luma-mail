@@ -17,8 +17,13 @@ private slots:
         Daemon daemon;auto bus=QDBusConnection::sessionBus();QVERIFY(bus.registerService("org.freedesktop.Notifications"));QVERIFY(bus.registerObject("/org/freedesktop/Notifications",&daemon,QDBusConnection::ExportAllSlots));
         LinuxNotifications adapter;QSignalSpy activation(&adapter,&LinuxNotifications::activated);QSignalSpy status(&adapter,&LinuxNotifications::status);
         adapter.notify({{"account","a"},{"thread","thread1"},{"title","New email"},{"body","<b>Sender-controlled text</b>"}});
-        QTRY_COMPARE(daemon.calls,1);QTRY_COMPARE(status.size(),1);QVERIFY(status.last()[0].toString().isEmpty());QCOMPARE(daemon.body,QString("&lt;b&gt;Sender-controlled text&lt;/b&gt;"));QCOMPARE(daemon.actions,QStringList({"default","Open email"}));QCOMPARE(daemon.hints["desktop-entry"].toString(),QString("io.github.lumamail.Luma"));
+        QTRY_COMPARE(daemon.calls,1);QTRY_COMPARE(status.size(),1);QVERIFY(status.last()[0].toString().isEmpty());QCOMPARE(daemon.body,QString("&lt;b&gt;Sender-controlled text&lt;/b&gt;"));QCOMPARE(daemon.actions,QStringList({"default","Open email","open","Open"}));QCOMPARE(daemon.hints["desktop-entry"].toString(),QString("io.github.lumamail.Luma"));
         auto clicked=QDBusMessage::createSignal("/org/freedesktop/Notifications","org.freedesktop.Notifications","ActionInvoked");clicked.setArguments({uint(42),"default"});QVERIFY(bus.send(clicked));QTRY_COMPARE(activation.size(),1);QCOMPARE(activation.last()[0].toString(),QString("a"));QCOMPARE(activation.last()[1].toString(),QString("thread1"));
+        clicked.setArguments({uint(42),"open"});QVERIFY(bus.send(clicked));QTRY_COMPARE(activation.size(),2);
+        QSignalSpy copied(&adapter,&LinuxNotifications::copyCode);
+        adapter.notify({{"account","b"},{"thread","thread2"},{"title","Code"},{"code","007341"}});QTRY_COMPARE(daemon.calls,2);QTRY_COMPARE(status.size(),2);QVERIFY(daemon.actions.contains("copy-code"));
+        clicked.setArguments({uint(42),"copy-code"});QVERIFY(bus.send(clicked));QTRY_COMPARE(copied.size(),1);QCOMPARE(copied.last()[0].toString(),QString("007341"));QCOMPARE(activation.size(),2);
+        QVERIFY(bus.send(clicked));QTest::qWait(30);QCOMPARE(copied.size(),1);
         bus.unregisterObject("/org/freedesktop/Notifications");bus.unregisterService("org.freedesktop.Notifications");
     }
 };

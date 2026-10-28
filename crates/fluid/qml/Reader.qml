@@ -76,16 +76,16 @@ Item {
                     Motion{id:arrival;target:0;enabled:Theme.motion}
                     property bool originalColours:false
                     property bool hasHtml:item.hasHtml||false
-                    function render(external=false){
+                    function render(external=Mail.settings.auto_load_images===true){
                         if(!hasHtml||!expanded||!Mail.readerOpen)return
                         function rgb(c){return [Math.round(c.r*255),Math.round(c.g*255),Math.round(c.b*255)]}
                         Mail.renderMessage({account:Mail.reader.key.account,id:item.id,original:originalColours,external:external,background:rgb(Theme.window),foreground:rgb(Theme.text),dark:Theme.dark})
                     }
                     onHasHtmlChanged:if(hasHtml)themeDelay.restart()
                     onOriginalColoursChanged:themeDelay.restart()
-                    onExpandedChanged:if(expanded&&hasHtml)themeDelay.restart()
+                    onExpandedChanged:{if(expanded&&hasHtml)themeDelay.restart();else if(!expanded){themeDelay.stop();Mail.releaseMessageImages(item.id)}}
                     Timer{id:themeDelay;interval:180;onTriggered:message.render()}
-                    Connections{target:Mail;function onPaletteChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}}
+                    Connections{target:Mail;function onPaletteChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}function onSettingsChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}}
                     width:thread.width;spacing:Theme.unit(18)
                     Item {
                         width:parent.width;height:Theme.unit(53);opacity:root.projected&&message.index===0?0:1
@@ -167,6 +167,7 @@ Item {
                                 FluidButton {text:"Reply";glyph:"reply";quiet:false;onClicked:root.replyAt("reply",message.item)}
                                 FluidButton {text:"Reply all";glyph:"reply-all";onClicked:root.replyAt("replyAll",message.item)}
                                 FluidButton {text:"Forward";glyph:"forward";onClicked:root.replyAt("forward",message.item)}
+                                FluidButton {text:"Forward all";glyph:"forward";tip:"Forward this conversation in chronological order";onClicked:root.replyAt("forwardAll",message.item)}
                             }
                             }
                         }

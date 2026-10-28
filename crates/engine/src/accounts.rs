@@ -33,6 +33,8 @@ pub async fn update(app: &App, c: &Command) -> Result<()> {
         "window_chrome",
         "poll_seconds",
         "notification_privacy",
+        "auto_load_images",
+        "auto_preview_attachments",
         "close_to_tray",
         "draft_mode",
         "recent_recipients",

@@ -28,7 +28,7 @@ An unsaved reply is kept in RAM while Ask is answered; Keep editing retains it a
 floating card. A detached composer stays open. Input never schedules a Gmail draft.
 
 Roadmap work already implemented is distinct from remaining authoring features:
-inline-image insertion in the message body, whole-conversation forwarding, and
+inline-image insertion in the message body and
 interrupted Drive sharing/upload recovery/existing-file selection remain open.
 These were outstanding before the migration and have not been silently marked
 complete. Full accessible focus/keyboard acceptance and independent
@@ -36,3 +36,7 @@ security/privacy review also remain release gates.
 
 See ui-migration.md for the GTK callback-to-backend map, fluid-validation.md for
 exact build evidence, roadmap.md and RELEASE-CHECKLIST.md for 1.0 acceptance.
+
+The 0.11 batch implements bounded readable whole-conversation forwarding and
+reply/forward mode switching. See v1-acceptance-0.11.md for the updated limits
+and original-criteria audit; live delivery remains distinct from fixture coverage.

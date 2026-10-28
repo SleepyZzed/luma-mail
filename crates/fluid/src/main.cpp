@@ -9,6 +9,8 @@
 #include "attachment_preview.h"
 #ifdef Q_OS_LINUX
 #include "notifications_linux.h"
+#else
+#include "notifications_windows.h"
 #endif
 #ifdef LUMA_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
@@ -24,6 +26,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QIcon>
+#include <QClipboard>
 void startComposerSmoke(Bridge*,QQuickWindow*);
 void startProfileSmoke(Bridge*,QQuickWindow*);
 void startHtmlSmoke(Bridge*,QQuickWindow*);
@@ -49,17 +52,18 @@ int main(int argc,char**argv){
     qputenv("QT_QUICK_CONTROLS_STYLE","Basic");
     qputenv("QML_DISABLE_DISK_CACHE","1");
     QQuickStyle::setStyle("Basic");
-    QApplication app(argc,argv);app.setApplicationName("Luma Mail");app.setOrganizationName("Luma Mail");app.setApplicationVersion("0.10.0");
+    QApplication app(argc,argv);app.setApplicationName("Luma Mail");app.setOrganizationName("Luma Mail");app.setApplicationVersion("0.11.0");
     app.setDesktopFileName("io.github.lumamail.Luma");
     app.setStyle("Fusion");app.setWindowIcon(QIcon(":/brand/io.github.lumamail.Luma.svg"));
     app.setQuitOnLastWindowClosed(false);
     ReaderRuntime::recover();
     bool preview=app.arguments().contains("--design-preview");
+    const bool acceptance=app.arguments().contains("--acceptance-test")&&!qEnvironmentVariableIsEmpty("LUMA_TEST_ROOT");
     const bool traceMotion=preview&&app.arguments().contains("--motion-test");
     if(traceMotion)qInfo()<<"MOTION startup: application initialized";
     QString mailto;for(const auto&argument:app.arguments())if(argument.startsWith("mailto:",Qt::CaseInsensitive)){mailto=argument;break;}
     std::unique_ptr<SingleInstance>instance;
-    if(!preview){instance=std::make_unique<SingleInstance>(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));const auto result=instance->start(mailto);if(result==SingleInstance::Forwarded)return 0;if(result==SingleInstance::Busy){qWarning()<<"The existing Luma window is busy. Try opening it again shortly.";return 1;}}
+    if(!preview){auto scope=QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);if(acceptance)scope+="/acceptance/"+qEnvironmentVariable("LUMA_TEST_ROOT");instance=std::make_unique<SingleInstance>(scope);const auto result=instance->start(mailto);if(result==SingleInstance::Forwarded)return 0;if(result==SingleInstance::Busy){qWarning()<<"The existing Luma window is busy. Try opening it again shortly.";return 1;}}
     QTemporaryDir isolated;if(preview&&qEnvironmentVariableIsEmpty("LUMA_TEST_ROOT"))qputenv("LUMA_TEST_ROOT",isolated.path().toUtf8());
     Bridge bridge(preview);AttachmentPreview attachmentPreview(&bridge);bridge.setAttachmentPreview(&attachmentPreview);QQmlApplicationEngine engine;
     QObject::connect(&app,&QCoreApplication::aboutToQuit,&attachmentPreview,&AttachmentPreview::close);
@@ -107,17 +111,21 @@ int main(int argc,char**argv){
     if(preview&&app.arguments().contains("--sync-test"))startSyncSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--attachment-test"))startAttachmentSmoke(&bridge,&attachmentPreview,window);
     QSystemTrayIcon tray(app.windowIcon());QMenu menu;menu.addAction("Open Luma Mail",&bridge,[&bridge]{emit bridge.showRequested();});menu.addSeparator();menu.addAction("Quit",&bridge,[&bridge]{bridge.quit();});tray.setContextMenu(&menu);tray.setToolTip("Luma Mail");
-    QObject::connect(&tray,&QSystemTrayIcon::activated,&bridge,[&bridge](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick)emit bridge.showRequested();});tray.show();
-    engine.rootContext()->setContextProperty("trayAvailable",QSystemTrayIcon::isSystemTrayAvailable());
+    QObject::connect(&tray,&QSystemTrayIcon::activated,&bridge,[&bridge](QSystemTrayIcon::ActivationReason r){if(r==QSystemTrayIcon::Trigger||r==QSystemTrayIcon::DoubleClick)emit bridge.showRequested();});if(!preview&&!acceptance)tray.show();
+    engine.rootContext()->setContextProperty("trayAvailable",!preview&&!acceptance&&QSystemTrayIcon::isSystemTrayAvailable());
+    QObject::connect(&app,&QCoreApplication::aboutToQuit,&tray,&QSystemTrayIcon::hide);
 #ifdef Q_OS_LINUX
     LinuxNotifications notifications;
     QObject::connect(&bridge,&Bridge::notification,&notifications,&LinuxNotifications::notify);
-    QObject::connect(&notifications,&LinuxNotifications::activated,&bridge,&Bridge::openThread);
+    QObject::connect(&notifications,&LinuxNotifications::activated,&bridge,[&bridge](const QString&account,const QString&thread){if(thread.isEmpty())bridge.showMainWindow();else bridge.openThread(account,thread);});
+    QObject::connect(&notifications,&LinuxNotifications::copyCode,&app,[](const QString&code){QApplication::clipboard()->setText(code);});
     QObject::connect(&notifications,&LinuxNotifications::status,&bridge,&Bridge::setNotificationStatus);
 #else
-    QVariantMap lastNotification;
-    QObject::connect(&bridge,&Bridge::notification,&tray,[&](QVariantMap n){if(!QSystemTrayIcon::isSystemTrayAvailable()||!QSystemTrayIcon::supportsMessages()){bridge.setNotificationStatus("Windows system notifications are unavailable.");return;}lastNotification=n;tray.showMessage(n["title"].toString(),n["body"].toString());bridge.setNotificationStatus(QString());});
-    QObject::connect(&tray,&QSystemTrayIcon::messageClicked,&bridge,[&]{bridge.openThread(lastNotification["account"].toString(),lastNotification["thread"].toString());});
+    WindowsNotifications notifications(&app);
+    QObject::connect(&bridge,&Bridge::notification,&notifications,&WindowsNotifications::notify);
+    QObject::connect(&notifications,&WindowsNotifications::activated,&bridge,[&bridge](const QString&account,const QString&thread){if(thread.isEmpty())bridge.showMainWindow();else bridge.openThread(account,thread);});
+    QObject::connect(&notifications,&WindowsNotifications::copyCode,&app,[](const QString&code){QApplication::clipboard()->setText(code);});
+    QObject::connect(&notifications,&WindowsNotifications::status,&bridge,&Bridge::setNotificationStatus);
 #endif
     QTimer::singleShot(0,&bridge,[&bridge,traceMotion]{if(traceMotion)qInfo()<<"MOTION startup: starting synthetic engine";bridge.start();});
     if(preview&&app.arguments().contains("--preview-reader")){

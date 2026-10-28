@@ -3,6 +3,76 @@ use reqwest::Method;
 use serde::Deserialize;
 use std::collections::{HashSet, VecDeque};
 
+/// Only inspect already-fetched metadata; never fetch a body just for a toast.
+/// Ambiguous numbers and non-code contexts deliberately produce no Copy action.
+pub fn activation_code(subject: &str, snippet: &str) -> Option<String> {
+    let text: String = format!("{subject} {snippet}").chars().take(800).collect();
+    let text = text.to_ascii_lowercase();
+    let bytes = text.as_bytes();
+    let mut result = None;
+    let mut at = 0;
+    while at < bytes.len() {
+        if !bytes[at].is_ascii_digit() {
+            at += 1;
+            continue;
+        }
+        let start = at;
+        while at < bytes.len() && bytes[at].is_ascii_digit() {
+            at += 1;
+        }
+        if !(4..=8).contains(&(at - start))
+            || start > 0 && bytes[start - 1].is_ascii_alphanumeric()
+            || at < bytes.len() && bytes[at].is_ascii_alphanumeric()
+        {
+            continue;
+        }
+        // Byte slicing is safe at these ASCII boundaries; clamp the context's
+        // leading edge to a UTF-8 boundary for international sender text.
+        let mut from = start.saturating_sub(64);
+        while !text.is_char_boundary(from) {
+            from += 1;
+        }
+        let context = &text[from..start];
+        let labelled = context
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .any(|word| ["code", "otp", "passcode", "verification", "activation"].contains(&word));
+        if !labelled {
+            continue;
+        }
+        let value = text[start..at].to_string();
+        if result.as_ref().is_some_and(|old| old != &value) {
+            return None;
+        }
+        result = Some(value);
+    }
+    result
+}
+
+#[cfg(test)]
+mod code_tests {
+    use super::activation_code;
+    #[test]
+    fn code_context_and_ambiguity() {
+        assert_eq!(
+            activation_code("Your verification code", "Use 123456 to sign in"),
+            Some("123456".into())
+        );
+        assert_eq!(
+            activation_code("Activation code: 007341", ""),
+            Some("007341".into())
+        );
+        assert_eq!(activation_code("Invoice 123456", "Total 2500"), None);
+        assert_eq!(activation_code("Your postcode 123456", ""), None);
+        assert_eq!(activation_code("Your code", "123456 or 654321"), None);
+        assert_eq!(activation_code("Your code", "ABC123456DEF"), None);
+        assert_eq!(activation_code("Your code", "123456789"), None);
+        assert_eq!(
+            activation_code("Your code", "é🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 code 123456"),
+            Some("123456".into())
+        );
+    }
+}
+
 #[derive(Default)]
 pub struct Dedup {
     seen: HashSet<String>,

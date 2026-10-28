@@ -109,10 +109,25 @@ public:
                 stage=9;session=data["session"].toString();check("reply has read-only history outside the editor",!data["quote"].toString().isEmpty()&&(!document||document->nativeDocument()->isEmpty()));
                 check("reply keeps its account ownership",data["accountLocked"].toBool());
                 QTimer::singleShot(750,this,[this]{check("reply docks inside the reading thread",card->property("inlineMode").toBool()&&!card->property("expanded").toBool());check("reply focuses authored body",window->activeFocusItem()==window->findChild<QQuickItem*>("composeBody"));mail->requestCompose("reply",mail->messages()->at(0));});
-            }else if(event=="composeFocus"&&stage==9){stage=10;check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());mail->selectRow(1,0,240,173,450,68);}
+            }else if(event=="composeFocus"&&stage==9){
+                check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());
+                document->load({{"kind","plain"},{"text","Keep my authored response"}});stage=20;QMetaObject::invokeMethod(card,"changeMode",Q_ARG(QVariant,QString("forward")));
+            }else if(event=="compose"&&stage==20&&data["replace"].toBool()&&data["mode"]=="forward"){
+                check("forward single keeps one read-only source outside authored text",data["quote"].toString().count("Forwarded message")==1&&document->nativeDocument()->toPlainText()=="Keep my authored response");
+                check("switching to forward clears reply recipients without replacing the session",data["session"]==session&&data["to"].toString().isEmpty());
+                stage=21;QMetaObject::invokeMethod(card,"changeMode",Q_ARG(QVariant,QString("forwardAll")));
+            }else if(event=="compose"&&stage==21&&data["replace"].toBool()&&data["mode"]=="forwardAll"){
+                check("forward all prepares every synthetic conversation message",data["quote"].toString().count("Forwarded message")==2);
+                check("forward all never inserts history into the editable body",document->nativeDocument()->toPlainText()=="Keep my authored response");
+                stage=22;QMetaObject::invokeMethod(card,"changeMode",Q_ARG(QVariant,QString("replyAll")));
+            }else if(event=="compose"&&stage==22&&data["replace"].toBool()&&data["mode"]=="replyAll"){
+                check("reply all restores recipients and keeps authored response",!data["to"].toString().isEmpty()&&document->nativeDocument()->toPlainText()=="Keep my authored response");
+                stage=23;card->setProperty("sendSubmitted",true);mail->selectRow(1,0,240,173,450,68);
+                QTimer::singleShot(500,this,[this]{const auto prompt=card->property("closeDialog").value<QObject*>();check("reader updates cannot open a save-draft prompt after Send",!card->property("inlineMode").toBool()&&card->property("shown").toBool()&&prompt&&!prompt->property("visible").toBool());card->setProperty("sendSubmitted",false);stage=10;invoke("requestClose");});
+            }else if(event=="composeCloseQuestion"&&stage==10){QMetaObject::invokeMethod(card,"answerClose",Q_ARG(QVariant,QString("close")));}
             else if(event=="composeClosed"&&stage==10){stage=11;afterClosed([this]{check("switching conversations closes the inline reply and releases the surface",!card->isVisible());finish();});}
         });
-        QTimer::singleShot(22000,this,[this]{if(!finished){check("composer smoke completes within deadline",false);finish();}});
+        QTimer::singleShot(28000,this,[this]{if(!finished){check("composer smoke completes within deadline",false);finish();}});
     }
 };
 void startComposerSmoke(Bridge*m,QQuickWindow*w){new ComposerSmoke(m,w);}

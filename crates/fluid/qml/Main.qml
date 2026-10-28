@@ -87,14 +87,14 @@ ApplicationWindow {
             if(composer.shown&&(!Mail.readerOpen||!key||!reading||key.id!==reading.id||key.account!==reading.account)){
                 const wasInline=composer.inlineMode
                 composer.inlineDock=null
-                if(wasInline){composer.floatToScene();composer.requestClose()}
+                if(wasInline){composer.floatToScene();if(!composer.sendSubmitted&&!composer.busy&&!composer.statusMode)composer.requestClose()}
             }
         }
         function onComposeRequested(mode){
             if(composer.detached)composer.returnHome(false)
             composer.openingSurface=composer.visible
             const key=Mail.composer.key,reading=Mail.reader.key
-            if((mode==="reply"||mode==="replyAll"||mode==="forward")&&key&&reading&&key.id===reading.id&&key.account===reading.account)reader.dockInline(composer)
+            if((mode==="reply"||mode==="replyAll"||mode==="forward"||mode==="forwardAll")&&key&&reading&&key.id===reading.id&&key.account===reading.account)reader.dockInline(composer)
             else{composer.inlineDock=null;if(composer.parent!==scene)composer.floatToScene();composer.inlineMode=false}
             composer.open(mode)
         }

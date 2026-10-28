@@ -116,6 +116,69 @@ impl Drop for Client {
 }
 
 #[test]
+fn forwarding_modes_keep_authored_text_and_reject_cross_account_source_changes() {
+    let mut c = Client::configured(true);
+    c.until("ready");
+    let rows = c.until("rows");
+    let key = rows["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["key"]["account"] == "preview")
+        .unwrap()["key"]
+        .clone();
+    c.send(1, "composeStart", json!({"mode":"reply","key":key}));
+    let opened = c.until("composeOpened");
+    let session = opened["session"].clone();
+    let source = opened["sourceMessage"].clone();
+    let form = json!({"text":"My response survives mode changes","html":false});
+    c.send(2,"composeStart",json!({"session":session,"changeMode":true,"mode":"forwardAll","key":key,"account":"preview","message":{"id":source},"form":form}));
+    let forward = c.until("compose");
+    assert_eq!(forward["mode"], "forwardAll");
+    assert_eq!(forward["session"], session);
+    assert_eq!(
+        forward["quote"]
+            .as_str()
+            .unwrap()
+            .matches("Forwarded message")
+            .count(),
+        2
+    );
+    assert!(
+        forward["document"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("My response survives")
+    );
+    assert_eq!(forward["to"], "");
+    c.send(3,"composeStart",json!({"session":session,"changeMode":true,"mode":"replyAll","key":{"account":"preview-b","id":key["id"]},"account":"preview-b","message":{"id":source}}));
+    assert!(
+        c.expect_error(3)["message"]
+            .as_str()
+            .unwrap()
+            .contains("original account")
+    );
+    c.send(4,"composeStart",json!({"session":session,"changeMode":true,"mode":"forward","key":key,"account":"preview","message":{"id":source}}));
+    let single = c.until("compose");
+    assert_eq!(
+        single["quote"]
+            .as_str()
+            .unwrap()
+            .matches("Forwarded message")
+            .count(),
+        1
+    );
+    assert!(
+        single["document"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("My response survives")
+    );
+    c.send(5, "cacheUsage", json!({}));
+    assert_eq!(c.until("cacheUsage")["bytes"], 0);
+}
+
+#[test]
 fn real_pipe_navigation_read_actions_and_zero_cache_do_not_write_a_mailbox() {
     let mut c = Client::new();
     let ready = c.until("ready");

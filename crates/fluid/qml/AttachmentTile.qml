@@ -9,7 +9,7 @@ Rectangle {
     property bool ready:false
     property string thumbnailKey:""
     property string thumbnailSource:""
-    readonly property bool active:visibilitySensor.viewportHeight>0&&Mail.windowVisible&&visible&&attachment.kind!=="drive"
+    readonly property bool active:visibilitySensor.viewportHeight>0&&Mail.windowVisible&&visible&&attachment.kind!=="drive"&&(owner.session!==undefined||Mail.settings.auto_preview_attachments!==false)
     signal removeRequested()
     width:Theme.unit(235);height:Theme.unit(66);radius:Theme.unit(13)
     color:hover.hovered?Theme.raised:Theme.surface;border.width:1;border.color:Theme.outline

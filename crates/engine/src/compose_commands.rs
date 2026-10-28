@@ -449,7 +449,14 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         ));
     }
     let current = app.composer.lock().unwrap().clone();
-    if let Some(s) = current.filter(|s| s.active()) {
+    let changing = current
+        .as_ref()
+        .filter(|s| s.active() && c.flag("changeMode"))
+        .cloned();
+    if c.flag("changeMode") && changing.is_none() {
+        return Err(Error::Invalid("This reply has closed".into()));
+    }
+    if let Some(s) = current.filter(|s| s.active() && !c.flag("changeMode")) {
         app.events
             .emit(c.id, "composeFocus", json!({"session":s.id}))
             .await;
@@ -462,9 +469,33 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         return Ok(());
     }
     let mode = c.text("mode");
-    if !["new", "reply", "replyAll", "forward", "draft"].contains(&mode) {
+    if !["new", "reply", "replyAll", "forward", "forwardAll", "draft"].contains(&mode) {
         return Err(Error::Invalid("Unknown compose mode".into()));
     }
+    let revision = if let Some(s) = &changing {
+        if s.id != c.text("session") {
+            return Err(Error::Invalid("This composer has changed".into()));
+        }
+        if c.data["form"].is_object() {
+            s.update(&c.data["form"], c.id)?;
+        }
+        let d = s.data.lock().unwrap();
+        if d.phase != Phase::Editing
+            || d.pending.is_some()
+            || d.input_busy
+            || d.draft.is_some()
+            || d.source_mode
+            || !["reply", "replyAll", "forward", "forwardAll"].contains(&d.mode.as_str())
+            || !["reply", "replyAll", "forward", "forwardAll"].contains(&mode)
+        {
+            return Err(Error::Invalid(
+                "Finish the current draft or upload before changing reply mode".into(),
+            ));
+        }
+        Some((d.revision, d.attachment_generation))
+    } else {
+        None
+    };
     let key = if c.data["key"].is_object() {
         Some(crate::app::key(&c.data["key"])?)
     } else {
@@ -474,6 +505,17 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         .as_str()
         .filter(|s| !s.is_empty())
         .or_else(|| key.as_ref().map(|k| k.account.as_str()));
+    if let Some(s) = &changing {
+        let d = s.data.lock().unwrap();
+        if d.key != key
+            || requested != d.form.account.as_deref()
+            || c.data["message"]["id"].as_str() != d.source_message.as_deref()
+        {
+            return Err(Error::Invalid(
+                "Reply mode must remain in its original account and conversation".into(),
+            ));
+        }
+    }
     let account = {
         let settings = app.settings.lock().unwrap();
         let id = requested.or(settings.default_account.as_deref());
@@ -495,6 +537,7 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
         primary: account.email.clone(),
         mode: mode.into(),
         key: key.clone(),
+        source_message: None,
         draft: None,
         quote: String::new(),
         signature: String::new(),
@@ -547,6 +590,7 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
                 .id
                 .clone()
         };
+        init.source_message = Some(id.clone());
         let original = if app.preview {
             synthetic(&id, &key.id)
         } else {
@@ -574,20 +618,50 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
                 .await?;
             let (draft, retained) = client.edit_draft(&found.id).await?;
             init = from_draft(&account, draft, retained)?;
-        } else if mode == "forward" {
+        } else if matches!(mode, "forward" | "forwardAll") {
             init.form.subject = format!("Fwd: {}", original.payload.header("Subject"));
-            init.form.text = format!(
-                "---------- Forwarded message ----------\nFrom: {}\nSubject: {}\n\n{}",
-                original.payload.header("From"),
-                original.payload.header("Subject"),
-                luma_core::composer::readable(&original.payload)?
-            );
-            init.document = json!({"kind":"plain","text":init.form.text});
-            if !app.preview {
-                init.form.retained = app
-                    .client(&account.id)?
-                    .message_attachments(&original)
-                    .await?;
+            let mut messages = if mode == "forwardAll" {
+                if app.preview {
+                    vec![original.clone(), synthetic("previous", &key.id)]
+                } else {
+                    let resident = {
+                        let view = app.view.lock().unwrap();
+                        if view.selected.as_ref() == Some(key) {
+                            view.thread.clone()
+                        } else {
+                            None
+                        }
+                    };
+                    let thread = match resident {
+                        Some(t) => t,
+                        None => app.client(&account.id)?.thread_metadata(&key.id).await?,
+                    };
+                    if thread.messages.len() > 100 {
+                        return Err(Error::Invalid("This conversation exceeds the 100-message forwarding limit. Forward individual messages instead.".into()));
+                    }
+                    thread.messages
+                }
+            } else {
+                vec![original.clone()]
+            };
+            messages.sort_by_key(|m| m.date());
+            for metadata in messages {
+                let message = if metadata.id == original.id {
+                    original.clone()
+                } else if app.preview {
+                    metadata
+                } else {
+                    app.client(&account.id)?.message(&metadata.id).await?
+                };
+                append_forward(&mut init.quote, &message)?;
+                if !app.preview {
+                    merge_attachments(
+                        &mut init.form.retained,
+                        app.client(&account.id)?
+                            .message_attachments(&message)
+                            .await?,
+                    )?;
+                }
             }
         } else {
             init.form = Compose::reply(account.email.clone(), &original, mode == "replyAll");
@@ -605,7 +679,131 @@ async fn start(app: &Arc<App>, c: &Command) -> Result<()> {
     if app.preview && std::env::var("LUMA_PREVIEW_CONFLICT").as_deref() == Ok("1") {
         crate::draft_conflict::fixture_init(&mut init);
     }
+    if let Some(s) = changing {
+        {
+            let mut d = s.data.lock().unwrap();
+            if Some((d.revision, d.attachment_generation)) != revision
+                || d.phase != Phase::Editing
+                || d.pending.is_some()
+                || d.input_busy
+            {
+                return Err(Error::Invalid("Your message changed while preparing the forward. Your edits are preserved; try again.".into()));
+            }
+            let mut retained = d.form.retained.clone();
+            merge_attachments(&mut retained, init.form.retained)?;
+            d.form.retained = retained;
+            if mode == "reply" || mode == "replyAll" {
+                d.form.to = init.form.to;
+                d.form.cc = init.form.cc;
+                d.form.bcc = init.form.bcc;
+            } else if d.mode == "reply" || d.mode == "replyAll" {
+                d.form.to.clear();
+                d.form.cc.clear();
+                d.form.bcc.clear();
+            }
+            d.form.subject = init.form.subject;
+            d.form.thread = init.form.thread;
+            d.form.reply_to = init.form.reply_to;
+            d.form.references = init.form.references;
+            d.quote = init.quote;
+            d.include_quote = true;
+            d.mode = mode.into();
+            d.source_message = init.source_message;
+            d.revision += 1;
+            d.attachment_generation += 1;
+            d.close_question = None;
+            d.initial_document = if d.form.html {
+                json!({"kind":"html","text":d.form.text})
+            } else {
+                json!({"kind":"plain","text":d.form.text})
+            };
+        }
+        emit(app, c.id, &s, true).await;
+        return Ok(());
+    }
     install(app, c.id, init, None).await
+}
+fn append_forward(output: &mut String, message: &Message) -> Result<()> {
+    let text = luma_core::composer::readable(&message.payload)?;
+    let header = format!(
+        "---------- Forwarded message ----------\nFrom: {}\nDate: {}\nTo: {}\nSubject: {}\n\n",
+        message.payload.header("From"),
+        message.payload.header("Date"),
+        message.payload.header("To"),
+        message.payload.header("Subject")
+    );
+    if output
+        .len()
+        .saturating_add(header.len())
+        .saturating_add(text.len())
+        .saturating_add(2)
+        > document::MAX_BODY
+    {
+        return Err(Error::Invalid("Forwarded content exceeds the in-memory message limit. Forward individual messages instead.".into()));
+    }
+    output.push_str(&header);
+    output.push_str(&text);
+    output.push_str("\n\n");
+    Ok(())
+}
+#[cfg(test)]
+mod forwarding_tests {
+    use super::*;
+    #[test]
+    fn preserves_complete_history_and_refuses_overflow_without_truncating() {
+        let message = synthetic("one", "thread");
+        let mut quote = String::new();
+        append_forward(&mut quote, &message).unwrap();
+        append_forward(&mut quote, &message).unwrap();
+        assert_eq!(quote.matches("Forwarded message").count(), 2);
+        assert!(quote.contains("From:"));
+        assert!(quote.contains("To:"));
+        let mut full = "x".repeat(document::MAX_BODY);
+        let before = full.len();
+        assert!(append_forward(&mut full, &message).is_err());
+        assert_eq!(full.len(), before);
+    }
+    #[test]
+    fn forwarded_attachments_deduplicate_and_keep_the_memory_limit() {
+        let file = luma_core::composer::RetainedAttachment {
+            name: "image.png".into(),
+            mime_type: "image/png".into(),
+            data: Arc::new(vec![1, 2, 3]),
+            content_id: None,
+        };
+        let mut files = vec![file.clone()];
+        merge_attachments(&mut files, vec![file]).unwrap();
+        assert_eq!(files.len(), 1);
+        let oversized = luma_core::composer::RetainedAttachment {
+            name: "large.bin".into(),
+            mime_type: "application/octet-stream".into(),
+            data: Arc::new(vec![0; 16 * 1024 * 1024]),
+            content_id: None,
+        };
+        assert!(merge_attachments(&mut files, vec![oversized]).is_err());
+    }
+}
+fn merge_attachments(
+    output: &mut Vec<luma_core::composer::RetainedAttachment>,
+    incoming: Vec<luma_core::composer::RetainedAttachment>,
+) -> Result<()> {
+    for file in incoming {
+        if !output.iter().any(|old| {
+            old.name == file.name
+                && old.mime_type == file.mime_type
+                && old.data == file.data
+                && old.content_id == file.content_id
+        }) {
+            output.push(file);
+        }
+    }
+    if output.len() > 32
+        || output.iter().map(|f| f.data.len() as u64).sum::<u64>()
+            > luma_core::composer::MAX_ATTACHMENT_BYTES
+    {
+        return Err(Error::Invalid("Forwarded attachments exceed the 16 MiB/32-file memory limit. Forward individual messages or use Drive links.".into()));
+    }
+    Ok(())
 }
 pub(crate) async fn install(
     app: &Arc<App>,
@@ -700,6 +898,7 @@ pub(crate) fn from_draft(
             account: account.id.clone(),
             id: draft.message.thread_id.clone(),
         }),
+        source_message: None,
         draft: None,
         quote: String::new(),
         signature: String::new(),
@@ -1128,6 +1327,7 @@ mod upload_tests {
             primary: "alex@example.com".into(),
             mode: "new".into(),
             key: None,
+            source_message: None,
             draft: None,
             quote: String::new(),
             signature: String::new(),

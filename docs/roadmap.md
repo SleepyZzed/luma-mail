@@ -1,5 +1,11 @@
 # Road to 1.0
 
+The 0.11 batch adds whole-conversation forwarding, reply/forward mode switching,
+send/close separation, native notification actions and opt-in ephemeral images.
+See [the current 1.0 audit](v1-acceptance-0.11.md) for all twenty criteria,
+limits and remaining code/live-desktop gates. Earlier milestones below retain
+their own build identities and do not certify the new batch.
+
 Current frontend coverage and remaining acceptance are tracked in
 [fluid-parity.md](fluid-parity.md). The 0.10 preview is GTK-free; the legacy source
 is retained as the reference until full acceptance.

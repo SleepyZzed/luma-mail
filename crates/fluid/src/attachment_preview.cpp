@@ -13,7 +13,7 @@
 #include <QFileDialog>
 namespace {constexpr qint64 Limit=24*1024*1024,Chunk=256*1024;}
 QImage PreviewImageProvider::requestImage(const QString&id,QSize*size,const QSize&){QMutexLocker lock(&pixels->mutex);auto image=id.startsWith("thumb-")?pixels->thumbnails.value(id.mid(6)):(id==pixels->key?pixels->image:QImage());if(size)*size=image.size();return image;}
-AttachmentPreview::AttachmentPreview(Bridge*value):QObject(value),mail(value){connect(mail,&Bridge::windowVisibleChanged,this,[this]{if(!mail->windowVisible())pruneThumbnails();});}
+AttachmentPreview::AttachmentPreview(Bridge*value):QObject(value),mail(value){connect(mail,&Bridge::windowVisibleChanged,this,[this]{if(!mail->windowVisible())pruneThumbnails();});connect(mail,&Bridge::readerChanged,this,[this]{if(source.contains("session")||!source.contains("id"))return;const auto key=mail->reader().value("key").toMap();if(!mail->readerOpen()||source.value("account")!=key.value("account")||mail->messages()->indexFor(source.value("id").toString())<0)close();});}
 AttachmentPreview::~AttachmentPreview(){clearMedia();}
 qint64 AttachmentPreview::duration()const{return player?player->duration():0;}
 qint64 AttachmentPreview::position()const{return player?player->position():0;}

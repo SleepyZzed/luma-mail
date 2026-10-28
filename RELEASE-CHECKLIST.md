@@ -45,7 +45,9 @@ remaining STATUS.md gaps are not claimed complete.
 - [ ] WYSIWYG rich-text editing with reliable undo/redo, lists, links and inline images.
 - [x] Recipient chips/autocomplete and verified Send-as address choices;
   real alias delivery and two-account acceptance remain pending.
-- [ ] Whole-conversation forwarding and safe attachment conveniences.
+- [x] Whole-conversation forwarding and safe attachment conveniences (0.11
+  implementation; bounded readable history, deduplication and explicit size
+  errors). Exact-build live delivery and interoperability acceptance remain open.
 - [x] Draft conflict recovery preserving unsaved text in a separate Gmail draft;
   the newer server version is kept. Explicit field/body/attachment merging now
   opens a separate copy; live preservation and cleanup passed.

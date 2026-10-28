@@ -90,6 +90,8 @@ public:
     Q_INVOKABLE void trackWindow(QObject*window);
     Q_INVOKABLE void activateWindow(QObject*window);
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
+    Q_INVOKABLE void releaseMessageImages(const QString&message);
+    Q_INVOKABLE void testNotification(){emit notification({{"title","Luma notification test"},{"body","Test verification code: 123456"},{"code","123456"}});}
     Q_INVOKABLE void setView(const QString &folder,const QString &account=QString(),const QString &search=QString());
     Q_INVOKABLE void selectRow(int row,int modifiers,qreal x,qreal y,qreal width,qreal height,const QVariantMap &projection={});
     Q_INVOKABLE bool isSelected(const QVariantMap &row)const;

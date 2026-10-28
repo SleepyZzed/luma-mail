@@ -291,14 +291,14 @@ jobs:
       - name: Build GTK-free AppImage with native Wayland support
         if: github.event_name != 'pull_request'
         run: |
-          bash packaging/fluid-appimage.sh --binary build-fluid/luma-mail-fluid --engine target/release/luma-engine --qt-notices qt-source-notices/6.11.2 --version "0.10.0-preview.${GITHUB_SHA:0:7}" --output dist-fluid
+          bash packaging/fluid-appimage.sh --binary build-fluid/luma-mail-fluid --engine target/release/luma-engine --qt-notices qt-source-notices/6.11.2 --version "0.11.0-preview.${GITHUB_SHA:0:7}" --output dist-fluid
       - name: Test portable AppImage without SDK paths
         if: github.event_name != 'pull_request'
         env:
           QTWEBENGINE_CHROMIUM_FLAGS: '--disable-gpu'
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
-          timeout 600s bash packaging/fluid-test-desktop.sh python3 packaging/test-fluid-package.py --binary "dist-fluid/Luma-Mail-0.10.0-preview.${GITHUB_SHA:0:7}-fluid-x86_64.AppImage" --output fluid-package-linux
+          timeout 600s bash packaging/fluid-test-desktop.sh python3 packaging/test-fluid-package.py --binary "dist-fluid/Luma-Mail-0.11.0-preview.${GITHUB_SHA:0:7}-fluid-x86_64.AppImage" --output fluid-package-linux
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         with:
@@ -630,7 +630,7 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euo pipefail
-          python packaging/fluid-windows.py --prefix /ucrt64 --binary build-fluid/luma-mail-fluid.exe --engine target/release/luma-engine.exe --webview target/release/luma_webview.dll --output dist-fluid/Luma-Mail-Fluid --version "0.10.0-preview.${GITHUB_SHA:0:7}"
+          python packaging/fluid-windows.py --prefix /ucrt64 --binary build-fluid/luma-mail-fluid.exe --engine target/release/luma-engine.exe --webview target/release/luma_webview.dll --output dist-fluid/Luma-Mail-Fluid --version "0.11.0-preview.${GITHUB_SHA:0:7}"
       - name: Test portable Windows package without SDK paths
         if: github.event_name != 'pull_request'
         shell: msys2 {0}

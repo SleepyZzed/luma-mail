@@ -400,6 +400,15 @@ impl App {
                     "message" => crate::mail::body(&owner, &command).await,
                     "threadPage" => crate::mail::thread_page(&owner, &command).await,
                     "renderMessage" => crate::reader::render(&owner, &command).await,
+                    "releaseMessageImages" => {
+                        let mut assets = owner.reader_assets.lock().unwrap();
+                        if assets.reading == command.data["reading"].as_u64().unwrap_or(0)
+                            && assets.id == command.text("id")
+                        {
+                            assets.clear();
+                        }
+                        Ok(())
+                    }
                     "pollNow" => {
                         owner.sync.check();
                         owner

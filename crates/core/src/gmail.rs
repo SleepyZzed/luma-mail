@@ -104,7 +104,7 @@ impl Gmail {
                     ("metadataHeaders", "Subject".into()),
                     (
                         "fields",
-                        "id,threadId,labelIds,internalDate,payload(headers)".into(),
+                        "id,threadId,labelIds,snippet,internalDate,payload(headers)".into(),
                     ),
                 ],
                 None,

@@ -72,6 +72,7 @@ pub struct Data {
     pub form: Compose,
     pub mode: String,
     pub key: Option<luma_core::model::ThreadKey>,
+    pub source_message: Option<String>,
     pub phase: Phase,
     pub revision: u64,
     pub saved_revision: u64,
@@ -111,6 +112,7 @@ pub struct Init {
     pub primary: String,
     pub mode: String,
     pub key: Option<luma_core::model::ThreadKey>,
+    pub source_message: Option<String>,
     pub draft: Option<Draft>,
     pub quote: String,
     pub signature: String,
@@ -151,6 +153,7 @@ impl Session {
             primary,
             mode,
             key,
+            source_message,
             draft,
             quote,
             signature,
@@ -182,6 +185,7 @@ impl Session {
                 form,
                 mode,
                 key,
+                source_message,
                 phase: Phase::Editing,
                 revision: 0,
                 saved_revision: 0,
@@ -314,6 +318,10 @@ impl Session {
     }
     pub fn close(&self, mode: DraftMode) -> Close {
         let mut d = self.data.lock().unwrap();
+        if matches!(d.phase, Phase::Sent | Phase::Closed) {
+            clear(&mut d, Phase::Closed);
+            return Close::Closed;
+        }
         if d.input_busy
             || d.identity_loading
             || matches!(d.phase, Phase::Saving | Phase::Sending | Phase::Uploading)
@@ -390,7 +398,7 @@ impl Session {
                 .iter()
                 .any(|i| i.send_as_email.eq_ignore_ascii_case(&address))
         });
-        let mut value = json!({"session":self.id,"mode":d.mode,"key":d.key,"account":d.form.account,"from":d.form.from,
+        let mut value = json!({"session":self.id,"mode":d.mode,"key":d.key,"sourceMessage":d.source_message,"account":d.form.account,"from":d.form.from,
             "revision":d.revision,"savedRevision":d.saved_revision,"dirty":d.revision!=d.saved_revision,
             "state":d.phase.label(),"phase":if d.phase==Phase::Sending{"sending"}else if d.phase==Phase::Sent{"sent"}else{"editing"},
             "locked":matches!(d.phase,Phase::Sending|Phase::Uncertain),"pending":d.pending.is_some(),"status":d.status,
@@ -744,6 +752,8 @@ pub(crate) fn clear(d: &mut Data, phase: Phase) {
     d.identity_loading = false;
     d.identity_epoch += 1;
     d.form = Compose::default();
+    d.key = None;
+    d.source_message = None;
     d.base = Fields::of(&d.form);
     d.original_html = None;
     d.initial_document = Value::Null;

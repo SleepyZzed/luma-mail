@@ -147,7 +147,15 @@ impl Service {
                                             app.settings.lock().unwrap().notification_privacy;
                                         let (title, body) =
                                             notification(&prefs.email, &message, privacy);
-                                        app.events.emit(0,"notification",json!({"account":account,"thread":message.thread_id,"title":title,"body":body})).await;
+                                        let code = if privacy {
+                                            None
+                                        } else {
+                                            luma_core::notifications::activation_code(
+                                                message.payload.header("Subject"),
+                                                &message.snippet,
+                                            )
+                                        };
+                                        app.events.emit(0,"notification",json!({"account":account,"thread":message.thread_id,"title":title,"body":body,"code":code})).await;
                                     }
                                 }
                             }

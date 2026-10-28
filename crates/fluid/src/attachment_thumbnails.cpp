@@ -23,7 +23,11 @@ QString AttachmentPreview::thumbnailSource(const QString&key)const{QMutexLocker 
 qint64 AttachmentPreview::thumbnailBytes()const{QMutexLocker lock(&store->mutex);qint64 size=0;for(const auto&image:store->thumbnails)size+=image.sizeInBytes();return size;}
 void AttachmentPreview::releaseThumbnail(const QString&key){
     auto entry=thumbs.find(key);if(entry==thumbs.end()||entry->refs<1)return;
-    if(--entry->refs==0){thumbQueue.removeAll(key);if(entry->request){mail->send("cancel",{{"request",entry->request}});thumbRequests.remove(entry->request);retiredRequests.insert(entry->request);while(retiredRequests.size()>64)retiredRequests.erase(retiredRequests.begin());entry->request=0;}pruneThumbnails();pumpThumbnails();}
+    if(--entry->refs==0){thumbQueue.removeAll(key);if(entry->request){mail->send("cancel",{{"request",entry->request}});thumbRequests.remove(entry->request);retiredRequests.insert(entry->request);while(retiredRequests.size()>64)retiredRequests.erase(retiredRequests.begin());entry->request=0;}
+        // Received-mail pixels belong to the visible message, never the scrolling
+        // composer LRU. Drop them as soon as its last card releases ownership.
+        if(!entry->source.contains("session")){QMutexLocker lock(&store->mutex);store->thumbnails.remove(key);thumbs.erase(entry);}
+        pruneThumbnails();pumpThumbnails();}
 }
 void AttachmentPreview::pumpThumbnails(){
     while(thumbRequests.size()<2&&!thumbQueue.isEmpty()){

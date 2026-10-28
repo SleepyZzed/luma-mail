@@ -8,6 +8,9 @@ Item {
     property bool expanded:false
     property bool inlineMode:false
     property string phase:"editing"
+    property bool sendSubmitted:false
+    property bool sendAcknowledged:false
+    property bool modePending:false
     property Item scene
     property Item homeScene
     property var popout:null
@@ -43,10 +46,10 @@ Item {
     property bool includeSignature:true
     property string localError:""
     readonly property var state:Mail.composer
-    readonly property bool locked:!!state.locked||!!state.sourceMode
+    readonly property bool locked:!!state.locked||!!state.sourceMode||modePending
     readonly property bool attachmentEditable:state.state==="editing"||state.state==="uploading"
     readonly property bool inputBusy:!!state.inputBusy||Mail.clipboardBusy
-    readonly property bool busy:inputBusy||!!state.identityBusy||state.state==="saving"||state.state==="uploading"||state.state==="sending"||!!state.pending
+    readonly property bool busy:modePending||inputBusy||!!state.identityBusy||state.state==="saving"||state.state==="uploading"||state.state==="sending"||!!state.pending
     readonly property var senderChoices:{
         let choices=[]
         for(const account of Mail.settings.accounts||[]){
@@ -151,6 +154,11 @@ Item {
             RecipientField{id:bcc;objectName:"composeBcc";width:parent.width-Theme.unit(38);height:parent.height;placeholderText:"Bcc recipients";KeyNavigation.tab:subject;KeyNavigation.backtab:cc.visible?cc:to;session:root.loadedSession;account:root.state.account||"";enabled:!root.state.locked;onEdited:root.schedule()}
         }
         Rectangle{height:1;width:parent.width;color:Theme.outline}
+        Flow{width:parent.width;spacing:Theme.unit(4);visible:["reply","replyAll","forward","forwardAll"].indexOf(root.state.mode)>=0;height:visible?implicitHeight:0
+            Repeater{model:[{mode:"reply",label:"Reply"},{mode:"replyAll",label:"Reply all"},{mode:"forward",label:"Forward single"},{mode:"forwardAll",label:"Forward all"}]
+                delegate:FluidButton{required property var modelData;objectName:"composeMode-"+modelData.mode;text:modelData.label;tint:root.state.mode===modelData.mode?Theme.accent:Theme.text;enabled:!root.busy&&!root.sendSubmitted&&!root.modePending&&!root.state.draftId&&root.state.mode!==modelData.mode;tip:root.state.draftId?"Finish this saved draft before changing its mode":modelData.label;onClicked:root.changeMode(modelData.mode)}
+            }
+        }
         Field{id:subject;objectName:"composeSubject";width:parent.width;height:Theme.unit(38);placeholderText:"Subject";font.weight:Font.DemiBold;KeyNavigation.tab:body;KeyNavigation.backtab:bcc.visible?bcc:cc.visible?cc:to}
         Rectangle{height:1;width:parent.width;color:Theme.outline}
         Flickable{width:parent.width;height:Theme.unit(38);contentWidth:tools.width;clip:true;boundsBehavior:Flickable.StopAtBounds;enabled:!root.state.locked
@@ -225,7 +233,7 @@ Item {
         id:footer;x:Theme.unit(18);y:parent.height-Theme.unit(65);width:parent.width-2*x;height:Theme.unit(55);visible:!root.statusMode
         ProgressBar{width:parent.width;height:Theme.unit(3);visible:root.busy;from:0;to:Math.max(1,root.state.progress?.total||0);value:root.state.progress?.done||0;indeterminate:root.busy&&!(root.state.progress?.total>0)}
         Row{y:Theme.unit(12);spacing:Theme.unit(5)
-            FluidButton{text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send · Ctrl+Enter";onClicked:root.submit("composeSend")}
+            FluidButton{objectName:"composeSend";text:root.state.pending?"Send queued":"Send";primary:true;glyph:"send";enabled:!!root.loadedSession&&!root.sendSubmitted&&!root.modePending&&!root.state.locked&&root.state.state!=="conflict"&&!root.state.pending&&root.state.senderVerified!==false;tip:"Send · Ctrl+Enter";onClicked:root.submit("composeSend")}
             FluidButton{glyph:"save";tip:"Save to Gmail drafts";enabled:!!root.loadedSession&&!root.busy&&!root.state.locked&&root.state.state!=="conflict";onClicked:root.submit("composeSave")}
             FluidButton{text:root.inputBusy?"Cancel image":"Cancel upload";visible:root.inputBusy||root.state.state==="uploading";onClicked:root.inputBusy?Mail.cancelClipboard():Mail.send("composeCancelUpload",{session:root.loadedSession})}
             FluidButton{text:"Save separate copy";visible:root.state.state==="conflict";onClicked:{root.sync();Mail.send("composeSaveCopy",{session:root.loadedSession})}}
@@ -369,14 +377,15 @@ Item {
     function chooseSender(choice){root.sync();if(choice.account===state.account)Mail.send("composeIdentity",{session:loadedSession,address:choice.address});else Mail.send("composeAccount",{session:loadedSession,account:choice.account})}
     function form(){if(!controlsLoaded)return {};let value={to:to.text,cc:cc.text,bcc:bcc.text,subject:subject.text,includeQuote:includeQuote,includeSignature:includeSignature};if(!state.sourceMode){const p=rich.payload();value.text=p.text;value.html=p.html}return value}
     function sync(){inputDelay.stop();if(formLoading||!shown||!loadedSession||state.locked)return;let f=form();f.session=loadedSession;Mail.send("composeUpdate",f)}
-    function submit(action){if(!loadedSession||state.locked)return;inputDelay.stop();Mail.send(action,{session:loadedSession,form:form()})}
+    function changeMode(mode){if(root.busy||modePending||!state.key||!state.sourceMessage)return;inputDelay.stop();modePending=true;Mail.send("composeStart",{session:loadedSession,changeMode:true,mode:mode,key:state.key,account:state.account,message:{id:state.sourceMessage},form:form()})}
+    function submit(action){if(!loadedSession||state.locked||sendSubmitted||modePending)return;inputDelay.stop();if(action==="composeSend"){sendSubmitted=true;sendAcknowledged=false;closeDialog?.close()}const id=Mail.send(action,{session:loadedSession,form:form()});if(!id)sendSubmitted=false}
     function requestClose(){if(closeDialog?.visible)return;if(loadedSession){inputDelay.stop();Mail.send("composeClose",{session:loadedSession,form:form()})}else close()}
     function answerClose(answer){Mail.send("composeCloseAnswer",{session:loadedSession,revision:closeDialog.question.revision,answer:answer});closeDialog.close()}
     function focusEditor(){if(detached)Mail.activateWindow(popout);Qt.callLater(()=>{if(!shown||!controlsLoaded)return;if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
     function open(mode){
         ensureControls()
         const activeSurface=openingSurface===undefined?visible:openingSurface;openingSurface=undefined
-        closingPending=false;releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
+        closingPending=false;sendSubmitted=false;sendAcknowledged=false;modePending=false;releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
         if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
     }
@@ -396,10 +405,11 @@ Item {
     }
     function dockBottomRight(){manualPosition=false}
     Connections{target:Mail
-        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){ensureControls();loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;formLoading=false;if(c.state==="sent")sentDelay.restart()}
+        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){ensureControls();loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;if(sendSubmitted){if(c.pending||c.state==="sending")sendAcknowledged=true;if(sendAcknowledged&&c.state==="editing"&&!c.pending)sendSubmitted=false}formLoading=false;if(c.state==="sent")sentDelay.restart()}
         function onComposeClosed(){root.close()}
         function onComposeCloseQuestion(data){if(root.detached)Mail.activateWindow(root.popout);closeDialog.question=data;closeDialog.open()}
         function onFlushComposer(){root.sync()}
+        function onReceived(event,data){if(event==="error"){root.sendSubmitted=false;root.modePending=false}if(event==="compose"&&data.replace)root.modePending=false}
         function onColourChosen(colour,background){if(!rich)return;if(background)rich.highlight(colour);else rich.foreground(colour)}
     }
 }

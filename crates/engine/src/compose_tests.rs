@@ -63,6 +63,7 @@ fn editor() -> Arc<Session> {
         primary: "alex@example.com".into(),
         mode: "new".into(),
         key: None,
+        source_message: None,
         draft: None,
         quote: String::new(),
         signature: String::new(),
@@ -203,6 +204,9 @@ async fn saves_reuse_one_remote_draft_and_send_once_without_late_recreation() {
     assert!(s.update(&json!({"text":"late callback"}), 8).is_err());
     s.persist(&remote, None, false, 5).await.unwrap();
     assert_eq!(remote.saves.load(Ordering::SeqCst), 3);
+    assert!(matches!(s.close(DraftMode::Ask), Close::Closed));
+    assert!(s.data.lock().unwrap().close_question.is_none());
+    assert_eq!(remote.sends.load(Ordering::SeqCst), 1);
 }
 #[tokio::test]
 async fn queued_send_waits_for_clipboard_and_cancellation_never_sends_without_it() {
