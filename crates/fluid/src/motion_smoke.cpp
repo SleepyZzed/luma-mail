@@ -88,20 +88,27 @@ void MotionSmoke::begin() {
             check("received body belongs to selected reader",bridge->messages()->at(0).value("id")=="preview2"&&bridge->messages()->at(0).value("text").isValid());
             bridge->closeReader();
             bridge->send("settingsUpdate",{{"reduced_motion",false}});
+            archiveWhenReady();
         });
     });
-    QTimer::singleShot(3900,this,[this]{
-        // Attach before the server-confirmed removal; recycled offscreen rows
-        // can retain the same objectName as the active delegate.
-        if(auto row=visualItem(window->contentItem(),"mailRow-preview4")){
-            const auto initial=row->height();
-            connect(row,&QQuickItem::heightChanged,this,[this,row=QPointer<QQuickItem>(row),initial]{
-                if(row&&row->property("removing").toBool()&&row->height()>0&&row->height()<initial)removalAnimated=true;
-            });
-        }
-        bridge->mutate("archive",bridge->inbox()->at(4));
+}
+void MotionSmoke::archiveWhenReady(int attempts){
+    if(finished)return;
+    auto row=visualItem(window->contentItem(),"mailRow-preview4");
+    // The preceding test changed reduced motion asynchronously. A coarse
+    // single-shot timer can fire before that command's acknowledgement.
+    // Observe the actual preference and active delegate before requesting the
+    // removal; never skip the animation/row-removal assertions below.
+    if(bridge->settings().value("reduced_motion").toBool()||!row||!row->isVisible()||row->width()<=0){
+        if(attempts<=0){check("archive fixture receives the motion preference and active row",false);finish();return;}
+        QTimer::singleShot(25,this,[this,attempts]{archiveWhenReady(attempts-1);});return;
+    }
+    const auto initial=row->height();
+    connect(row,&QQuickItem::heightChanged,this,[this,row=QPointer<QQuickItem>(row),initial]{
+        if(row&&row->property("removing").toBool()&&row->height()>0&&row->height()<initial)removalAnimated=true;
     });
-    QTimer::singleShot(4800,this,[this]{
+    bridge->mutate("archive",bridge->inbox()->at(4));
+    QTimer::singleShot(900,this,[this]{
         check("server-confirmed archive animates row height",removalAnimated);
         check("archived row leaves the list without a refresh",bridge->inbox()->rowCount()==7);
         check("mail commands produced no errors",bridge->error().isEmpty());

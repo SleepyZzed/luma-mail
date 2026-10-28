@@ -14,6 +14,7 @@ public:
     MotionSmoke(Bridge *bridge, QQuickWindow *window);
 private:
     void begin();
+    void archiveWhenReady(int attempts=80);
     void check(const QString &name, bool passed);
     void open(int index, int modifiers=0);
     void finish();

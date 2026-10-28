@@ -51,6 +51,7 @@ public:
             if(event=="composeOpened"&&stage==1){stage=2;QTimer::singleShot(800,this,[this]{
                 card=find("composer");auto body=find("composeBody");auto document=window->findChild<RichDocument*>("composeDocument");auto to=find("composeTo");
                 if(!body||!document||!to){check("composer controls load",false);finish();return;}
+                auto subject=find("composeSubject");check("typed text and placeholders stay vertically centered in recipient and Subject fields",to->property("verticalAlignment").toInt()==Qt::AlignVCenter&&subject&&subject->property("verticalAlignment").toInt()==Qt::AlignVCenter);
                 to->setProperty("text","person@example.com");QTextCursor cursor(document->nativeDocument());cursor.insertText("Keep this unsaved text");body->forceActiveFocus();QMetaObject::invokeMethod(body,"selectAll");click(body,Qt::RightButton);
                 QTimer::singleShot(550,this,[this]{auto editorMenu=window->findChild<QObject*>("composeBodyContextMenu");check("editor right-click opens a themed menu with normal bounds",usable(editorMenu));screenshot("editor");key(Qt::Key_Escape);QTimer::singleShot(450,this,[this]{auto context=window->findChild<QObject*>("composeBodyContextMenu");check("Escape dismisses the edit menu without closing the composer",(!context||!context->property("visible").toBool())&&card->property("shown").toBool());invoke(card,"requestClose");});});
             });}
