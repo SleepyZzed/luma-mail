@@ -77,7 +77,7 @@ Item {
     Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
     Motion{id:breadth;target:root.goalWidth;enabled:Theme.motion&&root.hostVisible}
     Motion{id:depth;target:root.goalHeight;enabled:Theme.motion&&root.hostVisible}
-    Rectangle{anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:Theme.motion&&root.hostVisible}}
+    Rectangle{objectName:"composeSurface";anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:Theme.motion&&root.hostVisible}}
     DropArea {
         id:fileDrop;objectName:"composeFileDrop";anchors.fill:parent;z:30
         enabled:root.shown&&root.attachmentEditable&&!root.inputBusy&&!root.modalOpen&&!root.statusMode
@@ -327,7 +327,7 @@ Item {
         if(detached){returnHome(true);return}
         if(!shown||statusMode||modalOpen)return
         inputDelay.stop();sync();linkDialog.close();tableDialog.close();findDialog.close();historyDialog.close();formatMenu.close()
-        const at=mapToGlobal(0,0),oldWidth=width,oldHeight=height
+        const at=mapToGlobal(0,0),oldWidth=width,oldHeight=height,oldRadius=corners.value
         previousExpanded=expanded;previousInline=inlineMode
         const inset=Theme.unit(20)
         const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth+2*inset),height:Math.max(Theme.unit(500),oldHeight+2*inset),x:at.x-inset,y:at.y-inset})
@@ -336,7 +336,7 @@ Item {
         // Show first so the springs are enabled in their new exposed window.
         // Rebase the same editor at its original global bounds, then let its
         // bounds/corners expand to the native host. No second editor or snapshot.
-        host.show();horizontal.rebase((host.width-oldWidth)/2);vertical.rebase((host.height-oldHeight)/2);breadth.rebase(oldWidth);depth.rebase(oldHeight)
+        host.show();horizontal.rebase((host.width-oldWidth)/2);vertical.rebase((host.height-oldHeight)/2);breadth.rebase(oldWidth);depth.rebase(oldHeight);corners.rebase(oldRadius)
         host.raise();host.requestActivate();Qt.callLater(()=>{if(root.shown&&body)body.forceActiveFocus()})
     }
     function releasePopout(){

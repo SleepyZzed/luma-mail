@@ -7,6 +7,7 @@
 #include <QSaveFile>
 #include <QJsonDocument>
 #include <QFileInfo>
+#include <QDateTime>
 #include <QCoreApplication>
 #include <QEvent>
 #include <cstdio>
@@ -17,7 +18,7 @@ class ResourceSmoke:public QObject {
     QQuickItem*find(QQuickItem*at,const QString&name){if(at->objectName()==name)return at;for(auto child:at->childItems())if(auto item=find(child,name))return item;return nullptr;}
     int boundRows(){auto list=find(window->contentItem(),"mailList");if(!list)return -1;auto content=list->property("contentItem").value<QQuickItem*>();int count=0;if(content)for(auto row:content->childItems())if(row->objectName().startsWith("mailRow-"))++count;return count;}
     void check(const QString&name,bool ok){checks.append(QJsonObject{{"check",name},{"passed",ok}});failed|=!ok;}
-    void announce(const char*name){std::printf("PERF bound_rows %d\nPERF %s\n",boundRows(),name);std::fflush(stdout);if(const auto path=qEnvironmentVariable("LUMA_RESOURCE_REPORT");!path.isEmpty()){QSaveFile file(QFileInfo(path).absolutePath()+"/phase.json");if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(QJsonObject{{"phase",QString::fromLatin1(name)},{"boundRows",boundRows()},{"loadedRows",mail->inbox()->rowCount()},{"nativeWindowsSurfaces",HtmlSurface::liveNativeSurfaces()}}).toJson());file.commit();}}}
+    void announce(const char*name){std::printf("PERF bound_rows %d\nPERF %s\n",boundRows(),name);std::fflush(stdout);if(const auto path=qEnvironmentVariable("LUMA_RESOURCE_REPORT");!path.isEmpty()){QSaveFile file(QFileInfo(path).absolutePath()+"/phase.json");if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(QJsonObject{{"phase",QString::fromLatin1(name)},{"startedUtcMs",QDateTime::currentMSecsSinceEpoch()},{"boundRows",boundRows()},{"loadedRows",mail->inbox()->rowCount()},{"nativeWindowsSurfaces",HtmlSurface::liveNativeSurfaces()}}).toJson());file.commit();}}}
     template<class F>void phase(const char*name,F next){if(finished)return;announce(name);QTimer::singleShot(qstrcmp(name,"newsletter")==0?htmlHoldSeconds*1000:20000,this,[this,next]{if(finished)return;announce("transition");next();});}
     bool eventFilter(QObject*,QEvent*event)override{
         // The exposed resource window is measurement-only. Physical input and

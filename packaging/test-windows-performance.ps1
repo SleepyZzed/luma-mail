@@ -18,7 +18,7 @@ if($Fluid){
  $stdoutTask=$process.StandardOutput.ReadToEndAsync();$stderrTask=$process.StandardError.ReadToEndAsync()
 }else{$process=Start-Process -FilePath $binaryPath -ArgumentList $arguments -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr}
 $null=$process.Handle # Preserve exit status in Windows PowerShell 5.1.
-$timer=[Diagnostics.Stopwatch]::StartNew();$samples=@();$previous=@{};$last=0.0;$lastPhase='';$phaseStarted=0.0
+$timer=[Diagnostics.Stopwatch]::StartNew();$samples=@();$previous=@{};$last=0.0;$lastPhase='';$phaseStarted=0.0;$lastSampleUtcMs=0L
 try{
     while(-not $process.HasExited){
         Start-Sleep -Seconds 5
@@ -40,14 +40,21 @@ try{
         # can exhaust memory rather than write this small report. Copy only the
         # selected text to keep every sample plain; Get-Content permits sharing
         # the file while the fixture is still writing it.
-        $phaseLine=if($Fluid){if(Test-Path (Join-Path $evidencePath 'phase.json')){(Get-Content (Join-Path $evidencePath 'phase.json') -Raw|ConvertFrom-Json).phase}else{''}}else{Get-Content -LiteralPath $stdout|Where-Object{$_ -match '^PERF '}|Select-Object -Last 1}
+        $phaseState=$null
+        $phaseLine=if($Fluid){if(Test-Path (Join-Path $evidencePath 'phase.json')){$phaseState=Get-Content (Join-Path $evidencePath 'phase.json') -Raw|ConvertFrom-Json;$phaseState.phase}else{''}}else{Get-Content -LiteralPath $stdout|Where-Object{$_ -match '^PERF '}|Select-Object -Last 1}
         $phase=if($null -eq $phaseLine){''}else{[string]::new($phaseLine.ToCharArray())}
         if($phase -ne $lastPhase){$phaseStarted=$now;$lastPhase=$phase}
+        # A cold WMI query can take most of the first 20-second phase. Use the
+        # fixture's actual phase boundary, not the time we first observed it.
+        # A CPU interval is accepted only when both ends are inside that phase.
+        $sampleUtcMs=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        $phaseUtcMs=if($phaseState -and $phaseState.startedUtcMs){[long]$phaseState.startedUtcMs}else{0}
+        $settled=if($phaseUtcMs -gt 0){$sampleUtcMs-$phaseUtcMs -ge 8000 -and $lastSampleUtcMs -ge $phaseUtcMs}else{$now-$phaseStarted -ge 8}
         $cpu=if($last -gt 0){[Math]::Round(100*$delta/($now-$last),3)}else{$null}
         $details=@(foreach($member in $members){$counter=$counters|Where-Object{[int]$_.IDProcess -eq $member.Id}|Select-Object -First 1;$info=$all|Where-Object{[int]$_.ProcessId -eq $member.Id}|Select-Object -First 1;$role='';if($member.ProcessName -eq 'msedgewebview2'){$role='browser';if($info.CommandLine -match '--type=([a-z-]+)'){$role=$Matches[1]};if($info.CommandLine -match '--utility-sub-type=([A-Za-z.]+)'){$role+=':'+$Matches[1]}};@{id=$member.Id;name=$member.ProcessName;role=$role;cpu_one_core_percent=$memberCpu[$member.Id];cpu_seconds=$next[$member.Id];private_working_set_bytes=[long]$counter.WorkingSetPrivate;private_commit_bytes=$member.PrivateMemorySize64;working_set_bytes=$member.WorkingSet64}})
-        $samples+=@{elapsed_seconds=[Math]::Round($now,2);phase=$phase;settled=($now-$phaseStarted -ge 8);processes=$members.Count;members=$details;private_working_set_bytes=[long]$private;private_commit_bytes=[long]$commit;working_set_sum_bytes=[long]$working;cpu_one_core_percent=$cpu;cpu_machine_percent=if($null -ne $cpu){[Math]::Round($cpu/[Environment]::ProcessorCount,4)}else{$null}}
+        $samples+=@{elapsed_seconds=[Math]::Round($now,2);phase=$phase;settled=$settled;sample_utc_ms=$sampleUtcMs;phase_started_utc_ms=$phaseUtcMs;processes=$members.Count;members=$details;private_working_set_bytes=[long]$private;private_commit_bytes=[long]$commit;working_set_sum_bytes=[long]$working;cpu_one_core_percent=$cpu;cpu_machine_percent=if($null -ne $cpu){[Math]::Round($cpu/[Environment]::ProcessorCount,4)}else{$null}}
         Write-Output ('SAMPLE {0:N1}s {1}: {2:N2} MiB private WS, {3} processes' -f $now,$phase,($private/1MB),$members.Count)
-        $previous=$next;$last=$now
+        $previous=$next;$last=$now;$lastSampleUtcMs=$sampleUtcMs
     }
     $process.WaitForExit()
     if($Fluid){[IO.File]::WriteAllText($stdout,$stdoutTask.GetAwaiter().GetResult());[IO.File]::WriteAllText($stderr,$stderrTask.GetAwaiter().GetResult())}
