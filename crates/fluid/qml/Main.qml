@@ -9,14 +9,6 @@ ApplicationWindow {
     readonly property bool appModal:settings.visible||searchSheet.shown||comparison.visible||signature.visible||confirmation.visible||labelDialog.visible||attachmentPane.shown
     function accountShortcut(index){const accounts=(Mail.settings.accounts||[]).filter(account=>account.enabled!==false);if(index<accounts.length)Mail.setView("inbox",accounts[index].id)}
     function scaleBy(delta){Mail.send("settingsUpdate",{ui_scale_percent:Math.max(75,Math.min(200,(Mail.settings.ui_scale_percent||100)+delta))})}
-    property int restoredVisibility:Window.Windowed
-    onVisibilityChanged:state=>{if(state===Window.Windowed||state===Window.Maximized||state===Window.FullScreen)restoredVisibility=state}
-    function restoreWindow(){
-        if(restoredVisibility===Window.Maximized)showMaximized()
-        else if(restoredVisibility===Window.FullScreen)showFullScreen()
-        else showNormal()
-        raise();requestActivate()
-    }
     onClosing:(close)=>{if((Mail.settings.close_to_tray===undefined||Mail.settings.close_to_tray)&&trayAvailable){close.accepted=false;window.hide()}else{close.accepted=false;Mail.quit()}}
     Item {
         id:scene;anchors.fill:parent
@@ -68,7 +60,7 @@ ApplicationWindow {
             FluidButton{anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"close";onClicked:Mail.clearError()}
         }
         MailActionsMenu{id:context;objectName:"mailActionsMenu";onConfirmationRequested:(heading,message,buttonText,command,parameters)=>confirmation.ask(heading,message,buttonText,command,parameters)}
-        MessageActionsMenu{id:messageMenu}
+        MessageActionsMenu{id:messageMenu;onDetailsRequested:message=>reader.showDetails(message)}
 
     }
     Connections {
@@ -91,7 +83,6 @@ ApplicationWindow {
             composer.open(mode)
         }
         function onComposeFocused(){composer.focusEditor();if(composer.inlineMode)reader.dockInline(composer)}
-        function onShowRequested(){window.restoreWindow()}
     }
     Shortcut{sequence:"Ctrl+N";enabled:!attachmentPane.shown&&!labelDialog.opened&&!settings.opened&&!confirmation.opened&&!searchSheet.shown&&!comparison.visible&&!signature.visible;onActivated:Mail.requestCompose("new")}
     Shortcut{sequence:"Escape";enabled:!composer.recipientSuggestionsOpen||searchSheet.shown||comparison.visible||signature.visible;onActivated:{if(signature.opened){if(!signature.dialogsOpen)signature.requestClose()}else if(comparison.opened){if(!comparison.pending)comparison.close()}else if(searchSheet.shown)searchSheet.close();else if(confirmation.opened)confirmation.opened=false;else if(labelDialog.opened){if(!labelDialog.pending)labelDialog.opened=false}else if(attachmentPane.shown)attachmentPane.close();else if(settings.opened)settings.opened=false;else if(composer.shown)composer.requestClose();else if(Mail.selecting)Mail.clearSelection();else Mail.closeReader()}}

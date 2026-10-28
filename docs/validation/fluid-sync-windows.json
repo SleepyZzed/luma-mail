@@ -25,6 +25,10 @@
             "passed": true
         },
         {
+            "check": "stale reader updates cannot change the current message headers",
+            "passed": true
+        },
+        {
             "check": "silent checks leave the loading indicator and selection intact",
             "passed": true
         },
@@ -38,6 +42,14 @@
         },
         {
             "check": "incremental updates create no mail or draft store",
+            "passed": true
+        },
+        {
+            "check": "message details reveal literal sender and recipient headers",
+            "passed": true
+        },
+        {
+            "check": "closed message details release the extra text document",
             "passed": true
         },
         {
@@ -57,7 +69,15 @@
             "passed": true
         },
         {
+            "check": "native desktop accepts minimization",
+            "passed": true
+        },
+        {
             "check": "tray and notification activation restore a minimized window",
+            "passed": true
+        },
+        {
+            "check": "native desktop accepts maximization",
             "passed": true
         },
         {

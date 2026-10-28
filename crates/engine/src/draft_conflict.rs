@@ -150,12 +150,6 @@ fn valid(d: &compose::Data, review: &Prepared) -> bool {
         && !d.identity_loading
 }
 pub async fn run(app: &Arc<App>, c: &Command, s: &Arc<Session>) -> Result<()> {
-    if c.action == "composeCompareCancel" {
-        let mut d = s.data.lock().unwrap();
-        d.comparison = None;
-        d.comparison_ticket += 1;
-        return Ok(());
-    }
     if c.action == "composeCompare" {
         if c.data["form"].is_object() {
             s.update(&c.data["form"], c.id)?;

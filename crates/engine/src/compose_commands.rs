@@ -21,6 +21,7 @@ use std::{
 
 pub enum Prepared {
     Start,
+    ComparisonCancelled,
     Update(Arc<Session>),
     Write(Arc<Session>, bool),
     Input(Arc<Session>, InputAction),
@@ -47,6 +48,13 @@ pub fn session(app: &App, c: &Command) -> Result<Arc<Session>> {
 }
 pub fn prepare(app: &App, c: &Command) -> Result<Prepared> {
     match c.action.as_str() {
+        "composeCompareCancel" => {
+            let s = session(app, c)?;
+            let mut d = s.data.lock().unwrap();
+            d.comparison = None;
+            d.comparison_ticket += 1;
+            Ok(Prepared::ComparisonCancelled)
+        }
         "composeIdentity" => {
             let s = session(app, c)?;
             let account = s.data.lock().unwrap().form.account.clone();
@@ -166,6 +174,7 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
         return Ok(());
     }
     match prepared {
+        Prepared::ComparisonCancelled => return Ok(()),
         Prepared::Sender(s, epoch, aliases) => {
             return refresh_sender(app, c.id, &s, epoch, aliases, true).await;
         }
@@ -240,9 +249,7 @@ pub async fn run(app: &Arc<App>, c: &Command, prepared: Prepared) -> Result<()> 
             Ok(())
         }
         "composeRetryUpload" => upload(app, c.id, &s).await,
-        "composeCompare" | "composeMerge" | "composeCompareCancel" => {
-            crate::draft_conflict::run(app, c, &s).await
-        }
+        "composeCompare" | "composeMerge" => crate::draft_conflict::run(app, c, &s).await,
         "composeSaveCopy" => {
             if app.preview {
                 return Err(Error::Invalid(

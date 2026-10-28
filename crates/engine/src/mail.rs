@@ -177,7 +177,7 @@ pub fn message_header(m: &Message) -> Value {
         })
         .map(|p| json!({"name":p.filename,"mime":p.mime_type,"size":p.body.size,"part":p.part_id}))
         .collect();
-    let mut value = json!({"id":m.id,"from":m.payload.header("From"),"to":m.payload.header("To"),"cc":m.payload.header("Cc"),"date":m.date(),"subject":m.payload.header("Subject"),"unread":m.has("UNREAD"),"starred":m.has("STARRED"),"important":m.has("IMPORTANT"),"draft":m.has("DRAFT"),"attachments":attachments});
+    let mut value = json!({"id":m.id,"from":m.payload.header("From"),"to":m.payload.header("To"),"cc":m.payload.header("Cc"),"bcc":m.payload.header("Bcc"),"replyTo":m.payload.header("Reply-To"),"messageId":m.payload.header("Message-ID"),"sentDate":m.payload.header("Date"),"date":m.date(),"subject":m.payload.header("Subject"),"unread":m.has("UNREAD"),"starred":m.has("STARRED"),"important":m.has("IMPORTANT"),"draft":m.has("DRAFT"),"attachments":attachments});
     // Metadata projections do not contain MIME structure. Absence is unknown,
     // not an empty attachment set that may erase an already-opened strip.
     if m.payload.mime_type.is_empty() {

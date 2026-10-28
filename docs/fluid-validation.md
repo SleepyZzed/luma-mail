@@ -245,3 +245,27 @@ picture URL/budget isolation, logical image scaling, table navigation and keepin
 independent paragraph indentation during alignment/line-spacing changes. The
 signature Linux UI checks and profile-lifetime experiment are newly queued CI
 gates, not yet live Gmail or target-desktop acceptance.
+
+
+## Reader headers and ordered cancellation — 28 October continuation
+
+The replacement now exposes per-message From/To/Cc/Bcc/Reply-To/Date/Message-ID
+through a spring-opening, selectable details panel. Its extra text document is
+created on demand and destroyed after closing. Background metadata reconciliation
+also keeps a selected notification/search conversation current outside the active
+account subset, without rebuilding a searched inbox or retrieving new bodies.
+Reader-epoch fences reject metadata prepared for a previous selection.
+
+CI at 600c089 exposed two further failures: comparison cancellation was dispatched
+asynchronously and could overtake a subsequent merge; native X11 visibility events
+could lose a maximized restore state. Cancellation now invalidates its ticket in
+pipe order, and restore tracks the native window-state signal. Desktop acceptance
+waits for a settled, actual state rather than a fixed short delay. Linux process
+profiling runs independently after a successful native build so an earlier scene
+failure cannot hide its resource evidence. The prior Linux 330.8 MiB PSS result
+still stands until that new measurement completes.
+
+Windows PowerShell 5 resource summaries now convert sample hashtables to plain
+records before Measure-Object, avoiding a report-generation failure in the
+retained reference frontend job. These changes do not add persistent mail data
+or change the configured cache/TTL limits.

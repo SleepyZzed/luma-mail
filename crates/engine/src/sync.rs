@@ -51,6 +51,22 @@ impl Pending {
         self.keys.retain(|key| accounts.contains(&key.account));
         self.seen.retain(|key| accounts.contains(&key.account));
     }
+    fn retain_relevant(
+        &mut self,
+        scope: &Option<HashSet<String>>,
+        selected: &Option<ThreadKey>,
+        searching: bool,
+    ) {
+        let relevant = |key: &ThreadKey| {
+            selected.as_ref() == Some(key)
+                || (!searching
+                    && scope
+                        .as_ref()
+                        .is_none_or(|accounts| accounts.contains(&key.account)))
+        };
+        self.keys.retain(relevant);
+        self.seen.retain(relevant);
+    }
 }
 impl Service {
     pub fn start(app: &Arc<App>) {
@@ -223,26 +239,25 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
     let generation = app.generation.load(Ordering::SeqCst);
     let revision = app.mutation_serial.load(Ordering::SeqCst);
     let read_revision = app.read_revision.load(Ordering::SeqCst);
-    let (folder, query, scope) = {
+    let reading = app.reading.load(Ordering::SeqCst);
+    let (folder, query, scope, reader) = {
         let v = app.view.lock().unwrap();
-        (v.folder.clone(), v.search.clone(), v.accounts.clone())
+        (
+            v.folder.clone(),
+            v.search.clone(),
+            v.accounts.clone(),
+            v.selected.clone(),
+        )
     };
-    if !query.is_empty() {
+    if !query.is_empty() && !pending.keys.is_empty() {
         app.sync.updates.store(true, Ordering::SeqCst);
-        pending.keys.clear();
-        pending.seen.clear();
-        return;
     }
+    pending.retain_relevant(&scope, &reader, !query.is_empty());
     let jobs: Vec<_> = pending
         .keys
         .iter()
         .cloned()
-        .filter_map(|key| {
-            if scope.as_ref().is_some_and(|s| !s.contains(&key.account)) {
-                return None;
-            }
-            app.client(&key.account).ok().map(|c| (key, c))
-        })
+        .filter_map(|key| app.client(&key.account).ok().map(|c| (key, c)))
         .collect();
     let output: Vec<_> = stream::iter(jobs)
         .map(|(key, client)| async move {
@@ -254,6 +269,7 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
         .await;
     let _write = app.mutation.lock().await;
     if !app.current(generation)
+        || app.reading.load(Ordering::SeqCst) != reading
         || app.mutation_serial.load(Ordering::SeqCst) != revision
         || app.read_revision.load(Ordering::SeqCst) != read_revision
     {
@@ -279,7 +295,11 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
             pending.remove(&key);
             continue;
         };
-        let visible = folder.matches(&thread);
+        let list_scope = query.is_empty()
+            && scope
+                .as_ref()
+                .is_none_or(|accounts| accounts.contains(&key.account));
+        let visible = list_scope && folder.matches(&thread);
         let mut selected = false;
         {
             let mut view = app.view.lock().unwrap();
@@ -287,13 +307,15 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
                 .rows
                 .iter()
                 .any(|old| old.key == key && old.attachments);
-            apply(&mut view.rows, row.clone(), visible);
+            if list_scope {
+                apply(&mut view.rows, row.clone(), visible);
+            }
             if view.selected.as_ref() == Some(&key) {
                 view.thread = Some(thread.clone());
                 selected = true;
             }
         }
-        if visible {
+        if list_scope && visible {
             app.events
                 .emit(
                     0,
@@ -301,7 +323,7 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
                     json!({"row":row,"insert":true,"generation":generation}),
                 )
                 .await;
-        } else {
+        } else if list_scope {
             app.events
                 .emit(
                     0,
@@ -312,15 +334,19 @@ async fn reconcile(app: &Arc<App>, pending: &mut Pending) {
         }
         if selected {
             let messages: Vec<_> = thread.messages.iter().map(mail::message_header).collect();
-            app.events.emit(0,"threadUpdated",json!({"key":key,"reading":app.reading.load(Ordering::SeqCst),"messages":messages})).await;
+            app.events
+                .emit(
+                    0,
+                    "threadUpdated",
+                    json!({"key":key,"reading":reading,"messages":messages}),
+                )
+                .await;
         }
         pending.remove(&key);
     }
     let live: HashSet<_> = app.clients.lock().unwrap().keys().cloned().collect();
-    pending.keys.retain(|k| {
-        live.contains(&k.account) && scope.as_ref().is_none_or(|s| s.contains(&k.account))
-    });
-    pending.seen = pending.keys.iter().cloned().collect();
+    pending.retain_accounts(&live);
+    pending.retain_relevant(&scope, &reader, !query.is_empty());
 }
 fn apply(rows: &mut Vec<Conversation>, row: Conversation, visible: bool) {
     rows.retain(|r| r.key != row.key);
@@ -395,6 +421,37 @@ mod tests {
             account: "another".into(),
             id: "new".into()
         }));
+    }
+    #[test]
+    fn open_notification_threads_remain_relevant_outside_account_scope_and_search() {
+        let selected = ThreadKey {
+            account: "a".into(),
+            id: "open".into(),
+        };
+        let same_account = ThreadKey {
+            account: "a".into(),
+            id: "other".into(),
+        };
+        let list = ThreadKey {
+            account: "b".into(),
+            id: "inbox".into(),
+        };
+        let scope = Some(HashSet::from(["b".into()]));
+        let mut p = Pending::default();
+        p.insert(selected.clone());
+        p.insert(same_account.clone());
+        p.insert(list.clone());
+        p.retain_relevant(&scope, &Some(selected.clone()), false);
+        assert_eq!(p.keys.len(), 2);
+        assert!(p.seen.contains(&selected));
+        assert!(p.seen.contains(&list));
+        assert!(!p.seen.contains(&same_account));
+        p.retain_relevant(&scope, &Some(selected.clone()), true);
+        assert_eq!(p.keys.len(), 1);
+        assert_eq!(p.keys[0], selected);
+        p.retain_relevant(&scope, &None, true);
+        assert!(p.keys.is_empty());
+        assert!(p.seen.is_empty());
     }
     #[test]
     fn private_notifications_contain_no_sender_or_subject() {

@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QDesktopServices>
 #include <QMouseEvent>
+#include <functional>
 class SyncSmoke:public QObject {
     Q_OBJECT
     Bridge*mail;QQuickWindow*window;QJsonArray checks;bool failed=false,finished=false,started=false;
@@ -21,7 +22,24 @@ class SyncSmoke:public QObject {
         QMouseEvent down(QEvent::MouseButtonPress,point,QPointF(window->mapToGlobal(point.toPoint())),Qt::LeftButton,Qt::LeftButton,Qt::ControlModifier);QCoreApplication::sendEvent(window,&down);QMouseEvent up(QEvent::MouseButtonRelease,point,QPointF(window->mapToGlobal(point.toPoint())),Qt::LeftButton,Qt::NoButton,Qt::ControlModifier);QCoreApplication::sendEvent(window,&up);
         QTimer::singleShot(150,this,[this]{check("Ctrl click opens one safe received link",openedLinks==QStringList{"https://example.com/review"});mail->clearSelection();auto menu=window->findChild<QObject*>("messageActionsMenu");check("individual-message actions have a dedicated menu",menu);if(!menu){finish();return;}menu->setProperty("message",mail->messages()->at(0));menu->setProperty("threadKey",mail->reader()["key"]);QMetaObject::invokeMethod(menu,"perform",Q_ARG(QVariant,QString("unstar")));});
     }
-    void restoreWindow(){window->showMinimized();QTimer::singleShot(200,this,[this]{emit mail->showRequested();QTimer::singleShot(300,this,[this]{check("tray and notification activation restore a minimized window",window->isVisible()&&window->visibility()==QWindow::Windowed);window->showMaximized();QTimer::singleShot(200,this,[this]{window->hide();emit mail->showRequested();QTimer::singleShot(300,this,[this]{check("tray activation preserves a maximized window",window->isVisible()&&window->visibility()==QWindow::Maximized);finish();});});});});}
+    void awaitState(QWindow::Visibility target,const QString&name,std::function<void()> next,int attempts=40){
+        if(window->visibility()==target){QTimer::singleShot(150,this,[this,target,name,next,attempts]{if(window->visibility()==target){check(name,true);next();}else awaitState(target,name,next,attempts-1);});return;}
+        if(!attempts){check(name+QString(" (visibility %1, native state %2)").arg(int(window->visibility())).arg(int(window->windowState())),false);finish();return;}
+        QTimer::singleShot(50,this,[this,target,name,next,attempts]{awaitState(target,name,next,attempts-1);});
+    }
+    void restoreWindow(){
+        window->showMinimized();
+        awaitState(QWindow::Minimized,"native desktop accepts minimization",[this]{
+            emit mail->showRequested();
+            awaitState(QWindow::Windowed,"tray and notification activation restore a minimized window",[this]{
+                window->showMaximized();
+                awaitState(QWindow::Maximized,"native desktop accepts maximization",[this]{
+                    window->hide();emit mail->showRequested();
+                    awaitState(QWindow::Maximized,"tray activation preserves a maximized window",[this]{finish();});
+                });
+            });
+        });
+    }
     void inject(const QString&event,const QJsonObject&data){mail->receive({{"id",0},{"event",event},{"data",data}});}
     void exercise(){
         const auto body=mail->messages()->at(0)["text"].toString();const auto reader=mail->reader()["key"].toMap();const auto activity=mail->activityKind();const auto row=mail->inbox()->at(5);
@@ -35,9 +53,10 @@ class SyncSmoke:public QObject {
         inject("threadUpdated",{{"key",QJsonObject::fromVariantMap(reader)},{"reading",qint64(mail->readerRequest)},{"messages",QJsonArray{QJsonObject{{"id","preview1"},{"starred",true}},reply}}});
         check("reply headers keep the opened message content",mail->messages()->rowCount()==2&&mail->messages()->at(0)["text"].toString()==body);
         check("new reply starts unread without downloading its body",mail->messages()->at(1)["unread"].toBool()&&!mail->messages()->at(1).contains("text"));
+        inject("threadUpdated",{{"key",QJsonObject::fromVariantMap(reader)},{"reading",qint64(mail->readerRequest-1)},{"messages",QJsonArray{QJsonObject{{"id","preview1"},{"starred",false}}}}});check("stale reader updates cannot change the current message headers",mail->messages()->at(0)["starred"].toBool());
         inject("sync",{{"silent",true},{"lastChecked",1234},{"unread",QJsonObject{{"preview",42}}}});
         check("silent checks leave the loading indicator and selection intact",mail->activityKind()==activity&&mail->selectionCount()==3&&mail->sync()["unread"].toMap()["preview"].toInt()==42);
-        QTimer::singleShot(500,this,[this]{auto original=find(window->contentItem(),"threadMessage-preview1"),reply=find(window->contentItem(),"threadMessage-preview-reply");check("incoming reply leaves the current message expanded",original&&original->property("expanded").toBool());check("incoming reply waits for explicit opening",reply&&!reply->property("expanded").toBool());const auto root=qEnvironmentVariable("LUMA_TEST_ROOT");check("incremental updates create no mail or draft store",!QFileInfo::exists(root+"/cache/bodies")&&!QFileInfo::exists(root+"/config/composer"));clickReceivedLink();});
+        QTimer::singleShot(500,this,[this]{auto original=find(window->contentItem(),"threadMessage-preview1"),reply=find(window->contentItem(),"threadMessage-preview-reply");check("incoming reply leaves the current message expanded",original&&original->property("expanded").toBool());check("incoming reply waits for explicit opening",reply&&!reply->property("expanded").toBool());const auto root=qEnvironmentVariable("LUMA_TEST_ROOT");check("incremental updates create no mail or draft store",!QFileInfo::exists(root+"/cache/bodies")&&!QFileInfo::exists(root+"/config/composer"));auto reader=find(window->contentItem(),"readerPane");QMetaObject::invokeMethod(reader,"showDetails",Q_ARG(QVariant,QString("preview1")));QTimer::singleShot(450,this,[this,reader]{auto details=find(window->contentItem(),"messageDetails-preview1");check("message details reveal literal sender and recipient headers",details&&details->property("text").toString().contains("To: alex@example.com"));QMetaObject::invokeMethod(reader,"showDetails",Q_ARG(QVariant,QString("preview1")));QTimer::singleShot(700,this,[this]{check("closed message details release the extra text document",!find(window->contentItem(),"messageDetails-preview1"));clickReceivedLink();});});});
     }
 public:
     Q_SLOT void handle(const QUrl&url){openedLinks.append(url.toString());}

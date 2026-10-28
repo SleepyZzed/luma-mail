@@ -6,6 +6,8 @@ FluidMenu {
     property var threadKey:({})
     readonly property bool allowed:Mail.selectionCount<=1&&!!message.id&&threadKey.account===Mail.reader.key?.account&&threadKey.id===Mail.reader.key?.id
     function perform(action){if(allowed)Mail.mutateMessage(action,message)}
+    signal detailsRequested(string message)
+    MenuItem{objectName:"messageDetailsAction";text:"Message details";enabled:root.allowed;onTriggered:root.detailsRequested(root.message.id)}
     MenuItem{text:"Open Gmail draft";visible:!!root.message.draft;height:visible?implicitHeight:0;enabled:root.allowed;onTriggered:Mail.requestCompose("draft",root.message)}
     MenuItem{text:"Reply to this message";visible:!root.message.draft;height:visible?implicitHeight:0;enabled:root.allowed;onTriggered:Mail.requestCompose("reply",root.message)}
     MenuItem{text:"Reply all";visible:!root.message.draft;height:visible?implicitHeight:0;enabled:root.allowed;onTriggered:Mail.requestCompose("replyAll",root.message)}

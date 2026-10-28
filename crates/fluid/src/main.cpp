@@ -72,6 +72,19 @@ int main(int argc,char**argv){
     );
     engine.loadFromModule("Luma.Fluid","Main");if(engine.rootObjects().isEmpty())return 1;
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+    // Window visibility can transiently become Windowed while X11 maps a
+    // maximized window. Preserve the real native state, not that map event.
+    Qt::WindowState restoredState=Qt::WindowNoState;
+    QObject::connect(window,&QWindow::windowStateChanged,window,[window,&restoredState](Qt::WindowState state){
+        if(window->isVisible()&&!(state&Qt::WindowMinimized))restoredState=state;
+    });
+    QObject::connect(&bridge,&Bridge::showRequested,window,[window,&restoredState]{
+        const auto state=restoredState;
+        if(state&Qt::WindowFullScreen)window->showFullScreen();
+        else if(state&Qt::WindowMaximized)window->showMaximized();
+        else window->showNormal();
+        window->raise();window->requestActivate();
+    });
     QDesktopServices::setUrlHandler("mailto",&bridge,"handleMailto");
     if(instance)QObject::connect(instance.get(),&SingleInstance::activated,&bridge,[&bridge](const QString&uri){if(uri.isEmpty())emit bridge.showRequested();else bridge.queueMailto(uri);});
     if(!mailto.isEmpty())bridge.queueMailto(mailto);

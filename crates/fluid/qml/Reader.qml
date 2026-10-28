@@ -18,6 +18,7 @@ Item {
     signal replyAt(string mode,var message)
     signal contextRequested(var row,real x,real y)
     signal messageMenuRequested(var message,real x,real y)
+    function showDetails(id){const index=Mail.messages.indexFor(id);const item=messages.itemAt(index);if(item)item.detailsOpen=!item.detailsOpen}
     clip:true
     Rectangle{width:1;height:parent.height;color:Theme.outline;opacity:.5}
     Flickable {
@@ -41,10 +42,12 @@ Item {
                 }
             }
             Repeater {
+                id:messages
                 model:Mail.messages
                 delegate:Column {
                     id:message;objectName:"threadMessage-"+item.id;required property var item;required property int index
                     property bool expanded:false
+                    property bool detailsOpen:false
                     Component.onCompleted:expanded=index===Mail.messages.count-1&&!item.arrived
                     property bool originalColours:false
                     property bool hasHtml:item.hasHtml||false
@@ -70,6 +73,12 @@ Item {
                         Rectangle{width:Theme.unit(6);height:width;radius:width/2;color:Theme.accent;visible:message.item.unread||false;anchors.right:parent.right;anchors.rightMargin:Theme.unit(37);anchors.bottom:parent.bottom;anchors.bottomMargin:Theme.unit(11)}
                         MouseArea{anchors.fill:parent;onClicked:{message.expanded=!message.expanded;if(message.expanded&&!message.item.text)Mail.send("message",{account:Mail.reader.key.account,id:message.item.id})}}
                         FluidButton{objectName:"messageMore-"+message.item.id;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;glyph:"more";tip:"Actions for this message";visible:Mail.selectionCount<=1;onClicked:{const point=mapToItem(null,0,height);root.messageMenuRequested(message.item,point.x,point.y)}}
+                    }
+                    Item{width:parent.width;height:Math.max(0,detailHeight.value);clip:true;visible:height>0
+                        Motion{id:detailHeight;target:message.detailsOpen?detailLoader.implicitHeight:0;enabled:Theme.motion}
+                        Loader{id:detailLoader;width:parent.width;active:message.detailsOpen||detailHeight.value>0;sourceComponent:TextArea{objectName:"messageDetails-"+message.item.id;readOnly:true;selectByMouse:true;textFormat:TextEdit.PlainText;wrapMode:TextEdit.Wrap;padding:Theme.unit(12);font.pixelSize:Theme.unit(11);color:Theme.muted;background:Rectangle{color:Theme.surface;radius:Theme.unit(12)}
+                            text:"From: "+(message.item.from||"")+"\nTo: "+(message.item.to||"")+(message.item.cc?"\nCc: "+message.item.cc:"")+(message.item.bcc?"\nBcc: "+message.item.bcc:"")+(message.item.replyTo?"\nReply-To: "+message.item.replyTo:"")+(message.item.sentDate?"\nDate: "+message.item.sentDate:"")+(message.item.messageId?"\nMessage-ID: "+message.item.messageId:"")
+                        }}
                     }
                     Item {
                         width:parent.width;height:Math.max(0,expansion.value);clip:true

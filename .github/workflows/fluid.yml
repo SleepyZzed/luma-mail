@@ -44,6 +44,7 @@ jobs:
       - run: cargo build --locked -p luma-engine
       - run: cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build-fluid --parallel 2
+        id: fluid_build
       - run: ctest --test-dir build-fluid --output-on-failure
       - name: Native private HTML reader test
         env:
@@ -185,6 +186,7 @@ jobs:
           path: fluid-signature-linux.json
           if-no-files-found: warn
       - name: Complete synthetic process-tree resource audit
+        if: ${{ !cancelled() && steps.fluid_build.outcome == 'success' }}
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
           LUMA_RESOURCE_REPORT: ${{ github.workspace }}/fluid-resource-linux/lifecycle.json

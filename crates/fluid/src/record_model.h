@@ -21,7 +21,7 @@ public:
     void patch(const QString &id,const QJsonObject &values);
     void trimBodies(const QString&keep);
     void mergeMessages(const QJsonArray&items);
-    int indexFor(const QString&key)const;
+    Q_INVOKABLE int indexFor(const QString&key)const;
     static QString key(const QJsonObject &row);
 signals: void countChanged();
 private: void reindex();QList<QJsonObject> rows;QHash<QString,int> positions;
