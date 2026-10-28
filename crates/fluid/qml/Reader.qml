@@ -81,9 +81,9 @@ Item {
                         function rgb(c){return [Math.round(c.r*255),Math.round(c.g*255),Math.round(c.b*255)]}
                         Mail.renderMessage({account:Mail.reader.key.account,id:item.id,original:originalColours,external:external,background:rgb(Theme.window),foreground:rgb(Theme.text),dark:Theme.dark})
                     }
-                    onHasHtmlChanged:if(hasHtml)themeDelay.restart()
+                    onHasHtmlChanged:if(hasHtml&&expanded)Qt.callLater(()=>message.render())
                     onOriginalColoursChanged:themeDelay.restart()
-                    onExpandedChanged:{if(expanded&&hasHtml)themeDelay.restart();else if(!expanded){themeDelay.stop();Mail.releaseMessageImages(item.id)}}
+                    onExpandedChanged:{if(expanded&&hasHtml)Qt.callLater(()=>message.render());else if(!expanded){themeDelay.stop();Mail.releaseMessageImages(item.id)}}
                     Timer{id:themeDelay;interval:180;onTriggered:message.render()}
                     Connections{target:Mail;function onPaletteChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}function onSettingsChanged(){if(message.hasHtml&&message.expanded)themeDelay.restart()}}
                     Connections{target:root;function onProjectedChanged(){if(!root.projected&&message.expanded&&message.hasHtml)Qt.callLater(()=>message.render())}}
@@ -117,8 +117,9 @@ Item {
                             opacity:Math.max(0,Math.min(1,reveal.value))
                             y:(1-reveal.value)*Theme.unit(18)
                             Rectangle{width:parent.width;height:1;color:Theme.outline;opacity:.6}
+                            ReaderLoading{width:parent.width;busy:visible;animate:!root.nativeBlocked&&message.y+message.height>scroll.contentY&&message.y<scroll.contentY+scroll.height;label:"Fetching message…";visible:(!message.item.bodyLoaded||!!message.item.bodyPending)&&!message.item.bodyError}
                             Column {
-                                width:parent.width;spacing:Theme.unit(10);visible:!message.item.bodyLoaded||!!message.item.bodyPending||!!message.item.bodyError
+                                width:parent.width;spacing:Theme.unit(10);visible:!!message.item.bodyError
                                 Text{textFormat:Text.PlainText;width:parent.width;text:message.item.bodyError||(message.item.bodyPending?"Loading this message…":"Load this message to read its content.");wrapMode:Text.Wrap;color:Theme.muted;font.pixelSize:Theme.unit(12)}
                                 FluidButton{objectName:"retryBody-"+message.item.id;text:message.item.bodyError?"Try again":"Load message";glyph:"refresh";visible:!message.item.bodyPending;onClicked:Mail.loadMessage(message.item.id)}
                             }
@@ -142,22 +143,26 @@ Item {
                             Text{textFormat:Text.PlainText;width:parent.width;visible:message.hasHtml&&message.item.externalImages&&!message.item.externalLoaded;text:"External images are blocked for privacy.";wrapMode:Text.Wrap;color:Theme.faint;font.pixelSize:Theme.unit(10)}
                             HtmlSurface{
                                 id:htmlHost;width:parent.width;implicitHeight:message.hasHtml?lastHeight:0;height:implicitHeight;visible:message.hasHtml
-                                property real lastHeight:Theme.unit(80)
+                                property real lastHeight:Theme.unit(112)
+                                readonly property bool prepared:htmlLoader.item?.viewReady===true
+                                readonly property string viewFailure:htmlLoader.item?.viewError||""
+                                Motion{id:htmlReveal;target:htmlHost.prepared?1:0;epsilon:.002;stiffness:260;damping:32;enabled:Theme.motion}
                                 property bool inView:false
                                 function updateVisibility(){inView=viewportHeight>0}
                                 onViewportChanged:Qt.callLater(updateVisibility)
                                 Component.onCompleted:Qt.callLater(updateVisibility)
+                                Rectangle{y:htmlHost.viewportTop;width:Math.min(parent.width,Theme.unit(260))*(1-htmlReveal.value)+parent.width*htmlReveal.value;height:Math.min(htmlHost.viewportHeight,Theme.unit(38))*(1-htmlReveal.value)+htmlHost.viewportHeight*htmlReveal.value;radius:Theme.unit(19)*(1-Math.max(0,Math.min(1,htmlReveal.value)));color:Theme.mix(Theme.surface,Theme.window,Math.max(0,Math.min(1,htmlReveal.value)));visible:!htmlHost.prepared||htmlReveal.running}
                                 Loader{
                                     id:htmlLoader;anchors.fill:parent;active:message.hasHtml&&message.expanded&&Mail.readerOpen&&!root.projected&&htmlHost.inView&&(message.item.document||"")!==""
                                     source:isWindows?"WindowsReader.qml":"LinuxReader.qml"
-                                    onLoaded:{item.objectName="mailHtml-"+message.item.id;item.page=Qt.binding(()=>message.item.document||"");item.uiScale=Qt.binding(()=>Theme.scale);item.paused=Qt.binding(()=>root.nativeBlocked);item.masks=Qt.binding(()=>root.nativeMasks);htmlHost.lastHeight=item.implicitHeight}
+                                    onLoaded:{item.objectName="mailHtml-"+message.item.id;item.revealProgress=Qt.binding(()=>Math.max(0,Math.min(1,htmlReveal.value)));item.page=Qt.binding(()=>message.item.document||"");item.uiScale=Qt.binding(()=>Theme.scale);item.paused=Qt.binding(()=>root.nativeBlocked);item.masks=Qt.binding(()=>root.nativeMasks)}
                                 }
-                                Connections{target:htmlLoader.item;function onImplicitHeightChanged(){htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;root.followingMessage="";scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
-                                Text{textFormat:Text.PlainText;anchors.top:parent.top;text:"Preparing private HTML view…";color:Theme.faint;font.pixelSize:Theme.unit(12);visible:!htmlLoader.active&&!message.item.documentError}
+                                Connections{target:htmlLoader.item;function onImplicitHeightChanged(){if(htmlLoader.item.viewReady)htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onViewReadyChanged(){if(htmlLoader.item.viewReady)htmlHost.lastHeight=htmlLoader.item.implicitHeight}function onWheel(delta){root.followingReply=false;root.followingMessage="";scroll.contentY=Math.max(0,Math.min(scroll.contentHeight-scroll.height,scroll.contentY+delta))}}
+                                ReaderLoading{objectName:"htmlLoading-"+message.item.id;width:parent.width;y:htmlHost.viewportTop;animate:htmlHost.inView&&!root.nativeBlocked;busy:!htmlHost.prepared&&!message.item.documentError&&!htmlHost.viewFailure;label:message.item.documentPending?"Preparing message…":"Opening private view…"}
                             }
                             FluidTextArea{
                                 id:plainText;objectName:"readBody-"+message.item.id
-                                visible:!message.hasHtml;height:visible?implicitHeight:0
+                                visible:!message.hasHtml&&message.item.bodyLoaded&&!message.item.bodyError;height:visible?implicitHeight:0
                                 width:parent.width;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap;textFormat:TextEdit.PlainText
                                 ReadDocument{document:plainText.textDocument;source:message.hasHtml?"":message.item.text||"Opening message…";spans:message.item.links||[];foreground:Theme.text;linkColour:Theme.link;family:Theme.family;pixelSize:Theme.unit(13)}
                                 onLinkActivated:link=>Mail.openLink(link)

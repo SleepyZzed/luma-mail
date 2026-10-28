@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [target.'cfg(target_os = "windows")'.dependencies]
 serde_json.workspace = true
 webview2-com = "0.38.2"
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Data_Xml_Dom", "Foundation", "UI_Notifications"] }
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Data_Xml_Dom", "Foundation", "UI_Notifications"] }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
 tempfile = "3"

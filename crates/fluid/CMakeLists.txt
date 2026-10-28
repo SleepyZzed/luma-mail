@@ -35,7 +35,7 @@ else()
 endif()
 qt_add_qml_module(luma-mail-fluid URI Luma.Fluid VERSION 1.0
     QML_FILES qml/Main.qml qml/Theme.qml qml/FluidColor.qml qml/FluidButton.qml qml/FluidCombo.qml qml/FluidCheck.qml qml/Icon.qml
-        qml/Avatar.qml qml/Sidebar.qml qml/NavigationEntry.qml qml/Inbox.qml qml/Reader.qml
+        qml/Avatar.qml qml/Sidebar.qml qml/NavigationEntry.qml qml/Inbox.qml qml/Reader.qml qml/ReaderLoading.qml
         qml/Composer.qml qml/RecipientField.qml qml/RowMorph.qml qml/ActivityPill.qml qml/SettingsSheet.qml qml/AttachmentTile.qml qml/AttachmentPane.qml qml/DownloadPill.qml qml/FluidMenu.qml qml/FluidMenuItem.qml qml/FluidMenuSeparator.qml qml/PopupEnter.qml qml/PopupExit.qml qml/FluidDialog.qml qml/FluidTextArea.qml qml/TextEditMenu.qml qml/LabelSection.qml qml/LabelDialog.qml qml/MailActionsMenu.qml qml/ConfirmSheet.qml qml/FluidField.qml qml/SearchSheet.qml qml/DraftCompareSheet.qml qml/MessageActionsMenu.qml qml/PaneHandle.qml qml/SignatureSheet.qml qml/AuthSheet.qml ${LUMA_PLATFORM_READER})
 file(GLOB LUMA_ICONS CONFIGURE_DEPENDS "../../data/icons/scalable/actions/*.svg")
 qt_add_resources(luma-mail-fluid "icons" PREFIX "/icons" BASE "../../data/icons/scalable/actions" FILES ${LUMA_ICONS})

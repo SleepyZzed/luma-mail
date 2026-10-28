@@ -113,7 +113,17 @@ fn async_private_reader_keeps_images_blocks_content_and_cancels_cleanly() {
         luma_webview_document(surface, page.as_ptr(), page.len());
         let rects = [0, 0, 600, 1000, 0, 0, 600, 300];
         luma_webview_geometry(surface, rects.as_ptr(), 2, 1., 1.);
+        luma_webview_background(surface, 0xff221133);
         luma_webview_visible(surface, true);
+        assert!(
+            !IsWindowVisible(surface.as_ref().unwrap().0.child).as_bool(),
+            "an initializing HTML host must remain hidden"
+        );
+        assert_eq!(
+            GetWindowTextLengthW(surface.as_ref().unwrap().0.child),
+            0,
+            "the host cannot paint a diagnostic caption"
+        );
         spin_until(|| {
             events
                 .borrow()
@@ -133,6 +143,74 @@ fn async_private_reader_keeps_images_blocks_content_and_cancels_cleanly() {
             .as_ref()
             .unwrap()
             .clone();
+        let controller = surface
+            .as_ref()
+            .unwrap()
+            .0
+            .controller
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .clone();
+        let mut colour = COREWEBVIEW2_COLOR::default();
+        controller
+            .cast::<ICoreWebView2Controller2>()
+            .unwrap()
+            .DefaultBackgroundColor(&mut colour)
+            .unwrap();
+        assert_eq!(
+            (colour.A, colour.R, colour.G, colour.B),
+            (255, 0x22, 0x11, 0x33)
+        );
+        luma_webview_reveal(surface, 0.5);
+        let region = CreateRectRgn(0, 0, 0, 0);
+        GetWindowRgn(surface.as_ref().unwrap().0.child, region);
+        let mut bounds = RECT::default();
+        GetRgnBox(region, &mut bounds);
+        let _ = DeleteObject(region.into());
+        assert!((167..=169).contains(&bounds.bottom));
+        assert!(
+            (428..=430).contains(&bounds.right),
+            "reveal expands from the loading pill's bounds"
+        );
+        let info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: 2,
+                biHeight: -2,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut pixels = std::ptr::null_mut();
+        let dc = CreateCompatibleDC(None);
+        let bitmap =
+            CreateDIBSection(Some(dc), &info, DIB_RGB_COLORS, &mut pixels, None, 0).unwrap();
+        let old = SelectObject(dc, bitmap.into());
+        host_paint(
+            surface.as_ref().unwrap().0.child,
+            WM_ERASEBKGND,
+            WPARAM(dc.0 as usize),
+            LPARAM(0),
+        );
+        assert_eq!(
+            GetPixel(dc, 0, 0).0,
+            0x00331122,
+            "host erase/resize paint uses the theme, never system white"
+        );
+        SelectObject(dc, old);
+        let _ = DeleteObject(bitmap.into());
+        let _ = DeleteDC(dc);
+        let mut viewport = RECT::default();
+        controller.Bounds(&mut viewport).unwrap();
+        assert_eq!(
+            viewport.bottom, 300,
+            "reveal clips pixels without relaying out the browser"
+        );
+        luma_webview_reveal(surface, 1.);
         let mut private = Default::default();
         web.cast::<ICoreWebView2_13>()
             .unwrap()

@@ -4,6 +4,7 @@ use crate::{
     app::{self, App},
     protocol::Command,
 };
+use futures_util::{StreamExt, stream};
 use luma_core::{
     Error, Result, composer, html_mail, mail_images, model::Message, provider::MailProvider,
 };
@@ -104,31 +105,38 @@ pub async fn render(app: &Arc<App>, c: &Command) -> Result<()> {
     if !current() {
         return Ok(());
     }
-    let (html, message) =
-        if app.preview && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1") {
-            if app.reading.load(Ordering::SeqCst) != reading {
-                return Ok(());
-            }
-            (fixture_html(), None)
-        } else {
-            if !current() {
-                return Ok(());
-            }
-            let resident = app.view.lock().unwrap().bodies.get(&key.id);
-            let m = match resident {
-                Some(m) => m,
-                None => Arc::new(app.client(&key.account)?.message(&key.id).await?),
-            };
-            let html = html_mail::body(&m.payload)?
-                .ok_or_else(|| Error::Invalid("This message has no HTML document".into()))?;
-            (html, Some(m))
+    let (html, message) = if app.preview
+        && std::env::var("LUMA_PREVIEW_HTML").is_ok_and(|v| v == "1")
+    {
+        if app.reading.load(Ordering::SeqCst) != reading {
+            return Ok(());
+        }
+        use base64::Engine as _;
+        let html = fixture_html();
+        let message = serde_json::from_value(
+            json!({"id":key.id,"threadId":key.id,"payload":{"mimeType":"text/html","body":{"data":base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&html)}}}),
+        )?;
+        (html, Some(Arc::new(message)))
+    } else {
+        if !current() {
+            return Ok(());
+        }
+        let resident = app.view.lock().unwrap().bodies.get(&key.id);
+        let m = match resident {
+            Some(m) => m,
+            None => Arc::new(app.client(&key.account)?.message(&key.id).await?),
         };
+        let html = html_mail::body(&m.payload)?
+            .ok_or_else(|| Error::Invalid("This message has no HTML document".into()))?;
+        (html, Some(m))
+    };
     let mut failed = 0;
     if let Some(message) = message {
         let sources = mail_images::sources(&message.payload);
-        for source in sources.iter().take(8) {
+        let mut pending = Vec::new();
+        for source in sources.into_iter().take(8) {
             let external = source.starts_with("https://");
-            if assets.images.contains_key(source)
+            if assets.images.contains_key(&source)
                 || if external {
                     !c.flag("external") || assets.external
                 } else {
@@ -137,25 +145,26 @@ pub async fn render(app: &Arc<App>, c: &Command) -> Result<()> {
             {
                 continue;
             }
-            if !current() {
-                return Ok(());
-            }
-            let result = image(app, &key.account, &message, source, external).await;
-            match result {
-                Ok(data)
-                    if assets
-                        .images
-                        .iter()
-                        .map(|(k, v)| k.len() + v.len())
-                        .sum::<usize>()
-                        + source.len()
-                        + data.len()
-                        <= IMAGE_BUDGET =>
-                {
-                    assets.images.insert(source.clone(), data);
+            pending.push((source, external));
+        }
+        if !pending.is_empty() {
+            // The themed, inert text/layout is useful immediately. Slow image
+            // servers must not hold up the entire message. This is RAM-only;
+            // the same request emits one completed document after previews.
+            let document = html_mail::styled_document(&html, &assets.images, appearance);
+            app.events.emit(c.id,"readerDocument",json!({"account":key.account,"reading":reading,"id":key.id,"html":document,"externalLoaded":assets.external,"failedImages":0,"pendingImages":true,"request":c.id})).await;
+            failed = fill_images(&mut assets.images, pending, |(source, external)| {
+                let current = &current;
+                let message = &message;
+                let account = &key.account;
+                async move {
+                    if !current() {
+                        return Err(Error::Invalid("This message is no longer open".into()));
+                    }
+                    image(app, account, message, &source, external).await
                 }
-                _ => failed += 1,
-            }
+            })
+            .await;
         }
         assets.embedded = true;
         if c.flag("external") {
@@ -163,13 +172,41 @@ pub async fn render(app: &Arc<App>, c: &Command) -> Result<()> {
         }
     }
     let document = html_mail::styled_document(&html, &assets.images, appearance);
-    if app.reading.load(Ordering::SeqCst) != reading {
+    if !current() {
         return Ok(());
     }
     let external = assets.external;
     *app.reader_assets.lock().unwrap() = assets;
     app.events.emit(c.id,"readerDocument",json!({"account":key.account,"reading":reading,"id":key.id,"html":document,"externalLoaded":external,"failedImages":failed,"request":c.id})).await;
     Ok(())
+}
+async fn fill_images<F, Fut>(
+    images: &mut HashMap<String, String>,
+    sources: Vec<(String, bool)>,
+    fetch: F,
+) -> usize
+where
+    F: Fn((String, bool)) -> Fut,
+    Fut: std::future::Future<Output = Result<String>>,
+{
+    let mut pending = stream::iter(sources.into_iter().map(|source| {
+        let key = source.0.clone();
+        let future = fetch(source);
+        async move { (key, future.await) }
+    }))
+    .buffered(2);
+    let mut failed = 0;
+    let mut bytes: usize = images.iter().map(|(k, v)| k.len() + v.len()).sum();
+    while let Some((source, result)) = pending.next().await {
+        match result {
+            Ok(data) if bytes + source.len() + data.len() <= IMAGE_BUDGET => {
+                bytes += source.len() + data.len();
+                images.insert(source, data);
+            }
+            _ => failed += 1,
+        }
+    }
+    failed
 }
 async fn image(
     app: &App,
@@ -178,37 +215,92 @@ async fn image(
     source: &str,
     external: bool,
 ) -> Result<String> {
-    let bytes = if external {
-        mail_images::fetch_external(source).await?
-    } else if source.starts_with("data:image/") {
-        mail_images::embedded(source)?
-    } else if let Some(cid) = source.strip_prefix("cid:") {
-        let part = message
-            .payload
-            .attachments()
-            .into_iter()
-            .find(|p| p.header("Content-ID").trim_matches(['<', '>']) == cid)
-            .ok_or_else(|| Error::Invalid("Inline image missing".into()))?;
-        if part.body.size > 8 * 1024 * 1024 {
-            return Err(Error::ResponseLimit);
-        }
-        if let Some(id) = &part.body.attachment_id {
-            app.client(account)?
-                .attachment_limited(&message.id, id, 8 * 1024 * 1024)
-                .await?
+    if app.preview {
+        // The synthetic external-image fixture exercises both stages without
+        // any DNS, OAuth or real sender connection.
+        tokio::time::sleep(std::time::Duration::from_millis(180)).await;
+        return Ok("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8XQAAAAASUVORK5CYII=".into());
+    }
+    let fetch = async {
+        Ok(if external {
+            mail_images::fetch_external(source).await?
+        } else if source.starts_with("data:image/") {
+            mail_images::embedded(source)?
+        } else if let Some(cid) = source.strip_prefix("cid:") {
+            let part = message
+                .payload
+                .attachments()
+                .into_iter()
+                .find(|p| p.header("Content-ID").trim_matches(['<', '>']) == cid)
+                .ok_or_else(|| Error::Invalid("Inline image missing".into()))?;
+            if part.body.size > 8 * 1024 * 1024 {
+                return Err(Error::ResponseLimit);
+            }
+            if let Some(id) = &part.body.attachment_id {
+                app.client(account)?
+                    .attachment_limited(&message.id, id, 8 * 1024 * 1024)
+                    .await?
+            } else {
+                composer::decode_part(part)?
+            }
         } else {
-            composer::decode_part(part)?
-        }
-    } else {
-        return Err(Error::Invalid("Unsupported image source".into()));
+            return Err(Error::Invalid("Unsupported image source".into()));
+        })
     };
-    tokio::task::spawn_blocking(move || html_mail::image_data(&bytes))
+    // Bound network waiting, not decoding: timed-out blocking decoders must
+    // never accumulate behind newly scheduled image work.
+    let bytes = tokio::time::timeout(std::time::Duration::from_secs(12), fetch)
         .await
-        .map_err(|_| Error::Invalid("Image conversion failed".into()))?
+        .map_err(|_| Error::Timeout)??;
+    let permit = app
+        .attachment_preview
+        .decoder
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|_| Error::Invalid("Preview decoder closed".into()))?;
+    // Keep the lease inside the worker even if a rapid selection cancels its
+    // awaiting task. At most one full-resolution decoder remains alive.
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        html_mail::image_data(&bytes)
+    })
+    .await
+    .map_err(|_| Error::Invalid("Image conversion failed".into()))?
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn image_preview_pipeline_bounds_concurrency_and_aggregate_bytes() {
+        use std::sync::atomic::AtomicUsize;
+        let active = AtomicUsize::new(0);
+        let peak = AtomicUsize::new(0);
+        let mut images = HashMap::new();
+        let sources = (0..8).map(|n| (n.to_string(), false)).collect();
+        let failed = fill_images(&mut images, sources, |_| async {
+            let n = active.fetch_add(1, Ordering::SeqCst) + 1;
+            peak.fetch_max(n, Ordering::SeqCst);
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+            active.fetch_sub(1, Ordering::SeqCst);
+            Ok("pixels".into())
+        })
+        .await;
+        assert_eq!(failed, 0);
+        assert_eq!(images.len(), 8);
+        assert_eq!(peak.load(Ordering::SeqCst), 2);
+        assert_eq!(active.load(Ordering::SeqCst), 0);
+        let mut images = HashMap::new();
+        let failed = fill_images(
+            &mut images,
+            vec![("a".into(), false), ("b".into(), false)],
+            |_| async { Ok("x".repeat(IMAGE_BUDGET / 2)) },
+        )
+        .await;
+        assert_eq!(failed, 1);
+        assert!(images.contains_key("a") && !images.contains_key("b"));
+        assert!(images.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>() <= IMAGE_BUDGET);
+    }
     #[test]
     fn received_links_use_native_utf16_offsets_and_safe_schemes() {
         let text = "🙂 see https://example.com/é and person@example.com; file:///private";

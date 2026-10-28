@@ -148,7 +148,7 @@ void Bridge::receive(const QJsonObject&e){
     else if(kind=="readerDocument"){
         const auto key=m_reader.value("key").toMap();const auto message=d["id"].toString();
         if(!m_readerOpen||quint64(d["reading"].toInteger())!=readerRequest||d["account"].toString()!=key.value("account").toString()||documentRequests.value(message)!=quint64(id))return;
-        documentRequests.remove(message);m_messages.patch(message,{{"documentError",QString()},{"document",d["html"]},{"externalLoaded",d["externalLoaded"]},{"failedImages",d["failedImages"]},{"documentPending",false}});m_messages.trimBodies(message);
+        const bool pending=d["pendingImages"].toBool();if(!pending)documentRequests.remove(message);m_messages.patch(message,{{"documentError",QString()},{"document",d["html"]},{"externalLoaded",d["externalLoaded"]},{"failedImages",d["failedImages"]},{"documentPending",pending}});m_messages.trimBodies(message);
     }
     else if(kind=="rowChanged"){if(d.contains("generation")&&quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.update(d["row"].toObject(),d["insert"].toBool());pruneSelection();}
     else if(kind=="syncRemoved"){if(quint64(d["generation"].toInteger())<viewRequest)return;m_inbox.removeKeys(d["keys"].toArray());pruneSelection();}
@@ -236,8 +236,13 @@ void Bridge::closeReader(){headerRequest=0;if(m_readerOpen)emit returnRow(m_open
 void Bridge::openThread(const QString&account,const QString&thread){if(account.isEmpty()||thread.isEmpty())return;clearSelection();const auto key=account+QChar(0)+thread;const auto index=m_inbox.indexFor(key);emit showRequested();if(index>=0){emit openRowRequested(index);return;}m_readerOpen=true;openedKey=key;m_reader={{"key",QVariantMap{{"account",account},{"id",thread}}},{"subject","Opening email"}};m_messages.replace({});documentRequests.clear();bodyRequests.clear();emit readerChanged();readerRequest=send("select",{{"account",account},{"id",thread}});}
 void Bridge::mutate(const QString&a,const QVariantMap&r,const QString&label){QVariantList keys;if(m_selection.isEmpty()){auto key=r.isEmpty()?m_reader.value("key").toMap():r.value("key").toMap();if(!key.isEmpty())keys.append(key);}else{for(int i=0;i<m_inbox.rowCount();++i){auto row=m_inbox.at(i);if(isSelected(row))keys.append(row["key"]);}}if(keys.isEmpty())return;send("mutate",{{"keys",keys},{"action",a},{"label",label}});}
 void Bridge::requestCompose(const QString&mode,const QVariantMap&m){send("composeStart",{{"mode",mode},{"message",m},{"key",m_reader["key"]},{"account",m_account}});}
-void Bridge::renderMessage(const QVariantMap&parameters){const auto message=parameters.value("id").toString();const auto id=send("renderMessage",parameters);if(id){documentRequests[message]=id;m_messages.patch(message,{{"documentPending",true},{"documentError",QString()}});}}
-void Bridge::releaseMessageImages(const QString&message){const auto pending=documentRequests.take(message);if(pending)send("cancel",{{"request",pending}});m_messages.patch(message,{{"document",QString()},{"externalLoaded",false},{"documentPending",false}});send("releaseMessageImages",{{"id",message},{"reading",qint64(readerRequest)}});}
+void Bridge::renderMessage(const QVariantMap&parameters){
+    const auto message=parameters.value("id").toString();const auto signature=QString::fromUtf8(QJsonDocument::fromVariant(parameters).toJson(QJsonDocument::Compact));const auto row=m_messages.at(m_messages.indexFor(message));
+    if(row.value("renderSignature").toString()==signature&&row.value("documentError").toString().isEmpty()&&(documentRequests.contains(message)||!row.value("document").toString().isEmpty()))return;
+    const auto previous=documentRequests.take(message);if(previous)send("cancel",{{"request",previous}});
+    const auto id=send("renderMessage",parameters);if(id){documentRequests[message]=id;m_messages.patch(message,{{"renderSignature",signature},{"documentPending",true},{"documentError",QString()}});}
+}
+void Bridge::releaseMessageImages(const QString&message){const auto pending=documentRequests.take(message);if(pending)send("cancel",{{"request",pending}});m_messages.patch(message,{{"document",QString()},{"renderSignature",QString()},{"externalLoaded",false},{"documentPending",false}});send("releaseMessageImages",{{"id",message},{"reading",qint64(readerRequest)}});}
 void Bridge::openLink(const QString&raw){QUrl u(raw);if(u.scheme()=="mailto"){queueMailto(raw);return;}if(u.isValid()&&(u.scheme()=="https"||u.scheme()=="http"||u.scheme()=="mailto"))QDesktopServices::openUrl(u);}
 void Bridge::quit(int exitCode){
     if(quitting||quitWaiting)return;quitWaiting=true;quitCode=exitCode;

@@ -6,6 +6,7 @@
 #include <QSaveFile>
 #include <QFileInfo>
 #include <QElapsedTimer>
+#include <algorithm>
 class HtmlSmoke:public QObject {
     Bridge*mail;QQuickWindow*window;QJsonArray checks;QTimer deadline,poll;QElapsedTimer elapsed;qint64 initializationMs=-1;bool failed=false,finished=false;int stage=0;
     QQuickItem*find(QQuickItem*at,const QString&name){if(at->objectName()==name)return at;for(auto child:at->childItems())if(auto item=find(child,name))return item;return nullptr;}
@@ -13,14 +14,21 @@ class HtmlSmoke:public QObject {
     void finish(){if(finished)return;finished=true;deadline.stop();poll.stop();QJsonObject report{{"passed",!failed},{"syntheticData",true},{"checks",checks},{"elapsedMs",elapsed.elapsed()},{"initializationMs",initializationMs},{"stage",stage}};if(failed){auto s=find(window->contentItem(),"mailHtml-preview0");if(s)report["initializationMs"]=s->property("initializationMs").toLongLong();auto row=mail->messages()->at(0);report["diagnostics"]=QJsonObject{{"surface",bool(s)},{"height",s?s->implicitHeight():0},{"viewport",s?s->property("viewportHeight").toReal():0},{"surfaceError",s?s->property("error").toString():""},{"hasHtml",row["hasHtml"].toBool()},{"documentBytes",row["document"].toString().size()},{"pending",row["documentPending"].toBool()}};}if(auto path=qEnvironmentVariable("LUMA_HTML_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(report).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(report).toJson(QJsonDocument::Compact);mail->quit(failed?2:0);}
 public:
     HtmlSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){
-        elapsed.start();deadline.setSingleShot(true);deadline.setInterval(20000);connect(&deadline,&QTimer::timeout,this,[this]{check("HTML reader completes within deadline",false);finish();});deadline.start();
+        elapsed.start();deadline.setSingleShot(true);deadline.setInterval(20000+std::clamp(qEnvironmentVariableIntValue("LUMA_HTML_HOLD_MS"),0,30000));connect(&deadline,&QTimer::timeout,this,[this]{check("HTML reader completes within deadline",false);finish();});deadline.start();
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(350,this,[this]{auto list=window->findChild<QQuickItem*>("mailList");auto p=list->mapToScene(QPointF());mail->selectRow(0,0,p.x(),p.y(),list->width(),68);});});
         connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(kind=="error"){check("reader command succeeds: "+data.value("message").toString(),false);finish();}});
         poll.setInterval(100);connect(&poll,&QTimer::timeout,this,[this]{
             auto surface=find(window->contentItem(),"mailHtml-preview0");
             if(stage==0&&surface&&!surface->property("error").toString().isEmpty()){check("native HTML surface opens: "+surface->property("error").toString(),false);finish();return;}
-            if(stage==0&&surface&&surface->implicitHeight()>600){
+            if(stage==0&&surface){
+#ifdef Q_OS_WIN
+                if(surface->property("nativeVisible").toBool()&&!surface->property("viewReady").toBool()){check("startup host never appears before document readiness",false);finish();return;}
+#endif
+            }
+            if(stage==0&&surface&&surface->property("viewReady").toBool()&&surface->implicitHeight()>600){
                 stage=1;initializationMs=surface->property("initializationMs").toLongLong();check("newsletter uses full measured content height",true);
+                check("HTML becomes presentable only after measured layout",surface->property("viewReady").toBool());
+                auto loading=find(window->contentItem(),"htmlLoading-preview0");check("themed loading indicator stops once content is ready",loading&&!loading->property("busy").toBool());
 #ifdef Q_OS_WIN
                 check("HTML creation owns exactly one native controller",HtmlSurface::liveNativeSurfaces()==1);
 #endif
@@ -28,14 +36,15 @@ public:
                 auto data=mail->messages()->at(0);const auto html=data["document"].toString();
                 check("sender active content and unapproved image URLs are removed",!html.contains("<script")&&!html.contains("<iframe")&&!html.contains("src=\"https://"));
                 check("the themed document preserves table and safe blue links",html.contains("<table")&&html.contains("https://example.com/review")&&html.contains("color-scheme:"));
-                auto settings=window->findChild<QQuickItem*>("settingsPanel");settings->setProperty("opened",true);
+                const auto hold=std::clamp(qEnvironmentVariableIntValue("LUMA_HTML_HOLD_MS"),0,30000);
+                QTimer::singleShot(hold,this,[this]{auto settings=window->findChild<QQuickItem*>("settingsPanel");settings->setProperty("opened",true);
                 QTimer::singleShot(200,this,[this]{auto s=find(window->contentItem(),"mailHtml-preview0");check("Settings suppresses the native HTML child overlay",s&&s->property("paused").toBool()&&
 #ifdef Q_OS_WIN
                     !s->property("nativeVisible").toBool()
 #else
                     true
 #endif
-                );window->findChild<QQuickItem*>("settingsPanel")->setProperty("opened",false);stage=2;});
+                );window->findChild<QQuickItem*>("settingsPanel")->setProperty("opened",false);stage=2;});});
             }else if(stage==2&&surface&&!surface->property("paused").toBool()){
                 stage=3;window->setWidth(window->width()-140);
                 QTimer::singleShot(900,this,[this]{auto s=find(window->contentItem(),"mailHtml-preview0");check("width changes remeasure and retain the reader",s&&s->implicitHeight()>600);window->hide();stage=4;});
@@ -44,7 +53,7 @@ public:
                 check("hiding drops every native controller",HtmlSurface::liveNativeSurfaces()==0);
 #endif
                 window->show();
-            }else if(stage==5&&surface&&surface->implicitHeight()>600){stage=6;check("showing the window restores the opened newsletter",true);mail->closeReader();
+            }else if(stage==5&&surface&&surface->property("viewReady").toBool()&&surface->implicitHeight()>600){stage=6;check("showing the window restores the opened newsletter",true);mail->closeReader();
             }else if(stage==6&&!surface){check("closing the reader releases its renderer",true);
 #ifdef Q_OS_WIN
                 check("reader close leaves no orphan native controller",HtmlSurface::liveNativeSurfaces()==0);

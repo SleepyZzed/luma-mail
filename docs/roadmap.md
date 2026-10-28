@@ -9,6 +9,12 @@ See [the current 1.0 audit](v1-acceptance-0.11.md) for all twenty criteria,
 limits and remaining code/live-desktop gates. Earlier milestones below retain
 their own build identities and do not certify the new batch.
 
+The follow-up hardening batch adds [themed reader presentation](reader-loading-0.11.md):
+the loading pill expands into measured HTML, startup/resize surfaces use the app
+palette, and image fetches no longer delay the initial text/layout. Composer
+controls keep their destination dimensions during the card morph, eliminating
+per-frame editor reflow. Cache limits and online-first behavior are unchanged.
+
 Current frontend coverage and remaining acceptance are tracked in
 [fluid-parity.md](fluid-parity.md). The 0.10 preview is GTK-free; the legacy source
 is retained as the reference until full acceptance.

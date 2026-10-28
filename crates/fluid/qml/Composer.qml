@@ -102,7 +102,10 @@ Item {
         enabled:!root.state.locked;maximumLength:8192;onTextEdited:root.schedule()
     }
     Loader {
-        id:formLoader;objectName:"composeControlsLoader";anchors.fill:parent;active:false
+        // Lay out the editor once at its destination size. The card's animated
+        // bounds clip this content; resizing the text/flows on every spring
+        // frame causes repeated wrapping and visible stretching on open.
+        id:formLoader;objectName:"composeControlsLoader";width:root.editorWidth;height:root.editorHeight;active:false
         sourceComponent:Component {Item {
             property alias toField:to
             property alias ccField:cc

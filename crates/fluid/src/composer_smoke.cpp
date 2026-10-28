@@ -12,10 +12,13 @@
 #include <QTextTable>
 #include <QDir>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <functional>
+#include <algorithm>
 class ComposerSmoke:public QObject {
     Bridge *mail;QQuickWindow *window;QQuickItem *card=nullptr;QPointer<RichDocument> document=nullptr;
     int stage=0;bool failed=false,finished=false;QString session;QJsonArray checks;
+    bool opening=false;int formResizes=0,cardResizes=0;QElapsedTimer openingClock;QList<qint64> openingFrames;
     void check(const QString&name,bool ok){checks.append(QJsonObject{{"check",name},{"passed",ok}});failed|=!ok;}
     void invoke(const char*method){QMetaObject::invokeMethod(card,method);}
     void key(int code,Qt::KeyboardModifiers modifiers=Qt::NoModifier){QKeyEvent press(QEvent::KeyPress,code,modifiers);QCoreApplication::sendEvent(window,&press);QKeyEvent release(QEvent::KeyRelease,code,modifiers);QCoreApplication::sendEvent(window,&release);}
@@ -26,15 +29,19 @@ class ComposerSmoke:public QObject {
     }
     void completeRecipient(){stage=18;auto to=window->findChild<QQuickItem*>("composeTo");to->setProperty("text",QString("\"Saved, Person\" <saved@example.com>, May"));to->setProperty("cursorPosition",to->property("text").toString().size());to->forceActiveFocus();QMetaObject::invokeMethod(to,"query");}
     void choose(const QString&account,const QString&address){QVariant row=QVariantMap{{"account",account},{"address",address}};QMetaObject::invokeMethod(card,"chooseSender",Q_ARG(QVariant,row));}
-    void finish(){if(finished)return;finished=true;QJsonObject r{{"passed",!failed},{"checks",checks},{"syntheticData",true}};if(auto path=qEnvironmentVariable("LUMA_COMPOSER_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(r).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(r).toJson(QJsonDocument::Compact);mail->send("settingsUpdate",{{"draft_mode","manual"}});mail->quit(failed?2:0);}
+    void finish(){if(finished)return;finished=true;qint64 gap=0;for(qsizetype i=1;i<openingFrames.size();++i)gap=std::max(gap,openingFrames[i]-openingFrames[i-1]);QJsonObject r{{"passed",!failed},{"checks",checks},{"syntheticData",true},{"opening",QJsonObject{{"formResizes",formResizes},{"cardResizes",cardResizes},{"frames",openingFrames.size()},{"largestFrameGapMs",gap},{"firstFrameMs",openingFrames.isEmpty()?-1:openingFrames.first()}}}};if(auto path=qEnvironmentVariable("LUMA_COMPOSER_REPORT");!path.isEmpty()){QSaveFile f(path);if(f.open(QIODevice::WriteOnly)){f.write(QJsonDocument(r).toJson());f.commit();}}qInfo().noquote()<<QJsonDocument(r).toJson(QJsonDocument::Compact);mail->send("settingsUpdate",{{"draft_mode","manual"}});mail->quit(failed?2:0);}
 public:
     ComposerSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){
         const auto root=qEnvironmentVariable("LUMA_TEST_ROOT");
+        connect(window,&QQuickWindow::frameSwapped,this,[this]{if(opening)openingFrames.append(openingClock.elapsed());});
         // Seed only optional recipient metadata in this isolated synthetic root.
         if(!root.isEmpty()){const auto dir=root+"/config/composer";QDir().mkpath(dir);QSaveFile file(dir+"/recipients.json");if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(QJsonArray{QJsonObject{{"account","preview"},{"address","Maya Chen <maya@example.com>"},{"last_sent",QDateTime::currentSecsSinceEpoch()}}}).toJson());file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);file.commit();}}
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(300,this,[this]{
             auto shell=window->findChild<QQuickItem*>("composer");check("idle composer has no rich document or editor controls",shell&&!shell->property("controlsLoaded").toBool()&&!window->findChild<RichDocument*>("composeDocument")&&!window->findChild<QQuickItem*>("composeBody"));
             auto button=window->findChild<QQuickItem*>("newMessageButton");if(!button||!button->isVisible()){check("native compose button is available",false);finish();return;}
+            auto form=window->findChild<QQuickItem*>("composeControlsLoader");
+            if(shell&&form){connect(form,&QQuickItem::widthChanged,this,[this]{if(opening)++formResizes;});connect(shell,&QQuickItem::widthChanged,this,[this]{if(opening)++cardResizes;});}
+            openingClock.start();opening=true;
             // Exercise the real sidebar action. Direct QMouseEvent injection
             // bypasses Windows' platform pointer state and can drop the click.
             if(!QMetaObject::invokeMethod(button,"clicked")){check("native compose action is wired",false);finish();}
@@ -47,6 +54,7 @@ public:
                 stage=1;session=data["session"].toString();card=window->findChild<QQuickItem*>("composer");document=window->findChild<RichDocument*>("composeDocument");
                 check("engine session loads the native form",card&&document&&!session.isEmpty());if(!card||!document){finish();return;}
                 QTimer::singleShot(750,this,[this]{
+                    opening=false;check("opening morph animates card bounds without repeatedly relaying out the editor",cardResizes>4&&formResizes<=2);
                     auto to=window->findChild<QQuickItem*>("composeTo"),subject=window->findChild<QQuickItem*>("composeSubject"),body=window->findChild<QQuickItem*>("composeBody");
                     check("new compose focuses To",window->activeFocusItem()==to);key(Qt::Key_Tab);check("Tab skips formatting controls to Subject",window->activeFocusItem()==subject);key(Qt::Key_Tab);check("Tab from Subject enters body",window->activeFocusItem()==body);key(Qt::Key_Backtab,Qt::ShiftModifier);check("Shift Tab returns to Subject",window->activeFocusItem()==subject);
                     const auto original=mail->m_composer;mail->m_composer.remove("document");mail->m_composer.remove("replace");mail->m_composer["sourceMode"]=true;emit mail->composerChanged();

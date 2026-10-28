@@ -31,7 +31,9 @@ pub struct SaveCancel {
 pub struct Service {
     epoch: AtomicU64,
     state: Mutex<State>,
-    decoder: Arc<tokio::sync::Semaphore>,
+    // The reader shares this permit so faster image fetching cannot multiply
+    // full-resolution decoders alongside visible attachment previews.
+    pub(crate) decoder: Arc<tokio::sync::Semaphore>,
     saves: Mutex<std::collections::HashMap<String, Arc<SaveCancel>>>,
     saves_done: tokio::sync::Notify,
 }

@@ -10,15 +10,62 @@ use std::{
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
     Win32::{
-        Foundation::{E_POINTER, HWND, RECT},
+        Foundation::{COLORREF, E_POINTER, HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM},
         Graphics::Gdi::*,
-        System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize},
+        System::{
+            Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize},
+            LibraryLoader::GetModuleHandleW,
+        },
         UI::{Shell::SHCreateMemStream, WindowsAndMessaging::*},
     },
     core::{HSTRING, Interface, PCWSTR, PWSTR, Result, w},
 };
 const URL: &str = "http://luma.mail/document";
 const LIMIT: usize = 12 * 1024 * 1024;
+// A STATIC control paints the system's white background during resize, even
+// when WebView2 itself is themed. Own the host paint so that no startup/resize
+// frame can fall back to a caption or an OS-default white rectangle.
+unsafe extern "system" fn host_paint(
+    window: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    unsafe {
+        if message == WM_ERASEBKGND || message == WM_PAINT {
+            let mut paint = PAINTSTRUCT::default();
+            let dc = if message == WM_PAINT {
+                BeginPaint(window, &mut paint)
+            } else {
+                HDC(wparam.0 as *mut c_void)
+            };
+            let mut rect = RECT::default();
+            let _ = GetClientRect(window, &mut rect);
+            let brush = CreateSolidBrush(COLORREF(GetWindowLongPtrW(window, GWLP_USERDATA) as u32));
+            FillRect(dc, &rect, brush);
+            let _ = DeleteObject(brush.into());
+            if message == WM_PAINT {
+                let _ = EndPaint(window, &paint);
+            }
+            return LRESULT(1);
+        }
+        DefWindowProcW(window, message, wparam, lparam)
+    }
+}
+fn host_class() -> Option<HINSTANCE> {
+    static CLASS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let module = unsafe { GetModuleHandleW(None).ok()? };
+    let instance = HINSTANCE(module.0);
+    let valid = CLASS.get_or_init(|| unsafe {
+        RegisterClassW(&WNDCLASSW {
+            lpfnWndProc: Some(host_paint),
+            hInstance: instance,
+            lpszClassName: w!("LumaPrivateHtmlHost"),
+            ..Default::default()
+        }) != 0
+    });
+    valid.then_some(instance)
+}
 struct Apartment(bool);
 impl Drop for Apartment {
     fn drop(&mut self) {
@@ -29,6 +76,7 @@ impl Drop for Apartment {
 }
 thread_local! {static APARTMENT:Apartment=Apartment(unsafe{CoInitializeEx(None,COINIT_APARTMENTTHREADED)}.is_ok());}
 type Callback = extern "C" fn(*mut c_void, *const u8, usize);
+#[derive(PartialEq)]
 struct Geometry {
     rects: Vec<i32>,
     zoom: f64,
@@ -44,10 +92,24 @@ struct State {
     web: RefCell<Option<ICoreWebView2>>,
     geometry: RefCell<Option<Geometry>>,
     visible: Cell<bool>,
+    ready: Cell<bool>,
+    revision: Cell<u64>,
+    navigation: Cell<u64>,
+    background: Cell<u32>,
+    reveal: Cell<f64>,
     scroll: Cell<f64>,
     initialization_lock: RefCell<Option<File>>,
 }
 impl State {
+    fn colour(&self) -> COREWEBVIEW2_COLOR {
+        let argb = self.background.get();
+        COREWEBVIEW2_COLOR {
+            A: 255,
+            R: (argb >> 16) as u8,
+            G: (argb >> 8) as u8,
+            B: argb as u8,
+        }
+    }
     fn emit(&self, value: serde_json::Value) {
         if self.live.get() {
             let bytes = value.to_string();
@@ -85,7 +147,36 @@ impl State {
                 });
                 let _ = controller.SetZoomFactor(g.zoom);
             }
-            let region = CreateRectRgn(clip[0] - full[0], 0, clip[0] + clip[2] - full[0], clip[3]);
+        }
+        self.apply_clip();
+        let offset = f64::from(clip[1] - full[1]) / g.density / g.zoom;
+        if self.scroll.replace(offset) != offset {
+            self.script(&format!("window.scrollTo(0,{offset})"));
+        }
+    }
+    fn apply_clip(&self) {
+        let geometry = self.geometry.borrow();
+        let Some(g) = geometry.as_ref() else { return };
+        let full = &g.rects[..4];
+        let clip = &g.rects[4..8];
+        unsafe {
+            let progress = self.reveal.get();
+            let unit = g.zoom * g.density;
+            let width = (f64::from(clip[2]).min(260. * unit) * (1. - progress)
+                + f64::from(clip[2]) * progress)
+                .ceil() as i32;
+            let height = (f64::from(clip[3]).min(38. * unit) * (1. - progress)
+                + f64::from(clip[3]) * progress)
+                .ceil() as i32;
+            let corner = (38. * unit * (1. - progress)).round() as i32;
+            let region = CreateRoundRectRgn(
+                clip[0] - full[0],
+                0,
+                clip[0] - full[0] + width,
+                height,
+                corner,
+                corner,
+            );
             for r in g.rects[8..].as_chunks::<4>().0 {
                 let excluded = CreateRectRgn(
                     r[0] - full[0],
@@ -100,15 +191,13 @@ impl State {
                 let _ = DeleteObject(region.into());
             }
         }
-        let offset = f64::from(clip[1] - full[1]) / g.density / g.zoom;
-        if self.scroll.replace(offset) != offset {
-            self.script(&format!("window.scrollTo(0,{offset})"));
-        }
     }
     fn apply_visible(&self) {
         unsafe {
-            let visible =
-                self.live.get() && self.visible.get() && self.controller.borrow().is_some();
+            let visible = self.live.get()
+                && self.visible.get()
+                && self.ready.get()
+                && self.controller.borrow().is_some();
             if let Some(controller) = self.controller.borrow().as_ref() {
                 let _ = controller.SetIsVisible(visible);
             }
@@ -181,6 +270,9 @@ fn initialize(state: Rc<State>, runtime: &str) -> Result<()> {
                         let env10 = environment.cast::<ICoreWebView2Environment10>()?;
                         let options = env10.CreateCoreWebView2ControllerOptions()?;
                         options.SetIsInPrivateModeEnabled(true)?;
+                        if let Ok(colour) = options.cast::<ICoreWebView2ControllerOptions3>() {
+                            colour.SetDefaultBackgroundColor(state.colour())?;
+                        }
                         let pending = state.clone();
                         env10.CreateCoreWebView2ControllerWithOptions(
                             state.child,
@@ -233,12 +325,7 @@ fn attach(
         controller.SetIsVisible(false)?;
         controller
             .cast::<ICoreWebView2Controller2>()?
-            .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
-                A: 0,
-                R: 0,
-                G: 0,
-                B: 0,
-            })?;
+            .SetDefaultBackgroundColor(state.colour())?;
         let web = controller.CoreWebView2()?;
         let settings = web.Settings()?;
         settings.SetIsScriptEnabled(false)?;
@@ -284,6 +371,13 @@ fn attach(
                 let uri = take_string(uri);
                 let permitted = weak.upgrade().is_some_and(|state| {
                     if uri == URL && state.live.get() {
+                        let mut id = 0;
+                        if args.NavigationId(&mut id).is_err() {
+                            return false;
+                        }
+                        state.navigation.set(id);
+                        state.ready.set(false);
+                        state.apply_visible();
                         true
                     } else {
                         if safe_link(&uri) {
@@ -346,12 +440,19 @@ fn attach(
         web.add_NavigationCompleted(
             &NavigationCompletedEventHandler::create(Box::new(move |_, args| {
                 if let (Some(state), Some(args)) = (weak.upgrade(), args) {
+                    let mut id = 0;
+                    args.NavigationId(&mut id)?;
+                    if id != state.navigation.get() {
+                        return Ok(());
+                    }
                     let mut success = Default::default();
                     args.IsSuccess(&mut success)?;
                     if success.as_bool() {
+                        state.ready.set(true);
                         state.scroll.set(-1.);
                         state.apply_geometry();
-                        state.emit(json!({"kind":"loaded"}));
+                        state.apply_visible();
+                        state.emit(json!({"kind":"loaded","revision":state.revision.get()}));
                     } else {
                         let mut status = COREWEBVIEW2_WEB_ERROR_STATUS::default();
                         args.WebErrorStatus(&mut status)?;
@@ -419,11 +520,14 @@ pub unsafe extern "C" fn luma_webview_create(
     if !APARTMENT.with(|apartment| apartment.0) {
         return std::ptr::null_mut();
     }
+    let Some(instance) = host_class() else {
+        return std::ptr::null_mut();
+    };
     let child = unsafe {
         CreateWindowExW(
             WINDOW_EX_STYLE::default(),
-            w!("STATIC"),
-            w!("Luma private mail reader"),
+            w!("LumaPrivateHtmlHost"),
+            w!(""),
             WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
             0,
             0,
@@ -431,13 +535,16 @@ pub unsafe extern "C" fn luma_webview_create(
             1,
             Some(HWND(parent as *mut c_void)),
             None,
-            None,
+            Some(instance),
             None,
         )
     };
     let Ok(child) = child else {
         return std::ptr::null_mut();
     };
+    unsafe {
+        SetWindowLongPtrW(child, GWLP_USERDATA, 0x001e1719);
+    }
     // Delete-on-close initialization lease: runtime cleanup cannot race a late
     // COM completion. It contains no content and survives no process exit.
     let lock = OpenOptions::new()
@@ -465,6 +572,11 @@ pub unsafe extern "C" fn luma_webview_create(
         web: RefCell::new(None),
         geometry: RefCell::new(None),
         visible: Cell::new(false),
+        ready: Cell::new(false),
+        revision: Cell::new(0),
+        navigation: Cell::new(0),
+        background: Cell::new(0xff19171e),
+        reveal: Cell::new(1.),
         scroll: Cell::new(-1.),
         initialization_lock: RefCell::new(Some(lock)),
     });
@@ -489,6 +601,13 @@ pub unsafe extern "C" fn luma_webview_document(
     if let (Some(surface), Some(page)) = (unsafe { surface.as_ref() }, unsafe { text(bytes, size) })
     {
         *surface.0.document.borrow_mut() = page.into();
+        surface
+            .0
+            .revision
+            .set(surface.0.revision.get().wrapping_add(1));
+        surface.0.navigation.set(0);
+        surface.0.ready.set(false);
+        surface.0.apply_visible();
         if let Some(web) = surface.0.web.borrow().as_ref() {
             unsafe {
                 let _ = web.Navigate(&HSTRING::from(URL));
@@ -498,9 +617,43 @@ pub unsafe extern "C" fn luma_webview_document(
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn luma_webview_visible(surface: *mut Surface, visible: bool) {
-    if let Some(surface) = unsafe { surface.as_ref() } {
-        surface.0.visible.set(visible);
+    if let Some(surface) = unsafe { surface.as_ref() }
+        && surface.0.visible.replace(visible) != visible
+    {
         surface.0.apply_visible();
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn luma_webview_background(surface: *mut Surface, argb: u32) {
+    if let Some(surface) = unsafe { surface.as_ref() }
+        && surface.0.background.replace(argb) != argb
+    {
+        unsafe {
+            SetWindowLongPtrW(
+                surface.0.child,
+                GWLP_USERDATA,
+                ((argb & 255) << 16 | (argb & 0xff00) | ((argb >> 16) & 255)) as isize,
+            );
+            let _ = InvalidateRect(Some(surface.0.child), None, true);
+        }
+        if let Some(controller) = surface.0.controller.borrow().as_ref() {
+            unsafe {
+                if let Ok(controller) = controller.cast::<ICoreWebView2Controller2>() {
+                    let _ = controller.SetDefaultBackgroundColor(surface.0.colour());
+                }
+            }
+        }
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn luma_webview_reveal(surface: *mut Surface, value: f64) {
+    if value.is_finite()
+        && let Some(surface) = unsafe { surface.as_ref() }
+    {
+        let value = value.clamp(0., 1.);
+        if surface.0.reveal.replace(value) != value {
+            surface.0.apply_clip();
+        }
     }
 }
 #[unsafe(no_mangle)]
@@ -523,11 +676,15 @@ pub unsafe extern "C" fn luma_webview_geometry(
         return;
     }
     let rects = unsafe { std::slice::from_raw_parts(rects, count * 4) }.to_vec();
-    *surface.0.geometry.borrow_mut() = Some(Geometry {
+    let geometry = Geometry {
         rects,
         zoom: zoom.clamp(0.5, 3.),
         density,
-    });
+    };
+    if surface.0.geometry.borrow().as_ref() == Some(&geometry) {
+        return;
+    }
+    *surface.0.geometry.borrow_mut() = Some(geometry);
     surface.0.apply_geometry();
 }
 #[unsafe(no_mangle)]
@@ -536,10 +693,14 @@ pub unsafe extern "C" fn luma_webview_measure(surface: *mut Surface, width: i32,
         return;
     };
     let weak = Rc::downgrade(&surface.0);
+    if !surface.0.ready.get() {
+        return;
+    }
+    let revision = surface.0.revision.get();
     if let Some(web) = surface.0.web.borrow().as_ref() {
         unsafe {
             let _=web.ExecuteScript(w!("String(Math.ceil(document.body?document.body.getBoundingClientRect().height:48))"),&ExecuteScriptCompletedHandler::create(Box::new(move |result,value|{
-            if result.is_ok()&&let Some(state)=weak.upgrade()&&let Ok(value)=serde_json::from_str::<String>(&value)&&let Ok(height)=value.parse::<f64>()&&height.is_finite(){state.emit(json!({"kind":"height","height":height.clamp(24.,60000.),"width":width,"generation":generation}));}Ok(())
+            if result.is_ok()&&let Some(state)=weak.upgrade()&&state.ready.get()&&state.revision.get()==revision&&let Ok(value)=serde_json::from_str::<String>(&value)&&let Ok(height)=value.parse::<f64>()&&height.is_finite(){state.emit(json!({"kind":"height","height":height.clamp(24.,60000.),"width":width,"generation":generation}));}Ok(())
         })));
         }
     }

@@ -447,6 +447,54 @@ fn html_documents_preserve_layout_theme_and_privacy_without_mail_files() {
     assert!(!c.root.path().join("config/composer").exists());
 }
 #[test]
+fn themed_html_arrives_before_images_and_cancelled_image_work_cannot_reopen_the_reader() {
+    let mut c = Client::features(false, false, true);
+    c.until("ready");
+    c.until("rows");
+    c.send(1, "select", json!({"account":"preview","id":"preview0"}));
+    c.until("thread");
+    c.until("body");
+    let parameters = json!({"account":"preview","id":"preview0","external":true,"background":[25,24,31],"foreground":[242,239,247],"dark":true});
+    c.send(2, "renderMessage", parameters.clone());
+    let first = c.until("readerDocument");
+    assert_eq!(first["pendingImages"], true);
+    assert!(first["html"].as_str().unwrap().contains("#19181f"));
+    assert!(!first["html"].as_str().unwrap().contains("src=\"https://"));
+    let completed = c.until("readerDocument");
+    assert_ne!(completed["pendingImages"], true);
+    assert_eq!(completed["externalLoaded"], true);
+    assert!(
+        completed["html"]
+            .as_str()
+            .unwrap()
+            .contains("data:image/png;base64,")
+    );
+    c.send(
+        3,
+        "releaseMessageImages",
+        json!({"id":"preview0","reading":completed["reading"]}),
+    );
+    c.send(4, "renderMessage", parameters);
+    assert_eq!(c.until("readerDocument")["pendingImages"], true);
+    c.send(5, "releaseReader", json!({}));
+    c.send(6, "cacheUsage", json!({}));
+    c.until("cacheUsage");
+    std::thread::sleep(Duration::from_millis(260));
+    c.send(7, "cacheUsage", json!({}));
+    loop {
+        let event = c.events.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(
+            !(event["event"] == "readerDocument" && event["id"] == 4),
+            "closed reader received a late image document"
+        );
+        if event["event"] == "cacheUsage" && event["id"] == 7 {
+            break;
+        }
+    }
+    assert!(!c.root.path().join("cache/bodies").exists());
+    assert!(!c.root.path().join("config/composer").exists());
+}
+#[test]
 fn attachment_previews_and_media_chunks_are_memory_only_and_generation_checked() {
     use base64::Engine;
     let mut c = Client::new();
