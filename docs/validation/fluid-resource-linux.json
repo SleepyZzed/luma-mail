@@ -1,0 +1,6536 @@
+{
+  "description": "Release Qt host/debug engine plus all descendant renderer/helper processes. RSS double-counts shared mappings; PSS apportions them. CPU is percentage of one core, sampled once per second. Synthetic fixtures, no live sync/network or real GPU compositor; targets are goals, not enforced caps.",
+  "machine": {
+    "kernel": "7.0.0-1017-azure",
+    "cpu_count": 4
+  },
+  "graphics": {
+    "chromium_gpu_disabled": true,
+    "mesa_software": true
+  },
+  "phases": {
+    "baseline": {
+      "rss_mib": 260.661,
+      "pss_mib": 227.839,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 260.67,
+      "peak_pss_mib": 227.84,
+      "peak_cpu_one_core_percent": 0.986,
+      "all_samples_cpu_one_core_percent": 0.052,
+      "pss_complete": true
+    },
+    "inbox_1000": {
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 272.68,
+      "peak_pss_mib": 239.7,
+      "peak_cpu_one_core_percent": 0.986,
+      "all_samples_cpu_one_core_percent": 0.049,
+      "pss_complete": true
+    },
+    "scrolled_1000": {
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 273.72,
+      "peak_pss_mib": 240.71,
+      "peak_cpu_one_core_percent": 0.986,
+      "all_samples_cpu_one_core_percent": 0.049,
+      "pss_complete": true
+    },
+    "newsletter": {
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 573.69,
+      "peak_pss_mib": 402.51,
+      "peak_cpu_one_core_percent": 0.0,
+      "all_samples_cpu_one_core_percent": 0.0,
+      "pss_complete": true
+    },
+    "released": {
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 465.38,
+      "peak_pss_mib": 345.41,
+      "peak_cpu_one_core_percent": 0.981,
+      "all_samples_cpu_one_core_percent": 0.049,
+      "pss_complete": true
+    },
+    "reclaimed_background": {
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 465.38,
+      "peak_pss_mib": 345.41,
+      "peak_cpu_one_core_percent": 0.981,
+      "all_samples_cpu_one_core_percent": 0.049,
+      "pss_complete": true
+    },
+    "restored": {
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "peak_rss_mib": 474.1,
+      "peak_pss_mib": 354.11,
+      "peak_cpu_one_core_percent": 0.0,
+      "all_samples_cpu_one_core_percent": 0.0,
+      "pss_complete": true
+    }
+  },
+  "samples": [
+    {
+      "seconds": 1.01,
+      "phase": "startup",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.48,
+      "pss_mib": 227.77,
+      "private_mib": 203.75,
+      "cpu_one_core_percent": 0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.023,
+          "pss_mib": 210.361,
+          "private_mib": 186.418,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 2.02,
+      "phase": "startup",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.48,
+      "pss_mib": 227.77,
+      "private_mib": 203.75,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.023,
+          "pss_mib": 210.361,
+          "private_mib": 186.418,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 3.04,
+      "phase": "startup",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.48,
+      "pss_mib": 227.77,
+      "private_mib": 203.75,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.023,
+          "pss_mib": 210.361,
+          "private_mib": 186.418,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 4.05,
+      "phase": "startup",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.48,
+      "pss_mib": 227.77,
+      "private_mib": 203.75,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.023,
+          "pss_mib": 210.361,
+          "private_mib": 186.418,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 5.07,
+      "phase": "baseline",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.55,
+      "pss_mib": 227.83,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.986,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.986
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 6.08,
+      "phase": "baseline",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.55,
+      "pss_mib": 227.83,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 7.1,
+      "phase": "baseline",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.55,
+      "pss_mib": 227.83,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 8.11,
+      "phase": "baseline",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.55,
+      "pss_mib": 227.83,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 9.13,
+      "phase": "baseline",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.55,
+      "pss_mib": 227.83,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 10.14,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.55,
+      "pss_mib": 227.83,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.461,
+          "pss_mib": 17.406,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 11.15,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 12.17,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 13.18,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 14.2,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 15.21,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 16.23,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 17.24,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 18.25,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 19.27,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 20.28,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 21.3,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 22.31,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 23.33,
+      "phase": "baseline",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 260.67,
+      "pss_mib": 227.84,
+      "private_mib": 203.81,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 241.086,
+          "pss_mib": 210.424,
+          "private_mib": 186.48,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 19.586,
+          "pss_mib": 17.412,
+          "private_mib": 17.328,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 24.34,
+      "phase": "transition",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.61,
+      "pss_mib": 239.77,
+      "private_mib": 215.74,
+      "cpu_one_core_percent": 12.817,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.488,
+          "pss_mib": 217.826,
+          "private_mib": 193.883,
+          "cpu_one_core_percent": 10.845
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.943,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 1.972
+        }
+      ]
+    },
+    {
+      "seconds": 25.36,
+      "phase": "transition",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.54,
+      "pss_mib": 239.7,
+      "private_mib": 215.68,
+      "cpu_one_core_percent": 34.437,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.422,
+          "pss_mib": 217.76,
+          "private_mib": 193.816,
+          "cpu_one_core_percent": 34.437
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.943,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 26.37,
+      "phase": "inbox_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.54,
+      "pss_mib": 239.7,
+      "private_mib": 215.68,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.422,
+          "pss_mib": 217.76,
+          "private_mib": 193.816,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.943,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 27.39,
+      "phase": "inbox_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.54,
+      "pss_mib": 239.7,
+      "private_mib": 215.68,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.422,
+          "pss_mib": 217.76,
+          "private_mib": 193.816,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.943,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 28.4,
+      "phase": "inbox_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.54,
+      "pss_mib": 239.7,
+      "private_mib": 215.68,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.422,
+          "pss_mib": 217.76,
+          "private_mib": 193.816,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.943,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 29.41,
+      "phase": "inbox_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.54,
+      "pss_mib": 239.7,
+      "private_mib": 215.68,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.422,
+          "pss_mib": 217.76,
+          "private_mib": 193.816,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.943,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 30.43,
+      "phase": "inbox_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.986,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.986
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 31.44,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 32.46,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 33.47,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 34.49,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 35.5,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 36.52,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 37.53,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 38.54,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 39.56,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 40.57,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 41.59,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 42.6,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 43.62,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 44.63,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 45.65,
+      "phase": "inbox_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.68,
+      "pss_mib": 239.67,
+      "private_mib": 215.63,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.562,
+          "pss_mib": 217.727,
+          "private_mib": 193.77,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 46.66,
+      "phase": "transition",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 272.72,
+      "pss_mib": 239.71,
+      "private_mib": 215.67,
+      "cpu_one_core_percent": 46.259,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 248.602,
+          "pss_mib": 217.766,
+          "private_mib": 193.809,
+          "cpu_one_core_percent": 46.259
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 47.68,
+      "phase": "transition",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 99.474,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 99.474
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 48.69,
+      "phase": "transition",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 49.71,
+      "phase": "scrolled_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.986,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.986
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 50.72,
+      "phase": "scrolled_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 51.74,
+      "phase": "scrolled_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 52.75,
+      "phase": "scrolled_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 53.76,
+      "phase": "scrolled_1000",
+      "settled": false,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 54.78,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 55.79,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 56.81,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 57.82,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 58.84,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 59.85,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 60.87,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 61.88,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 62.9,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 63.91,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 64.92,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 65.94,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 66.95,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 67.97,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 68.98,
+      "phase": "scrolled_1000",
+      "settled": true,
+      "processes": 2,
+      "unreadable_pss": 0,
+      "rss_mib": 273.72,
+      "pss_mib": 240.71,
+      "private_mib": 216.67,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 249.605,
+          "pss_mib": 218.77,
+          "private_mib": 194.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 24.117,
+          "pss_mib": 21.942,
+          "private_mib": 21.859,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 70.0,
+      "phase": "transition",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 568.3,
+      "pss_mib": 397.53,
+      "private_mib": 301.08,
+      "cpu_one_core_percent": 91.485,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 330.867,
+          "pss_mib": 261.987,
+          "private_mib": 215.191,
+          "cpu_one_core_percent": 90.502
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.586,
+          "pss_mib": 73.735,
+          "private_mib": 52.895,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.161,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.051,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.984
+        }
+      ]
+    },
+    {
+      "seconds": 71.03,
+      "phase": "transition",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.63,
+      "pss_mib": 402.45,
+      "private_mib": 305.66,
+      "cpu_one_core_percent": 123.229,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 118.378
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.789,
+          "pss_mib": 73.767,
+          "private_mib": 52.754,
+          "cpu_one_core_percent": 4.852
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 72.05,
+      "phase": "transition",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 49.806,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 47.852
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 1.953
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 73.08,
+      "phase": "transition",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 74.1,
+      "phase": "newsletter",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 75.12,
+      "phase": "newsletter",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 76.14,
+      "phase": "newsletter",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 77.16,
+      "phase": "newsletter",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 78.18,
+      "phase": "newsletter",
+      "settled": false,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 79.21,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 80.23,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 81.25,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 82.27,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 83.29,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 84.32,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 85.34,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 86.36,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 87.38,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 88.4,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 89.43,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 90.45,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 91.47,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 92.49,
+      "phase": "newsletter",
+      "settled": true,
+      "processes": 5,
+      "unreadable_pss": 0,
+      "rss_mib": 573.69,
+      "pss_mib": 402.51,
+      "private_mib": 305.71,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 335.992,
+          "pss_mib": 266.898,
+          "private_mib": 219.91,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7563,
+          "name": "QtWebEngineProc",
+          "rss_mib": 104.848,
+          "pss_mib": 73.825,
+          "private_mib": 52.812,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 21.151,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 17.04,
+          "private_mib": 0.551,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.592,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 93.51,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.13,
+      "pss_mib": 345.16,
+      "private_mib": 283.36,
+      "cpu_one_core_percent": 35.22,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.277,
+          "pss_mib": 277.071,
+          "private_mib": 241.906,
+          "cpu_one_core_percent": 35.22
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 94.54,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 95.852,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 95.852
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 95.56,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 73.483,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 73.483
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 96.58,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 97.6,
+      "phase": "released",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.981,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.981
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 98.61,
+      "phase": "released",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 99.63,
+      "phase": "released",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 100.65,
+      "phase": "released",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 101.67,
+      "phase": "released",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 102.69,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 103.71,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 104.73,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 105.75,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 106.77,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 107.79,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 108.81,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 109.83,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 110.85,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 111.87,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 112.89,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 113.91,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 114.92,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 115.94,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 116.96,
+      "phase": "released",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.527,
+          "pss_mib": 277.321,
+          "private_mib": 242.156,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 117.98,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.981,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.531,
+          "pss_mib": 277.325,
+          "private_mib": 242.16,
+          "cpu_one_core_percent": 0.981
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 119.0,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.531,
+          "pss_mib": 277.325,
+          "private_mib": 242.16,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 120.02,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.531,
+          "pss_mib": 277.325,
+          "private_mib": 242.16,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 121.04,
+      "phase": "reclaimed_background",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.531,
+          "pss_mib": 277.325,
+          "private_mib": 242.16,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 122.06,
+      "phase": "reclaimed_background",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 465.38,
+      "pss_mib": 345.41,
+      "private_mib": 283.61,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 332.531,
+          "pss_mib": 277.325,
+          "private_mib": 242.16,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 123.08,
+      "phase": "reclaimed_background",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.981,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.981
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 124.1,
+      "phase": "reclaimed_background",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 125.12,
+      "phase": "reclaimed_background",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 126.14,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 127.15,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 128.17,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 129.19,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 130.21,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 131.23,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 132.25,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 133.27,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 134.29,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 135.31,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 136.32,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 137.34,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 138.36,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 139.38,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 140.4,
+      "phase": "reclaimed_background",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 446.3,
+      "pss_mib": 329.44,
+      "private_mib": 270.46,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 313.449,
+          "pss_mib": 261.356,
+          "private_mib": 229.016,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 141.42,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 22.559,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 22.559
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 142.44,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 27.42,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 27.42
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 143.46,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 144.48,
+      "phase": "transition",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 145.5,
+      "phase": "restored",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 146.52,
+      "phase": "restored",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 147.54,
+      "phase": "restored",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 148.56,
+      "phase": "restored",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 149.58,
+      "phase": "restored",
+      "settled": false,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 150.6,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 151.62,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 152.64,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 153.65,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 154.67,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 155.69,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 156.71,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 157.73,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 158.75,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 159.77,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 160.79,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 161.81,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 162.83,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 163.85,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 164.87,
+      "phase": "restored",
+      "settled": true,
+      "processes": 4,
+      "unreadable_pss": 0,
+      "rss_mib": 474.1,
+      "pss_mib": 354.11,
+      "private_mib": 292.29,
+      "cpu_one_core_percent": 0.0,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 341.25,
+          "pss_mib": 286.021,
+          "private_mib": 250.84,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7517,
+          "name": "luma-engine",
+          "rss_mib": 25.773,
+          "pss_mib": 23.594,
+          "private_mib": 23.516,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7542,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.434,
+          "pss_mib": 22.179,
+          "private_mib": 8.926,
+          "cpu_one_core_percent": 0.0
+        },
+        {
+          "id": 7543,
+          "name": "QtWebEngineProc",
+          "rss_mib": 53.645,
+          "pss_mib": 22.312,
+          "private_mib": 9.008,
+          "cpu_one_core_percent": 0.0
+        }
+      ]
+    },
+    {
+      "seconds": 165.89,
+      "phase": "transition",
+      "settled": false,
+      "processes": 1,
+      "unreadable_pss": 1,
+      "rss_mib": 0.0,
+      "pss_mib": 0.0,
+      "private_mib": 0.0,
+      "cpu_one_core_percent": 6.869,
+      "members": [
+        {
+          "id": 7498,
+          "name": "luma-mail-fluid",
+          "rss_mib": 0.0,
+          "pss_mib": 0.0,
+          "private_mib": 0.0,
+          "cpu_one_core_percent": 6.869
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "exit_code": 0,
+  "timed_out": false,
+  "errors": [],
+  "recent_diagnostics": [
+    "PERF transition",
+    "PERF bound_rows 14",
+    "PERF inbox_1000",
+    "PERF bound_rows 14",
+    "PERF transition",
+    "PERF bound_rows 23",
+    "PERF scrolled_1000",
+    "PERF bound_rows 23",
+    "PERF transition",
+    "Failed to create Vulkan instance: -9",
+    "Failed to create platform Vulkan instance",
+    "<Unknown File>: QML WebEngineProfile: Please use WebEngineProfilePrototype for profile creation from 6.9, as this function will be deprecated in the future releases",
+    "Navigation request: action/setAction are deprecated. Please, use accept/reject methods instead.",
+    "GPUInfo not initialized on GpuInfoUpdate",
+    "PERF bound_rows 14",
+    "PERF newsletter",
+    "PERF bound_rows 14",
+    "PERF transition",
+    "PERF bound_rows 14",
+    "PERF released",
+    "PERF bound_rows 14",
+    "PERF transition",
+    "PERF bound_rows 14",
+    "PERF reclaimed_background",
+    "PERF bound_rows 14",
+    "PERF transition",
+    "PERF bound_rows 14",
+    "PERF restored",
+    "PERF bound_rows 14",
+    "PERF transition"
+  ],
+  "phases_complete": true
+}

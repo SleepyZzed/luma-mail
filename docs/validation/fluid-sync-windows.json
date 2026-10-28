@@ -1,0 +1,213 @@
+{
+  "checks": [
+    {
+      "check": "incoming reply moves one existing conversation",
+      "passed": true
+    },
+    {
+      "check": "incoming metadata preserves open body and reader",
+      "passed": true
+    },
+    {
+      "check": "selection follows the conversation after reordering",
+      "passed": true
+    },
+    {
+      "check": "Shift range uses the moved anchor",
+      "passed": true
+    },
+    {
+      "check": "reply headers keep the opened message content",
+      "passed": true
+    },
+    {
+      "check": "new reply starts unread without downloading its body",
+      "passed": true
+    },
+    {
+      "check": "stale reader updates cannot change the current message headers",
+      "passed": true
+    },
+    {
+      "check": "silent checks leave the loading indicator and selection intact",
+      "passed": true
+    },
+    {
+      "check": "incoming reply leaves the current message expanded",
+      "passed": true
+    },
+    {
+      "check": "incoming reply waits for explicit opening",
+      "passed": true
+    },
+    {
+      "check": "incremental updates create no mail or draft store",
+      "passed": true
+    },
+    {
+      "check": "message details reveal literal sender and recipient headers",
+      "passed": true
+    },
+    {
+      "check": "closed message details release the extra text document",
+      "passed": true
+    },
+    {
+      "check": "received URL has a native hit target",
+      "passed": true
+    },
+    {
+      "check": "Ctrl click opens one safe received link",
+      "passed": true
+    },
+    {
+      "check": "individual-message actions have a dedicated menu",
+      "passed": true
+    },
+    {
+      "check": "single-message actions immediately update reader flags",
+      "passed": true
+    },
+    {
+      "check": "native desktop accepts minimization",
+      "passed": true
+    },
+    {
+      "check": "tray and notification activation restore a minimized window",
+      "passed": true
+    },
+    {
+      "check": "native desktop accepts maximization",
+      "passed": true
+    },
+    {
+      "check": "tray activation preserves a maximized window",
+      "passed": true
+    }
+  ],
+  "note": "Native incremental-event wiring through the real preview pipe. Provider history requests and notification transport have separate tests.",
+  "passed": true,
+  "syntheticData": true,
+  "windowTrace": [
+    {
+      "event": "windowStateChanged",
+      "ms": 3301,
+      "remembered": 0,
+      "state": 1,
+      "visibility": 2,
+      "visible": true
+    },
+    {
+      "event": "visibilityChanged",
+      "ms": 3302,
+      "remembered": 0,
+      "state": 1,
+      "visibility": 3,
+      "visible": true
+    },
+    {
+      "event": "windowStateChanged",
+      "ms": 3468,
+      "remembered": 0,
+      "state": 0,
+      "visibility": 3,
+      "visible": true
+    },
+    {
+      "event": "visibilityChanged",
+      "ms": 3470,
+      "remembered": 0,
+      "state": 0,
+      "visibility": 2,
+      "visible": true
+    },
+    {
+      "event": "windowStateChanged",
+      "ms": 3624,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 2,
+      "visible": true
+    },
+    {
+      "event": "visibilityChanged",
+      "ms": 3624,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 4,
+      "visible": true
+    },
+    {
+      "event": "before maximized hide",
+      "ms": 3774,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 4,
+      "visible": true
+    },
+    {
+      "event": "visibleChanged",
+      "ms": 3776,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 4,
+      "visible": false
+    },
+    {
+      "event": "visibilityChanged",
+      "ms": 3776,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 0,
+      "visible": false
+    },
+    {
+      "event": "after maximized hide",
+      "ms": 3784,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 0,
+      "visible": false
+    },
+    {
+      "event": "windowStateChanged",
+      "ms": 3784,
+      "remembered": 2,
+      "state": 0,
+      "visibility": 0,
+      "visible": false
+    },
+    {
+      "event": "windowStateChanged",
+      "ms": 3784,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 0,
+      "visible": false
+    },
+    {
+      "event": "visibleChanged",
+      "ms": 3786,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 0,
+      "visible": true
+    },
+    {
+      "event": "visibilityChanged",
+      "ms": 3787,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 4,
+      "visible": true
+    },
+    {
+      "event": "after tray activation",
+      "ms": 3803,
+      "remembered": 2,
+      "state": 2,
+      "visibility": 4,
+      "visible": true
+    }
+  ]
+}

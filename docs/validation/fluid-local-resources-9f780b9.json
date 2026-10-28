@@ -1,0 +1,66 @@
+{
+  "binary_sha256": "c69ec9dcedb28595ae6cab01ef05a6cdd4501e51a125183dc2c112155e9db105",
+  "metric": "Windows private working set and private commit; not Linux PSS",
+  "includes": "Luma and recursively discovered child renderer/helper processes",
+  "cpu": "Settled per-process CPU deltas, one-core and whole-machine percentages; short-lived exited helpers can be missed",
+  "lifecycle_passed": true,
+  "exit_code": 0,
+  "phases": {
+    "reclaimed_background": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 64.104,
+      "samples": 2,
+      "working_set_sum_mib": 152.869,
+      "private_commit_mib": 128.271
+    },
+    "released": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 155.457,
+      "samples": 2,
+      "working_set_sum_mib": 245.09,
+      "private_commit_mib": 222.438
+    },
+    "restored": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 151.738,
+      "samples": 2,
+      "working_set_sum_mib": 241.531,
+      "private_commit_mib": 219.367
+    },
+    "scrolled_1000": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 153.26,
+      "samples": 2,
+      "working_set_sum_mib": 234.404,
+      "private_commit_mib": 220.162
+    },
+    "newsletter": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 253.499,
+      "samples": 3,
+      "working_set_sum_mib": 579.138,
+      "private_commit_mib": 377.435
+    },
+    "inbox_1000": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 151.875,
+      "samples": 2,
+      "working_set_sum_mib": 232.992,
+      "private_commit_mib": 218.789
+    },
+    "baseline": {
+      "cpu_one_core_percent": 0.0,
+      "private_working_set_mib": 139.344,
+      "samples": 2,
+      "working_set_sum_mib": 220.326,
+      "private_commit_mib": 206.055
+    }
+  },
+  "source_commit": "9f780b9de573feef14f5c97cc494dc9ab9cbb70a",
+  "synthetic_data": true,
+  "platform": "Windows",
+  "build": "Local debug engine and native Qt host; unconfigured Google registration",
+  "goals_fully_met": false,
+  "zero_mail_cache_files": true,
+  "note": "Private working set is not Linux PSS. Newsletter exceeds the requested 200 MiB use target. Working-set sum can double-count shared pages; sustained live-account usage is not measured here."
+}

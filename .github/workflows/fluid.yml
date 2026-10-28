@@ -1,0 +1,649 @@
+name: Fluid migration checks
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/fluid/**'
+      - 'crates/engine/**'
+      - 'crates/webview/**'
+      - 'crates/core/**'
+      - 'data/**'
+      - 'Cargo.*'
+      - 'packaging/fluid*'
+      - 'packaging/test-fluid-package.py'
+      - 'packaging/check-fluid-text.py'
+      - 'packaging/*notices.py'
+      - 'packaging/qt-source-pins.json'
+      - 'packaging/audit-storage.py'
+      - '.github/workflows/fluid.yml'
+  push:
+    branches: ['ui/fluid-morph']
+permissions:
+  contents: read
+concurrency:
+  group: fluid-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  engine:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 packaging/check-fluid-text.py
+      - run: python3 packaging/test-native-notices.py
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - run: cargo test --locked -p luma-core -p luma-engine
+      - run: cargo clippy --locked -p luma-engine --all-targets -- -D warnings
+  linux-scene:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libdbus-1-dev libvulkan-dev libgl1 libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 xvfb pulseaudio openbox x11-utils
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.2'
+          modules: 'qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning'
+          cache: true
+      - run: cargo build --locked -p luma-engine
+      - run: cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-fluid --parallel 2
+        id: fluid_build
+      - run: ctest --test-dir build-fluid --output-on-failure
+      - name: Native private HTML reader test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_HTML_REPORT: ${{ github.workspace }}/fluid-html-linux.json
+          LUMA_PREVIEW_HTML: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --html-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-html-linux
+          path: fluid-html-linux.json
+          if-no-files-found: warn
+      - name: Native synthetic scene and real pipe test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_MOTION_REPORT: ${{ github.workspace }}/fluid-motion-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --motion-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-motion-linux
+          path: fluid-motion-linux.json
+          if-no-files-found: warn
+      - name: Native composer and real pipe test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_COMPOSER_REPORT: ${{ github.workspace }}/fluid-composer-linux.json
+          LUMA_PREVIEW_TWO_ACCOUNTS: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --composer-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-composer-linux
+          path: fluid-composer-linux.json
+          if-no-files-found: warn
+      - name: Native avatar RAM cache and real pipe test
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_PROFILE_REPORT: ${{ github.workspace }}/fluid-profile-linux.json
+          LUMA_PREVIEW_PHOTOS: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --photo-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-profile-linux
+          path: fluid-profile-linux.json
+          if-no-files-found: warn
+      - name: Native incremental inbox and received links
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_SYNC_REPORT: ${{ github.workspace }}/fluid-sync-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 30s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --sync-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-sync-linux
+          path: fluid-sync-linux.json
+          if-no-files-found: warn
+      - name: Native RAM attachment previews and media
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_ATTACHMENT_REPORT: ${{ github.workspace }}/fluid-attachment-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=luma_test_sink
+          timeout 40s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --attachment-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-attachment-linux
+          path: fluid-attachment-linux.json
+          if-no-files-found: warn
+      - name: Native account labels and safe context actions
+        env:
+          LUMA_PREVIEW_TWO_ACCOUNTS: '1'
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_NAVIGATION_REPORT: ${{ github.workspace }}/fluid-navigation-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --navigation-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-navigation-linux
+          path: fluid-navigation-linux.json
+          if-no-files-found: warn
+      - name: Native scoped search and mail links
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_SEARCH_REPORT: ${{ github.workspace }}/fluid-search-linux.json
+          LUMA_PREVIEW_TWO_ACCOUNTS: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --search-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-search-linux
+          path: fluid-search-linux.json
+          if-no-files-found: warn
+      - name: Native three-way Gmail draft comparison
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_CONFLICT_REPORT: ${{ github.workspace }}/fluid-conflict-linux.json
+          LUMA_PREVIEW_CONFLICT: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --conflict-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-conflict-linux
+          path: fluid-conflict-linux.json
+          if-no-files-found: warn
+      - name: Native sign-in recovery with isolated browser and clipboard
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_AUTH_REPORT: ${{ github.workspace }}/fluid-auth-linux.json
+          LUMA_PREVIEW_AUTH: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --auth-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-auth-linux
+          path: fluid-auth-linux.json
+          if-no-files-found: warn
+      - name: Native message and HTML failure recovery
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_RECOVERY_REPORT: ${{ github.workspace }}/fluid-recovery-linux.json
+          LUMA_PREVIEW_READER_FAILURES: '1'
+          LUMA_PREVIEW_HTML: '1'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --recovery-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-recovery-linux
+          path: fluid-recovery-linux.json
+          if-no-files-found: warn
+      - name: Native pop-out composer and redocking
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_POPOUT_REPORT: ${{ github.workspace }}/fluid-popout-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --popout-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-popout-linux
+          path: fluid-popout-linux.json
+          if-no-files-found: warn
+      - name: Native bounded long-conversation reading
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_THREAD_REPORT: ${{ github.workspace }}/fluid-thread-linux.json
+          LUMA_PREVIEW_THREAD_COUNT: '2503'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --thread-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-thread-linux
+          path: fluid-thread-linux.json
+          if-no-files-found: warn
+      - name: Native online signature editing and close policies
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_SIGNATURE_REPORT: ${{ github.workspace }}/fluid-signature-linux.json
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: timeout 35s bash packaging/fluid-test-desktop.sh build-fluid/luma-mail-fluid --design-preview --signature-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-signature-linux
+          path: fluid-signature-linux.json
+          if-no-files-found: warn
+      - name: Complete synthetic process-tree resource audit
+        if: ${{ !cancelled() && steps.fluid_build.outcome == 'success' }}
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
+          LUMA_RESOURCE_REPORT: ${{ github.workspace }}/fluid-resource-linux/lifecycle.json
+          # Xvfb/llvmpipe has no usable Chromium shared-image GPU buffers.
+          QTWEBENGINE_CHROMIUM_FLAGS: '--disable-gpu'
+          QT_FORCE_STDERR_LOGGING: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          mkdir -p fluid-resource-linux
+          timeout 220s bash packaging/fluid-test-desktop.sh python3 packaging/profile-processes.py build-fluid/luma-mail-fluid fluid-resource-linux/processes.json --fluid
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-resource-linux
+          path: fluid-resource-linux
+          if-no-files-found: warn
+      - name: Build registered fluid preview engine
+        if: github.event_name != 'pull_request'
+        env:
+          LUMA_GOOGLE_CLIENT_ID: ${{ secrets.LUMA_GOOGLE_CLIENT_ID }}
+          LUMA_GOOGLE_CLIENT_SECRET: ${{ secrets.LUMA_GOOGLE_CLIENT_SECRET }}
+        run: cargo build --locked --release -p luma-engine --features require-google-client
+      - uses: actions/cache/restore@v4
+        id: qt_notices_cache
+        if: github.event_name != 'pull_request'
+        with:
+          path: qt-source-notices/6.11.2
+          key: qt-source-notices-6.11.2-v1
+      - name: Preserve matching Qt and Chromium notices
+        if: github.event_name != 'pull_request'
+        run: python3 packaging/qt-source-notices.py --version 6.11.2 --output qt-source-notices/6.11.2
+      - uses: actions/cache/save@v4
+        if: ${{ github.event_name != 'pull_request' && steps.qt_notices_cache.outputs.cache-hit != 'true' }}
+        with:
+          path: qt-source-notices/6.11.2
+          key: qt-source-notices-6.11.2-v1
+      - name: Build GTK-free AppImage with native Wayland support
+        if: github.event_name != 'pull_request'
+        run: |
+          bash packaging/fluid-appimage.sh --binary build-fluid/luma-mail-fluid --engine target/release/luma-engine --qt-notices qt-source-notices/6.11.2 --version "0.11.0-preview.${GITHUB_SHA:0:7}" --output dist-fluid
+      - name: Test portable AppImage without SDK paths
+        if: github.event_name != 'pull_request'
+        env:
+          QTWEBENGINE_CHROMIUM_FLAGS: '--disable-gpu'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          timeout 600s bash packaging/fluid-test-desktop.sh python3 packaging/test-fluid-package.py --binary "dist-fluid/Luma-Mail-0.11.0-preview.${GITHUB_SHA:0:7}-fluid-x86_64.AppImage" --output fluid-package-linux
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          name: fluid-preview-linux
+          path: |
+            dist-fluid
+            fluid-package-linux
+          if-no-files-found: warn
+  windows-scene:
+    runs-on: windows-latest
+    steps:
+      - name: Keep source line endings consistent between Windows and MSYS Git
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-python
+            git
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-declarative
+            mingw-w64-ucrt-x86_64-qt6-svg
+            mingw-w64-ucrt-x86_64-qt6-multimedia
+            mingw-w64-ucrt-x86_64-qt6-shadertools
+      - uses: actions/cache/restore@v4
+        id: ucrt_rust_cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: fluid-windows-ucrt-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            fluid-windows-ucrt-
+      - name: Build the native UCRT engine and HTML adapter
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cargo build --locked -p luma-engine -p luma-webview
+          python packaging/webview2-loader.py --binary target/debug/luma-engine.exe
+          export PATH="$PWD/target/debug:$PATH"
+          cargo test --locked -p luma-webview --no-run
+          timeout 45s cargo test --locked -p luma-webview -- --test-threads=1
+      - uses: actions/cache/save@v4
+        if: steps.ucrt_rust_cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: fluid-windows-ucrt-${{ hashFiles('Cargo.lock') }}
+      - shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-fluid --parallel 2
+          ctest --test-dir build-fluid --output-on-failure
+          echo "LUMA_QT_BIN=$(cygpath -m /ucrt64/bin)" >> "$GITHUB_ENV"
+      - name: Native synthetic scene and real pipe test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_WEBVIEW="$(cygpath -m "$PWD")/target/debug/luma_webview.dll"
+          export LUMA_MOTION_REPORT="$(cygpath -m "$PWD")/fluid-motion-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --motion-test >fluid.stdout 2>fluid.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-motion-windows
+          path: |
+            fluid-motion-windows.json
+            fluid.stderr
+          if-no-files-found: warn
+      - name: Native private HTML reader test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_WEBVIEW="$(cygpath -m "$PWD")/target/debug/luma_webview.dll"
+          export LUMA_HTML_REPORT="$(cygpath -m "$PWD")/fluid-html-windows.json"
+          export LUMA_PREVIEW_HTML=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --html-test >html.stdout 2>html.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-html-windows
+          path: |
+            fluid-html-windows.json
+            html.stderr
+          if-no-files-found: warn
+      - name: Native composer and real pipe test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_COMPOSER_REPORT="$(cygpath -m "$PWD")/fluid-composer-windows.json"
+          export LUMA_PREVIEW_TWO_ACCOUNTS=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --composer-test >composer.stdout 2>composer.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-composer-windows
+          path: |
+            fluid-composer-windows.json
+            composer.stderr
+          if-no-files-found: warn
+      - name: Native avatar RAM cache and real pipe test
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_PROFILE_REPORT="$(cygpath -m "$PWD")/fluid-profile-windows.json"
+          export LUMA_PREVIEW_PHOTOS=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --photo-test >profile.stdout 2>profile.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-profile-windows
+          path: |
+            fluid-profile-windows.json
+            profile.stderr
+          if-no-files-found: warn
+      - name: Native incremental inbox and received links
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_SYNC_REPORT="$(cygpath -m "$PWD")/fluid-sync-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 30s build-fluid/luma-mail-fluid.exe --design-preview --sync-test >sync.stdout 2>sync.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-sync-windows
+          path: |
+            fluid-sync-windows.json
+            sync.stderr
+          if-no-files-found: warn
+      - name: Native RAM attachment previews and media
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_ATTACHMENT_REPORT="$(cygpath -m "$PWD")/fluid-attachment-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 40s build-fluid/luma-mail-fluid.exe --design-preview --attachment-test >attachment.stdout 2>attachment.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-attachment-windows
+          path: |
+            fluid-attachment-windows.json
+            attachment.stderr
+          if-no-files-found: warn
+      - name: Native account labels and safe context actions
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_NAVIGATION_REPORT="$(cygpath -m "$PWD")/fluid-navigation-windows.json"
+          export LUMA_PREVIEW_TWO_ACCOUNTS=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --navigation-test >navigation.stdout 2>navigation.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-navigation-windows
+          path: |
+            fluid-navigation-windows.json
+            navigation.stderr
+          if-no-files-found: warn
+      - name: Native scoped search and mail links
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_SEARCH_REPORT="$(cygpath -m "$PWD")/fluid-search-windows.json"
+          export LUMA_PREVIEW_TWO_ACCOUNTS=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --search-test >search.stdout 2>search.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-search-windows
+          path: |
+            fluid-search-windows.json
+            search.stderr
+          if-no-files-found: warn
+      - name: Native three-way Gmail draft comparison
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_CONFLICT_REPORT="$(cygpath -m "$PWD")/fluid-conflict-windows.json"
+          export LUMA_PREVIEW_CONFLICT=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --conflict-test >conflict.stdout 2>conflict.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-conflict-windows
+          path: |
+            fluid-conflict-windows.json
+            conflict.stderr
+          if-no-files-found: warn
+      - name: Native sign-in recovery with isolated browser and clipboard
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_AUTH_REPORT="$(cygpath -m "$PWD")/fluid-auth-windows.json"
+          export LUMA_PREVIEW_AUTH=1
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --auth-test >auth.stdout 2>auth.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-auth-windows
+          path: |
+            fluid-auth-windows.json
+            auth.stderr
+          if-no-files-found: warn
+      - name: Native message and HTML failure recovery
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_RECOVERY_REPORT="$(cygpath -m "$PWD")/fluid-recovery-windows.json"
+          export LUMA_PREVIEW_READER_FAILURES=1 LUMA_PREVIEW_HTML=1 QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --recovery-test >recovery.stdout 2>recovery.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-recovery-windows
+          path: |
+            fluid-recovery-windows.json
+            recovery.stderr
+          if-no-files-found: warn
+      - name: Native pop-out composer and redocking
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_POPOUT_REPORT="$(cygpath -m "$PWD")/fluid-popout-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --popout-test >popout.stdout 2>popout.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-popout-windows
+          path: |
+            fluid-popout-windows.json
+            popout.stderr
+          if-no-files-found: warn
+      - name: Native bounded long-conversation reading
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_THREAD_REPORT="$(cygpath -m "$PWD")/fluid-thread-windows.json"
+          export LUMA_PREVIEW_THREAD_COUNT=2503
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --thread-test >thread.stdout 2>thread.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-thread-windows
+          path: |
+            fluid-thread-windows.json
+            thread.stderr
+          if-no-files-found: warn
+      - name: Native online signature editing and close policies
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LUMA_ENGINE="$(cygpath -m "$PWD")/target/debug/luma-engine.exe"
+          export LUMA_SIGNATURE_REPORT="$(cygpath -m "$PWD")/fluid-signature-windows.json"
+          export QT_FORCE_STDERR_LOGGING=1
+          timeout 35s build-fluid/luma-mail-fluid.exe --design-preview --signature-test >signature.stdout 2>signature.stderr
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-signature-windows
+          path: |
+            fluid-signature-windows.json
+            signature.stderr
+          if-no-files-found: warn
+      - name: Complete synthetic process-tree resource audit
+        shell: pwsh
+        env:
+          LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine.exe
+          LUMA_WEBVIEW: ${{ github.workspace }}/target/debug/luma_webview.dll
+          QT_FORCE_STDERR_LOGGING: '1'
+        run: |
+          $env:PATH=$env:LUMA_QT_BIN+";"+$env:PATH
+          ./packaging/test-windows-performance.ps1 -Fluid -Binary ./build-fluid/luma-mail-fluid.exe -Evidence ./fluid-resource-windows
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-resource-windows
+          path: fluid-resource-windows
+          if-no-files-found: warn
+
+      - name: Build registered fluid preview engine and HTML adapter
+        if: github.event_name != 'pull_request'
+        shell: msys2 {0}
+        env:
+          LUMA_GOOGLE_CLIENT_ID: ${{ secrets.LUMA_GOOGLE_CLIENT_ID }}
+          LUMA_GOOGLE_CLIENT_SECRET: ${{ secrets.LUMA_GOOGLE_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          cargo build --locked --release -p luma-engine --features require-google-client
+          cargo build --locked --release -p luma-webview
+          python packaging/webview2-loader.py --binary target/release/luma-engine.exe
+      - name: Build GTK-free Windows portable package
+        if: github.event_name != 'pull_request'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          python packaging/fluid-windows.py --prefix /ucrt64 --binary build-fluid/luma-mail-fluid.exe --engine target/release/luma-engine.exe --webview target/release/luma_webview.dll --output dist-fluid/Luma-Mail-Fluid --version "0.11.0-preview.${GITHUB_SHA:0:7}"
+      - name: Test portable Windows package without SDK paths
+        if: github.event_name != 'pull_request'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          python packaging/test-fluid-package.py --binary dist-fluid/Luma-Mail-Fluid/bin/luma-mail.exe --output fluid-package-windows
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          name: fluid-preview-windows
+          path: |
+            dist-fluid/*.zip
+            dist-fluid/*.sha256
+            dist-fluid/*.storage.json
+            fluid-package-windows
+          if-no-files-found: warn

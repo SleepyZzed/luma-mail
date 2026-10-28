@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "check": "native image provider renders the connected avatar",
+      "passed": true
+    },
+    {
+      "check": "decoded avatar pixels obey the fixed RAM budget",
+      "passed": true
+    },
+    {
+      "check": "reset releases decoded native images",
+      "passed": true
+    },
+    {
+      "check": "retry repopulates only currently watched avatars",
+      "passed": true
+    },
+    {
+      "check": "photo display creates no mail or picture cache files",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "stats": {
+    "bytes": 73728,
+    "images": 2,
+    "missing": 8,
+    "pending": 0
+  },
+  "syntheticData": true
+}

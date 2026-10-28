@@ -1,19 +1,52 @@
 # Implementation and verification status
 
-0.9.0 is **early access**. It does not complete the original brief. Google sign-in
-has no per-address test list, but its unverified warning and lifetime 100-user
-cap remain. Branding and data-access verification were submitted on 26 October
-2026 with an English demo and the homepage ownership appeal. Google Auth Platform
-confirms both are under review. Submission is not approval; any assessment
-decision and Google's final response remain gates.
+The current GTK-free preview is [v0.11.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2), built from `ebd74b00ef448d97779af93e8836999001b4d92b`.
+It is early access and does not complete the original brief. Google verification
+was submitted on 26 October; current approval has not been confirmed. The
+unverified sign-in restrictions and any required assessment remain release gates.
 
-## Implemented and exercised
+## Current fluid implementation and verification
 
-The published 0.9 Linux/Windows release and both platform gates pass on
-`65c67d1eac7f897eda14442bb4ccea0031daf171`; downloaded binary checksums and whole-app
-storage/process-tree measurements are recorded in docs/verification.md. Linux
-RAM goals and real desktop/live-account acceptance remain open. The custom GTK
-replacement is queued for the next build in docs/ui-redesign.md.
+Both exact Qt Quick packages pass fifteen native groups without SDK paths:
+309 Linux / 312 Windows checks, with no QML warnings. Both platforms pass eight
+component groups. Linux CI passes 131 core, 42 engine and 18 pipe-protocol tests;
+the Windows HTML/notification adapter passes its two tests. Strict Clippy passes.
+Clean-source package provenance, all nine public asset digests and the tag match.
+
+The existing functional groups are rewired into the Qt Quick frontend and Rust
+engine. See [the parity audit](docs/fluid-parity.md) and callback map in
+docs/ui-migration.md. GTK is absent from the preview runtimes. The 0.9 source is
+retained as a comparison until acceptance; 100% target-desktop parity is not claimed.
+
+The 0.11 milestone adds direct Send, reply/forward modes, bounded whole-conversation
+forwarding, RAM-only CID picture authoring, native notification actions and opt-in
+ephemeral image loading. Opening morphs avoid per-frame font layout; Wayland
+startup prefers supported hardware Vulkan. Native chooser portals and themed
+fallbacks improve desktop integration. Windows activation acknowledgment now waits
+for client close; a 400-activation local stress run and CI owner recovery pass.
+
+The [live two-account Windows run](docs/validation/fluid-live-two-0.11.0-dev.2.json)
+passes 30 fixture-only Gmail checks: online draft/reopen/send, CID and ordinary
+attachment delivery, reply threading/unread state, forwarding and mailbox actions.
+Sent drafts disappear and fixtures were moved to Trash. The zero-cache profile
+wrote no mail files. This is not phone visual or live Linux desktop acceptance.
+
+Online-first storage remains unchanged: bounded metadata, remote search, on-demand
+bodies/attachments, Gmail drafts and the existing cache limits.
+
+The exact-source short synthetic process-tree audit records Windows private
+working set of 67.7 MiB idle and 139.9 MiB with HTML;
+Linux software-rendered PSS is 227.7 / 402.9 MiB. These metrics are
+not directly comparable and do not certify sustained live usage. Linux RAM goals
+and real GPU/Hyprland acceptance remain open. Versioned reports preserve each
+build identity; previous preview measurements are retained as history.
+See [the full current audit](docs/v1-acceptance-0.11.md).
+
+## Legacy 0.9 implementation and acceptance history
+
+The 0.9 Linux/Windows reference is `65c67d1eac7f897eda14442bb4ccea0031daf171`.
+The following milestones describe that reference and its earlier acceptance;
+they do not substitute for the fluid preview's outstanding live checks.
 
 - Shared native composer colours/highlights, paragraph alignment/spacing/indent,
   scripts/code, bounded Unicode find/replace and source/visual preservation.

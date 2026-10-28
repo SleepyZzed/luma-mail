@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "syntheticData": true,
+  "regression": "A pre-existing accessible text interface must be invalidated before replacing its underlying QTextDocument.",
+  "originalBinding": {
+    "reading": "failed",
+    "composition": "failed",
+    "exitCode": 2
+  },
+  "fixedBinding": {
+    "reading": "passed",
+    "composition": "passed",
+    "exitCode": 0
+  },
+  "resourceIsolation": "Local/network image loading remains blocked; native document survives its model and is released with its editor."
+}

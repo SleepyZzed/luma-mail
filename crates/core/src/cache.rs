@@ -102,6 +102,19 @@ impl Cache {
     pub fn usage(&self) -> Result<u64> {
         Ok(self.files()?.iter().map(|f| f.bytes).sum::<u64>() + self.overhead())
     }
+    /// One directory/header scan for the complete on-demand Settings report.
+    /// Unknown/corrupt files still count toward the enforced total allocation.
+    pub fn usage_report(&self) -> Result<(u64, std::collections::BTreeMap<String, u64>)> {
+        let mut total = self.overhead();
+        let mut accounts = std::collections::BTreeMap::new();
+        for file in self.files()? {
+            total = total.saturating_add(file.bytes);
+            if let Ok((_, entry)) = header(&file.path) {
+                *accounts.entry(entry.account).or_insert(0u64) += file.bytes;
+            }
+        }
+        Ok((total, accounts))
+    }
     fn overhead(&self) -> u64 {
         if self.root.exists() { 8192 } else { 0 }
     }
@@ -289,6 +302,12 @@ mod tests {
         assert!(bytes < data.len() as u64 + 8192);
         assert_eq!(cache.get("a", "message").unwrap().unwrap(), data);
         assert!(cache.account_usage("a").unwrap() <= cache.usage().unwrap());
+        let (total, accounts) = cache.usage_report().unwrap();
+        assert_eq!(total, cache.usage().unwrap());
+        assert_eq!(
+            accounts.get("a").copied().unwrap_or(0),
+            cache.account_usage("a").unwrap()
+        );
         let elapsed = started.elapsed();
         println!(
             "Cache audit: payload={} file={} allocated={} legacy-json={} write/read/scan={:?}",

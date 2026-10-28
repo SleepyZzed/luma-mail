@@ -1,0 +1,84 @@
+{
+  "source_commit": "a23a207a91d85e48f03609ebf7db66c7736abcc9",
+  "binary_sha256": "539fa8dde9c754fe27b80496f7a66994efceff54f56da3b336210c59bdb6784f",
+  "synthetic_data": true,
+  "cases": [
+    {
+      "case": "attachment",
+      "passed": true,
+      "checks": 18
+    },
+    {
+      "case": "auth",
+      "passed": true,
+      "checks": 14
+    },
+    {
+      "case": "composer",
+      "passed": true,
+      "checks": 36
+    },
+    {
+      "case": "conflict",
+      "passed": true,
+      "checks": 13
+    },
+    {
+      "case": "html",
+      "passed": true,
+      "checks": 13
+    },
+    {
+      "case": "motion",
+      "passed": true,
+      "checks": 33
+    },
+    {
+      "case": "navigation",
+      "passed": true,
+      "checks": 43
+    },
+    {
+      "case": "photo",
+      "passed": true,
+      "checks": 5
+    },
+    {
+      "case": "popout",
+      "passed": true,
+      "checks": 18
+    },
+    {
+      "case": "popup",
+      "passed": true,
+      "checks": 23
+    },
+    {
+      "case": "recovery",
+      "passed": true,
+      "checks": 15
+    },
+    {
+      "case": "search",
+      "passed": true,
+      "checks": 15
+    },
+    {
+      "case": "signature",
+      "passed": true,
+      "checks": 15
+    },
+    {
+      "case": "sync",
+      "passed": true,
+      "checks": 21
+    },
+    {
+      "case": "thread",
+      "passed": true,
+      "checks": 17
+    }
+  ],
+  "passed": true,
+  "total_checks": 299
+}

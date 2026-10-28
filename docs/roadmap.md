@@ -1,5 +1,24 @@
 # Road to 1.0
 
+The 0.11 batch adds whole-conversation forwarding, reply/forward mode switching,
+send/close separation, native notification actions, opt-in ephemeral images and
+bounded inline-picture authoring. Wayland startup prefers supported hardware
+Vulkan; the AppImage requests the desktop's native file-picker portal. Opening
+morphs avoid repeated text layout and defer message-body layout until handoff.
+See [the current 1.0 audit](v1-acceptance-0.11.md) for all twenty criteria,
+limits and remaining code/live-desktop gates. Earlier milestones below retain
+their own build identities and do not certify the new batch.
+
+The follow-up hardening batch adds [themed reader presentation](reader-loading-0.11.md):
+the loading pill expands into measured HTML, startup/resize surfaces use the app
+palette, and image fetches no longer delay the initial text/layout. Composer
+controls keep their destination dimensions during the card morph, eliminating
+per-frame editor reflow. Cache limits and online-first behavior are unchanged.
+
+Current frontend coverage and remaining acceptance are tracked in
+[fluid-parity.md](fluid-parity.md). The 0.10 preview is GTK-free; the legacy source
+is retained as the reference until full acceptance.
+
 The original 20 acceptance criteria in RELEASE-CHECKLIST.md remain mandatory.
 0.9 is an early-access milestone, not a completed 1.0 release.
 
@@ -120,3 +139,109 @@ constraints. See ui-redesign.md. No framework migration is part of 0.9.
 Only after Gmail 1.0 is polished and accepted, add complete providers behind the
 existing provider abstraction. IMAP/SMTP/JMAP/Outlook must keep remote search,
 on-demand message/attachment access and enforced cache budgets; no offline mirror.
+
+## Fluid replacement progress — 28 October
+
+The custom Qt Quick frontend preserves the Rust provider/cache engine and now has
+animated shared row/reader projection, adaptive panes, collapsed unified folders,
+account disclosures, selection/context actions, remote search highlighting,
+private HTML/media, inline/compact/full/pop-out composition, rich formatting,
+Gmail draft/conflict/alias flows, online signatures and sign-in recovery.
+
+Published 0.10.0-dev.1 (d4889b7) portable acceptance passes 272 Windows checks
+and 269 Linux checks. Both
+packages pass without SDK search paths and the Windows provenance is clean.
+The latest local on-demand composer passes 272 native checks and destroys its
+editor, document, previews, undo and popups after closing springs settle. New
+composition and inline replies recreate current state; rapid reopening retains
+its existing editor. Source preservation and draft policy are unchanged.
+
+The exposed Windows full-process 60-second HTML audit passes ten lifecycle checks:
+136.3 MiB private working set at baseline, 252.2 with HTML and 58.8 backgrounded;
+private commit is recorded separately. Nine settled HTML CPU samples are 0.00%
+of one core at the measurement resolution. Zero-cache leaves only 51 logical
+bytes of settings and zero cache files. These are synthetic Windows measurements;
+Linux/GPU, longer real sync and the 150/200-MiB goals remain open. The matching Linux
+d4889b7 software-rendered PSS is 225.8 MiB idle/400.9 with HTML.
+
+Remaining work:
+
+- Whole-conversation forwarding and inline-picture authoring are implemented in
+  0.11; complete live recipient/draft round-trip acceptance. Finish interrupted
+  Drive sharing/upload recovery with the same bounded RAM/online-only model.
+- Complete two-account Gmail, real Hyprland/GPU/Noctalia/notification/keyring,
+  suspend/reconnect, fractional scaling and sustained mailbox/resource checks.
+- Complete Google verification and the required security/privacy acceptance.
+  The submitted review is still recorded as pending; no approval is inferred.
+
+The 0.9 tag remains the reference until the full parity and target-desktop gates
+pass. See ui-migration.md, fluid-validation.md and RELEASE-CHECKLIST.md for exact
+wiring, evidence and the original twenty acceptance criteria.
+
+## Fluid feedback and keyboard accessibility
+
+- Center/pad button contents, preserving aligned navigation labels and compact rows.
+- Give all app menus/dialogs explicit themed bounds, rounded surfaces and spring
+  entrance/exit; create editor context menus only on demand and release them.
+- Restore pointer-opened inbox actions and add Shift+F10/Menu-key equivalents,
+  selection-aware editing actions and accessible text-editor names.
+- Animate pop-out handoff using the same document/session and native host, retaining
+  Windows decorations and Linux compositor control.
+- Close outgoing inline replies on conversation changes through Ask/Manual/Save-on-close;
+  keep unsaved text if Ask is declined and leave detached composition independent.
+
+These advance the keyboard/focus and UI hardening priorities. Full accessibility,
+live desktop acceptance and the remaining authoring/Drive/resource gates above
+remain open.
+
+
+The feedback milestone is published as [v0.10.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.2),
+source a23a207. All fifteen portable groups pass (296 Linux/299 Windows).
+The callback/feature audit and exact resource evidence are recorded; next code
+priorities for that milestone were inline-image authoring, whole-conversation
+forwarding and Drive interruption/permission/existing-file recovery. The first
+two are implemented in 0.11. Target desktop, RAM, independent
+security and Google approval remain release gates.
+
+
+The UTF-8 follow-up is published as [v0.10.0-dev.3](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.10.0-dev.3),
+source bbc341a, with the same 296 Linux/299 Windows portable checks. The encoding
+guard advances release hardening; the implementation/acceptance priorities above
+remain open. No 1.0 gate has been marked complete from synthetic tests alone.
+
+
+The 0.11 milestone is published as [v0.11.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.1), source d04f531.
+It adds bounded whole-conversation forwarding, inline-picture authoring and Gmail
+draft round trips, direct Send, native notification actions, image preferences,
+Wayland renderer selection, chooser portals and lighter opening morphs. Portable
+checks pass 305 Linux/308 Windows; 29 real two-account Windows transport checks
+pass. Linux real-desktop/two-account acceptance, sustained resources, remaining
+Drive recovery work, independent security/privacy acceptance and Google approval
+remain gates. The Linux software CI RAM target is still unmet.
+
+## 0.11 preview 2 — themed presentation and stable editor layout
+
+[v0.11.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2) uses `ebd74b00ef448d97779af93e8836999001b4d92b` and passes
+[CI 40734792827](https://github.com/SleepyZzed/luma-mail/actions/runs/40734792827): 309 Linux / 312 Windows assertions across fifteen
+portable groups, eight component groups per platform, 131 core / 42 engine /
+18 protocol tests, two Windows adapter tests and strict Clippy. Native background
+pixels, measured readiness, pill clipping, stale image cancellation and parked
+composer motion are covered. The initial Windows run caught the parked-motion
+opening case; this source fixes it without weakening that regression check.
+
+The exact configured Windows engine passes 30 two-account Gmail
+fixture checks, including an inert themed document before its CID picture is
+decoded, draft/reopen/send, replies, forwarding and scoped actions. Fixtures were
+moved to Trash; zero-cache mail writes remain zero. This is transport coverage,
+not visual phone or live Linux acceptance. Existing cache budgets are unchanged.
+
+The exact-source short synthetic process-tree audit records Windows private
+working set of 67.7 MiB idle and 139.9 MiB with HTML;
+Linux software-rendered PSS is 227.7 / 402.9 MiB. These metrics are
+not directly comparable and do not certify sustained live usage. Linux RAM goals
+and real GPU/Hyprland acceptance remain open. Versioned reports preserve each
+build identity; previous preview measurements are retained as history.
+
+See versioned `docs/validation/fluid-*-0.11.0-dev.2.json` reports and
+[the presentation design](reader-loading-0.11.md). Target desktop, Google review,
+Drive recovery and independent security/privacy acceptance still precede 1.0.

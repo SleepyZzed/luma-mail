@@ -1,0 +1,108 @@
+{
+  "passed": true,
+  "synthetic_data": true,
+  "binary_sha256": "ae6fb22cdf8f708ae2b05846d787a6ba67f8cde2af389a61080446097690b754",
+  "platform": "win32",
+  "sdk_search_paths_removed": true,
+  "checks": [
+    {
+      "case": "auth",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 14,
+      "qml_warnings": []
+    },
+    {
+      "case": "popout",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 14,
+      "qml_warnings": []
+    },
+    {
+      "case": "navigation",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 43,
+      "qml_warnings": []
+    },
+    {
+      "case": "composer",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 36,
+      "qml_warnings": []
+    },
+    {
+      "case": "motion",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 33,
+      "qml_warnings": []
+    },
+    {
+      "case": "photo",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 5,
+      "qml_warnings": []
+    },
+    {
+      "case": "html",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 13,
+      "qml_warnings": []
+    },
+    {
+      "case": "thread",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 17,
+      "qml_warnings": []
+    },
+    {
+      "case": "search",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    },
+    {
+      "case": "conflict",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 13,
+      "qml_warnings": []
+    },
+    {
+      "case": "sync",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 21,
+      "qml_warnings": []
+    },
+    {
+      "case": "attachment",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 18,
+      "qml_warnings": []
+    },
+    {
+      "case": "signature",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    },
+    {
+      "case": "recovery",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    }
+  ],
+  "total_checks": 272
+}

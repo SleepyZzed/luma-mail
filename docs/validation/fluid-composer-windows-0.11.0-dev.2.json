@@ -1,0 +1,201 @@
+{
+  "checks": [
+    {
+      "check": "idle composer has no rich document or editor controls",
+      "passed": true
+    },
+    {
+      "check": "parked offscreen animation is not an already-open composer",
+      "passed": true
+    },
+    {
+      "check": "engine session loads the native form",
+      "passed": true
+    },
+    {
+      "check": "opening morph animates card bounds without repeatedly relaying out the editor",
+      "passed": true
+    },
+    {
+      "check": "new compose focuses To",
+      "passed": true
+    },
+    {
+      "check": "Tab skips formatting controls to Subject",
+      "passed": true
+    },
+    {
+      "check": "Tab from Subject enters body",
+      "passed": true
+    },
+    {
+      "check": "Shift Tab returns to Subject",
+      "passed": true
+    },
+    {
+      "check": "preserved HTML keeps formatting read-only while attachments remain usable",
+      "passed": true
+    },
+    {
+      "check": "editable messages restore formatting without changing field focus",
+      "passed": true
+    },
+    {
+      "check": "table insertion is available in the composer toolbar",
+      "passed": true
+    },
+    {
+      "check": "table control opens its modal options",
+      "passed": true
+    },
+    {
+      "check": "table options insert a real two-by-two rich table",
+      "passed": true
+    },
+    {
+      "check": "composer Tab moves to the next table cell",
+      "passed": true
+    },
+    {
+      "check": "composer Shift Tab returns to the previous table cell",
+      "passed": true
+    },
+    {
+      "check": "selected formatting produces rich outgoing markup",
+      "passed": true
+    },
+    {
+      "check": "large clipboard image crosses acknowledged chunks",
+      "passed": true
+    },
+    {
+      "check": "clipboard PNG is validated as a MIME attachment",
+      "passed": true
+    },
+    {
+      "check": "image paste leaves authored text outside image resources",
+      "passed": true
+    },
+    {
+      "check": "native clipboard bitmap encodes off the UI thread",
+      "passed": true
+    },
+    {
+      "check": "two pasted images remain attachments without a draft",
+      "passed": true
+    },
+    {
+      "check": "From switches the owning account without resetting body",
+      "passed": true
+    },
+    {
+      "check": "switching back preserves attachments and verified From",
+      "passed": true
+    },
+    {
+      "check": "recipient suggestions respect quoted display-name commas",
+      "passed": true
+    },
+    {
+      "check": "Tab completes a recipient and stays in the field",
+      "passed": true
+    },
+    {
+      "check": "next Tab resumes the text-field navigation chain",
+      "passed": true
+    },
+    {
+      "check": "close asks before any Gmail draft write",
+      "passed": true
+    },
+    {
+      "check": "repeated compose focuses the same session",
+      "passed": true
+    },
+    {
+      "check": "quit uses the same draft close policy",
+      "passed": true
+    },
+    {
+      "check": "keep editing cancels quit",
+      "passed": true
+    },
+    {
+      "check": "manual close clears engine content",
+      "passed": true
+    },
+    {
+      "check": "close releases the native rich document",
+      "passed": true
+    },
+    {
+      "check": "reply has read-only history outside the editor",
+      "passed": true
+    },
+    {
+      "check": "reply keeps its account ownership",
+      "passed": true
+    },
+    {
+      "check": "reply docks inside the reading thread",
+      "passed": true
+    },
+    {
+      "check": "reply focuses authored body",
+      "passed": true
+    },
+    {
+      "check": "repeated reply never maximizes or creates a draft",
+      "passed": true
+    },
+    {
+      "check": "forward single keeps one read-only source outside authored text",
+      "passed": true
+    },
+    {
+      "check": "switching to forward clears reply recipients without replacing the session",
+      "passed": true
+    },
+    {
+      "check": "forward all prepares every synthetic conversation message",
+      "passed": true
+    },
+    {
+      "check": "forward all never inserts history into the editable body",
+      "passed": true
+    },
+    {
+      "check": "reply all restores recipients and keeps authored response",
+      "passed": true
+    },
+    {
+      "check": "synthetic inline image fixture is created",
+      "passed": true
+    },
+    {
+      "check": "inline image acknowledgement keeps one RAM-only MIME part",
+      "passed": true
+    },
+    {
+      "check": "native editor keeps inline picture at authored position without base64 HTML",
+      "passed": true
+    },
+    {
+      "check": "reader updates cannot open a save-draft prompt after Send",
+      "passed": true
+    },
+    {
+      "check": "switching conversations closes the inline reply and releases the surface",
+      "passed": true
+    }
+  ],
+  "opening": {
+    "cardResizes": 35,
+    "firstFrameMs": 0,
+    "formResizes": 0,
+    "frames": 42,
+    "largestFrameGapMs": 86
+  },
+  "passed": true,
+  "syntheticData": true
+}

@@ -1,0 +1,27 @@
+{
+  "source_commit": "04266589df1a6fc7d70695077d75d8b3b6894ce6",
+  "platform": "Windows",
+  "live_accounts": 2,
+  "cache_mib": 0,
+  "mailbox_writes": false,
+  "body_files": false,
+  "checks": [
+    {
+      "account_label": "A",
+      "scoped_remote_inbox": true,
+      "bounded_page": true,
+      "rows": 25,
+      "seconds": 1.609
+    },
+    {
+      "account_label": "B",
+      "scoped_remote_inbox": true,
+      "bounded_page": true,
+      "rows": 25,
+      "seconds": 1.125
+    }
+  ],
+  "configured": true,
+  "passed": true,
+  "runtime_mail_files": 0
+}

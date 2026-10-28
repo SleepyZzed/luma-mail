@@ -24,10 +24,12 @@ if attached:
     process = None
 else:
     anchor = None
-    duration = 150
+    fluid = '--fluid' in sys.argv[3:]
+    duration = 210 if fluid else 150
     output = sys.argv[2]
-    process = subprocess.Popen([sys.argv[1], '--performance-diagnostics'],
-                               env={**os.environ, 'APPIMAGE_EXTRACT_AND_RUN': '1'},
+    arguments = ['--design-preview', '--resource-test'] if fluid else ['--performance-diagnostics']
+    process = subprocess.Popen([sys.argv[1], *arguments],
+                               env={**os.environ, 'APPIMAGE_EXTRACT_AND_RUN': '1', **({'LUMA_PREVIEW_HTML':'1'} if fluid else {})},
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 def readout():
@@ -54,6 +56,7 @@ previous = {}
 samples = []
 clock = os.sysconf('SC_CLK_TCK')
 begin = time.monotonic()
+timed_out = False
 while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
     time.sleep(1)
     stats = {}
@@ -65,8 +68,8 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
             fields = raw[raw.rfind(')')+2:].split()
             pid = int(entry.name)
             stats[pid] = (int(fields[1]), int(fields[11])+int(fields[12]), fields[19], entry)
-            if anchor is None and Path(os.readlink(entry/'exe')).name == 'luma-mail':
-                if b'--performance-diagnostics' in (entry/'cmdline').read_bytes():
+            if anchor is None and Path(os.readlink(entry/'exe')).name in {'luma-mail','luma-mail-fluid'}:
+                if (b'--resource-test' if fluid else b'--performance-diagnostics') in (entry/'cmdline').read_bytes():
                     anchor = pid
         except (FileNotFoundError, PermissionError, ProcessLookupError):
             pass
@@ -78,6 +81,7 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
         family |= added
     pss = rss = private = cpu = count = unreadable_pss = 0
     current = {}
+    members = []
     now = time.monotonic()
     for pid in family:
         if pid not in stats:
@@ -101,24 +105,31 @@ while (process.poll() is None if process else Path(f'/proc/{anchor}').exists()):
         rss += values.get('Rss', 0)
         private += values.get('Private_Clean', 0)+values.get('Private_Dirty', 0)
         current[(pid, birth)] = (ticks, now)
+        member_cpu=0.0
         if (pid, birth) in previous:
             old_ticks, old_time = previous[(pid, birth)]
-            cpu += (ticks-old_ticks)/clock/(now-old_time)*100
+            member_cpu=(ticks-old_ticks)/clock/(now-old_time)*100
+            cpu += member_cpu
+        try:
+            name=(entry/'comm').read_text().strip()[:64]
+        except (FileNotFoundError,PermissionError,ProcessLookupError):
+            name='exited'
+        members.append(dict(id=pid,name=name,rss_mib=round(values.get('Rss',0)/1024,3),
+            pss_mib=round(values.get('Pss',0)/1024,3),private_mib=round((values.get('Private_Clean',0)+values.get('Private_Dirty',0))/1024,3),cpu_one_core_percent=round(member_cpu,3)))
     previous = current
     if count:
         samples.append(dict(seconds=round(now-begin, 2), phase=phase[0],
             settled=now-phase[1]>=5, processes=count, unreadable_pss=unreadable_pss, rss_mib=round(rss/1024, 2),
-            pss_mib=round(pss/1024, 2), private_mib=round(private/1024, 2), cpu_one_core_percent=round(cpu, 3)))
+            pss_mib=round(pss/1024, 2), private_mib=round(private/1024, 2), cpu_one_core_percent=round(cpu, 3),members=members))
     if now-begin > duration:
         if attached:
             break
+        timed_out = True
         process.terminate()
-        raise SystemExit('Performance fixture timeout')
+        break
 code = process.wait(timeout=5) if process else 0
-if code or not samples or errors:
-    raise SystemExit(f'Performance fixture failed: exit={code}, samples={len(samples)}, errors={errors}, recent output={diagnostics}')
-report = dict(description='Release AppImage plus all descendant renderer/helper processes. RSS double-counts shared mappings; PSS apportions them. CPU is percentage of one core, sampled once per second. Synthetic fixtures, no live sync/network or real GPU compositor; targets are goals, not enforced caps.',
-    machine=dict(kernel=os.uname().release, cpu_count=os.cpu_count()), phases={}, samples=samples)
+report = dict(description=('Release Qt host/debug engine' if not attached and fluid else 'Release AppImage')+' plus all descendant renderer/helper processes. RSS double-counts shared mappings; PSS apportions them. CPU is percentage of one core, sampled once per second. Synthetic fixtures, no live sync/network or real GPU compositor; targets are goals, not enforced caps.',
+    machine=dict(kernel=os.uname().release, cpu_count=os.cpu_count()), graphics=dict(chromium_gpu_disabled='--disable-gpu' in os.environ.get('QTWEBENGINE_CHROMIUM_FLAGS',''),mesa_software=os.environ.get('LIBGL_ALWAYS_SOFTWARE')=='1'), phases={}, samples=samples)
 for name in dict.fromkeys(s['phase'] for s in samples):
     subset = [s for s in samples if s['phase']==name and s['settled']]
     if not subset:
@@ -132,7 +143,13 @@ for name in dict.fromkeys(s['phase'] for s in samples):
     report['phases'][name]['pss_complete'] = all(s['unreadable_pss']==0 for s in subset)
 if attached:
     report['description'] = 'Read-only attachment to the live Luma main process and descendants. No mail, tokens, titles or arguments recorded. Luma is not stopped or reconfigured. CPU is percentage of one core; RSS includes shared mappings and PSS apportions them.'
+required = {'baseline', 'inbox_1000', 'scrolled_1000', 'newsletter', 'released', 'reclaimed_background'}
+if not attached and not fluid:
+    required.add('three_html_messages')
+report.update(passed=bool(code==0 and samples and not errors and not timed_out),exit_code=code,
+              timed_out=timed_out,errors=errors,recent_diagnostics=diagnostics,
+              phases_complete=bool(attached or required <= report['phases'].keys()))
 Path(output).write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
 print(json.dumps(report['phases'], indent=2))
-required = {'baseline', 'inbox_1000', 'scrolled_1000', 'newsletter', 'three_html_messages', 'released', 'reclaimed_background'}
-assert attached or required <= report['phases'].keys(), 'All resource lifecycle phases must be measured'
+if not report['passed'] or not report['phases_complete']:
+    raise SystemExit(f'Performance fixture failed; complete counters retained in {output}: exit={code}, samples={len(samples)}, errors={errors}, timed_out={timed_out}, phases_complete={report["phases_complete"]}')

@@ -275,11 +275,20 @@ impl Compose {
             }
         }
         let boundary = format!("luma_{}", uuid::Uuid::new_v4());
-        let multipart = !self.attachments.is_empty() || !self.retained.is_empty();
+        let related = self.html && self.retained.iter().any(|a| a.content_id.is_some());
+        let related_boundary = format!("luma_related_{}", uuid::Uuid::new_v4());
+        let multipart = !self.attachments.is_empty()
+            || self
+                .retained
+                .iter()
+                .any(|a| !self.html || a.content_id.is_none());
         if multipart {
             out.push_str(&format!(
                 "Content-Type: multipart/mixed; boundary=\"{boundary}\"\r\n\r\n--{boundary}\r\n"
             ));
+        }
+        if related {
+            out.push_str(&format!("Content-Type: multipart/related; boundary=\"{related_boundary}\"; type=\"multipart/alternative\"\r\n\r\n--{related_boundary}\r\n"));
         }
         if self.html {
             let alternative = format!("luma_alt_{}", uuid::Uuid::new_v4());
@@ -292,31 +301,18 @@ impl Compose {
             out.push_str("Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n");
             wrapped_base64(self.text.as_bytes(), &mut out);
         }
-        for a in &self.retained {
-            clean_header(&a.name)?;
-            clean_header(&a.mime_type)?;
-            if !a
-                .mime_type
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b"/.-_+".contains(&b))
-            {
-                return Err(Error::Invalid("Invalid attachment content type".into()));
+        if related {
+            for a in self.retained.iter().filter(|a| a.content_id.is_some()) {
+                retained_part(&mut out, &related_boundary, a)?;
             }
-            let name = url::form_urlencoded::byte_serialize(a.name.as_bytes())
-                .collect::<String>()
-                .replace('+', "%20");
-            let disposition = if a.content_id.is_some() {
-                "inline"
-            } else {
-                "attachment"
-            };
-            out.push_str(&format!("--{boundary}\r\nContent-Type: {}\r\nContent-Disposition: {disposition}; filename*=UTF-8''{name}\r\n",a.mime_type));
-            if let Some(cid) = &a.content_id {
-                clean_header(cid)?;
-                out.push_str(&format!("Content-ID: {}\r\n", cid));
-            }
-            out.push_str("Content-Transfer-Encoding: base64\r\n\r\n");
-            wrapped_base64(&a.data, &mut out);
+            out.push_str(&format!("--{related_boundary}--\r\n"));
+        }
+        for a in self
+            .retained
+            .iter()
+            .filter(|a| !related || a.content_id.is_none())
+        {
+            retained_part(&mut out, &boundary, a)?;
         }
         for path in &self.attachments {
             let filename = path.file_name().unwrap_or_default().to_string_lossy();
@@ -410,4 +406,35 @@ pub fn readable(part: &Part) -> Result<String> {
 pub fn html_text(html: &str) -> Result<String> {
     html2text::from_read(html.as_bytes(), 90)
         .map_err(|_| Error::Invalid("Cannot display malformed HTML email".into()))
+}
+
+fn retained_part(out: &mut String, boundary: &str, a: &RetainedAttachment) -> Result<()> {
+    clean_header(&a.name)?;
+    clean_header(&a.mime_type)?;
+    if !a
+        .mime_type
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b"/.-_+".contains(&b))
+    {
+        return Err(Error::Invalid("Invalid attachment content type".into()));
+    }
+    let name = url::form_urlencoded::byte_serialize(a.name.as_bytes())
+        .collect::<String>()
+        .replace('+', "%20");
+    let disposition = if a.content_id.is_some() {
+        "inline"
+    } else {
+        "attachment"
+    };
+    out.push_str(&format!("--{boundary}\r\nContent-Type: {}\r\nContent-Disposition: {disposition}; filename*=UTF-8''{name}\r\n",a.mime_type));
+    if let Some(cid) = &a.content_id {
+        clean_header(cid)?;
+        out.push_str(&format!(
+            "Content-ID: <{}>\r\n",
+            cid.trim_matches(['<', '>'])
+        ));
+    }
+    out.push_str("Content-Transfer-Encoding: base64\r\n\r\n");
+    wrapped_base64(&a.data, out);
+    Ok(())
 }

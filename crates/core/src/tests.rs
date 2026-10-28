@@ -645,6 +645,71 @@ fn reopened_draft_preserves_inline_and_regular_parts() {
     assert!(raw.contains("Content-Disposition: inline"));
     assert!(raw.contains("AQID"));
 }
+#[test]
+fn inline_pictures_use_related_mime_and_keep_authored_order_separate_from_attachments() {
+    use mailparse::MailHeaderMap;
+    let mut c = Compose::new("a@example.invalid".into());
+    c.html = true;
+    c.text = crate::compose_document::envelope(
+        "<p>Before</p><img src=\"cid:luma-inline-photo@luma.invalid\"><p>After</p>",
+        true,
+        "Earlier reply",
+        "<p>Signature</p>",
+    )
+    .unwrap();
+    c.retained.push(RetainedAttachment {
+        name: "inline.png".into(),
+        mime_type: "image/png".into(),
+        data: vec![1, 2, 3].into(),
+        content_id: Some("<luma-inline-photo@luma.invalid>".into()),
+    });
+    let raw = c.mime().unwrap();
+    let root = mailparse::parse_mail(&raw).unwrap();
+    assert_eq!(root.ctype.mimetype, "multipart/related");
+    assert_eq!(root.subparts.len(), 2);
+    let alternative = &root.subparts[0];
+    assert_eq!(alternative.ctype.mimetype, "multipart/alternative");
+    assert!(
+        alternative.subparts[0]
+            .get_body()
+            .unwrap()
+            .contains("Before")
+    );
+    let html = alternative.subparts[1].get_body().unwrap();
+    assert!(html.find("Before").unwrap() < html.find("cid:luma-inline-").unwrap());
+    assert!(html.find("cid:luma-inline-").unwrap() < html.find("After").unwrap());
+    assert!(html.find("After").unwrap() < html.find("Earlier reply").unwrap());
+    assert!(
+        html.replace(' ', "").contains("max-width:100%;height:auto"),
+        "{html}"
+    );
+    assert_eq!(
+        root.subparts[1]
+            .headers
+            .get_first_value("Content-ID")
+            .as_deref(),
+        Some("<luma-inline-photo@luma.invalid>")
+    );
+    assert_eq!(root.subparts[1].get_body_raw().unwrap(), [1, 2, 3]);
+    c.retained.push(RetainedAttachment {
+        name: "regular.bin".into(),
+        mime_type: "application/octet-stream".into(),
+        data: vec![4, 5, 6].into(),
+        ..Default::default()
+    });
+    let raw = c.mime().unwrap();
+    let root = mailparse::parse_mail(&raw).unwrap();
+    assert_eq!(root.ctype.mimetype, "multipart/mixed");
+    assert_eq!(root.subparts[0].ctype.mimetype, "multipart/related");
+    assert_eq!(root.subparts[1].get_body_raw().unwrap(), [4, 5, 6]);
+    assert!(
+        root.subparts[1]
+            .headers
+            .get_first_value("Content-Disposition")
+            .unwrap()
+            .starts_with("attachment")
+    );
+}
 #[tokio::test]
 async fn draft_attachments_download_only_when_editing() {
     let server = MockServer::start().await;

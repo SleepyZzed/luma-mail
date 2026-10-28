@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "allocation_method": "st_blocks on Unix; 512-byte estimate elsewhere",
+  "categories": {
+    "installation": {
+      "logical_bytes": 485051067,
+      "allocated_bytes": 513130496,
+      "files": 5331,
+      "directories": 3184,
+      "links": 2,
+      "top_level": {
+        "AppRun": {
+          "logical_bytes": 774,
+          "allocated_bytes": 4096,
+          "files": 1
+        },
+        "io.github.lumamail.Luma.desktop": {
+          "logical_bytes": 0,
+          "allocated_bytes": 0,
+          "files": 0
+        },
+        "io.github.lumamail.Luma.svg": {
+          "logical_bytes": 0,
+          "allocated_bytes": 4096,
+          "files": 0
+        },
+        "usr": {
+          "logical_bytes": 485050293,
+          "allocated_bytes": 513118208,
+          "files": 5330
+        }
+      }
+    }
+  }
+}

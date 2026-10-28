@@ -1,0 +1,115 @@
+{
+  "passed": true,
+  "synthetic_data": true,
+  "binary_sha256": "e5a6a30c2d0f14a35cc71dcc49c8866e0f830666607d7e1f7c512bef5cb5ae88",
+  "platform": "linux",
+  "sdk_search_paths_removed": true,
+  "checks": [
+    {
+      "case": "auth",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 14,
+      "qml_warnings": []
+    },
+    {
+      "case": "popout",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 18,
+      "qml_warnings": []
+    },
+    {
+      "case": "popup",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 23,
+      "qml_warnings": []
+    },
+    {
+      "case": "navigation",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 43,
+      "qml_warnings": []
+    },
+    {
+      "case": "composer",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 47,
+      "qml_warnings": []
+    },
+    {
+      "case": "motion",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 33,
+      "qml_warnings": []
+    },
+    {
+      "case": "photo",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 5,
+      "qml_warnings": []
+    },
+    {
+      "case": "html",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 12,
+      "qml_warnings": []
+    },
+    {
+      "case": "thread",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 17,
+      "qml_warnings": []
+    },
+    {
+      "case": "search",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    },
+    {
+      "case": "conflict",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 13,
+      "qml_warnings": []
+    },
+    {
+      "case": "sync",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 21,
+      "qml_warnings": []
+    },
+    {
+      "case": "attachment",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 18,
+      "qml_warnings": []
+    },
+    {
+      "case": "signature",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    },
+    {
+      "case": "recovery",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    }
+  ],
+  "total_checks": 309
+}
