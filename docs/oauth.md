@@ -141,8 +141,13 @@ unverified early access. This is separate from verification and does not remove
 Google's warning or cap. The full-release goal remains verified, uncapped
 consent, backed by domain ownership, scope justification and a demonstration of
 real consent and the mail features that need each scope. Public project pages
-are hosted at [sleepyzzed.github.io/luma-mail](https://sleepyzzed.github.io/luma-mail/),
-with linked privacy and terms information also saved in this repository.
+are hosted at [luma-mail.duckdns.org](https://luma-mail.duckdns.org/),
+with linked privacy, permission explanations and terms also saved in this
+repository. The maintainer verified the subdomain as a Google Search Console
+**Domain property using a DNS TXT record** on 28 October 2026. Cloud branding
+uses that authorized domain and its HTTPS homepage, privacy and terms URLs.
+DNS ownership verification is separate from Google's still-pending OAuth review;
+keep the ownership TXT record and domain registration active.
 
 Luma connects directly from the user's desktop to Google and has no mail-handling
 application server. Google's restricted-scope guidance ties annual independent
