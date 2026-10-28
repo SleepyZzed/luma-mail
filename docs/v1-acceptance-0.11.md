@@ -101,3 +101,30 @@ actions. Fixtures were moved to Trash; zero cache files were written. Actual
 Linux and phone UI, OS notification actions, sustained resources and Google review
 remain distinct. Canonical CI resource reports now describe this source; the
 separate earlier local debug and read-only results retain their own identities.
+
+## 0.11 preview 2 — themed presentation and stable editor layout
+
+[v0.11.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2) uses `ebd74b00ef448d97779af93e8836999001b4d92b` and passes
+[CI 40734792827](https://github.com/SleepyZzed/luma-mail/actions/runs/40734792827): 309 Linux / 312 Windows assertions across fifteen
+portable groups, eight component groups per platform, 131 core / 42 engine /
+18 protocol tests, two Windows adapter tests and strict Clippy. Native background
+pixels, measured readiness, pill clipping, stale image cancellation and parked
+composer motion are covered. The initial Windows run caught the parked-motion
+opening case; this source fixes it without weakening that regression check.
+
+The exact configured Windows engine passes 30 two-account Gmail
+fixture checks, including an inert themed document before its CID picture is
+decoded, draft/reopen/send, replies, forwarding and scoped actions. Fixtures were
+moved to Trash; zero-cache mail writes remain zero. This is transport coverage,
+not visual phone or live Linux acceptance. Existing cache budgets are unchanged.
+
+The exact-source short synthetic process-tree audit records Windows private
+working set of 67.7 MiB idle and 139.9 MiB with HTML;
+Linux software-rendered PSS is 227.7 / 402.9 MiB. These metrics are
+not directly comparable and do not certify sustained live usage. Linux RAM goals
+and real GPU/Hyprland acceptance remain open. Versioned reports preserve each
+build identity; previous preview measurements are retained as history.
+
+See versioned `docs/validation/fluid-*-0.11.0-dev.2.json` reports and
+[the presentation design](reader-loading-0.11.md). Target desktop, Google review,
+Drive recovery and independent security/privacy acceptance still precede 1.0.

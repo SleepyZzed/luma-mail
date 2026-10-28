@@ -1,0 +1,68 @@
+{
+  "tag": "v0.11.0-dev.2",
+  "source_commit": "ebd74b00ef448d97779af93e8836999001b4d92b",
+  "ci_run_id": 40734792827,
+  "linux_checks": 309,
+  "windows_checks": 312,
+  "url": "https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2",
+  "published_at": "2026-10-28T17:44:13Z",
+  "prerelease": true,
+  "draft": false,
+  "tag_matches_source": true,
+  "assets": [
+    {
+      "name": "FLUID-INSTALLED-STORAGE.json",
+      "bytes": 833,
+      "sha256": "d9b1e7457d0962fc9769b8d3b80c44e3dc8f096efbd46a1bc751204f02044abb",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/FLUID-INSTALLED-STORAGE.json"
+    },
+    {
+      "name": "FLUID-NATIVE-SOURCES.tsv",
+      "bytes": 8334,
+      "sha256": "89584325447de21a9b238e77d1265924e261b260926938423d3812ffb959ba4c",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/FLUID-NATIVE-SOURCES.tsv"
+    },
+    {
+      "name": "Luma-Mail-0.11.0-preview.ebd74b0-fluid-windows-x86_64.storage.json",
+      "bytes": 466,
+      "sha256": "73dce296e77c80f7b6275eec2107fd314da764442271a3e2ae4eb49580b8b596",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/Luma-Mail-0.11.0-preview.ebd74b0-fluid-windows-x86_64.storage.json"
+    },
+    {
+      "name": "Luma-Mail-0.11.0-preview.ebd74b0-fluid-windows-x86_64.zip",
+      "bytes": 102734374,
+      "sha256": "7dfe0e8b6f3882e958ec35ec5200aabf7299056bf64363763ac4494043b86420",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/Luma-Mail-0.11.0-preview.ebd74b0-fluid-windows-x86_64.zip"
+    },
+    {
+      "name": "Luma-Mail-0.11.0-preview.ebd74b0-fluid-windows-x86_64.zip.sha256",
+      "bytes": 125,
+      "sha256": "a35e56d2241fe3a6265408e8988cb00ef7a105d9a4087bb43dfe6a8a0f01a011",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/Luma-Mail-0.11.0-preview.ebd74b0-fluid-windows-x86_64.zip.sha256"
+    },
+    {
+      "name": "Luma-Mail-0.11.0-preview.ebd74b0-fluid-x86_64.AppImage",
+      "bytes": 175176184,
+      "sha256": "e5a6a30c2d0f14a35cc71dcc49c8866e0f830666607d7e1f7c512bef5cb5ae88",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/Luma-Mail-0.11.0-preview.ebd74b0-fluid-x86_64.AppImage"
+    },
+    {
+      "name": "Luma-Mail-0.11.0-preview.ebd74b0-fluid-x86_64.AppImage.sha256",
+      "bytes": 121,
+      "sha256": "5c31de5b1530bc9911d646f0d9dfc801af08dae295257edb90c146fc50f9ece1",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/Luma-Mail-0.11.0-preview.ebd74b0-fluid-x86_64.AppImage.sha256"
+    },
+    {
+      "name": "Luma-Mail-0.11.0-preview.ebd74b0-source.tar.gz",
+      "bytes": 1071562,
+      "sha256": "e8abc490fdf62df9555ec0fc9f1537533c1c535e0edd4e05d34a0245733ec972",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/Luma-Mail-0.11.0-preview.ebd74b0-source.tar.gz"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 936,
+      "sha256": "3224c7bc960af3e4092671f1e130bcede2c256e025a8680b245e3f3f2eb034be",
+      "url": "https://github.com/SleepyZzed/luma-mail/releases/download/v0.11.0-dev.2/SHA256SUMS.txt"
+    }
+  ]
+}

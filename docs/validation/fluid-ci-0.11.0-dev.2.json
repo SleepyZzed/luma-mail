@@ -1,0 +1,51 @@
+{
+  "source_commit": "ebd74b00ef448d97779af93e8836999001b4d92b",
+  "run_id": 40734792827,
+  "url": "https://github.com/SleepyZzed/luma-mail/actions/runs/40734792827",
+  "jobs": [
+    {
+      "id": 122980462993,
+      "name": "linux-scene",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 122980463399,
+      "name": "windows-scene",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 122980463500,
+      "name": "engine",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12838106414,
+      "name": "fluid-resource-windows",
+      "size_in_bytes": 4891,
+      "digest": "sha256:d054692fee4165cb65e61bd84cc9e536ceeeebf61061ae331b7de29638aadf55"
+    },
+    {
+      "id": 12838046026,
+      "name": "fluid-preview-linux",
+      "size_in_bytes": 175571871,
+      "digest": "sha256:00e9f99300010927f178ab68a1e916a2f89ae8e39abc8edf5de6c3153435d438"
+    },
+    {
+      "id": 12836767954,
+      "name": "fluid-resource-linux",
+      "size_in_bytes": 5494,
+      "digest": "sha256:6f451c24f10bbc374dba3b0c5e29c57eab1f14923633af3e3ecd97418b026f6f"
+    },
+    {
+      "id": 12836304960,
+      "name": "fluid-preview-windows",
+      "size_in_bytes": 101659573,
+      "digest": "sha256:7735f83041d2ec727357604c697204a9c83d96c2307b0fc905d9704e3f97b1e3"
+    }
+  ]
+}

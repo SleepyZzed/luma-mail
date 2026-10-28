@@ -1,0 +1,12 @@
+{
+  "version": "0.11.0-preview.ebd74b0",
+  "source_commit": "ebd74b00ef448d97779af93e8836999001b4d92b",
+  "source_dirty": false,
+  "archive_bytes": 102734374,
+  "installed_logical_bytes": 278392218,
+  "files": 934,
+  "packages": 85,
+  "sha256": "7dfe0e8b6f3882e958ec35ec5200aabf7299056bf64363763ac4494043b86420",
+  "mailbox_bytes": 0,
+  "note": "Package bytes only. Runtime/settings/cache allocation is measured separately; no account data is copied."
+}

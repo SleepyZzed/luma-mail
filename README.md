@@ -2,9 +2,9 @@
 
 <img src="data/luma-wordmark.png" alt="Luma Mail" width="320">
 
-**[Download the 0.11 fluid interface preview](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.1):** the replacement uses a custom Qt Quick scene with
+**[Download the 0.11 fluid interface preview](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2):** the replacement uses a custom Qt Quick scene with
 shared-element spring transitions and the existing Rust engine. GTK-free Linux
-and Windows packages pass 305/308 native portable checks. See the
+and Windows packages pass 309/312 native portable checks. See the
 [feature-parity audit](docs/fluid-parity.md), [interface wiring](docs/ui-migration.md), [build/packaging instructions](docs/fluid-packaging.md)
 and [validation record](docs/fluid-validation.md). The 0.9 download below remains
 the released reference while final parity and desktop acceptance continue.
@@ -18,13 +18,19 @@ local mail mirror, search index, or attachment archive.
 implemented features, limitations and the verification boundary. Real browser
 consent, Windows keyring, synthetic self-mail operations and Gmail sender-filter
 creation/removal have been tested with the maintainer's authorized account.
-The 0.11 Windows engine passes 29 disposable two-account Gmail checks; target Linux
+The 0.11 Windows engine passes 30 disposable two-account Gmail checks; target Linux
 desktop acceptance remains outstanding.
 
 The 0.11 preview adds direct Send, whole-conversation forwarding, inline-picture
 authoring, native notification actions, opt-in image autoload, smoother opening
 morphs and Wayland Vulkan startup selection. See the [current 1.0 audit](docs/v1-acceptance-0.11.md)
-and [live two-account report](docs/validation/fluid-live-two-0.11.0-dev.1.json).
+and [live two-account report](docs/validation/fluid-live-two-0.11.0-dev.2.json).
+
+Preview 2 keeps HTML startup/resize on the active theme and expands its loading
+pill into the measured content. Composer cards animate around a stable editor
+layout; parked window-layout motion no longer skips the opening morph. Image
+fetches can overlap without adding parallel full-resolution decoders or disk
+storage. See [reader presentation and limits](docs/reader-loading-0.11.md).
 
 The [full release checklist](RELEASE-CHECKLIST.md) maps all 20 original acceptance
 criteria to implementation evidence and the remaining code/desktop checks.

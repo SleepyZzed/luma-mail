@@ -1,6 +1,6 @@
 # Implementation and verification status
 
-The current GTK-free preview is [v0.11.0-dev.1](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.1), built from `d04f531b748ab707a5751f9391dba3f1cbc4654e`.
+The current GTK-free preview is [v0.11.0-dev.2](https://github.com/SleepyZzed/luma-mail/releases/tag/v0.11.0-dev.2), built from `ebd74b00ef448d97779af93e8836999001b4d92b`.
 It is early access and does not complete the original brief. Google verification
 was submitted on 26 October; current approval has not been confirmed. The
 unverified sign-in restrictions and any required assessment remain release gates.
@@ -8,8 +8,8 @@ unverified sign-in restrictions and any required assessment remain release gates
 ## Current fluid implementation and verification
 
 Both exact Qt Quick packages pass fifteen native groups without SDK paths:
-305 Linux / 308 Windows checks, with no QML warnings. Both platforms pass eight
-component groups. Linux CI passes 131 core, 41 engine and 17 pipe-protocol tests;
+309 Linux / 312 Windows checks, with no QML warnings. Both platforms pass eight
+component groups. Linux CI passes 131 core, 42 engine and 18 pipe-protocol tests;
 the Windows HTML/notification adapter passes its two tests. Strict Clippy passes.
 Clean-source package provenance, all nine public asset digests and the tag match.
 
@@ -25,20 +25,22 @@ startup prefers supported hardware Vulkan. Native chooser portals and themed
 fallbacks improve desktop integration. Windows activation acknowledgment now waits
 for client close; a 400-activation local stress run and CI owner recovery pass.
 
-The [live two-account Windows run](docs/validation/fluid-live-two-0.11.0-dev.1.json)
-passes 29 fixture-only Gmail checks: online draft/reopen/send, CID and ordinary
+The [live two-account Windows run](docs/validation/fluid-live-two-0.11.0-dev.2.json)
+passes 30 fixture-only Gmail checks: online draft/reopen/send, CID and ordinary
 attachment delivery, reply threading/unread state, forwarding and mailbox actions.
 Sent drafts disappear and fixtures were moved to Trash. The zero-cache profile
 wrote no mail files. This is not phone visual or live Linux desktop acceptance.
 
 Online-first storage remains unchanged: bounded metadata, remote search, on-demand
-bodies/attachments, Gmail drafts and the existing cache limits. The process-tree
-CI audit records Windows private working set of 66.7 MiB idle / 142.3 with HTML,
-and Linux software-rendered PSS of 227.8 / 402.5 MiB. Settled sampled CPU is 0.000%
-of one core; this short run is not a long-term zero-CPU guarantee. Counters are not
-directly comparable across platforms. Linux RAM, sustained real usage, actual
-GPU/Wayland/Noctalia/keyring/notification behavior and Google/security approval
-remain open. See [the full current audit](docs/v1-acceptance-0.11.md).
+bodies/attachments, Gmail drafts and the existing cache limits.
+
+The exact-source short synthetic process-tree audit records Windows private
+working set of 67.7 MiB idle and 139.9 MiB with HTML;
+Linux software-rendered PSS is 227.7 / 402.9 MiB. These metrics are
+not directly comparable and do not certify sustained live usage. Linux RAM goals
+and real GPU/Hyprland acceptance remain open. Versioned reports preserve each
+build identity; previous preview measurements are retained as history.
+See [the full current audit](docs/v1-acceptance-0.11.md).
 
 ## Legacy 0.9 implementation and acceptance history
 
