@@ -191,3 +191,11 @@ committed. Linux Qt 6.11.2/AppImage/Wayland deployment, source notices and porta
 checks are implemented and awaiting CI. A remaining X11 tray-restore race now has
 a product guard and stronger state-acknowledgement test. No new release or complete
 GTK-removal claim is made before the pending packaging/live acceptance gates.
+
+
+Closed Settings now releases its controls after animation and rebuilds current
+saved values on reopening. Native navigation coverage grows to 39 checks. A
+follow-up Windows run measured 124.5 MiB idle and 94.4 backgrounded; active HTML
+still measured 239.9 MiB. Both packaging paths have first-run setup fixes pending
+CI confirmation; Linux tray-restore stress remains under diagnosis. See the
+validation record rather than treating implementation as a completed release.

@@ -1,62 +1,62 @@
 {
-    "checks": [
-        {
-            "check": "pop out moves the existing editor into a real native window",
-            "passed": true
-        },
-        {
-            "check": "pop out preserves the same rich document and unsaved session",
-            "passed": true
-        },
-        {
-            "check": "native resizing relays out the editor without glyph scaling",
-            "passed": true
-        },
-        {
-            "check": "Windows pop out retains its native title bar",
-            "passed": true
-        },
-        {
-            "check": "repeated compose restores a minimized pop out",
-            "passed": true
-        },
-        {
-            "check": "a visible pop out keeps foreground behavior while the inbox is hidden",
-            "passed": true
-        },
-        {
-            "check": "native close asks instead of silently drafting or discarding",
-            "passed": true
-        },
-        {
-            "check": "Keep editing preserves the detached document",
-            "passed": true
-        },
-        {
-            "check": "dock returns the same editor to the inbox window",
-            "passed": true
-        },
-        {
-            "check": "dock retains rich content and engine ownership",
-            "passed": true
-        },
-        {
-            "check": "a composer can pop out again without duplicate windows",
-            "passed": true
-        },
-        {
-            "check": "manual close destroys the pop out after its slide finishes",
-            "passed": true
-        },
-        {
-            "check": "closed pop out releases document and view model content",
-            "passed": true
-        },
-        {
-            "check": "pop out and close introduce no local mail or draft store",
-            "passed": true
-        }
-    ],
-    "passed": true,
-    "syntheticData": true
+  "checks": [
+    {
+      "check": "pop out moves the existing editor into a real native window",
+      "passed": true
+    },
+    {
+      "check": "pop out preserves the same rich document and unsaved session",
+      "passed": true
+    },
+    {
+      "check": "native resizing relays out the editor without glyph scaling",
+      "passed": true
+    },
+    {
+      "check": "Windows pop out retains its native title bar",
+      "passed": true
+    },
+    {
+      "check": "repeated compose restores a minimized pop out",
+      "passed": true
+    },
+    {
+      "check": "a visible pop out keeps foreground behavior while the inbox is hidden",
+      "passed": true
+    },
+    {
+      "check": "native close asks instead of silently drafting or discarding",
+      "passed": true
+    },
+    {
+      "check": "Keep editing preserves the detached document",
+      "passed": true
+    },
+    {
+      "check": "dock returns the same editor to the inbox window",
+      "passed": true
+    },
+    {
+      "check": "dock retains rich content and engine ownership",
+      "passed": true
+    },
+    {
+      "check": "a composer can pop out again without duplicate windows",
+      "passed": true
+    },
+    {
+      "check": "manual close destroys the pop out after its slide finishes",
+      "passed": true
+    },
+    {
+      "check": "closed pop out releases document and view model content",
+      "passed": true
+    },
+    {
+      "check": "pop out and close introduce no local mail or draft store",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "syntheticData": true
 }

@@ -476,3 +476,35 @@ now commits Windowed restore state only after the X11 event settles, and activat
 of an already visible window preserves its current geometry. The native test now
 waits for matching visibility and window-state acknowledgement. Windows passes;
 Linux confirmation is pending. The original GTK release remains the reference.
+
+
+## Settings lifetime and packaging follow-up
+
+Settings creates its account/forms only on opening and retains them until both
+closing springs settle. Closing then destroys the controls; reopening restores
+current saved values. Closed-window resizing no longer makes an offscreen
+Settings panel temporarily mask the reader. Four new native lifecycle checks
+pass (39 navigation checks; 258 checks across the scene groups in this
+continuation). Motion, composer, HTML, sync and pop-out checks also pass after
+the relevant changes; no QML warning was reported in the lazy-settings runs.
+
+The development Qt host with the same optimized engine/adapter measured Windows
+private working set of 124.5 MiB baseline, 134.9 with 1,000 rows, 138.3 after
+scrolling, 239.9 with HTML, 139.6 after release, 94.4 backgrounded and 125.0 restored.
+This is a separate synthetic run after the Settings change, not a strict paired
+experiment against candidate D. Settled CPU samples were 0.00% at resolution,
+all seven lifecycle checks passed, and HTML/Linux resource goals remain open.
+
+The first branch packaging run (40637853387) exposed setup gaps: the Windows
+release step lacked Cargo in the MSYS shell; Qt's Linux deployer tried to deploy
+an unused NMEA/GPS plugin without QtSerialPort. Windows now builds both Qt and
+Rust with UCRT GNU, matching the locally tested portable candidate. The Qt deployer
+is called directly with explicit GTK-theme/GPS plugin exclusions; email documents
+do not request geolocation. Source-notice collection and its pinned 6.11.2 cache
+passed in that run. Neither registered preview package is claimed complete yet.
+
+Linux's maximized hide/restore test passed in the branch run but failed in the
+parallel PR run. The host now reasserts a remembered hidden window state before
+remapping, avoiding Qt's same-state shortcut. A 64-event synthetic trace records
+visibility/native/cache changes for diagnosis. Windows sync and pop-out checks
+pass; Linux confirmation remains required.

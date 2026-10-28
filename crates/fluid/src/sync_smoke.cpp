@@ -10,10 +10,11 @@
 class SyncSmoke:public QObject {
     Q_OBJECT
     Bridge*mail;QQuickWindow*window;QJsonArray checks;bool failed=false,finished=false,started=false;
-    QStringList openedLinks;
+    QStringList openedLinks;QJsonArray windowTrace;QElapsedTimer traceClock;
+    void trace(const QString&event){if(windowTrace.size()<64)windowTrace.append(QJsonObject{{"event",event},{"ms",traceClock.elapsed()},{"visible",window->isVisible()},{"visibility",int(window->visibility())},{"state",int(window->windowState())},{"remembered",window->property("lumaRestoreState").toInt()}});}
     QQuickItem*find(QQuickItem*at,const QString&name){if(at->objectName()==name)return at;for(auto child:at->childItems())if(auto item=find(child,name))return item;return nullptr;}
     void check(const QString&name,bool passed){checks.append(QJsonObject{{"check",name},{"passed",passed}});failed|=!passed;}
-    void finish(){if(finished)return;finished=true;QDesktopServices::unsetUrlHandler("https");QJsonObject report{{"passed",!failed},{"checks",checks},{"syntheticData",true},{"note","Native incremental-event wiring through the real preview pipe. Provider history requests and notification transport have separate tests."}};if(auto path=qEnvironmentVariable("LUMA_SYNC_REPORT");!path.isEmpty()){QSaveFile file(path);if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(report).toJson());file.commit();}}qInfo().noquote()<<QJsonDocument(report).toJson(QJsonDocument::Compact);mail->quit(failed?2:0);}
+    void finish(){if(finished)return;finished=true;QDesktopServices::unsetUrlHandler("https");QJsonObject report{{"passed",!failed},{"checks",checks},{"syntheticData",true},{"windowTrace",windowTrace},{"note","Native incremental-event wiring through the real preview pipe. Provider history requests and notification transport have separate tests."}};if(auto path=qEnvironmentVariable("LUMA_SYNC_REPORT");!path.isEmpty()){QSaveFile file(path);if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(report).toJson());file.commit();}}qInfo().noquote()<<QJsonDocument(report).toJson(QJsonDocument::Compact);mail->quit(failed?2:0);}
     void clickReceivedLink(){
         auto text=find(window->contentItem(),"readBody-preview1");QRectF rectangle;
         const auto source=mail->messages()->at(0)["text"].toString();const auto offset=source.indexOf("https://")+2;
@@ -35,7 +36,7 @@ class SyncSmoke:public QObject {
             awaitState(QWindow::Windowed,"tray and notification activation restore a minimized window",[this]{
                 window->showMaximized();
                 awaitState(QWindow::Maximized,"native desktop accepts maximization",[this]{
-                    window->hide();emit mail->showRequested();
+                    trace("before maximized hide");window->hide();trace("after maximized hide");emit mail->showRequested();trace("after tray activation");
                     awaitState(QWindow::Maximized,"tray activation preserves a maximized window",[this]{finish();});
                 });
             });
@@ -61,7 +62,8 @@ class SyncSmoke:public QObject {
     }
 public:
     Q_SLOT void handle(const QUrl&url){openedLinks.append(url.toString());}
-    SyncSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){QTimer::singleShot(12000,this,[this]{if(!finished){check("sync test completes within deadline",false);finish();}});
+    SyncSmoke(Bridge*m,QQuickWindow*w):QObject(w),mail(m),window(w){
+        traceClock.start();connect(window,&QWindow::windowStateChanged,this,[this]{trace("windowStateChanged");});connect(window,&QWindow::visibilityChanged,this,[this]{trace("visibilityChanged");});connect(window,&QWindow::visibleChanged,this,[this]{trace("visibleChanged");});QTimer::singleShot(12000,this,[this]{if(!finished){check("sync test completes within deadline",false);finish();}});
         QDesktopServices::setUrlHandler("https",this,"handle");
         connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(350,this,[this]{auto inbox=window->findChild<QQuickItem*>("inboxPane");QMetaObject::invokeMethod(inbox,"openIndex",Q_ARG(QVariant,1),Q_ARG(QVariant,0));});});
         connect(mail,&Bridge::received,this,[this](const QString&kind,const QVariantMap&data){if(finished)return;if(kind=="error"){check("sync wiring commands succeed: "+data.value("message").toString(),false);finish();}else if(kind=="mutation"){check("single-message actions immediately update reader flags",!mail->messages()->at(0)["starred"].toBool()&&!mail->messages()->at(0)["text"].toString().isEmpty());restoreWindow();}else if(kind=="body"&&!started){started=true;QTimer::singleShot(1000,this,[this]{exercise();});}});

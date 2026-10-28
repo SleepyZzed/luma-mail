@@ -64,7 +64,10 @@ export EXTRA_QT_MODULES=svg APPIMAGE_EXTRACT_AND_RUN=1
 "$tool" --appdir "$appdir" --executable "$appdir/usr/bin/luma-mail" --executable "$appdir/usr/bin/luma-engine" \
   --desktop-file "$appdir/usr/share/applications/io.github.lumamail.Luma.desktop" \
   --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/io.github.lumamail.Luma.svg" \
-  --exclude-library 'libqgtk3.so' --plugin qt
+  --exclude-library 'libqgtk3.so'
+# Apply plugin exclusions to the Qt deployer itself. Geolocation is disabled in
+# mail documents; the unused NMEA/GPS plugin must not pull in serial-port support.
+"$plugin" --appdir "$appdir" --exclude-library 'libqgtk3.so' --exclude-library 'libqtposition_nmea.so'
 [[ -x "$appdir/usr/libexec/QtWebEngineProcess" ]]
 [[ -f "$appdir/usr/resources/icudtl.dat" && -f "$appdir/usr/resources/qtwebengine_resources.pak" ]]
 [[ -f "$appdir/usr/translations/qtwebengine_locales/en-US.pak" ]]

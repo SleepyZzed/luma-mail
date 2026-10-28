@@ -68,6 +68,10 @@ void Bridge::activateWindow(QObject*object){
     auto window=qobject_cast<QWindow*>(object);if(!window)return;
     if(window->isVisible()&&window->visibility()!=QWindow::Minimized){window->raise();window->requestActivate();return;}
     const auto state=window->property("lumaRestoreState").toInt();
+    // A withdrawn X11 window can retain Qt's state while the compositor clears
+    // its native state. Reassert it before remapping instead of taking Qt's
+    // same-state shortcut in showMaximized/showFullScreen.
+    if(!window->isVisible()&&(state&(Qt::WindowMaximized|Qt::WindowFullScreen)))window->setWindowState(Qt::WindowNoState);
     if(state&Qt::WindowFullScreen)window->showFullScreen();else if(state&Qt::WindowMaximized)window->showMaximized();else window->showNormal();window->raise();window->requestActivate();
 }
 bool Bridge::eventFilter(QObject *object,QEvent *event){

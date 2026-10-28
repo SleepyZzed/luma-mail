@@ -3,6 +3,10 @@ import QtQuick.Controls.Basic
 Item {
     id:root;objectName:"settingsPanel"
     property bool opened:false
+    property bool contentRetained:false
+    readonly property bool moving:position.running||backdrop.running
+    function releaseClosedContent(){if(!opened&&!moving)contentRetained=false}
+    onMovingChanged:if(!moving)Qt.callLater(releaseClosedContent)
     property real cacheBytes:-1
     property var accountCache:({})
     property string notice:""
@@ -10,11 +14,11 @@ Item {
     property string rulesAccount:""
     function updatePhotoStats(){photoStats=Mail.profileStats()}
     function moveAccount(id,offset){let ids=(Mail.settings.accounts||[]).map(a=>a.id);const index=ids.indexOf(id),target=index+offset;if(index<0||target<0||target>=ids.length)return;ids.splice(index,1);ids.splice(target,0,id);Mail.send("accountReorder",{accounts:ids})}
-    onOpenedChanged:if(opened){notice="";Mail.send("cacheUsage");updatePhotoStats()}
+    onOpenedChanged:{if(opened){contentRetained=true;notice="";Mail.send("cacheUsage");updatePhotoStats()}else Qt.callLater(releaseClosedContent)}
     signal closeRequested()
     signal signatureRequested(string account)
     signal confirmationRequested(string heading,string message,string buttonText,string command,var parameters)
-    visible:opened||panel.y<height;z:100
+    visible:opened||(contentRetained&&moving);z:100
     Motion{id:backdrop;target:root.opened?.45:0;epsilon:.002;enabled:Theme.motion}
     Motion{id:position;target:root.opened?(root.height-panel.height)/2:root.height+Theme.unit(30);enabled:Theme.motion}
     Rectangle{anchors.fill:parent;color:"#000";opacity:Math.max(0,Math.min(.5,backdrop.value)); MouseArea{anchors.fill:parent;onClicked:root.closeRequested()}}
@@ -22,7 +26,8 @@ Item {
         id:panel;width:Math.min(parent.width-Theme.unit(48),Theme.unit(620));height:Math.min(parent.height-Theme.unit(48),Theme.unit(700));x:(parent.width-width)/2;y:position.value;radius:Theme.unit(25);color:Theme.surface;border.width:1;border.color:Theme.outline
         Text {textFormat:Text.PlainText;x:Theme.unit(30);y:Theme.unit(30);text:"Make yourself at home";font.pixelSize:Theme.unit(23);font.weight:Font.DemiBold;color:Theme.text}
         FluidButton{anchors.right:parent.right;anchors.rightMargin:Theme.unit(18);y:Theme.unit(24);glyph:"close";tip:"Close settings";onClicked:root.closeRequested()}
-        ScrollView{id:settingsScroll;x:Theme.unit(30);y:Theme.unit(93);width:parent.width-2*x;height:parent.height-y-Theme.unit(24);contentWidth:availableWidth;clip:true
+        Loader{id:contentLoader;active:root.contentRetained;x:Theme.unit(30);y:Theme.unit(93);width:parent.width-2*x;height:parent.height-y-Theme.unit(24)
+        sourceComponent:ScrollView{id:settingsScroll;objectName:"settingsContentScroll";anchors.fill:parent;contentWidth:availableWidth;clip:true
         Column{width:settingsScroll.availableWidth;spacing:Theme.unit(20)
             Text {textFormat:Text.PlainText;text:"ACCOUNTS";font.pixelSize:Theme.unit(10);font.letterSpacing:1.2;color:Theme.faint}
             Repeater{model:Mail.accounts;delegate:Column{
@@ -122,6 +127,7 @@ Item {
             }
             FluidCheck{text:"Clear disposable cache on quit";checked:Mail.settings.clear_cache_on_exit||false;onToggled:Mail.send("settingsUpdate",{clear_cache_on_exit:checked})}
             Text{textFormat:Text.PlainText;text:root.cacheBytes<0?"":"Allocated cache: "+(root.cacheBytes/1048576).toFixed(2)+" MiB · limit "+(Mail.settings.cache_mib||0)+" MiB";color:Theme.muted;font.pixelSize:Theme.unit(11)}
+        }
         }
         }
     }
