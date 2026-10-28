@@ -1,4 +1,5 @@
 #include "rich_document.h"
+#include "document_binding.h"
 #include <QAbstractTextDocumentLayout>
 #include <QRegularExpression>
 #include <QTextBlock>
@@ -22,7 +23,7 @@ RichDocument::RichDocument(QObject *parent):QObject(parent),doc(new PrivateDocum
 }
 void RichDocument::setDocument(QQuickTextDocument *value){
     if(quick==value)return;quick=value;
-    if(quick){doc->setParent(quick);quick->setTextDocument(doc);}
+    if(quick)bindPrivateDocument(quick,doc);
     emit documentChanged();
 }
 QTextCursor RichDocument::cursor()const {

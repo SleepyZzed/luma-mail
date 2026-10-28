@@ -1,8 +1,9 @@
 #include "read_document.h"
+#include "document_binding.h"
 #include <QUrl>
 #include <cmath>
 ReadDocument::ReadDocument(QObject*parent):QObject(parent),doc(new PrivateDocument(this)){fontFamily=QFontDatabase::systemFont(QFontDatabase::GeneralFont).family();doc->setUndoRedoEnabled(false);doc->setDocumentMargin(0);doc->documentLayout();}
-void ReadDocument::setDocument(QQuickTextDocument*value){if(quick==value)return;quick=value;if(quick){doc->setParent(quick);quick->setTextDocument(doc);}emit changed();}
+void ReadDocument::setDocument(QQuickTextDocument*value){if(quick==value)return;quick=value;if(quick)bindPrivateDocument(quick,doc);emit changed();}
 void ReadDocument::setSource(const QString&value){if(text==value)return;text=value;format();emit changed();}
 void ReadDocument::setSpans(const QVariantList&value){if(links==value)return;links=value.mid(0,1000);format();emit changed();}
 void ReadDocument::setForeground(QColor value){if(colour==value||!value.isValid())return;colour=value;format();emit changed();}

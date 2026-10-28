@@ -605,3 +605,63 @@ followed during redirection, replacing the binary with the wrapper. Packaging no
 unlinks that exact staging entry before creating the wrapper and checks the native
 ELF before/after. The corrected portable Linux acceptance remains pending CI.
 No release tag, full-parity, complete GTK removal or Google approval is claimed.
+
+
+The new Windows standalone test's cold factory call exceeded 250 ms on the hosted
+runner, although completion remained asynchronous. Its timing is now printed as
+evidence, while a controller-before-message-dispatch check enforces the async
+contract without a hardware-specific fixed deadline. The native GUI diagnostic
+now includes adapter-library loading and runtime setup in its caller measurement.
+This is not a claim that Windows SDK bootstrap is always below a frame budget.
+The Windows checkout also explicitly disables automatic CRLF conversion before
+checkout, so the Windows and MSYS Git tools inspect the same bytes. Dirty-source
+path diagnostics remain enabled; clean provenance still requires CI confirmation.
+A physical-resolution wordmark experiment was reverted after a navigation run
+returned an access violation during exit despite completing its assertions.
+The working artwork path stays intact pending isolated Qt lifetime investigation;
+the failed experiment is not treated as a successful optimization.
+
+
+The 3a314df Linux branch job completed successfully, including the corrected
+AppImage's native scene suite with developer paths removed. Windows stopped at
+the cold timing assumption described above; the semantic conformance test passes
+locally after the correction. One later local motion run reported multiple
+out-of-order phase failures; its checks now record elapsed time and native
+visibility/exposure to distinguish lifecycle interruptions from a product defect.
+The successful Linux package does not make this unresolved local run a pass.
+
+
+Downloaded Linux AppImage 3a314df passed all 263 platform-specific portable scene
+checks and its SHA-256 matches the package checksum. It is 176,028,152 bytes;
+the installed tree is 495,780,513 logical bytes (531,230,720 allocated), separate
+from the mail-cache budget. The authorized live Windows engine read was repeated
+in a separate zero-cache profile using only the existing vault identity; remote
+search, thread headers and body passed, and only settings.json remained. Original
+profile preferences were unchanged. A debugger reproduced the later local access
+violation in Qt's Windows UI Automation accessibility path, with QtGui/QtQuick and
+UIAutomationCore on the stack. It remains a release blocker under investigation;
+Linux portable success is not used to dismiss it.
+
+
+## Accessible text lifetime correction
+
+Qt Quick 6.12's accessible-item implementation snapshots its QTextDocument pointer
+when the interface is created. Replacing an editor's default document could leave
+that interface pointing at the freed default document; the debugger caught
+QTextDocumentPrivate::addCursor receiving freed memory during Windows UIA GetText.
+The new binding invalidates that cached interface before replacement and emits a
+structure update afterward. It parents the private document to the editor rather
+than its wrapper, preserving lifetime through editor/control teardown. Both the
+read-only and rich editors use the same helper. Accessibility stays enabled and
+resource loading stays blocked.
+
+A regression deliberately creates the accessible interface before binding. The
+original implementation fails both reading and composition cases (exit 2); the
+fixed implementation passes both (exit 0). It checks current accessible text,
+resource denial and editor-owned document release. Seven CTest groups pass. Native
+navigation, motion, composer and long-thread checks pass, followed by a second
+motion run; phase order and spring timings are normal again with UIA active.
+These checks address the reproduced crash rather than ignoring the failed runs.
+See Qt's [cached interface implementation](https://github.com/qt/qtdeclarative/blob/v6.12.0/src/quick/accessible/qaccessiblequickitem.cpp)
+and [document replacement](https://github.com/qt/qtdeclarative/blob/v6.12.0/src/quick/items/qquicktextedit.cpp).
+Fresh packaged Windows/Linux acceptance of this correction remains required.

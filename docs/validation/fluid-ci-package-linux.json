@@ -1,0 +1,112 @@
+{
+  "passed": true,
+  "synthetic_data": true,
+  "binary_sha256": "321469a4fdf7da8b558f472d771b97ec7377272cfa6695f8aa6f431cfbf15c46",
+  "platform": "linux",
+  "sdk_search_paths_removed": true,
+  "checks": [
+    {
+      "case": "auth",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 14,
+      "qml_warnings": []
+    },
+    {
+      "case": "popout",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 14,
+      "qml_warnings": []
+    },
+    {
+      "case": "navigation",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 43,
+      "qml_warnings": []
+    },
+    {
+      "case": "composer",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 30,
+      "qml_warnings": []
+    },
+    {
+      "case": "motion",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 33,
+      "qml_warnings": []
+    },
+    {
+      "case": "photo",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 5,
+      "qml_warnings": []
+    },
+    {
+      "case": "html",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 10,
+      "qml_warnings": []
+    },
+    {
+      "case": "thread",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 17,
+      "qml_warnings": []
+    },
+    {
+      "case": "search",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    },
+    {
+      "case": "conflict",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 13,
+      "qml_warnings": []
+    },
+    {
+      "case": "sync",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 21,
+      "qml_warnings": []
+    },
+    {
+      "case": "attachment",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 18,
+      "qml_warnings": []
+    },
+    {
+      "case": "signature",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    },
+    {
+      "case": "recovery",
+      "passed": true,
+      "exit_code": 0,
+      "checks": 15,
+      "qml_warnings": []
+    }
+  ],
+  "total_checks": 263,
+  "source_commit": "3a314df4f6fb67b87165aaf070faf4d60677d8a9",
+  "appimage_sha256": "321469a4fdf7da8b558f472d771b97ec7377272cfa6695f8aa6f431cfbf15c46",
+  "appimage_bytes": 176028152,
+  "note": "Registered Linux AppImage; 263 native scene checks pass after removing SDK search paths. Real GPU/Hyprland and long-term acceptance remain open."
+}

@@ -187,3 +187,11 @@ Search highlighting is presentation only: a single compiled literal expression,
 at most eight terms and 32 highlights within 8,192 display characters per field.
 Untrusted strings are escaped before styling. Gmail retains query semantics and
 remote search; unopened messages are not downloaded or indexed for highlighting.
+
+
+Private native documents invalidate the editor's previous accessibility interface
+before attachment, because Qt Quick snapshots that document pointer. The current
+interface is then rebuilt for screen readers, with document ownership attached
+to the editor through its teardown. Both reading and rich editing share this
+binding; no accessibility disabling, private Qt ABI, network/file resource loading
+or longer-lived document cache is used.

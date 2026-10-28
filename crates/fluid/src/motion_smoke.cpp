@@ -24,7 +24,7 @@ MotionSmoke::MotionSmoke(Bridge *bridge,QQuickWindow *window)
     connect(window,&QQuickWindow::afterFrameEnd,this,[this]{if(elapsed.isValid()){++totalFrames;if(frames.size()<1000)frames.append(elapsed.elapsed());}},Qt::QueuedConnection);
 }
 void MotionSmoke::check(const QString &name,bool passed) {
-    checks.append(QJsonObject{{"check",name},{"passed",passed}});
+    checks.append(QJsonObject{{"check",name},{"passed",passed},{"atMs",elapsed.isValid()?elapsed.elapsed():0},{"exposed",window->isExposed()},{"visible",window->isVisible()},{"minimized",window->visibility()==QWindow::Minimized}});
     failed|=!passed;
 }
 void MotionSmoke::open(int index,int modifiers) {

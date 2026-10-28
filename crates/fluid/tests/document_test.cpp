@@ -5,9 +5,34 @@
 #include <QTextList>
 #include <QTextTable>
 #include <QBuffer>
+#include <QAccessible>
+#include <QQmlComponent>
+#include <QQmlEngine>
 class DocumentTest:public QObject {
     Q_OBJECT
 private slots:
+    void accessibleDocumentReplacement_data(){QTest::addColumn<bool>("rich");QTest::newRow("reading")<<false;QTest::newRow("composition")<<true;}
+    void accessibleDocumentReplacement(){
+        QFETCH(bool,rich);QQmlEngine engine;QQmlComponent component(&engine);
+        component.setData("import QtQuick\nTextEdit { width:300;height:80;text: 'Original document';Accessible.role:Accessible.EditableText }",QUrl());
+        QScopedPointer<QObject> editor(component.create());QVERIFY2(editor,qPrintable(component.errorString()));
+        auto wrapper=editor->property("textDocument").value<QQuickTextDocument*>();QVERIFY(wrapper);
+        auto previous=QAccessible::queryAccessibleInterface(editor.data());QVERIFY(previous);QVERIFY(previous->textInterface());
+        const auto oldId=QAccessible::uniqueId(previous);QCOMPARE(previous->textInterface()->text(0,8),QString("Original"));
+        QPointer<QTextDocument> retained;
+        {
+            ReadDocument reader;RichDocument composer;
+            if(rich){composer.load({{"kind","plain"},{"text","Replacement document"}});composer.setDocument(wrapper);retained=composer.nativeDocument();}
+            else{reader.setSource("Replacement document");reader.setDocument(wrapper);retained=reader.nativeDocument();}
+            QVERIFY(!QAccessible::accessibleInterface(oldId));
+            auto current=QAccessible::queryAccessibleInterface(editor.data());QVERIFY(current);QVERIFY(current->textInterface());
+            QCOMPARE(current->textInterface()->text(0,current->textInterface()->characterCount()),QString("Replacement document"));
+            QVERIFY(!retained->resource(QTextDocument::ImageResource,QUrl("file:///private")).isValid());
+            QVERIFY(!retained->resource(QTextDocument::ImageResource,QUrl("https://example.invalid/image.png")).isValid());
+        }
+        QVERIFY(retained);QCOMPARE(wrapper->textDocument()->toPlainText(),QString("Replacement document"));
+        editor.reset();QVERIFY(!retained);
+    }
     void paragraphFormattingKeepsIndependentIndentation(){
         RichDocument d;d.load({{"kind","plain"},{"text","First\nSecond"}});auto doc=d.nativeDocument();auto first=doc->begin();auto second=first.next();QTextCursor a(first),b(second);QTextBlockFormat af,bf;af.setLeftMargin(24);bf.setLeftMargin(48);a.setBlockFormat(af);b.setBlockFormat(bf);d.selection(0,doc->characterCount()-1,0);d.align(Qt::AlignRight);d.lineSpacing(1.5);QCOMPARE(first.blockFormat().leftMargin(),qreal(24));QCOMPARE(second.blockFormat().leftMargin(),qreal(48));QCOMPARE(second.blockFormat().lineHeight(),qreal(150));QCOMPARE(second.blockFormat().alignment(),Qt::AlignRight);
     }

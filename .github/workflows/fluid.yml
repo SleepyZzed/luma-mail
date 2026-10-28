@@ -307,6 +307,9 @@ jobs:
   windows-scene:
     runs-on: windows-latest
     steps:
+      - name: Keep source line endings consistent between Windows and MSYS Git
+        shell: pwsh
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - uses: msys2/setup-msys2@v2
         with:
@@ -332,6 +335,8 @@ jobs:
             ~/.cargo/git
             target
           key: fluid-windows-ucrt-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            fluid-windows-ucrt-
       - name: Build the native UCRT engine and HTML adapter
         shell: msys2 {0}
         run: |

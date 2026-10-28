@@ -1,0 +1,15 @@
+{
+  "source_commit": "2d97bc368b5721580c5e08df95e30a217c4e1391",
+  "configured": true,
+  "live_account_found": true,
+  "mailbox_write_actions": false,
+  "raw_mail_saved": false,
+  "cache_mib": 0,
+  "remote_search_passed": true,
+  "first_page_seconds": 1.172,
+  "bounded_page": true,
+  "test_conversations": 1,
+  "thread_headers_passed": true,
+  "body_fetch_passed": true,
+  "passed": true
+}

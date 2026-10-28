@@ -70,13 +70,14 @@ void HtmlSurface::updateSurface(){
     if(!lifetimeActive||!isVisible()||!window()->isVisible()||window()->visibility()==QWindow::Minimized||clip.isEmpty()||page.isEmpty()){release();return;}
     const bool show=isVisible()&&window()->isVisible()&&!covered&&!clip.isEmpty()&&width()>1&&!page.isEmpty();
     if(!surface&&show&&failure.isEmpty()){
+        QElapsedTimer creation;creation.start();
         if(!runtime)runtime=std::make_unique<ReaderRuntime>();
         if(!api().valid()||!runtime->isValid()){failure="HTML preview component is unavailable: "+api().library.errorString();emit errorChanged();return;}
         auto bytes=page.toUtf8(),directory=runtime->path().toUtf8();
         // The adapter initializes asynchronously. Keep the host's reentrancy
         // guard as well so a synchronous failure/lifetime callback cannot
         // overwrite ownership with a second native surface.
-        creating=true;releasePending=false;const auto version=generation;QElapsedTimer creation;creation.start();
+        creating=true;releasePending=false;const auto version=generation;
         surface=api().create(qintptr(window()->winId()),reinterpret_cast<const unsigned char*>(bytes.constData()),bytes.size(),reinterpret_cast<const unsigned char*>(directory.constData()),directory.size(),&HtmlSurface::callback,this);
         initialization=creation.elapsed();creating=false;emit initializationChanged();
         if(!surface){failure="Could not create the HTML view. Microsoft Edge WebView2 Runtime is required.";emit errorChanged();return;}
