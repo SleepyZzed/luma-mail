@@ -69,6 +69,7 @@ int main(int argc,char**argv){
 #endif
     auto profiles=new ProfileImages;engine.addImageProvider("profiles",profiles);bridge.setProfileImages(profiles);
     engine.rootContext()->setContextProperty("Mail",&bridge);
+    engine.rootContext()->setContextProperty("resourceFixture",preview&&app.arguments().contains("--resource-test"));
     engine.rootContext()->setContextProperty("isWindows",
 #ifdef Q_OS_WIN
         true

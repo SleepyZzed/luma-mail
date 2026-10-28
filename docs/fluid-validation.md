@@ -700,3 +700,46 @@ Linux 37c8178 software-rendered full-tree PSS is 234.3 MiB at baseline, 410.1 wi
 HTML and 335.5 when backgrounded; settled sampled CPU is 0.00% of one core.
 This is not real GPU/Hyprland or sustained live-sync acceptance, and RAM goals
 remain unmet. No mailbox, draft, attachment or browser disk archive was added.
+
+
+## On-demand editor and clean portable checkpoint
+
+Both e27b4fd branch package jobs passed. Windows has 271 portable native checks
+and Linux 268, with SDK search paths removed. Windows provenance is now clean
+(source_dirty false, no changed paths), resolving the earlier line-ending gate.
+Its ZIP is 102,283,605 bytes, SHA-256
+f1ffe04d9f6bd4c09ad8ebd5efbe677001edd63d09f5362fe201457676ef128c.
+The Linux AppImage is 176,048,632 bytes, SHA-256
+2e579d27a2f3821a067131a9e8443910953c512b3e6aa02384c8ffc45f550622.
+These are preview artifacts, not a full-parity/1.0 or Google approval claim.
+The configured e27b4fd engine also passes the authorized already-read self-mail
+search/thread/body check in an isolated zero-cache profile; first page is 1.000 s.
+No mail writes or raw-mail evidence files are produced.
+
+The newer composer keeps its spring shell but constructs the full editor only
+when opened. Final close destroys controls, private document, approved previews,
+undo history and popups; rapid reopening before spring completion retains the
+existing editor. Pop-out/dock, source protection, field focus, image paste, inline
+reply and close/draft policies pass native checks. The full local suite now has
+272 checks, including proof that a fresh idle window has no rich editor controls.
+
+The first longer profile was invalidated by unexpected archive/composer Save/Send
+commands; its failed counters remain in scratch and are not accepted as idle
+measurements. The measurement-only window now declines focus and filters input;
+normal application input is unchanged. The fixture also verifies the mailbox
+count and absence of a composer, stops subsequent phases after failure, and
+supports a bounded 20–90-second HTML hold. The Windows sampler now attributes CPU
+to individual processes/renderer roles and rejects missing/incomplete lifecycle
+reports even if the process exits with code zero.
+
+The repeated 60-second HTML run passes all ten lifecycle checks. Full-tree Windows
+private working set averages 136.3 MiB baseline, 145.7 with 1,000 inbox records,
+147.7 after scrolling, 252.2 with HTML, 153.9 after reader release, 58.8 in the
+background and 145.4 after restoration. Baseline/HTML/background private commit
+is 202.8/377.4/125.1 MiB, separately reported. All nine settled HTML CPU samples
+are 0.00% of one core at the sampling resolution. This is a synthetic Windows
+result, not sustained Gmail/GPU acceptance or proof of zero CPU usage. The
+zero-cache footprint is one 51-byte settings file (56 allocated bytes), with no
+cache files. See fluid-resource-editor-*.json for binary provenance and samples.
+Latest packaged Linux acceptance, target hardware, active HTML RAM, remaining
+authoring/forwarding and external review gates still apply.

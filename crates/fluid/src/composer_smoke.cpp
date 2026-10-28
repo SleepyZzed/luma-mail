@@ -4,6 +4,7 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <QTimer>
@@ -14,13 +15,13 @@
 #include <QDateTime>
 #include <functional>
 class ComposerSmoke:public QObject {
-    Bridge *mail;QQuickWindow *window;QQuickItem *card=nullptr;RichDocument *document=nullptr;
+    Bridge *mail;QQuickWindow *window;QQuickItem *card=nullptr;QPointer<RichDocument> document=nullptr;
     int stage=0;bool failed=false,finished=false;QString session;QJsonArray checks;
     void check(const QString&name,bool ok){checks.append(QJsonObject{{"check",name},{"passed",ok}});failed|=!ok;}
     void invoke(const char*method){QMetaObject::invokeMethod(card,method);}
     void key(int code,Qt::KeyboardModifiers modifiers=Qt::NoModifier){QKeyEvent press(QEvent::KeyPress,code,modifiers);QCoreApplication::sendEvent(window,&press);QKeyEvent release(QEvent::KeyRelease,code,modifiers);QCoreApplication::sendEvent(window,&release);}
     void afterClosed(std::function<void()> next,int attempts=50){
-        if(!card->property("shown").toBool()&&!card->property("closingPending").toBool()&&document->nativeDocument()->isEmpty()){next();return;}
+        if(!card->property("shown").toBool()&&!card->property("closingPending").toBool()&&(!document||document->nativeDocument()->isEmpty())){next();return;}
         if(!attempts){check("closed composer settles and releases its document",false);finish();return;}
         QTimer::singleShot(50,this,[this,next,attempts]{afterClosed(next,attempts-1);});
     }
@@ -32,9 +33,16 @@ public:
         const auto root=qEnvironmentVariable("LUMA_TEST_ROOT");
         // Seed only optional recipient metadata in this isolated synthetic root.
         if(!root.isEmpty()){const auto dir=root+"/config/composer";QDir().mkpath(dir);QSaveFile file(dir+"/recipients.json");if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(QJsonArray{QJsonObject{{"account","preview"},{"address","Maya Chen <maya@example.com>"},{"last_sent",QDateTime::currentSecsSinceEpoch()}}}).toJson());file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);file.commit();}}
-        connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(300,this,[this]{mail->requestCompose();});});
+        connect(mail,&Bridge::ready,this,[this]{QTimer::singleShot(300,this,[this]{
+            auto shell=window->findChild<QQuickItem*>("composer");check("idle composer has no rich document or editor controls",shell&&!shell->property("controlsLoaded").toBool()&&!window->findChild<RichDocument*>("composeDocument")&&!window->findChild<QQuickItem*>("composeBody"));
+            auto button=window->findChild<QQuickItem*>("newMessageButton");if(!button||!button->isVisible()){check("native compose button is available",false);finish();return;}
+            const auto local=button->mapToScene(QPointF(button->width()/2,button->height()/2));const QPointF global=window->mapToGlobal(local.toPoint());
+            QMouseEvent down(QEvent::MouseButtonPress,local,global,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(window,&down);
+            QMouseEvent up(QEvent::MouseButtonRelease,local,global,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(window,&up);
+        });});
         connect(mail,&Bridge::received,this,[this](const QString&event,const QVariantMap&data){
             if(finished)return;
+            if(event=="composeOpened")document=window->findChild<RichDocument*>("composeDocument");
             if(event=="error"){check("no unexpected composer error: "+data.value("message").toString(),false);stage=99;finish();return;}
             if(event=="composeOpened"&&stage==0){
                 stage=1;session=data["session"].toString();card=window->findChild<QQuickItem*>("composer");document=window->findChild<RichDocument*>("composeDocument");
@@ -96,10 +104,10 @@ public:
             }else if(event=="quitCancelled"&&stage==4){
                 stage=5;check("keep editing cancels quit",card->property("shown").toBool());mail->send("settingsUpdate",{{"draft_mode","manual"}});
             }else if(event=="settings"&&stage==5){stage=6;invoke("requestClose");}
-            else if(event=="composeClosed"&&stage==6){stage=7;check("manual close clears engine content",data["quote"].toString().isEmpty()&&data["attachments"].toList().isEmpty());afterClosed([this]{check("close clears the native rich document",document->nativeDocument()->isEmpty());mail->selectRow(0,0,240,100,450,68);});}
+            else if(event=="composeClosed"&&stage==6){stage=7;check("manual close clears engine content",data["quote"].toString().isEmpty()&&data["attachments"].toList().isEmpty());afterClosed([this]{check("close releases the native rich document",!document&&!card->property("controlsLoaded").toBool());mail->selectRow(0,0,240,100,450,68);});}
             else if(event=="body"&&stage==7){stage=8;mail->requestCompose("reply",mail->messages()->at(0));}
             else if(event=="composeOpened"&&stage==8){
-                stage=9;session=data["session"].toString();check("reply has read-only history outside the editor",!data["quote"].toString().isEmpty()&&document->nativeDocument()->isEmpty());
+                stage=9;session=data["session"].toString();check("reply has read-only history outside the editor",!data["quote"].toString().isEmpty()&&(!document||document->nativeDocument()->isEmpty()));
                 check("reply keeps its account ownership",data["accountLocked"].toBool());
                 QTimer::singleShot(750,this,[this]{check("reply docks inside the reading thread",card->property("inlineMode").toBool()&&!card->property("expanded").toBool());check("reply focuses authored body",window->activeFocusItem()==window->findChild<QQuickItem*>("composeBody"));mail->requestCompose("reply",mail->messages()->at(0));});
             }else if(event=="composeFocus"&&stage==9){stage=10;check("repeated reply never maximizes or creates a draft",data["session"]==session&&card->property("inlineMode").toBool()&&!card->property("expanded").toBool());invoke("requestClose");}

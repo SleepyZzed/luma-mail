@@ -1,7 +1,7 @@
 {
   "passed": true,
   "synthetic_data": true,
-  "binary_sha256": "321469a4fdf7da8b558f472d771b97ec7377272cfa6695f8aa6f431cfbf15c46",
+  "binary_sha256": "2e579d27a2f3821a067131a9e8443910953c512b3e6aa02384c8ffc45f550622",
   "platform": "linux",
   "sdk_search_paths_removed": true,
   "checks": [
@@ -30,7 +30,7 @@
       "case": "composer",
       "passed": true,
       "exit_code": 0,
-      "checks": 30,
+      "checks": 35,
       "qml_warnings": []
     },
     {
@@ -104,9 +104,5 @@
       "qml_warnings": []
     }
   ],
-  "total_checks": 263,
-  "source_commit": "3a314df4f6fb67b87165aaf070faf4d60677d8a9",
-  "appimage_sha256": "321469a4fdf7da8b558f472d771b97ec7377272cfa6695f8aa6f431cfbf15c46",
-  "appimage_bytes": 176028152,
-  "note": "Registered Linux AppImage; 263 native scene checks pass after removing SDK search paths. Real GPU/Hyprland and long-term acceptance remain open."
+  "total_checks": 268
 }

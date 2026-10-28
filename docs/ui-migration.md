@@ -195,3 +195,12 @@ image authoring, whole-conversation forwarding and Linux RAM goals remain open.
   preserves tested playback while avoiding eager media-backend startup. Linux
   37c8178 portable checks pass; Windows startup/packaging and RAM/desktop gates
   remain open. Exact evidence is recorded in fluid-validation.md.
+
+
+- On-demand composer controls now release the native editor/document/history
+  after closing springs settle; rapid reopening and pop-out retain the existing
+  editor. The latest local suite passes 272 checks. Both e27b4fd preview packages
+  pass without SDK paths (271 Windows/268 Linux), with clean Windows source
+  provenance. An isolated zero-cache live read also passes. Newer lifetime changes
+  still require matching package/desktop acceptance; GTK reference removal and
+  1.0 remain gated.

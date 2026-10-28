@@ -2,6 +2,13 @@
 
 <img src="data/luma-wordmark.png" alt="Luma Mail" width="320">
 
+**Fluid interface migration:** the replacement uses a custom Qt Quick scene with
+shared-element spring transitions and the existing Rust engine. GTK-free Linux
+and Windows preview packages pass native portable checks. See the
+[interface wiring](docs/ui-migration.md), [build/packaging instructions](docs/fluid-packaging.md)
+and [validation record](docs/fluid-validation.md). The 0.9 download below remains
+the released reference while final parity and desktop acceptance continue.
+
 A native Rust / GTK4 / libadwaita Gmail client built around **online-first access**.
 The mailbox stays on Google. Luma loads a page of conversation metadata, then
 fetches individual message bodies only when you expand them. It never builds a

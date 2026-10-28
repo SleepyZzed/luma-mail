@@ -20,6 +20,20 @@ Item {
     property bool manualPosition:false
     property point floatingPosition:Qt.point(0,0)
     property point dragStart:Qt.point(0,0)
+    readonly property var to:formLoader.item?.toField||null
+    readonly property var cc:formLoader.item?.ccField||null
+    readonly property var bcc:formLoader.item?.bccField||null
+    readonly property var subject:formLoader.item?.subjectField||null
+    readonly property var body:formLoader.item?.bodyField||null
+    readonly property var rich:formLoader.item?.richDocument||null
+    readonly property var closeDialog:formLoader.item?.closePopup||null
+    readonly property var linkDialog:formLoader.item?.linkPopup||null
+    readonly property var tableDialog:formLoader.item?.tablePopup||null
+    readonly property var findDialog:formLoader.item?.findPopup||null
+    readonly property var historyDialog:formLoader.item?.historyPopup||null
+    readonly property var formatMenu:formLoader.item?.formatPopup||null
+    readonly property var drag:formLoader.item?.headerDrag||null
+    readonly property bool controlsLoaded:formLoader.status===Loader.Ready
     property bool formLoading:false
     property string loadedSession:""
     property bool showCc:false
@@ -54,13 +68,13 @@ Item {
     readonly property real goalY:detached&&shown&&!statusMode?0:inlineMode?0:!shown?scene.height+Theme.unit(24):statusMode?scene.height-goalHeight-Theme.unit(24):expanded?Theme.unit(20):manualPosition?Math.max(Theme.unit(12),Math.min(scene.height-goalHeight-Theme.unit(12),floatingPosition.y)):scene.height-goalHeight-Theme.unit(24)
     readonly property bool moving:horizontal.running||vertical.running||breadth.running||depth.running
     onMovingChanged:if(closingPending&&!shown&&!moving)Qt.callLater(()=>releaseDelay.restart())
-    readonly property bool recipientSuggestionsOpen:to.suggestionsOpen||cc.suggestionsOpen||bcc.suggestionsOpen
+    readonly property bool recipientSuggestionsOpen:!!to?.suggestionsOpen||!!cc?.suggestionsOpen||!!bcc?.suggestionsOpen
     visible:shown||moving;clip:true;z:70
     property bool externalModal:false
-    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||closeDialog.visible||linkDialog.visible||tableDialog.visible||findDialog.visible||historyDialog.visible||formatMenu.visible
+    readonly property bool modalOpen:externalModal||AttachmentViewer.opened||!!closeDialog?.visible||!!linkDialog?.visible||!!tableDialog?.visible||!!findDialog?.visible||!!historyDialog?.visible||!!formatMenu?.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
-    Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&root.hostVisible&&!drag.active}
-    Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag.active}
+    Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
+    Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
     Motion{id:breadth;target:root.goalWidth;enabled:Theme.motion&&root.hostVisible}
     Motion{id:depth;target:root.goalHeight;enabled:Theme.motion&&root.hostVisible}
     Rectangle{anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:Theme.motion&&root.hostVisible}}
@@ -83,6 +97,22 @@ Item {
         leftPadding:0;rightPadding:0;topPadding:Theme.unit(4);bottomPadding:Theme.unit(4);background:Item{}
         enabled:!root.state.locked;maximumLength:8192;onTextEdited:root.schedule()
     }
+    Loader {
+        id:formLoader;objectName:"composeControlsLoader";anchors.fill:parent;active:false
+        sourceComponent:Component {Item {
+            property alias toField:to
+            property alias ccField:cc
+            property alias bccField:bcc
+            property alias subjectField:subject
+            property alias bodyField:body
+            property alias richDocument:rich
+            property alias closePopup:closeDialog
+            property alias linkPopup:linkDialog
+            property alias tablePopup:tableDialog
+            property alias findPopup:findDialog
+            property alias historyPopup:historyDialog
+            property alias formatPopup:formatMenu
+            property alias headerDrag:drag
     Item {
         id:header;width:parent.width;height:Theme.unit(52)
         Text{textFormat:Text.PlainText;x:Theme.unit(22);anchors.verticalCenter:parent.verticalCenter;text:root.phase==="sending"?"Sending · waiting for Gmail…":root.phase==="sent"?"Sent · confirmed by Gmail":root.state.mode==="draft"?"Gmail draft":root.inlineMode?"Reply":"New message";color:Theme.text;font.pixelSize:Theme.unit(13);font.weight:Font.DemiBold}
@@ -267,12 +297,14 @@ Item {
             }
         }
     }
+        }}
+    }
     Timer{id:inputDelay;interval:100;onTriggered:root.sync()}
     Shortcut{sequence:"Ctrl+Return";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSend")}
     Shortcut{sequence:"Ctrl+Enter";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSend")}
     Shortcut{sequence:"Ctrl+S";enabled:root.shown&&!root.modalOpen;onActivated:root.submit("composeSave")}
     Timer{id:sentDelay;interval:1100;onTriggered:root.close()}
-    Timer{id:releaseDelay;interval:0;onTriggered:if(root.closingPending&&!root.shown&&!root.moving){root.closingPending=false;root.formLoading=true;to.clear();cc.clear();bcc.clear();root.showCc=false;root.showBcc=false;subject.clear();rich.load({kind:"plain",text:""});Mail.releaseComposerView(root.loadedSession);root.loadedSession="";root.formLoading=false;root.releasePopout()}}
+    Timer{id:releaseDelay;interval:0;onTriggered:root.releaseEditor()}
     Component {
         id:windowComponent
         ApplicationWindow {
@@ -321,21 +353,29 @@ Item {
         else inlineDock=null
         old.card=null;old.hide();old.destroy();if(activate)Qt.callLater(()=>body.forceActiveFocus())
     }
+    function ensureControls(){formLoader.active=true}
+    function releaseEditor(){
+        if(!closingPending||shown||moving)return
+        inputDelay.stop();formLoading=true
+        Mail.releaseComposerView(loadedSession);loadedSession="";showCc=false;showBcc=false
+        releasePopout();formLoader.active=false;formLoading=false;closingPending=false
+    }
     function schedule(){if(!formLoading&&shown&&loadedSession)inputDelay.restart()}
     function chooseSender(choice){root.sync();if(choice.account===state.account)Mail.send("composeIdentity",{session:loadedSession,address:choice.address});else Mail.send("composeAccount",{session:loadedSession,account:choice.account})}
-    function form(){let value={to:to.text,cc:cc.text,bcc:bcc.text,subject:subject.text,includeQuote:includeQuote,includeSignature:includeSignature};if(!state.sourceMode){const p=rich.payload();value.text=p.text;value.html=p.html}return value}
+    function form(){if(!controlsLoaded)return {};let value={to:to.text,cc:cc.text,bcc:bcc.text,subject:subject.text,includeQuote:includeQuote,includeSignature:includeSignature};if(!state.sourceMode){const p=rich.payload();value.text=p.text;value.html=p.html}return value}
     function sync(){inputDelay.stop();if(formLoading||!shown||!loadedSession||state.locked)return;let f=form();f.session=loadedSession;Mail.send("composeUpdate",f)}
     function submit(action){if(!loadedSession||state.locked)return;inputDelay.stop();Mail.send(action,{session:loadedSession,form:form()})}
-    function requestClose(){if(closeDialog.visible)return;if(loadedSession){inputDelay.stop();Mail.send("composeClose",{session:loadedSession,form:form()})}else close()}
+    function requestClose(){if(closeDialog?.visible)return;if(loadedSession){inputDelay.stop();Mail.send("composeClose",{session:loadedSession,form:form()})}else close()}
     function answerClose(answer){Mail.send("composeCloseAnswer",{session:loadedSession,revision:closeDialog.question.revision,answer:answer});closeDialog.close()}
-    function focusEditor(){if(detached)Mail.activateWindow(popout);Qt.callLater(()=>{if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
+    function focusEditor(){if(detached)Mail.activateWindow(popout);Qt.callLater(()=>{if(!shown||!controlsLoaded)return;if(inlineMode)body.forceActiveFocus();else to.forceActiveFocus()})}
     function open(mode){
+        ensureControls()
         const activeSurface=openingSurface===undefined?visible:openingSurface;openingSurface=undefined
         closingPending=false;releaseDelay.stop();sentDelay.stop();phase="editing";expanded=false;shown=true
         if(Theme.motion&&!inlineMode&&!activeSurface){horizontal.snap(origin.x);vertical.snap(origin.y);breadth.snap(origin.width);depth.snap(origin.height);horizontal.resume();vertical.resume();breadth.resume();depth.resume()}
         focusEditor()
     }
-    function close(){inputDelay.stop();closingPending=true;shown=false;closeDialog.close();linkDialog.close();tableDialog.close();findDialog.close();historyDialog.close();formatMenu.close();Qt.callLater(()=>{if(!moving)releaseDelay.restart()})}
+    function close(){inputDelay.stop();closingPending=true;shown=false;closeDialog?.close();linkDialog?.close();tableDialog?.close();findDialog?.close();historyDialog?.close();formatMenu?.close();Qt.callLater(()=>{if(!moving)releaseDelay.restart()})}
     function toggleExpanded(){
         const position=mapToItem(scene,0,0)
         if(inlineMode){inlineMode=false;parent=scene;expanded=true;horizontal.rebase(position.x);vertical.rebase(position.y)}
@@ -351,10 +391,10 @@ Item {
     }
     function dockBottomRight(){manualPosition=false}
     Connections{target:Mail
-        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;formLoading=false;if(c.state==="sent")sentDelay.restart()}
+        function onComposerChanged(){const c=Mail.composer;formLoading=true;if(c.replace&&c.document){ensureControls();loadedSession=c.session;to.text=c.to||"";cc.text=c.cc||"";bcc.text=c.bcc||"";showCc=!!cc.text;showBcc=!!bcc.text;subject.text=c.subject||"";rich.load(c.document);includeQuote=c.includeQuote;includeSignature=c.includeSignature;localError=""}if(c.phase)phase=c.phase;formLoading=false;if(c.state==="sent")sentDelay.restart()}
         function onComposeClosed(){root.close()}
         function onComposeCloseQuestion(data){if(root.detached)Mail.activateWindow(root.popout);closeDialog.question=data;closeDialog.open()}
         function onFlushComposer(){root.sync()}
-        function onColourChosen(colour,background){if(background)rich.highlight(colour);else rich.foreground(colour)}
+        function onColourChosen(colour,background){if(!rich)return;if(background)rich.highlight(colour);else rich.foreground(colour)}
     }
 }

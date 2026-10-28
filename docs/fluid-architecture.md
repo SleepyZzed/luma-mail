@@ -195,3 +195,16 @@ interface is then rebuilt for screen readers, with document ownership attached
 to the editor through its teardown. Both reading and rich editing share this
 binding; no accessibility disabling, private Qt ABI, network/file resource loading
 or longer-lived document cache is used.
+
+
+The composer now retains only its spring shell while closed. Opening creates the
+editor controls/document; completed closing destroys them through one Loader.
+Its existing RAM session, source preservation and serialized draft policy stay in
+the Rust engine. Pop-out/dock reparents the same loaded editor, and reopening
+during a close cancels teardown. Deferred focus/colour handlers ignore released
+controls; no local draft or content cache is added.
+
+Only the isolated resource fixture declines keyboard focus and filters input.
+It holds a real private HTML surface for a selectable bounded period and verifies
+that all 1,000 metadata records survive without composition or user mutations.
+Normal windows keep their platform flags, shortcuts and input behavior.

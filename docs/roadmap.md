@@ -123,100 +123,37 @@ on-demand message/attachment access and enforced cache budgets; no offline mirro
 
 ## Fluid replacement progress — 28 October
 
-Advanced remote search/account subsets, native mailto/single-instance activation,
-three-way draft comparison, per-message actions, stable account delegates,
-keyboard shortcuts and adjustable panes are now implemented in the replacement.
-Save/send reconciles the affected remote conversation IDs without a view reload.
-Windows process-tree auditing caught a reentrant duplicate HTML-controller leak;
-the replacement now guards construction and explicitly releases inactive readers.
-The migration retains the original GTK release until full signature/editor and
-remaining parity, packaging, resource and target-desktop gates pass. See
-ui-migration.md and fluid-validation.md for current evidence and open work.
+The custom Qt Quick frontend preserves the Rust provider/cache engine and now has
+animated shared row/reader projection, adaptive panes, collapsed unified folders,
+account disclosures, selection/context actions, remote search highlighting,
+private HTML/media, inline/compact/full/pop-out composition, rich formatting,
+Gmail draft/conflict/alias flows, online signatures and sign-in recovery.
 
-The native online signature editor is implemented and Windows-tested, including
-font/colour/list/table/picture controls, source protection, public-image upload
-approval and coordinated close/quit policies. No signature/image archive was
-added. Whole-conversation forwarding, remaining layout/editor parity, packaged
-Linux/Windows acceptance and resource hardening still gate the replacement.
-The full Linux software-rendered baseline is 330.8 MiB PSS; resource targets are
-not met. Lazy browser-profile lifetime and detailed process attribution are being
-measured next rather than treating the lower Windows private-working-set result
-as a Linux result.
+Windows e27b4fd portable acceptance passes 271 checks; Linux passes 268. Both
+packages pass without SDK search paths and the Windows provenance is clean.
+The latest local on-demand composer passes 272 native checks and destroys its
+editor, document, previews, undo and popups after closing springs settle. New
+composition and inline replies recreate current state; rapid reopening retains
+its existing editor. Source preservation and draft policy are unchanged.
 
+The exposed Windows full-process 60-second HTML audit passes ten lifecycle checks:
+136.3 MiB private working set at baseline, 252.2 with HTML and 58.8 backgrounded;
+private commit is recorded separately. Nine settled HTML CPU samples are 0.00%
+of one core at the measurement resolution. Zero-cache leaves only 51 logical
+bytes of settings and zero cache files. These are synthetic Windows measurements;
+Linux/GPU, longer real sync and the 150/200-MiB goals remain open. The prior Linux
+37c8178 software-rendered PSS is 234.3 MiB idle/410.1 with HTML.
 
-Long conversations now have bounded 32-header views with explicit earlier/later/
-latest navigation, lazy collapsed-body views and preserved reading positions when
-new replies arrive. A 2,503-message synthetic test verifies all headers remain
-accessible, and native checks verify bounded delegates and latest-message reveal.
-The resource profiler now retains failed-run counters rather than losing them;
-Linux software-renderer diagnostics and real GPU measurements remain open gates.
+Remaining work:
 
+- Finish inline-image authoring, whole-conversation forwarding and interrupted
+  Drive sharing/upload recovery with the same bounded RAM/online-only model.
+- Accept the newest on-demand/lifetime changes in matching Linux/Windows packages.
+- Complete two-account Gmail, real Hyprland/GPU/Noctalia/notification/keyring,
+  suspend/reconnect, fractional scaling and sustained mailbox/resource checks.
+- Complete Google verification and the required security/privacy acceptance.
+  The submitted review is still recorded as pending; no approval is inferred.
 
-The c4b07ec Linux run passed all functional scenes. Its controlled Chromium-software
-resource test measured 258.2 MiB PSS at idle, 452.8 with HTML and 405.5 after release/
-background, with near-zero settled CPU samples. The RAM targets are still unmet.
-Per-process data identifies the Qt host and persistent browser framework helpers;
-this is not an email-cache growth issue. Actual GPU/Hyprland profiling is required.
-
-
-The replacement now restores a real pop-out/dock composer with one retained RAM
-session, spring-completion cleanup, saved window size, compact inbox density and
-unified account badges. Windows native acceptance has 219 passing scene checks.
-Its measured private working set is 128.8 MiB baseline, 251.3 with HTML and 98.6
-while backgrounded after graphics release; private commit is reported separately.
-Linux PSS and full-package/live-account gates remain open. Next parity work includes
-sign-in recovery/cancellation, remaining editing/forwarding flows and distribution.
-
-
-Sign-in recovery/onboarding is implemented in the replacement, including browser
-retry/copy/cancel, official-URL validation and credential-commit/quit fencing.
-Windows native acceptance now has 233 passing scene checks. Both platforms passed
-all migration checks at 063ab88; its Linux software-rendered PSS is 247.4 MiB idle,
-410.8 with HTML and 331.1 backgrounded. Resource goals and real desktop/Google
-acceptance remain open. Remaining parity includes file drops and read/undo recovery;
-inline images, whole-conversation forwarding and packaging remain 1.0 priorities.
-
-
-File drops, bounded retryable RAM-only Undo and inline message/HTML error recovery
-are implemented. The narrow/collapsed sidebar footer no longer overlaps. Fourteen
-native scene groups passed in this continuation (254 checks); latest reader,
-HTML, long-thread and sync tests pass. See fluid-validation.md. GTK-free packages,
-installed/runtime notices and byte audits, live Gmail/Hyprland acceptance, inline
-image authoring, whole-conversation forwarding and Linux RAM goals remain open.
-
-
-The optimized Windows portable candidate passes all 254 native checks without SDK
-paths. Its whole-process resource and native installed-allocation reports are
-committed. Linux Qt 6.11.2/AppImage/Wayland deployment, source notices and portable
-checks are implemented and awaiting CI. A remaining X11 tray-restore race now has
-a product guard and stronger state-acknowledgement test. No new release or complete
-GTK-removal claim is made before the pending packaging/live acceptance gates.
-
-
-Closed Settings now releases its controls after animation and rebuilds current
-saved values on reopening. Native navigation coverage grows to 39 checks. A
-follow-up Windows run measured 124.5 MiB idle and 94.4 backgrounded; active HTML
-still measured 239.9 MiB. Both packaging paths have first-run setup fixes pending
-CI confirmation; Linux tray-restore stress remains under diagnosis. See the
-validation record rather than treating implementation as a completed release.
-
-
-The next checkpoint adds safe search-term highlighting to metadata/reading titles,
-asynchronous Windows HTML initialization, keyboard-accessible account disclosures
-and focus-safe collapsed folders. Native acceptance totals 266 scene checks,
-seven CTest groups and one standalone private-renderer component test. A complete
-Windows tree measured 123.3 MiB idle/238.0 with HTML/95.2 backgrounded. Registered
-Windows portable checks pass, but source-provenance diagnosis and corrected Linux
-AppRun/portable acceptance remain distribution gates. Actual Linux/GPU/Hyprland,
-long-lived sync, remaining editor/forwarding parity and Google review remain open;
-none of these checkpoints authorizes a 1.0 completeness claim.
-
-
-The latest local checkpoint restores composer table insertion and real cell
-Tab/Shift+Tab navigation, including bounded row growth and escape from the final
-cell. Its fourteen native groups pass 271 Windows checks. Lazy video-sink creation
-removes eager media initialization; zero-cache still retains only settings.
-Linux 37c8178 passed all 263 packaged checks, but its measured 234.3-MiB baseline/
-410.1-MiB HTML PSS misses the goals. The corresponding Windows CI stalled before
-its first animation report; startup diagnostics and a fresh package run are
-required. See fluid-validation.md for complete evidence and limitations.
+The 0.9 tag remains the reference until the full parity and target-desktop gates
+pass. See ui-migration.md, fluid-validation.md and RELEASE-CHECKLIST.md for exact
+wiring, evidence and the original twenty acceptance criteria.

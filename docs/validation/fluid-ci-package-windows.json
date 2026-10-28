@@ -1,7 +1,7 @@
 {
   "passed": true,
   "synthetic_data": true,
-  "binary_sha256": "65ab8157f2c20a8ecea33223b48950e478f91ed5a89248e44d839e40594ab447",
+  "binary_sha256": "dfc5cce238ac08e94c4ad222828f965b164da9bbcfc5a4f792cb9328bb88ba9b",
   "platform": "win32",
   "sdk_search_paths_removed": true,
   "checks": [
@@ -23,14 +23,14 @@
       "case": "navigation",
       "passed": true,
       "exit_code": 0,
-      "checks": 39,
+      "checks": 43,
       "qml_warnings": []
     },
     {
       "case": "composer",
       "passed": true,
       "exit_code": 0,
-      "checks": 30,
+      "checks": 35,
       "qml_warnings": []
     },
     {
@@ -65,7 +65,7 @@
       "case": "search",
       "passed": true,
       "exit_code": 0,
-      "checks": 13,
+      "checks": 15,
       "qml_warnings": []
     },
     {
@@ -104,9 +104,5 @@
       "qml_warnings": []
     }
   ],
-  "total_checks": 260,
-  "source_commit": "2d97bc368b5721580c5e08df95e30a217c4e1391",
-  "package_sha256": "a7bdcafac56b6d315ee6a8398862d45e835c0e7bce14d7c1fd11ec17c9353f16",
-  "source_dirty": true,
-  "note": "Registered CI portable package; all 260 synthetic checks pass. Dirty-source provenance still under investigation; not a final tagged release."
+  "total_checks": 271
 }

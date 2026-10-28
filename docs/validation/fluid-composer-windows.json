@@ -1,6 +1,10 @@
 {
   "checks": [
     {
+      "check": "idle composer has no rich document or editor controls",
+      "passed": true
+    },
+    {
       "check": "engine session loads the native form",
       "passed": true
     },
@@ -113,7 +117,7 @@
       "passed": true
     },
     {
-      "check": "close clears the native rich document",
+      "check": "close releases the native rich document",
       "passed": true
     },
     {
