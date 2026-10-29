@@ -15,6 +15,7 @@ class HtmlSurface:public QQuickItem {
     Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
     Q_PROPERTY(bool blocked READ blocked WRITE setBlocked NOTIFY blockedChanged)
     Q_PROPERTY(bool active READ active WRITE setActive NOTIFY activeChanged)
+    Q_PROPERTY(bool windowRenderable READ windowRenderable NOTIFY windowRenderableChanged)
     Q_PROPERTY(bool nativeVisible READ nativeVisible NOTIFY nativeVisibleChanged)
     Q_PROPERTY(bool contentReady READ contentReady NOTIFY contentReadyChanged)
     Q_PROPERTY(QColor background READ background WRITE setBackground NOTIFY backgroundChanged)
@@ -30,6 +31,7 @@ public:
     qreal zoom()const{return scale;}void setZoom(qreal value);
     bool blocked()const{return covered;}void setBlocked(bool value);
     bool active()const{return lifetimeActive;}void setActive(bool value);
+    bool windowRenderable()const{return canRender;}
     static int liveNativeSurfaces();
     bool nativeVisible()const{return displayed;}
     bool contentReady()const{return presented;}QColor background()const{return backgroundColour;}void setBackground(const QColor&value);
@@ -41,6 +43,7 @@ signals:
     void linkActivated(QString url);void wheel(qreal delta);void loaded();
     void viewportChanged();
     void activeChanged();
+    void windowRenderableChanged();
     void contentReadyChanged();void backgroundChanged();void revealChanged();
 protected:
     void componentComplete()override;void geometryChange(const QRectF&next,const QRectF&before)override;
@@ -50,5 +53,5 @@ private:
     QString page,failure;std::unique_ptr<ReaderRuntime> runtime;QTimer debounce;QVariantList masks;
     QVector<QMetaObject::Connection> connections;void*surface=nullptr;
     qint64 initialization=0;quint64 adapterRevision=0;bool presented=false;QColor backgroundColour=QColor("#19171e");qreal revealAmount=1;
-    qreal measuredHeight=48,scale=1,top=0,span=0;bool complete=false,covered=false,displayed=false,ready=false,lifetimeActive=true,creating=false,releasePending=false;quint64 generation=0,nativeEpoch=0;
+    qreal measuredHeight=48,scale=1,top=0,span=0;bool complete=false,covered=false,displayed=false,ready=false,lifetimeActive=true,creating=false,releasePending=false,canRender=false;quint64 generation=0,nativeEpoch=0;
 };

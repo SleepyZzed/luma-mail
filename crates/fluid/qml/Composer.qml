@@ -15,10 +15,12 @@ Item {
     property Item scene
     property Item homeScene
     property var popout:null
+    property var popoutActivity:null
     readonly property bool detached:popout!==null
     property bool previousExpanded:false
     property bool previousInline:false
-    readonly property bool hostVisible:!!root.Window.window?.visible&&root.Window.window?.visibility!==Window.Minimized
+    readonly property bool hostVisible:detached?(popoutActivity?.renderable===true):Mail.mainWindowVisible
+    Connections{target:root.popoutActivity;function onRenderableChanged(){if(root.detached)Mail.setComposerWindowVisible(root.popoutActivity.renderable)}}
     property rect origin:Qt.rect(22,99,200,47)
     property Item inlineDock
     property bool manualPosition:false
@@ -331,7 +333,6 @@ Item {
             visible:false;title:"Compose - Luma Mail";color:Theme.window
             flags:isWindows?Qt.Window:Qt.Window|Qt.FramelessWindowHint
             transientParent:null
-            onVisibilityChanged:if(!root.popout||root.popout===secondary)Mail.setComposerWindowVisible(visible&&visibility!==Window.Minimized)
             onClosing:event=>{event.accepted=false;if(card)card.requestClose()}
             Shortcut{sequence:"Ctrl+W";enabled:!!secondary.card&&!secondary.card.modalOpen;onActivated:secondary.card.requestClose()}
             Shortcut{sequence:"Escape";enabled:!!secondary.card&&!secondary.card.modalOpen&&!secondary.card.recipientSuggestionsOpen;onActivated:secondary.card.requestClose()}
@@ -348,7 +349,7 @@ Item {
         const inset=Theme.unit(20)
         const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth+2*inset),height:Math.max(Theme.unit(500),oldHeight+2*inset),x:at.x-inset,y:at.y-inset})
         if(!host)return
-        Mail.trackWindow(host);popout=host;inlineMode=false;expanded=true;scene=host.contentItem;parent=scene
+        popoutActivity=Mail.trackWindow(host);popout=host;Mail.setComposerWindowVisible(popoutActivity.renderable);inlineMode=false;expanded=true;scene=host.contentItem;parent=scene
         // Show first so the springs are enabled in their new exposed window.
         // Rebase the same editor at its original global bounds, then let its
         // bounds/corners expand to the native host. No second editor or snapshot.
@@ -358,7 +359,7 @@ Item {
     function releasePopout(){
         if(!popout)return
         const old=popout
-        parent=homeScene;scene=homeScene;popout=null;inlineMode=false;expanded=false;inlineDock=null
+        parent=homeScene;scene=homeScene;popout=null;popoutActivity=null;Mail.setComposerWindowVisible(false);inlineMode=false;expanded=false;inlineDock=null
         horizontal.snap(goalX);vertical.snap(goalY);breadth.snap(goalWidth);depth.snap(goalHeight)
         old.card=null;old.hide();old.destroy()
     }
@@ -366,7 +367,7 @@ Item {
         if(!popout)return
         const old=popout,global=mapToGlobal(0,0),oldWidth=width,oldHeight=height
         if(activate)Mail.showMainWindow()
-        parent=homeScene;scene=homeScene;popout=null;inlineMode=false;expanded=previousExpanded
+        parent=homeScene;scene=homeScene;popout=null;popoutActivity=null;Mail.setComposerWindowVisible(false);inlineMode=false;expanded=previousExpanded
         const at=homeScene.mapFromGlobal(global.x,global.y)
         horizontal.rebase(Math.max(0,Math.min(homeScene.width-oldWidth,at.x)));vertical.rebase(Math.max(0,Math.min(homeScene.height-oldHeight,at.y)))
         breadth.rebase(oldWidth);depth.rebase(oldHeight)

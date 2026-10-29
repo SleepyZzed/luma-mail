@@ -1,5 +1,6 @@
 #include "bridge.h"
 #include "attachment_preview.h"
+#include "window_activity.h"
 #include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -40,8 +41,10 @@ Bridge::Bridge(bool preview,QObject*p):QObject(p),m_preview(preview){
     process.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments*a){a->flags|=CREATE_NO_WINDOW;});
 #endif
 }
-void Bridge::trackWindow(QObject*object){
-    auto window=qobject_cast<QWindow*>(object);if(!window||window->property("lumaRestoreState").isValid())return;
+QObject* Bridge::trackWindow(QObject*object){
+    auto window=qobject_cast<QWindow*>(object);if(!window)return nullptr;
+    auto activity=WindowActivity::forWindow(window);
+    if(window->property("lumaRestoreState").isValid())return activity;
     window->setProperty("lumaRestoreState",int(Qt::WindowNoState));
     if(auto quick=qobject_cast<QQuickWindow*>(window)){
         // A one-shot background grace period avoids rebuilding graphics for
@@ -64,6 +67,7 @@ void Bridge::trackWindow(QObject*object){
     };
     connect(window,&QWindow::windowStateChanged,window,remember);
     connect(window,&QWindow::visibilityChanged,window,remember);
+    return activity;
 }
 void Bridge::activateWindow(QObject*object){
     auto window=qobject_cast<QWindow*>(object);if(!window)return;

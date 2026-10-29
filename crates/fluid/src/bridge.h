@@ -48,6 +48,7 @@ class Bridge : public QObject {
     Q_PROPERTY(bool selecting READ selecting NOTIFY selectionChanged)
     Q_PROPERTY(bool preview READ preview CONSTANT)
     Q_PROPERTY(bool windowVisible READ windowVisible NOTIFY windowVisibleChanged)
+    Q_PROPERTY(bool mainWindowVisible READ mainWindowVisible NOTIFY mainWindowVisibleChanged)
     Q_PROPERTY(bool mailLinkWaiting READ mailLinkWaiting NOTIFY mailLinkWaitingChanged)
     Q_PROPERTY(bool clipboardBusy READ clipboardBusy NOTIFY clipboardChanged)
 public:
@@ -81,14 +82,15 @@ public:
     int selectionCount()const{return m_selection.size();} bool selecting()const{return m_selecting;} bool preview()const{return m_preview;}
     bool clipboardBusy()const{return !clipboardToken.isEmpty();}
     bool windowVisible()const{return m_windowVisible;}
+    bool mainWindowVisible()const{return m_mainWindowVisible;}
     bool mailLinkWaiting()const{return !pendingMailto.isEmpty();}
     Q_INVOKABLE void queueMailto(const QString&uri);
     Q_INVOKABLE void releaseComposerView(const QString&session);
     Q_INVOKABLE void handleMailto(const QUrl&uri);
-    void setWindowVisible(bool value){m_mainWindowVisible=value;updateWindowVisibility();}
+    void setWindowVisible(bool value){if(m_mainWindowVisible==value)return;m_mainWindowVisible=value;emit mainWindowVisibleChanged();updateWindowVisibility();}
     Q_INVOKABLE void setComposerWindowVisible(bool value){m_composerWindowVisible=value;updateWindowVisibility();}
     Q_INVOKABLE void showMainWindow(){emit showRequested();}
-    Q_INVOKABLE void trackWindow(QObject*window);
+    Q_INVOKABLE QObject* trackWindow(QObject*window);
     Q_INVOKABLE void activateWindow(QObject*window);
     Q_INVOKABLE quint64 send(const QString &action,const QVariantMap &data={});
     Q_INVOKABLE void releaseMessageImages(const QString&message);
@@ -134,6 +136,7 @@ signals:
     void labelsChanged();
     void notificationStatusChanged();
     void windowVisibleChanged();
+    void mainWindowVisibleChanged();
     void mailLinkWaitingChanged();
     void activityChanged(); void errorChanged(); void selectionChanged();
     void projectRow(QVariantMap row,qreal x,qreal y,qreal width,qreal height);

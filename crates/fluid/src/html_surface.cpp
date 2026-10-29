@@ -1,4 +1,5 @@
 #include "html_surface.h"
+#include "window_activity.h"
 #include <QQuickWindow>
 #include <QLibrary>
 #include <QCoreApplication>
@@ -55,7 +56,7 @@ void HtmlSurface::ancestors(){
         connections.append(connect(p,&QQuickItem::xChanged,this,&HtmlSurface::updateSurface));connections.append(connect(p,&QQuickItem::yChanged,this,&HtmlSurface::updateSurface));
         connections.append(connect(p,&QQuickItem::widthChanged,this,&HtmlSurface::updateSurface));connections.append(connect(p,&QQuickItem::heightChanged,this,&HtmlSurface::updateSurface));connections.append(connect(p,&QQuickItem::visibleChanged,this,&HtmlSurface::updateSurface));
     }
-    if(window()){connections.append(connect(window(),&QWindow::visibleChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::visibilityChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::screenChanged,this,&HtmlSurface::updateSurface));}
+    if(window()){connections.append(connect(window(),&QWindow::visibleChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::visibilityChanged,this,&HtmlSurface::updateSurface));connections.append(connect(window(),&QWindow::screenChanged,this,&HtmlSurface::updateSurface));connections.append(connect(WindowActivity::forWindow(window()),&WindowActivity::renderableChanged,this,&HtmlSurface::updateSurface));}
 }
 void HtmlSurface::release(){++nativeEpoch;debounce.stop();ready=false;setReady(false);if(creating){releasePending=true;return;}
 #ifdef Q_OS_WIN
@@ -65,6 +66,8 @@ void HtmlSurface::release(){++nativeEpoch;debounce.stop();ready=false;setReady(f
 }
 void HtmlSurface::updateSurface(){
     if(!complete||!window()||creating)return;
+    const bool renderable=WindowActivity::forWindow(window())->renderable();
+    if(canRender!=renderable){canRender=renderable;if(!canRender)debounce.stop();else if(ready)debounce.start();emit windowRenderableChanged();}
     auto bounds=mapRectToScene(boundingRect());auto clip=bounds.intersected(QRectF(QPointF(),window()->size()));
     for(auto p=parentItem();p;p=p->parentItem())if(p->clip())clip=clip.intersected(p->mapRectToScene(p->boundingRect()));
     if(!isVisible()||!window()->isVisible()||window()->visibility()==QWindow::Minimized||clip.isEmpty())clip={};
@@ -100,13 +103,13 @@ void HtmlSurface::updateSurface(){
     auto append=[&](QRectF r){rects<<int(std::floor(r.x()*dpr))<<int(std::floor(r.y()*dpr))<<int(std::ceil(r.width()*dpr))<<int(std::ceil(r.height()*dpr));};
     append(bounds);append(clip);for(const auto&mask:masks.mid(0,8))append(mask.toRectF());
     api().background(surface,backgroundColour.rgba());api().geometry(surface,rects.data(),rects.size()/4,scale,dpr);api().reveal(surface,revealAmount);
-    const bool expose=show&&presented&&revealAmount>0;api().visible(surface,expose);
+    const bool expose=show&&canRender&&presented&&revealAmount>0;api().visible(surface,expose);
     if(displayed!=expose){displayed=expose;emit nativeVisibleChanged();}
 #endif
 }
 void HtmlSurface::measure(){
 #ifdef Q_OS_WIN
-    if(surface&&ready)api().measure(surface,qRound(width()),generation);
+    if(surface&&ready&&canRender&&!covered)api().measure(surface,qRound(width()),generation);
 #endif
 }
 void HtmlSurface::callback(void*context,const unsigned char*bytes,size_t size){

@@ -1,6 +1,7 @@
 #include "bridge.h"
 #include "single_instance.h"
 #include "startup_graphics.h"
+#include "window_activity.h"
 #include "software_icons.h"
 #include <QStandardPaths>
 #include <QDesktopServices>
@@ -97,13 +98,13 @@ int main(int argc,char**argv){
     if(traceMotion)qInfo()<<"MOTION startup: native scene loaded";
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     // Preserve the native state, rather than transient X11 map visibility.
-    bridge.trackWindow(window);
+    auto windowActivity=qobject_cast<WindowActivity*>(bridge.trackWindow(window));
     QObject::connect(&bridge,&Bridge::showRequested,window,[&bridge,window]{bridge.activateWindow(window);});
     QDesktopServices::setUrlHandler("mailto",&bridge,"handleMailto");
     if(instance)QObject::connect(instance.get(),&SingleInstance::activated,&bridge,[&bridge](const QString&uri){if(uri.isEmpty())emit bridge.showRequested();else bridge.queueMailto(uri);});
     if(!mailto.isEmpty())bridge.queueMailto(mailto);
-    auto visibility=[&]{const bool shown=window->isVisible()&&window->visibility()!=QWindow::Minimized;bridge.setWindowVisible(shown);if(!shown&&attachmentPreview.kind()=="Video")attachmentPreview.pause();};
-    visibility();QObject::connect(window,&QWindow::visibleChanged,&bridge,visibility);QObject::connect(window,&QWindow::visibilityChanged,&bridge,visibility);
+    auto visibility=[&]{const bool shown=windowActivity->renderable();bridge.setWindowVisible(shown);if(!shown&&attachmentPreview.kind()=="Video")attachmentPreview.pause();};
+    visibility();QObject::connect(windowActivity,&WindowActivity::renderableChanged,&bridge,visibility);
     if(preview&&app.arguments().contains("--motion-test"))new MotionSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--composer-test"))startComposerSmoke(&bridge,window);
     if(preview&&app.arguments().contains("--photo-test"))startProfileSmoke(&bridge,window);
