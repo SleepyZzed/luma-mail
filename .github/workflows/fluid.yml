@@ -53,12 +53,14 @@ jobs:
           modules: 'qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning'
           cache: true
       - run: cargo build --locked -p luma-engine
-      - run: cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S crates/fluid -B build-fluid -G Ninja -DCMAKE_BUILD_TYPE=Release -DLUMA_SANITIZE_LIFECYCLE_TESTS=ON
+      - name: Build lifecycle regressions before the full application
+        run: cmake --build build-fluid --target window-activity-test html-surface-test reader-lifecycle-test --parallel 2
+      - name: Repeat private reader lifecycle and teardown with AddressSanitizer
+        run: ctest --test-dir build-fluid --output-on-failure -R 'workspace-exposure|html-host-destruction|private-reader-workspace-lifecycle' --repeat until-fail:5
       - run: cmake --build build-fluid --parallel 2
         id: fluid_build
       - run: ctest --test-dir build-fluid --output-on-failure
-      - name: Repeat private reader lifecycle and teardown
-        run: ctest --test-dir build-fluid --output-on-failure -R private-reader-workspace-lifecycle --repeat until-fail:3
       - name: Native private HTML reader test
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine

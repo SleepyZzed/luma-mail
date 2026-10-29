@@ -35,7 +35,17 @@ HtmlSurface::HtmlSurface(QQuickItem*parent):QQuickItem(parent){
     connect(this,&QQuickItem::windowChanged,this,[this]{release();ancestors();updateSurface();});
     connect(this,&QQuickItem::parentChanged,this,[this]{ancestors();updateSurface();});
 }
-HtmlSurface::~HtmlSurface(){release();}
+HtmlSurface::~HtmlSurface(){
+    // QQuickItem's base destructor can emit windowChanged after this class's
+    // connection list and timer have been destroyed. Retire our handlers while
+    // those members are still alive, before Qt detaches the visual item.
+    complete=false;
+    disconnect(this,nullptr,this,nullptr);
+    disconnect(qApp,nullptr,this,nullptr);
+    for(auto connection:connections)disconnect(connection);
+    connections.clear();
+    release();
+}
 void HtmlSurface::componentComplete(){QQuickItem::componentComplete();complete=true;ancestors();updateSurface();}
 void HtmlSurface::geometryChange(const QRectF&next,const QRectF&before){QQuickItem::geometryChange(next,before);updateSurface();if(next.width()!=before.width())debounce.start();}
 void HtmlSurface::setReady(bool value){if(presented==value)return;presented=value;emit contentReadyChanged();}

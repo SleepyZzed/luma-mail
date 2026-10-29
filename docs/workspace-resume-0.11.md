@@ -29,6 +29,10 @@ that a particular kernel/Mesa GPU timeout has been reproduced or eliminated.
 - The Windows adapter also stops hidden/covered document measurement. Ordinary
   explicit hide/minimise reclamation and closed-reader destruction remain in
   place. Compositor non-exposure alone does not trigger GPU-context teardown.
+- Repeated Linux teardown exposed a shared HTML-host lifetime bug: Qt can emit
+  `windowChanged` from the base-item destructor after the host's C++ members are
+  gone. The host now disconnects its own and ancestor handlers before that
+  phase, preventing callbacks into destroyed timer/connection-list storage.
 
 ## Launch compatibility and resource limits
 
@@ -57,7 +61,10 @@ count, no hidden frame swaps after settling, deferred resize/hidden updates and
 the original off-record/no-cache profile. Private Qt headers are used only by
 these test executables to simulate platform events, never by the application.
 The render-thread frame counter is atomic, and test services/profiles outlive
-the scene and QML engine. CI repeats reader teardown to catch lifetime failures.
+the scene and QML engine. `html-host-destruction` exercises 1,000 host teardowns
+and confirms that Qt's base-destructor window signal still occurs. Linux CI
+runs both host and real-reader teardown five times with AddressSanitizer before
+building the application; the sanitizer is not linked into the shipped app.
 The existing component and native/portable UI suites cover minimise/restore,
 composer pop-out, HTML layout, mail actions, recovery and bounded cache behavior.
 
