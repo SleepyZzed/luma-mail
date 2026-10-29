@@ -15,6 +15,9 @@ on:
       - 'packaging/*notices.py'
       - 'packaging/qt-source-pins.json'
       - 'packaging/audit-storage.py'
+      - 'packaging/test-windows-performance.ps1'
+      - 'packaging/windows-process-tree.ps1'
+      - 'packaging/test-windows-process-tree.ps1'
       - '.github/workflows/fluid.yml'
   push:
     branches: ['ui/fluid-morph']
@@ -54,6 +57,8 @@ jobs:
       - run: cmake --build build-fluid --parallel 2
         id: fluid_build
       - run: ctest --test-dir build-fluid --output-on-failure
+      - name: Repeat private reader lifecycle and teardown
+        run: ctest --test-dir build-fluid --output-on-failure -R private-reader-workspace-lifecycle --repeat until-fail:3
       - name: Native private HTML reader test
         env:
           LUMA_ENGINE: ${{ github.workspace }}/target/debug/luma-engine
@@ -606,6 +611,7 @@ jobs:
           QT_FORCE_STDERR_LOGGING: '1'
         run: |
           $env:PATH=$env:LUMA_QT_BIN+";"+$env:PATH
+          ./packaging/test-windows-process-tree.ps1
           ./packaging/test-windows-performance.ps1 -Fluid -Binary ./build-fluid/luma-mail-fluid.exe -Evidence ./fluid-resource-windows
       - uses: actions/upload-artifact@v4
         if: always()

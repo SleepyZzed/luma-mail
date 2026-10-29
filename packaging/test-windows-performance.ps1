@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$Binary,[Parameter(Mandatory=$true)][string]$Evidence,[switch]$Fluid,[ValidateRange(20,90)][int]$HtmlSeconds=20)
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'windows-process-tree.ps1')
 $previousEnvironment=@{};foreach($name in @('LUMA_TEST_ROOT','LUMA_PREVIEW_HTML','LUMA_RESOURCE_REPORT','LUMA_RESOURCE_HTML_SECONDS')){$previousEnvironment[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 $binaryPath=(Resolve-Path -LiteralPath $Binary).Path
 $evidencePath=[IO.Path]::GetFullPath((Join-Path (Get-Location) $Evidence))
@@ -24,9 +25,8 @@ try{
         Start-Sleep -Seconds 5
         if($process.HasExited){break}
         if($timer.Elapsed.TotalSeconds -gt $(if($Fluid){215+$HtmlSeconds-20}else{155})){throw 'Windows performance fixture timed out'}
-        $ids=[Collections.Generic.HashSet[int]]::new();[void]$ids.Add($process.Id)
-        $all=@(Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CommandLine)
-        do{$before=$ids.Count;foreach($item in $all){if($ids.Contains([int]$item.ParentProcessId)){[void]$ids.Add([int]$item.ProcessId)}}}while($ids.Count -gt $before)
+        $all=@(Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CreationDate,CommandLine)
+        $ids=Get-LumaProcessTree -RootId $process.Id -Processes $all
         $members=@(Get-Process -Id ([int[]]$ids) -ErrorAction SilentlyContinue)
         $counters=@(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -Property IDProcess,WorkingSetPrivate | Where-Object {$ids.Contains([int]$_.IDProcess)})
         if($process.HasExited){break} # Do not record a zero-memory post-exit sample.

@@ -56,11 +56,19 @@ modal freeze/resume, ten mapped-window exposure cycles, unchanged document-load
 count, no hidden frame swaps after settling, deferred resize/hidden updates and
 the original off-record/no-cache profile. Private Qt headers are used only by
 these test executables to simulate platform events, never by the application.
+The render-thread frame counter is atomic, and test services/profiles outlive
+the scene and QML engine. CI repeats reader teardown to catch lifetime failures.
 The existing component and native/portable UI suites cover minimise/restore,
 composer pop-out, HTML layout, mail actions, recovery and bounded cache behavior.
 
 Linux CI uses Xvfb and software graphics. It is build/lifecycle regression
 evidence, not RX 9070 GPU utilization, Hyprland acceptance or proof of zero CPU.
+
+The Windows process-tree profiler now validates parent/child creation dates.
+Windows retains an orphan's numeric parent ID, which can later be reused by a
+Luma helper; following those IDs alone can incorrectly include unrelated apps.
+The ancestry tests cover that case, descendants, unordered WMI records and
+missing timestamps. This corrects resource evidence, not application RAM use.
 
 ## Target-desktop acceptance
 

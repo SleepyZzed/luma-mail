@@ -7,7 +7,8 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QFile>
-#include <QSignalSpy>
+#include <atomic>
+#include <memory>
 #include <QtTest>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include "platform_exposure.h"
@@ -33,10 +34,12 @@ class ReaderLifecycleTest : public QObject {
     }
 private slots:
     void mappedWorkspaceAndModalSuspendWithoutRecreatingMail() {
+        // Context services and the profile owner must outlive both the engine
+        // and the native scene/render thread, including failure-path teardown.
+        ReaderTheme theme;ReaderMail mail;ReaderProfiles profiles;
+        QQmlEngine engine;
         QQuickWindow window;
         window.resize(640, 480);
-        QQmlEngine engine;
-        ReaderTheme theme;ReaderMail mail;ReaderProfiles profiles;
         engine.rootContext()->setContextProperty("Theme", &theme);
         engine.rootContext()->setContextProperty("Mail", &mail);
         engine.rootContext()->setContextProperty("ReaderProfiles", &profiles);
@@ -59,7 +62,12 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QTRY_VERIFY_WITH_TIMEOUT(reader->property("viewReady").toBool(), 15000);
         QCOMPARE(reader->property("documentLoads").toInt(), 1);
-        QSignalSpy frames(&window, &QQuickWindow::frameSwapped);
+        // frameSwapped is emitted on the render thread. Do not read a
+        // QSignalSpy/QList concurrently with that thread appending to it.
+        auto frames = std::make_shared<std::atomic<int>>(0);
+        connect(&window, &QQuickWindow::frameSwapped, &window, [frames] {
+            frames->fetch_add(1, std::memory_order_relaxed);
+        }, Qt::DirectConnection);
         auto profile = reader->property("privateProfile").value<QQuickWebEngineProfile *>();
         QVERIFY(profile && profile->isOffTheRecord());
         QCOMPARE(profile->httpCacheType(), QQuickWebEngineProfile::NoCache);
@@ -85,9 +93,9 @@ private slots:
             QCOMPARE(reader->property("documentLoads").toInt(), 1);
             if (cycle == 0) {
                 QTest::qWait(200); // allow a previously queued frame to retire
-                const auto before = frames.count();
+                const auto before = frames->load(std::memory_order_relaxed);
                 QTest::qWait(200);
-                QCOMPARE(frames.count(), before);
+                QCOMPARE(frames->load(std::memory_order_relaxed), before);
             }
             expose(window, true);
             QTRY_VERIFY(reader->windowRenderable());
@@ -107,8 +115,11 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(reader->property("viewReady").toBool(), 10000);
         QCOMPARE(reader->property("documentLoads").toInt(), 2);
         QVERIFY(!reader->property("documentFrozen").toBool());
+        QPointer<QQuickWebEngineProfile> retiredProfile(profile);
         delete reader;
-        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        window.hide();
+        window.releaseResources();
+        QTRY_VERIFY_WITH_TIMEOUT(retiredProfile.isNull(), 5000);
     }
 };
 int main(int argc, char **argv) {
