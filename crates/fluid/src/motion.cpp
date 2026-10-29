@@ -26,6 +26,7 @@ void Motion::resume() {
         previousTime = 0;
         clock.start();
     }
+    if (motionPaused && clock.state() == QAbstractAnimation::Running) clock.pause();
 }
 
 void Motion::setEnabled(bool value) {
@@ -33,6 +34,18 @@ void Motion::setEnabled(bool value) {
     motionEnabled = value;
     emit enabledChanged();
     if (!value) settle();
+}
+
+void Motion::setPaused(bool value) {
+    if (motionPaused == value) return;
+    motionPaused = value;
+    emit pausedChanged();
+    // Exposure handoff must preserve the current bounds and momentum. Unlike
+    // reduced motion, suspension stops the shared clock without snapping.
+    if (value) {
+        if (clock.state() == QAbstractAnimation::Running) clock.pause();
+    } else if (clock.state() == QAbstractAnimation::Paused) clock.resume();
+    else resume();
 }
 
 void Motion::setStiffness(qreal value) {

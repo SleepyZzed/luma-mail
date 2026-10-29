@@ -15,6 +15,11 @@ palette, and image fetches no longer delay the initial text/layout. Composer
 controls keep their destination dimensions during the card morph, eliminating
 per-frame editor reflow. Cache limits and online-first behavior are unchanged.
 
+The [workspace resume hardening](workspace-resume-0.11.md) suspends hidden
+HTML pages, photo work and composer springs using compositor exposure events.
+It preserves the existing Vulkan startup choice and bounded cache policies;
+physical RX 9070/Hyprland acceptance remains a separate desktop check.
+
 Current frontend coverage and remaining acceptance are tracked in
 [fluid-parity.md](fluid-parity.md). The 0.10 preview is GTK-free; the legacy source
 is retained as the reference until full acceptance.

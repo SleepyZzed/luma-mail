@@ -20,6 +20,7 @@ Item {
     property bool previousExpanded:false
     property bool previousInline:false
     readonly property bool hostVisible:detached?(popoutActivity?.renderable===true):Mail.mainWindowVisible
+    readonly property bool cardMotion:!(Mail.settings.reduced_motion||false)&&(shown||hostVisible)
     Connections{target:root.popoutActivity;function onRenderableChanged(){if(root.detached)Mail.setComposerWindowVisible(root.popoutActivity.renderable)}}
     property rect origin:Qt.rect(22,99,200,47)
     property Item inlineDock
@@ -82,11 +83,11 @@ Item {
     property bool externalModal:false
     readonly property bool modalOpen:externalModal||AttachmentViewer.opened||!!body?.editMenu?.visible||!!to?.editMenu?.visible||!!cc?.editMenu?.visible||!!bcc?.editMenu?.visible||!!subject?.editMenu?.visible||!!closeDialog?.visible||!!linkDialog?.visible||!!tableDialog?.visible||!!findDialog?.visible||!!historyDialog?.visible||!!formatMenu?.visible
     x:horizontal.value;y:vertical.value;width:Math.max(0,breadth.value);height:Math.max(0,depth.value)
-    Motion{id:horizontal;target:root.goalX;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
-    Motion{id:vertical;target:root.goalY;enabled:Theme.motion&&root.hostVisible&&!drag?.active}
-    Motion{id:breadth;target:root.goalWidth;enabled:Theme.motion&&root.hostVisible}
-    Motion{id:depth;target:root.goalHeight;enabled:Theme.motion&&root.hostVisible}
-    Rectangle{objectName:"composeSurface";anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:Theme.motion&&root.hostVisible}}
+    Motion{id:horizontal;target:root.goalX;enabled:root.cardMotion&&!drag?.active;paused:!root.hostVisible}
+    Motion{id:vertical;target:root.goalY;enabled:root.cardMotion&&!drag?.active;paused:!root.hostVisible}
+    Motion{id:breadth;target:root.goalWidth;enabled:root.cardMotion;paused:!root.hostVisible}
+    Motion{id:depth;target:root.goalHeight;enabled:root.cardMotion;paused:!root.hostVisible}
+    Rectangle{objectName:"composeSurface";anchors.fill:parent;radius:corners.value;color:Theme.raised;border.width:1;border.color:Theme.outline;Motion{id:corners;target:Theme.unit(root.statusMode?27:root.detached?0:root.inlineMode?18:22);enabled:root.cardMotion;paused:!root.hostVisible}}
     DropArea {
         id:fileDrop;objectName:"composeFileDrop";anchors.fill:parent;z:30
         enabled:root.shown&&root.attachmentEditable&&!root.inputBusy&&!root.modalOpen&&!root.statusMode
@@ -96,7 +97,7 @@ Item {
     Rectangle {
         anchors.fill:parent;anchors.margins:Theme.unit(5);z:31;radius:Theme.unit(18);color:Theme.selected;border.width:2;border.color:Theme.accent
         visible:fileDrop.containsDrag||dropPresence.running;opacity:Math.max(0,Math.min(1,dropPresence.value))
-        Motion{id:dropPresence;target:fileDrop.containsDrag?.95:0;epsilon:.002;enabled:Theme.motion&&root.hostVisible}
+        Motion{id:dropPresence;target:fileDrop.containsDrag?.95:0;epsilon:.002;enabled:root.cardMotion;paused:!root.hostVisible}
         Text{textFormat:Text.PlainText;anchors.centerIn:parent;text:"Drop files to attach";color:Theme.text;font.pixelSize:Theme.unit(20);font.weight:Font.DemiBold}
     }
     component FormatButton:FluidButton {enabled:!root.locked}
@@ -350,7 +351,8 @@ Item {
         const host=windowComponent.createObject(root,{card:root,width:Math.max(Theme.unit(500),oldWidth+2*inset),height:Math.max(Theme.unit(500),oldHeight+2*inset),x:at.x-inset,y:at.y-inset})
         if(!host)return
         popoutActivity=Mail.trackWindow(host);popout=host;Mail.setComposerWindowVisible(popoutActivity.renderable);inlineMode=false;expanded=true;scene=host.contentItem;parent=scene
-        // Show first so the springs are enabled in their new exposed window.
+        // Show first; springs preserve their bounds while native exposure is
+        // pending, then resume from the rebased card without an initial snap.
         // Rebase the same editor at its original global bounds, then let its
         // bounds/corners expand to the native host. No second editor or snapshot.
         host.show();horizontal.rebase((host.width-oldWidth)/2);vertical.rebase((host.height-oldHeight)/2);breadth.rebase(oldWidth);depth.rebase(oldHeight);corners.rebase(oldRadius)

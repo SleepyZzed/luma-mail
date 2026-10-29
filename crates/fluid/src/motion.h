@@ -15,6 +15,7 @@ class Motion : public QObject, public QQmlParserStatus {
     Q_PROPERTY(qreal target READ target WRITE setTarget NOTIFY targetChanged)
     Q_PROPERTY(qreal velocity READ velocity NOTIFY valueChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(bool paused READ paused WRITE setPaused NOTIFY pausedChanged)
     Q_PROPERTY(bool running READ running NOTIFY runningChanged)
     Q_PROPERTY(qreal stiffness READ stiffness WRITE setStiffness NOTIFY physicsChanged)
     Q_PROPERTY(qreal damping READ damping WRITE setDamping NOTIFY physicsChanged)
@@ -28,13 +29,15 @@ public:
     qreal target() const { return goal; }
     qreal velocity() const { return speed; }
     bool enabled() const { return motionEnabled; }
-    bool running() const { return clock.state() == QAbstractAnimation::Running; }
+    bool paused() const { return motionPaused; }
+    bool running() const { return clock.state() != QAbstractAnimation::Stopped; }
     qreal stiffness() const { return spring; }
     qreal damping() const { return drag; }
     qreal mass() const { return weight; }
     qreal epsilon() const { return tolerance; }
     void setTarget(qreal value);
     void setEnabled(bool value);
+    void setPaused(bool value);
     void setStiffness(qreal value);
     void setDamping(qreal value);
     void setMass(qreal value);
@@ -46,6 +49,7 @@ signals:
     void valueChanged();
     void targetChanged();
     void enabledChanged();
+    void pausedChanged();
     void runningChanged();
     void physicsChanged();
 private:
@@ -63,5 +67,5 @@ private:
     qreal position = 0, goal = 0, speed = 0;
     qreal spring = 420, drag = 36, weight = 1, tolerance = .25;
     int previousTime = 0;
-    bool complete = false, motionEnabled = true;
+    bool complete = false, motionEnabled = true, motionPaused = false;
 };

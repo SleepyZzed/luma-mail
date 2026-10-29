@@ -56,6 +56,38 @@ private slots:
         QTest::qWait(120);
         QCOMPARE(changes.count(), 0);
     }
+    void exposureSuspensionPreservesTheHandoffWithoutTicks() {
+        Motion motion;
+        motion.componentComplete();
+        motion.setTarget(700);
+        QTRY_VERIFY_WITH_TIMEOUT(motion.value() > 50, 500);
+        motion.setPaused(true);
+        const auto speed = motion.velocity();
+        motion.rebase(100);
+        motion.setTarget(900);
+        QSignalSpy changes(&motion, &Motion::valueChanged);
+        QTest::qWait(180);
+        QCOMPARE(changes.count(), 0);
+        QCOMPARE(motion.value(), 100);
+        QCOMPARE(motion.velocity(), speed);
+        QVERIFY(motion.running()); // pending transition, with a paused clock
+        motion.setPaused(false);
+        QTRY_VERIFY_WITH_TIMEOUT(motion.value() > 100, 500);
+        QTRY_VERIFY_WITH_TIMEOUT(!motion.running(), 2500);
+        QCOMPARE(motion.value(), 900);
+    }
+    void reducedMotionSettlesEvenWhenSuspended() {
+        Motion motion;
+        motion.componentComplete();
+        motion.setPaused(true);
+        motion.setTarget(700);
+        motion.rebase(100);
+        motion.setEnabled(false);
+        QCOMPARE(motion.value(), 700);
+        QVERIFY(!motion.running());
+        motion.setPaused(false);
+        QVERIFY(!motion.running());
+    }
     void repeatedTargetsStayFinite() {
         Motion motion;
         motion.componentComplete();

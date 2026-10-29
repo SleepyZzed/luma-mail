@@ -16,6 +16,9 @@ that a particular kernel/Mesa GPU timeout has been reproduced or eliminated.
   visible-avatar requests and attachment-thumbnail work can stop when their
   relevant window is no longer presented. A visible composer does not falsely
   mark its hidden main window as exposed.
+- Composer springs pause without losing their bounds or momentum during the
+  first native-window exposure. The pop-out handoff still expands from the
+  original inline card instead of snapping to a full-sized rectangle.
 - The Linux HTML adapter previously received a `paused` flag without using it.
   It now hides the browser item and moves an inactive page into WebEngine's
   `Frozen` state. Returning makes the same page active; it is not discarded,
